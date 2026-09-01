@@ -1,4 +1,4 @@
-import { LayoutDashboard, School, Users, MessageSquarePlus } from "lucide-react";
+import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone } from "lucide-react";
 import Link from "next/link";
 
 export function Sidebar({
@@ -33,6 +33,13 @@ export function Sidebar({
             Team
           </Link>
         )}
+        <Link
+          href="/notes"
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+        >
+          <Megaphone className="h-4 w-4" />
+          General Notes
+        </Link>
         <Link
           href="/suggestions"
           className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"

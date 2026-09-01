@@ -31,6 +31,15 @@ export interface Suggestion {
   status: "Requested" | "Working On It" | "Added";
 }
 
+export interface GeneralNote {
+  id: string;
+  text: string;
+  author: string;
+  urgency?: "Urgent" | "";
+  ackBy?: string[];
+  createdAt: string;
+}
+
 export interface AppState {
   schools: School[];
   vas: Va[];
@@ -43,6 +52,7 @@ export interface AppState {
      Every read of this must fall back to [], same reasoning as the
      schoolData/emailTracker bug fixed in the HTML app. */
   suggestions?: Suggestion[];
+  generalNotes?: GeneralNote[];
 }
 
 /* Wrapped in React's cache() so the layout and the page it's rendering
@@ -88,6 +98,17 @@ export function canDeleteSuggestion(state: AppState, suggestion: Suggestion, cur
   if (suggestion.author === currentName) return true;
   const authorStillOnTeam = state.vas.some((v) => v.name === suggestion.author);
   return !authorStillOnTeam;
+}
+
+/* Same rule as the HTML app's canDeleteNote for general-scope notes: the
+   author can always delete their own; once they're off the team, only
+   an admin can (not just anyone — General Notes are visible to the
+   whole team, so this is a slightly higher bar than Suggestions). */
+export function canDeleteGeneralNote(state: AppState, note: GeneralNote, currentName: string, currentIsAdmin: boolean): boolean {
+  if (note.author === currentName) return true;
+  const authorStillOnTeam = state.vas.some((v) => v.name === note.author);
+  if (authorStillOnTeam) return false;
+  return currentIsAdmin;
 }
 
 /* Same percentage the HTML app's Overview page shows: how much of the

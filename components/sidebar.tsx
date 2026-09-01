@@ -1,4 +1,4 @@
-import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone, Lock, Mail, Contact, Clock, ShieldAlert, CheckSquare, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone, Lock, Mail, Contact, Clock, ShieldAlert, CheckSquare, AlertTriangle, Send } from "lucide-react";
 import Link from "next/link";
 
 export function Sidebar({
@@ -88,6 +88,13 @@ export function Sidebar({
         >
           <MessageSquarePlus className="h-4 w-4" />
           Suggestions
+        </Link>
+        <Link
+          href="/distribution-list"
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+        >
+          <Send className="h-4 w-4" />
+          Distribution List
         </Link>
         {isAdmin && (
           <Link

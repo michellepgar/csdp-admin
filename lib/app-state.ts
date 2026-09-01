@@ -193,6 +193,58 @@ export interface AppState {
   taskCategories?: TaskCategory[];
   accessRequests?: AccessRequest[];
   issues?: Issue[];
+  distributionGroups?: DistributionGroup[];
+}
+
+/* ---------- Distribution List ----------
+   Simplified from the HTML app on purpose: one current school year only
+   (no year-switching/archive), and each classroom-type × language cell
+   is a single "forms" number instead of the HTML app's 5-field packets/
+   packetSize/loose/extraPackets/extraLoose breakdown with automatic
+   packet-size math. Groups reuse the exact same shape as Schools
+   Contact Information's groups. */
+export const DISTRIBUTION_CLASSROOM_TYPES = [
+  { key: "regular", label: "Regular Classroom" },
+  { key: "launch", label: "Launch Classes" },
+  { key: "crr", label: "CRR Classes" },
+];
+export const DISTRIBUTION_LANGUAGES = [
+  { key: "engSpn", label: "ENG/SPN" },
+  { key: "porFr", label: "POR/FR" },
+  { key: "hc", label: "HC" },
+];
+
+export interface DistributionRow {
+  id: string;
+  school: string;
+  enrolled?: string;
+  contactPerson?: string;
+  remarks?: string;
+  breakdown: Record<string, Record<string, string>>;
+}
+
+export interface DistributionGroup {
+  id: string;
+  name: string;
+  rows: DistributionRow[];
+}
+
+export function distributionRowTotalForms(row: DistributionRow): number {
+  let total = 0;
+  for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
+    for (const l of DISTRIBUTION_LANGUAGES) {
+      total += Number((row.breakdown[c.key] || {})[l.key]) || 0;
+    }
+  }
+  return total;
+}
+
+export function distributionRowLanguageTotal(row: DistributionRow, langKey: string): number {
+  let total = 0;
+  for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
+    total += Number((row.breakdown[c.key] || {})[langKey]) || 0;
+  }
+  return total;
 }
 
 /* ---------- Issues & Concerns ----------

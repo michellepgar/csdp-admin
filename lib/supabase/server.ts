@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -27,3 +28,14 @@ export async function createClient() {
     }
   );
 }
+
+/* Same dedup reasoning as fetchAppState() in lib/app-state.ts — the
+   layout and the page it renders both need to know who's logged in;
+   this shares one actual call to Supabase per request instead of two. */
+export const getCurrentUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});

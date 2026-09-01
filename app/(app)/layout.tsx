@@ -1,14 +1,10 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState, findVaByEmail, isAdmin } from "@/lib/app-state";
 import { Sidebar } from "@/components/sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
   const state = await fetchAppState();

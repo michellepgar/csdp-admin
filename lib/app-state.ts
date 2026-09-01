@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 export interface Va {
@@ -31,7 +32,15 @@ export interface AppState {
   communicationEditor?: string;
 }
 
-export async function fetchAppState(): Promise<AppState | null> {
+/* Wrapped in React's cache() so the layout and the page it's rendering
+   (both of which need the same data) share one actual network call
+   per request, instead of two — this was making every action feel
+   slower than it needed to, since the layout fetches this on every
+   navigation on top of whatever the page itself fetches. Note this only
+   dedupes within a single request/render pass, not across a Server
+   Action call and the page re-render that follows it — those are
+   genuinely separate requests. */
+export const fetchAppState = cache(async (): Promise<AppState | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("app_state")
@@ -41,7 +50,7 @@ export async function fetchAppState(): Promise<AppState | null> {
 
   if (error || !data) return null;
   return data.data as AppState;
-}
+});
 
 export function findVaByEmail(state: AppState, email: string): Va | undefined {
   const lower = email.toLowerCase();

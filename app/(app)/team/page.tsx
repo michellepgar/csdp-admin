@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState, findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,7 @@ import {
 } from "./actions";
 
 export default async function TeamPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
   const state = await fetchAppState();
@@ -65,7 +62,18 @@ export default async function TeamPage() {
               <span className="w-32 flex-none font-medium">{va.name}</span>
               <input type="hidden" name="id" value={va.id} />
               <input type="hidden" name="field" value="email" />
-              <Input name="value" type="email" defaultValue={va.email || ""} placeholder="name@example.com" className="max-w-xs" />
+              {/* Keyed by its own current value: an uncontrolled input's
+                  defaultValue only applies once, at mount — without a key
+                  that changes when the saved value does, a later revalidate
+                  wouldn't visibly reflect it even though the save worked. */}
+              <Input
+                key={va.email || ""}
+                name="value"
+                type="email"
+                defaultValue={va.email || ""}
+                placeholder="name@example.com"
+                className="max-w-xs"
+              />
             </AutoSubmitForm>
           ))}
         </div>
@@ -79,7 +87,13 @@ export default async function TeamPage() {
               <span className="w-32 flex-none font-medium">{va.name}</span>
               <input type="hidden" name="id" value={va.id} />
               <input type="hidden" name="field" value="color" />
-              <input type="color" name="value" defaultValue={va.color || "#888888"} className="h-8 w-11 rounded border" />
+              <input
+                key={va.color || "#888888"}
+                type="color"
+                name="value"
+                defaultValue={va.color || "#888888"}
+                className="h-8 w-11 rounded border"
+              />
             </AutoSubmitForm>
           ))}
         </div>
@@ -94,7 +108,7 @@ export default async function TeamPage() {
               <span className="w-32 flex-none font-medium">{va.name}</span>
               <input type="hidden" name="id" value={va.id} />
               <label className="flex items-center gap-1.5 text-sm">
-                <input type="checkbox" name="admin" defaultChecked={!!va.admin} />
+                <input key={String(!!va.admin)} type="checkbox" name="admin" defaultChecked={!!va.admin} />
                 Admin
               </label>
             </AutoSubmitForm>
@@ -108,7 +122,12 @@ export default async function TeamPage() {
           <p className="text-sm text-muted-foreground">No VAs added yet.</p>
         ) : (
           <AutoSubmitForm action={setCommunicationEditor}>
-            <select name="name" defaultValue={state.communicationEditor || ""} className="rounded-md border px-3 py-2 text-sm">
+            <select
+              key={state.communicationEditor || ""}
+              name="name"
+              defaultValue={state.communicationEditor || ""}
+              className="rounded-md border px-3 py-2 text-sm"
+            >
               {sortedVas.map((va) => (
                 <option key={va.id} value={va.name}>{va.name}</option>
               ))}
@@ -126,7 +145,12 @@ export default async function TeamPage() {
               <AutoSubmitForm key={school.id} action={setSchoolAssignment} className="flex items-center justify-between gap-2 rounded-md border p-2">
                 <span className="font-medium">{school.name}</span>
                 <input type="hidden" name="schoolId" value={school.id} />
-                <select name="vaName" defaultValue={sd?.vaAssigned || ""} className="rounded-md border px-3 py-1.5 text-sm">
+                <select
+                  key={sd?.vaAssigned || ""}
+                  name="vaName"
+                  defaultValue={sd?.vaAssigned || ""}
+                  className="rounded-md border px-3 py-1.5 text-sm"
+                >
                   <option value="">Unassigned</option>
                   {assignableVas.map((va) => (
                     <option key={va.id} value={va.name}>{va.name}</option>

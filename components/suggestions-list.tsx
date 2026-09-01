@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
+import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import type { Suggestion } from "@/lib/app-state";
 
@@ -81,7 +82,7 @@ export function SuggestionsList({
                     {canDelete && (
                       <form action={removeSuggestion}>
                         <input type="hidden" name="id" value={s.id} />
-                        <Button type="submit" variant="ghost" size="sm">✕</Button>
+                        <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
                       </form>
                     )}
                   </div>

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState, findVaByEmail, SUPERADMIN_NAME } from "@/lib/app-state";
 import { SuggestionsList } from "@/components/suggestions-list";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { addSuggestion, setSuggestionStatus, removeSuggestion } from "./actions";
 
 export default async function SuggestionsPage() {
@@ -27,7 +27,7 @@ export default async function SuggestionsPage() {
           required
           className="flex-1 rounded-md border px-3 py-2 text-sm"
         />
-        <Button type="submit">Add</Button>
+        <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
       </form>
 
       <SuggestionsList

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState, findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import {
   addVa,
@@ -35,7 +35,7 @@ export default async function TeamPage() {
         <h2 className="text-lg font-semibold">VAs</h2>
         <form action={addVa} className="flex gap-2 max-w-sm">
           <Input name="name" placeholder="VA name" required />
-          <Button type="submit">Add</Button>
+          <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>
         <div className="space-y-2">
           {sortedVas.length === 0 && <p className="text-sm text-muted-foreground">No VAs added yet.</p>}
@@ -47,7 +47,7 @@ export default async function TeamPage() {
               </span>
               <form action={removeVa}>
                 <input type="hidden" name="id" value={va.id} />
-                <Button type="submit" variant="ghost" size="sm">✕</Button>
+                <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
               </form>
             </div>
           ))}

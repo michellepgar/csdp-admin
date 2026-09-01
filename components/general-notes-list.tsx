@@ -3,6 +3,14 @@
 import { SubmitButton } from "@/components/submit-button";
 import type { GeneralNote } from "@/lib/app-state";
 
+/* A note's id paired with whether the current viewer is allowed to
+   delete it — computed server-side (page.tsx) and passed down as plain
+   data, not a function. Only Server Actions (or primitives) can cross
+   the server-to-client boundary as a prop; a plain closure throws at
+   runtime — not caught by `next build`'s type-check, only by actually
+   hitting the page, which is exactly what happened here. */
+export type DeletableNoteId = { id: string; canDelete: boolean };
+
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
@@ -10,16 +18,17 @@ function formatDateTime(iso: string) {
 export function GeneralNotesList({
   notes,
   currentUserName,
-  canDelete,
+  deletable,
   ackGeneralNote,
   removeGeneralNote,
 }: {
   notes: GeneralNote[];
   currentUserName: string;
-  canDelete: (note: GeneralNote) => boolean;
+  deletable: DeletableNoteId[];
   ackGeneralNote: (formData: FormData) => void;
   removeGeneralNote: (formData: FormData) => void;
 }) {
+  const deletableIds = new Set(deletable.filter((d) => d.canDelete).map((d) => d.id));
   const sorted = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (sorted.length === 0) {
@@ -57,7 +66,7 @@ export function GeneralNotesList({
                     <SubmitButton pendingLabel="…" variant="outline" size="sm">Mark as checked</SubmitButton>
                   </form>
                 )}
-                {canDelete(n) && (
+                {deletableIds.has(n.id) && (
                   <form action={removeGeneralNote}>
                     <input type="hidden" name="id" value={n.id} />
                     <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>

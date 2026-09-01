@@ -16,6 +16,8 @@ export default async function NotesPage() {
   if (!me) redirect("/not-on-team");
 
   const meIsAdmin = isAdmin(me);
+  const notes = state.generalNotes || [];
+  const deletable = notes.map((n) => ({ id: n.id, canDelete: canDeleteGeneralNote(state, n, me.name, meIsAdmin) }));
 
   return (
     <div className="space-y-6">
@@ -39,9 +41,9 @@ export default async function NotesPage() {
       </form>
 
       <GeneralNotesList
-        notes={state.generalNotes || []}
+        notes={notes}
         currentUserName={me.name}
-        canDelete={(note) => canDeleteGeneralNote(state, note, me.name, meIsAdmin)}
+        deletable={deletable}
         ackGeneralNote={ackGeneralNote}
         removeGeneralNote={removeGeneralNote}
       />

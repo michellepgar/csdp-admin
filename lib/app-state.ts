@@ -25,6 +25,13 @@ export interface ChecklistProgressEntry {
 
 export interface SchoolDataEntry {
   vaAssigned: string;
+  /* Not modeled in full yet (Tasks/Email Tracker/Notes pages haven't
+     been ported) — kept loosely typed here only so "Reset all tasks"
+     (Backup & School Year) can clear them without corrupting whatever
+     the HTML app already put there. */
+  tasks?: unknown[];
+  emailTracker?: unknown[];
+  notes?: unknown[];
 }
 
 export interface Suggestion {

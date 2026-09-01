@@ -1,0 +1,31 @@
+import { LayoutDashboard, School } from "lucide-react";
+import Link from "next/link";
+
+export function Sidebar({ currentName, schoolNames }: { currentName: string; schoolNames: string[] }) {
+  return (
+    <aside className="flex w-64 flex-none flex-col border-r bg-background">
+      <div className="border-b p-4">
+        <div className="text-lg font-bold text-primary">CSDP Tracker</div>
+        <div className="mt-1 text-sm text-muted-foreground">{currentName}</div>
+      </div>
+      <nav className="flex-1 overflow-y-auto p-2">
+        <Link
+          href="/overview"
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          Overview
+        </Link>
+        <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">
+          Schools ({schoolNames.length})
+        </div>
+        {schoolNames.map((name) => (
+          <div key={name} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground">
+            <School className="h-4 w-4" />
+            {name}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}

@@ -42,7 +42,14 @@ export async function addVa(formData: FormData) {
   if (state.vas.some((v) => v.name.toLowerCase() === name.toLowerCase())) return;
 
   const { error } = await supabase.from("vas").insert({ id: crypto.randomUUID(), name });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // 23505 = unique_violation. The in-memory check above catches the
+    // common case; this is the backstop for two concurrent "Add VA"
+    // submissions racing each other — not a real error from the
+    // user's perspective, just "someone beat you to that name".
+    if (error.code === "23505") return;
+    throw new Error(error.message);
+  }
   revalidatePath("/team");
 }
 

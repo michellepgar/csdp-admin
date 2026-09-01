@@ -14,6 +14,12 @@ create table vas (
   color text
 );
 
+-- Prevents two VAs from ever having the same name (case-insensitive) —
+-- the app-level duplicate check in addVa() is a nice UX shortcut, but
+-- this is the actual backstop against a race between two concurrent
+-- "Add VA" submissions.
+create unique index vas_name_lower_unique on vas (lower(name));
+
 create table schools (
   id text primary key,
   name text not null

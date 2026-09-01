@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, isAdmin, type AppState } from "@/lib/app-state";
+import { findVaByEmail, isAdmin, type AppState, type Va, type School } from "@/lib/app-state";
 
 async function requireAdminAndState() {
   const supabase = await createClient();
@@ -32,6 +32,32 @@ async function saveState(
   if (error) throw new Error(error.message);
 }
 
+function orThrow(error: { message: string } | null) {
+  if (error) throw new Error(error.message);
+}
+
+function isValidVaRow(v: unknown): v is Va {
+  return (
+    !!v &&
+    typeof v === "object" &&
+    typeof (v as Va).id === "string" &&
+    (v as Va).id.length > 0 &&
+    typeof (v as Va).name === "string" &&
+    (v as Va).name.length > 0
+  );
+}
+
+function isValidSchoolRow(s: unknown): s is School {
+  return (
+    !!s &&
+    typeof s === "object" &&
+    typeof (s as School).id === "string" &&
+    (s as School).id.length > 0 &&
+    typeof (s as School).name === "string" &&
+    (s as School).name.length > 0
+  );
+}
+
 export async function restoreBackup(formData: FormData) {
   const { supabase } = await requireAdminAndState();
   const confirm = (formData.get("confirm") as string) || "";
@@ -46,32 +72,60 @@ export async function restoreBackup(formData: FormData) {
   } catch {
     return;
   }
-  /* Minimal sanity check — a real backup always has a vas array. Not a
-     full schema validation, just enough to refuse an obviously-wrong
-     file (a random JSON export, an empty object) before overwriting
-     everything. */
-  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as AppState).vas)) return;
+  /* Sanity check before touching anything: a real backup always has
+     vas and schools arrays, and every row in them must at least look
+     like a real Va/School (non-empty id + name) — vas and schools now
+     live in their own tables, and this restore deletes-then-reinserts
+     both, so a malformed file must be rejected upfront rather than
+     partway through, or it can leave a table wiped with nothing valid
+     to put back. */
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    !Array.isArray((parsed as AppState).vas) ||
+    !(parsed as AppState).vas.every(isValidVaRow) ||
+    !Array.isArray((parsed as AppState).schools) ||
+    !(parsed as AppState).schools.every(isValidSchoolRow)
+  ) {
+    return;
+  }
 
   const backup = parsed as AppState;
 
   /* vas and schools now live in their own tables (Phase 1 of the
      relational backend migration) — a restore has to replace those
      tables' contents too, not just the blob, or restoring a backup
-     would silently leave Team/Schools untouched. */
-  const { error: delVasError } = await supabase.from("vas").delete().neq("id", "");
-  if (delVasError) throw new Error(delVasError.message);
+     would silently leave Team/Schools untouched. Rows are mapped to
+     their known columns rather than inserted as-is, since Supabase
+     rejects an insert containing any unrecognized JSON key. */
+  const { error: delVasError } = await supabase.from("vas").delete().neq("id", ""); // delete-all requires a filter; no real id is ever ""
+  orThrow(delVasError);
   if (backup.vas.length) {
-    const { error: insVasError } = await supabase.from("vas").insert(backup.vas);
-    if (insVasError) throw new Error(insVasError.message);
+    const vasRows = backup.vas.map((v) => ({
+      id: v.id,
+      name: v.name,
+      email: v.email,
+      admin: v.admin,
+      role: v.role,
+      color: v.color,
+    }));
+    const { error: insVasError } = await supabase.from("vas").insert(vasRows);
+    orThrow(insVasError);
   }
 
   const { error: delSchoolsError } = await supabase.from("schools").delete().neq("id", "");
-  if (delSchoolsError) throw new Error(delSchoolsError.message);
-  if (Array.isArray(backup.schools) && backup.schools.length) {
-    const { error: insSchoolsError } = await supabase.from("schools").insert(backup.schools);
-    if (insSchoolsError) throw new Error(insSchoolsError.message);
+  orThrow(delSchoolsError);
+  if (backup.schools.length) {
+    const schoolRows = backup.schools.map((s) => ({ id: s.id, name: s.name }));
+    const { error: insSchoolsError } = await supabase.from("schools").insert(schoolRows);
+    orThrow(insSchoolsError);
   }
 
+  /* vas/schools are still included in this blob write even though
+     fetchAppState() never reads them back out (they're stale, unused
+     leftovers per that file's own comment) — harmless, just dead
+     bytes, not worth special-casing out of `backup` for this rarely-run
+     admin action. */
   await saveState(supabase, backup);
   revalidatePath("/", "layout");
 }

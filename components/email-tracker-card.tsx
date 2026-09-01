@@ -2,6 +2,7 @@
 
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
 import { Input } from "@/components/ui/input";
 import { EMAIL_STATUS_OPTIONS, type EmailTrackerItem } from "@/lib/app-state";
 
@@ -9,19 +10,24 @@ export function EmailTrackerCard({
   schoolId,
   items,
   canEdit,
+  pendingRemovalRequestIds,
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
+  requestRemoval,
 }: {
   schoolId: string;
   items: EmailTrackerItem[];
   canEdit: boolean;
+  pendingRemovalRequestIds: string[];
   addEmailItem: (formData: FormData) => void;
   setEmailStatus: (formData: FormData) => void;
   removeEmailItem: (formData: FormData) => void;
+  requestRemoval: (formData: FormData) => void;
 }) {
   const openCount = items.filter((e) => e.status !== "Done").length;
   const sorted = [...items].reverse();
+  const pendingSet = new Set(pendingRemovalRequestIds);
 
   return (
     <div className="rounded-md border">
@@ -62,13 +68,17 @@ export function EmailTrackerCard({
                   {EMAIL_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </AutoSubmitForm>
-              {canEdit && (
-                <form action={removeEmailItem}>
-                  <input type="hidden" name="schoolId" value={schoolId} />
-                  <input type="hidden" name="itemId" value={e.id} />
-                  <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
-                </form>
-              )}
+              <DeleteOrRequestControl
+                canDelete={canEdit}
+                hasPendingRequest={pendingSet.has(e.id)}
+                recordKind="email-item"
+                idFieldName="itemId"
+                schoolId={schoolId}
+                targetId={e.id}
+                label={`email "${e.description}"`}
+                removeAction={removeEmailItem}
+                requestAction={requestRemoval}
+              />
             </div>
           </div>
         ))}

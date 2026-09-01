@@ -20,6 +20,7 @@ import {
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
+  requestRemoval,
 } from "./actions";
 
 export default async function SchoolPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,6 +51,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
     .flatMap((g) => g.rows)
     .find((r) => r.school.trim().toLowerCase() === school.name.trim().toLowerCase());
 
+  const myPendingRequestTargetIds = (state.accessRequests || [])
+    .filter((r) => r.schoolId === schoolId && r.requestedBy === me.name && r.status === "pending")
+    .map((r) => r.targetId);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -68,12 +73,14 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           tasks={sd.tasks || []}
           canEdit={canEdit}
           currentUserName={me.name}
+          pendingRemovalRequestIds={myPendingRequestTargetIds}
           addTask={addTask}
           setTaskStatus={setTaskStatus}
           setTaskCount={setTaskCount}
           signTask={signTask}
           removeVaFromTask={removeVaFromTask}
           removeTask={removeTask}
+          requestRemoval={requestRemoval}
           addTaskCategory={addTaskCategory}
           removeTaskCategory={removeTaskCategory}
         />
@@ -93,9 +100,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         schoolId={schoolId}
         items={sd.emailTracker || []}
         canEdit={canEdit}
+        pendingRemovalRequestIds={myPendingRequestTargetIds}
         addEmailItem={addEmailItem}
         setEmailStatus={setEmailStatus}
         removeEmailItem={removeEmailItem}
+        requestRemoval={requestRemoval}
       />
 
       <div className="rounded-md border">

@@ -48,6 +48,36 @@ function revalidateSchool(schoolId: string) {
   revalidatePath(`/schools/${schoolId}`);
 }
 
+/* Anyone can hit "remove" on a task/email item that isn't theirs to
+   delete directly — this is what actually happens then: a request to
+   whoever manages the school, resolved on the Approvals page. Same
+   behavior for both, since the removeTask/removeEmailItem actions
+   themselves already silently no-op when not permitted. */
+export async function requestRemoval(formData: FormData) {
+  const { supabase, state, me } = await requireUserAndState();
+  const recordKind = formData.get("recordKind") as string;
+  const schoolId = formData.get("schoolId") as string;
+  const targetId = formData.get("targetId") as string;
+  const label = (formData.get("label") as string) || "";
+  const reason = ((formData.get("reason") as string) || "").trim();
+  if (!reason || (recordKind !== "task" && recordKind !== "email-item")) return;
+
+  state.accessRequests = state.accessRequests || [];
+  state.accessRequests.push({
+    id: crypto.randomUUID(),
+    recordKind,
+    schoolId,
+    targetId,
+    label,
+    reason,
+    requestedBy: me.name,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  });
+  await saveState(supabase, state);
+  revalidatePath("/approvals");
+}
+
 /* ---------- Yearly Checklist ---------- */
 
 export async function toggleChecklistItem(formData: FormData) {

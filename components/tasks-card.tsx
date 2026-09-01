@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TASK_STATUS_OPTIONS, COUNT_CATEGORIES, type Task, type TaskCategory } from "@/lib/app-state";
@@ -12,21 +13,25 @@ function TaskRow({
   task,
   canEdit,
   currentUserName,
+  hasPendingRemovalRequest,
   setTaskStatus,
   setTaskCount,
   signTask,
   removeVaFromTask,
   removeTask,
+  requestRemoval,
 }: {
   schoolId: string;
   task: Task;
   canEdit: boolean;
   currentUserName: string;
+  hasPendingRemovalRequest: boolean;
   setTaskStatus: (formData: FormData) => void;
   setTaskCount: (formData: FormData) => void;
   signTask: (formData: FormData) => void;
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
+  requestRemoval: (formData: FormData) => void;
 }) {
   const needsCount = COUNT_CATEGORIES.includes(task.category);
   const iSigned = task.vaAssigned.includes(currentUserName);
@@ -88,13 +93,17 @@ function TaskRow({
         </select>
       </AutoSubmitForm>
 
-      {canEdit && (
-        <form action={removeTask}>
-          <input type="hidden" name="schoolId" value={schoolId} />
-          <input type="hidden" name="taskId" value={task.id} />
-          <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
-        </form>
-      )}
+      <DeleteOrRequestControl
+        canDelete={canEdit}
+        hasPendingRequest={hasPendingRemovalRequest}
+        recordKind="task"
+        idFieldName="taskId"
+        schoolId={schoolId}
+        targetId={task.id}
+        label={`task "${task.fileName}"`}
+        removeAction={removeTask}
+        requestAction={requestRemoval}
+      />
     </div>
   );
 }
@@ -105,12 +114,14 @@ export function TasksCard({
   tasks,
   canEdit,
   currentUserName,
+  pendingRemovalRequestIds,
   addTask,
   setTaskStatus,
   setTaskCount,
   signTask,
   removeVaFromTask,
   removeTask,
+  requestRemoval,
   addTaskCategory,
   removeTaskCategory,
 }: {
@@ -119,20 +130,33 @@ export function TasksCard({
   tasks: Task[];
   canEdit: boolean;
   currentUserName: string;
+  pendingRemovalRequestIds: string[];
   addTask: (formData: FormData) => void;
   setTaskStatus: (formData: FormData) => void;
   setTaskCount: (formData: FormData) => void;
   signTask: (formData: FormData) => void;
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
+  requestRemoval: (formData: FormData) => void;
   addTaskCategory: (formData: FormData) => void;
   removeTaskCategory: (formData: FormData) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const catNames = categories.map((c) => c.name);
   const openCount = tasks.filter((t) => t.status !== "Completed").length;
+  const pendingSet = new Set(pendingRemovalRequestIds);
 
-  const rowProps = { schoolId, canEdit, currentUserName, setTaskStatus, setTaskCount, signTask, removeVaFromTask, removeTask };
+  const rowProps = {
+    schoolId,
+    canEdit,
+    currentUserName,
+    setTaskStatus,
+    setTaskCount,
+    signTask,
+    removeVaFromTask,
+    removeTask,
+    requestRemoval,
+  };
 
   return (
     <div className="rounded-md border">
@@ -185,7 +209,7 @@ export function TasksCard({
               {items.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No files yet in this category.</p>
               ) : (
-                items.map((t) => <TaskRow key={t.id} task={t} {...rowProps} />)
+                items.map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)
               )}
             </div>
           );
@@ -194,7 +218,7 @@ export function TasksCard({
         {tasks.some((t) => !catNames.includes(t.category)) && (
           <div className="space-y-2">
             <div className="text-sm font-medium">Other</div>
-            {tasks.filter((t) => !catNames.includes(t.category)).map((t) => <TaskRow key={t.id} task={t} {...rowProps} />)}
+            {tasks.filter((t) => !catNames.includes(t.category)).map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)}
           </div>
         )}
       </div>

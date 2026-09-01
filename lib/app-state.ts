@@ -158,6 +158,20 @@ export interface ChecklistTemplateItem {
   description: string;
 }
 
+export interface AccessRequest {
+  id: string;
+  recordKind: "task" | "email-item";
+  schoolId: string;
+  targetId: string;
+  label: string;
+  reason: string;
+  requestedBy: string;
+  status: "pending" | "declined" | "fulfilled";
+  resolvedBy?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
 export interface AppState {
   schools: School[];
   vas: Va[];
@@ -177,6 +191,7 @@ export interface AppState {
   nurseLeader?: NurseLeader;
   eodReports?: EodReport[];
   taskCategories?: TaskCategory[];
+  accessRequests?: AccessRequest[];
 }
 
 /* ---------- EOD Reports: pure date/time helpers, same logic as the

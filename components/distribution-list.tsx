@@ -9,6 +9,8 @@ import {
   DISTRIBUTION_LANGUAGES,
   distributionRowTotalForms,
   distributionRowLanguageTotal,
+  distributionCellForms,
+  distributionCellDisplay,
   type DistributionGroup,
   type DistributionRow,
 } from "@/lib/app-state";
@@ -28,7 +30,7 @@ function RowView({
       {DISTRIBUTION_CLASSROOM_TYPES.map((c) =>
         DISTRIBUTION_LANGUAGES.map((l) => (
           <td key={`${c.key}_${l.key}`} className="px-2 py-2 text-center text-sm tabular-nums">
-            {(row.breakdown[c.key] || {})[l.key] || ""}
+            {distributionCellForms((row.breakdown[c.key] || {})[l.key]) || ""}
           </td>
         ))
       )}
@@ -66,7 +68,7 @@ function RowEdit({
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">School</label>
-              <Input value={row.school} disabled />
+              <Input defaultValue={row.school} disabled />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Enrolled</label>
@@ -100,7 +102,7 @@ function RowEdit({
                       <td key={l.key} className="px-2 py-1">
                         <Input
                           name={`cell_${c.key}_${l.key}`}
-                          defaultValue={(row.breakdown[c.key] || {})[l.key] || ""}
+                          defaultValue={distributionCellDisplay((row.breakdown[c.key] || {})[l.key])}
                           className="w-20 text-center"
                           inputMode="numeric"
                         />

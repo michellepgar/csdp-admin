@@ -214,13 +214,52 @@ export const DISTRIBUTION_LANGUAGES = [
   { key: "hc", label: "HC" },
 ];
 
+// A cell is normally a plain "forms" string/number in this simplified
+// version. Data carried over from the original HTML app stores each cell
+// as an object instead ({ packets, packetSize, loose, extraPackets,
+// extraLoose }, with automatic packet-size math) — read those too so
+// existing production data doesn't crash the page, and surface them as
+// a single computed forms count.
+export interface LegacyDistributionCell {
+  packets?: string;
+  packetSize?: string;
+  loose?: string;
+  extraPackets?: string;
+  extraLoose?: string;
+}
+
+export type DistributionCell = string | number | LegacyDistributionCell | undefined;
+
+function isLegacyDistributionCell(cell: DistributionCell): cell is LegacyDistributionCell {
+  return typeof cell === "object" && cell !== null;
+}
+
+export function distributionCellForms(cell: DistributionCell): number {
+  if (cell === undefined || cell === null) return 0;
+  if (!isLegacyDistributionCell(cell)) return Number(cell) || 0;
+  const packetSize = Number(cell.packetSize) || 25;
+  const packets = (Number(cell.packets) || 0) + (Number(cell.extraPackets) || 0);
+  const loose = (Number(cell.loose) || 0) + (Number(cell.extraLoose) || 0);
+  return packets * packetSize + loose;
+}
+
+// Display value for an editable cell input: legacy object cells show
+// their computed forms count (editing one replaces the packet breakdown
+// with a plain number going forward — a deliberate simplification).
+export function distributionCellDisplay(cell: DistributionCell): string {
+  if (cell === undefined || cell === null) return "";
+  if (!isLegacyDistributionCell(cell)) return String(cell);
+  const forms = distributionCellForms(cell);
+  return forms ? String(forms) : "";
+}
+
 export interface DistributionRow {
   id: string;
   school: string;
   enrolled?: string;
   contactPerson?: string;
   remarks?: string;
-  breakdown: Record<string, Record<string, string>>;
+  breakdown: Record<string, Record<string, DistributionCell>>;
 }
 
 export interface DistributionGroup {
@@ -233,7 +272,7 @@ export function distributionRowTotalForms(row: DistributionRow): number {
   let total = 0;
   for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
     for (const l of DISTRIBUTION_LANGUAGES) {
-      total += Number((row.breakdown[c.key] || {})[l.key]) || 0;
+      total += distributionCellForms((row.breakdown[c.key] || {})[l.key]);
     }
   }
   return total;
@@ -242,7 +281,7 @@ export function distributionRowTotalForms(row: DistributionRow): number {
 export function distributionRowLanguageTotal(row: DistributionRow, langKey: string): number {
   let total = 0;
   for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
-    total += Number((row.breakdown[c.key] || {})[langKey]) || 0;
+    total += distributionCellForms((row.breakdown[c.key] || {})[langKey]);
   }
   return total;
 }

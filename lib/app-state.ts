@@ -40,6 +40,15 @@ export interface GeneralNote {
   createdAt: string;
 }
 
+export interface PrivateNote {
+  id: string;
+  text: string;
+  author: string;
+  sharedWith?: string[];
+  ackBy?: string[];
+  createdAt: string;
+}
+
 export interface AppState {
   schools: School[];
   vas: Va[];
@@ -53,6 +62,7 @@ export interface AppState {
      schoolData/emailTracker bug fixed in the HTML app. */
   suggestions?: Suggestion[];
   generalNotes?: GeneralNote[];
+  privateNotes?: PrivateNote[];
 }
 
 /* Wrapped in React's cache() so the layout and the page it's rendering
@@ -109,6 +119,23 @@ export function canDeleteGeneralNote(state: AppState, note: GeneralNote, current
   const authorStillOnTeam = state.vas.some((v) => v.name === note.author);
   if (authorStillOnTeam) return false;
   return currentIsAdmin;
+}
+
+/* Same rule as the HTML app's canDeleteNote for private-scope notes:
+   the author can always delete their own; once they're off the team,
+   anyone who can see it (i.e. it was shared with them) can clean it up. */
+export function canDeletePrivateNote(state: AppState, note: PrivateNote, currentName: string): boolean {
+  if (note.author === currentName) return true;
+  const authorStillOnTeam = state.vas.some((v) => v.name === note.author);
+  return !authorStillOnTeam;
+}
+
+/* A private note is visible only to its author or anyone it's been
+   explicitly shared with — never the whole team by default. */
+export function visiblePrivateNotes(state: AppState, currentName: string): PrivateNote[] {
+  return (state.privateNotes || []).filter(
+    (n) => n.author === currentName || (n.sharedWith || []).includes(currentName)
+  );
 }
 
 /* Same percentage the HTML app's Overview page shows: how much of the

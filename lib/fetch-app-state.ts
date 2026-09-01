@@ -52,8 +52,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
-  if (vasResult.error) throw new Error(vasResult.error.message);
-  if (schoolsResult.error) throw new Error(schoolsResult.error.message);
+  if (vasResult.error) return null;
+  if (schoolsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);

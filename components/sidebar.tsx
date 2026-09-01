@@ -1,4 +1,4 @@
-import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone, Lock, Mail, Contact, Clock, ShieldAlert, CheckSquare } from "lucide-react";
+import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone, Lock, Mail, Contact, Clock, ShieldAlert, CheckSquare, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 export function Sidebar({
@@ -47,6 +47,13 @@ export function Sidebar({
             Team
           </Link>
         )}
+        <Link
+          href="/issues"
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+        >
+          <AlertTriangle className="h-4 w-4" />
+          Issues &amp; Concerns
+        </Link>
         <Link
           href="/notes"
           className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"

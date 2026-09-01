@@ -192,6 +192,58 @@ export interface AppState {
   eodReports?: EodReport[];
   taskCategories?: TaskCategory[];
   accessRequests?: AccessRequest[];
+  issues?: Issue[];
+}
+
+/* ---------- Issues & Concerns ----------
+   Simplified from the HTML app on purpose: fixed fields per type instead
+   of its dynamic per-type "+Field" pool system, and a flat category
+   (just a text value) for Software Issue instead of its nested
+   category/subcategory editor. One shared shape covers all four types;
+   each type only ever reads/writes the fields relevant to it. */
+export type IssueType = "software_issue" | "record_update" | "correction" | "charting";
+
+export const ISSUE_STATUS_OPTIONS = ["Pending", "Resolved"];
+export const CORRECTION_CATEGORIES = ["Name", "Date of Birth", "Insurance Number", "Grade", "School Year", "Other"];
+export const CORRECTION_KINDS = ["Correction", "Verification"];
+
+export interface Issue {
+  id: string;
+  type: IssueType;
+  reportedBy: string;
+  status: string;
+  createdAt: string;
+  // Software issue
+  description?: string;
+  category?: string;
+  remarks?: string;
+  // Record update
+  studentName?: string;
+  dob?: string;
+  insuranceNumber?: string;
+  schoolYear?: string;
+  fileName?: string;
+  pageNumber?: string;
+  correctingCategory?: string;
+  correctInfo?: string;
+  // Correction / Verification
+  correctionKind?: string;
+  studentRecordLink?: string;
+  needsNameCorrection?: boolean;
+  needsDobCorrection?: boolean;
+  needsInsuranceCorrection?: boolean;
+  needsOtherCorrection?: boolean;
+  otherCorrectionDetail?: string;
+  // Charting Questions
+  question?: string;
+  // Correction/Charting "Fix" — multiple independent signatures, same
+  // pattern as a Task's vaAssigned, not one shared "fixed by" field.
+  fixedBy?: string[];
+}
+
+export function canDeleteIssue(issue: Issue, currentName: string, currentIsAdmin: boolean): boolean {
+  if (currentIsAdmin) return true;
+  return issue.reportedBy === currentName;
 }
 
 /* ---------- EOD Reports: pure date/time helpers, same logic as the

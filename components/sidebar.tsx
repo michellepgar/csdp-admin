@@ -3,11 +3,11 @@ import Link from "next/link";
 
 export function Sidebar({
   currentName,
-  schoolNames,
+  schools,
   isAdmin,
 }: {
   currentName: string;
-  schoolNames: string[];
+  schools: { id: string; name: string }[];
   isAdmin: boolean;
 }) {
   return (
@@ -85,13 +85,17 @@ export function Sidebar({
           </Link>
         )}
         <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">
-          Schools ({schoolNames.length})
+          Schools ({schools.length})
         </div>
-        {schoolNames.map((name) => (
-          <div key={name} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground">
+        {[...schools].sort((a, b) => a.name.localeCompare(b.name)).map((s) => (
+          <Link
+            key={s.id}
+            href={`/schools/${s.id}`}
+            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
+          >
             <School className="h-4 w-4" />
-            {name}
-          </div>
+            {s.name}
+          </Link>
         ))}
       </nav>
     </aside>

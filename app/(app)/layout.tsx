@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar currentName={me.name} schoolNames={state.schools.map((s) => s.name)} isAdmin={isAdmin(me)} />
+      <Sidebar currentName={me.name} schools={state.schools} isAdmin={isAdmin(me)} />
       <main className="flex-1 overflow-y-auto p-8">{children}</main>
     </div>
   );

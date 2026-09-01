@@ -23,15 +23,49 @@ export interface ChecklistProgressEntry {
   status: string;
 }
 
+export interface TaskCategory {
+  id: string;
+  name: string;
+}
+
+export interface Task {
+  id: string;
+  category: string;
+  fileName: string;
+  count?: string;
+  status: string;
+  vaAssigned: string[];
+  createdAt: string;
+}
+
+export interface EmailTrackerItem {
+  id: string;
+  description: string;
+  status: string;
+  addedBy: string;
+  createdAt: string;
+}
+
+export const TASK_STATUS_OPTIONS = ["", "In Progress", "Paused", "Completed"];
+export const EMAIL_STATUS_OPTIONS = ["Needs My Response", "Waiting on Them", "Done"];
+export const COUNT_CATEGORIES = ["Encoding & Uploading (Consent & SDF)", "Initial", "Recheck"];
+
 export interface SchoolDataEntry {
   vaAssigned: string;
-  /* Not modeled in full yet (Tasks/Email Tracker/Notes pages haven't
-     been ported) — kept loosely typed here only so "Reset all tasks"
-     (Backup & School Year) can clear them without corrupting whatever
-     the HTML app already put there. */
-  tasks?: unknown[];
-  emailTracker?: unknown[];
+  tasks?: Task[];
+  emailTracker?: EmailTrackerItem[];
+  /* School Notes not ported yet — kept loose so "Reset all tasks"
+     (Backup & School Year) can clear tasks/checklist without touching
+     or corrupting whatever the HTML app already put here. */
   notes?: unknown[];
+}
+
+/* Same rule the HTML app uses for both the Yearly Checklist and Email
+   Tracker/Tasks delete permissions: the VA actually assigned to this
+   school, or an admin/owner as a safety net. */
+export function canEditSchoolRecords(sd: SchoolDataEntry | undefined, currentName: string, currentIsAdmin: boolean): boolean {
+  if (currentIsAdmin) return true;
+  return !!(sd && sd.vaAssigned && sd.vaAssigned === currentName);
 }
 
 export interface Suggestion {
@@ -119,11 +153,16 @@ export interface EodReport {
   createdAt: string;
 }
 
+export interface ChecklistTemplateItem {
+  id: string;
+  description: string;
+}
+
 export interface AppState {
   schools: School[];
   vas: Va[];
   schoolData: Record<string, SchoolDataEntry>;
-  checklistTemplate: { id: string }[];
+  checklistTemplate: ChecklistTemplateItem[];
   checklistProgress: Record<string, ChecklistProgressEntry>;
   communicationEditor?: string;
   /* Optional, not required — existing app_state rows predate this field
@@ -137,6 +176,7 @@ export interface AppState {
   contactGroups?: ContactGroup[];
   nurseLeader?: NurseLeader;
   eodReports?: EodReport[];
+  taskCategories?: TaskCategory[];
 }
 
 /* ---------- EOD Reports: pure date/time helpers, same logic as the

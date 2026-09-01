@@ -1,4 +1,5 @@
-import { fetchAppState, checklistCompletion } from "@/lib/app-state";
+import { fetchAppState } from "@/lib/fetch-app-state";
+import { checklistCompletion } from "@/lib/app-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function OverviewPage() {

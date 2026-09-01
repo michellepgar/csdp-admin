@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAppState, findVaByEmail, isAdmin, type AppState } from "@/lib/app-state";
+import { fetchAppState } from "@/lib/fetch-app-state";
+import { findVaByEmail, isAdmin, type AppState } from "@/lib/app-state";
 
 async function requireAdminAndState() {
   const supabase = await createClient();

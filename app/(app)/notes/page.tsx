@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { fetchAppState, findVaByEmail, isAdmin, canDeleteGeneralNote } from "@/lib/app-state";
+import { fetchAppState } from "@/lib/fetch-app-state";
+import { findVaByEmail, isAdmin, canDeleteGeneralNote } from "@/lib/app-state";
 import { GeneralNotesList } from "@/components/general-notes-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addGeneralNote, ackGeneralNote, removeGeneralNote } from "./actions";

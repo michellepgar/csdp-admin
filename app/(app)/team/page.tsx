@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { fetchAppState, findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
+import { fetchAppState } from "@/lib/fetch-app-state";
+import { findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";

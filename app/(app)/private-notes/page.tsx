@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { fetchAppState, findVaByEmail, visiblePrivateNotes } from "@/lib/app-state";
+import { fetchAppState } from "@/lib/fetch-app-state";
+import { findVaByEmail, visiblePrivateNotes } from "@/lib/app-state";
 import { PrivateNotesList } from "@/components/private-notes-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addPrivateNote, sharePrivateNote, unsharePrivateNote, ackPrivateNote, removePrivateNote } from "./actions";

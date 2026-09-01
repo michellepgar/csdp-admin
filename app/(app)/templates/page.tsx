@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { fetchAppState, findVaByEmail } from "@/lib/app-state";
+import { fetchAppState } from "@/lib/fetch-app-state";
+import { findVaByEmail } from "@/lib/app-state";
 import { TemplatesList } from "@/components/templates-list";
 import { saveTemplate, removeTemplate } from "./actions";
 

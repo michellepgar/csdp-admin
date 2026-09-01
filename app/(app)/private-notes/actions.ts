@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAppState } from "@/lib/fetch-app-state";
 import {
-  fetchAppState,
   findVaByEmail,
   canDeletePrivateNote,
   type AppState,

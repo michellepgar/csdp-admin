@@ -1,4 +1,4 @@
-import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone, Lock, Mail } from "lucide-react";
+import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone, Lock, Mail, Contact } from "lucide-react";
 import Link from "next/link";
 
 export function Sidebar({
@@ -46,6 +46,13 @@ export function Sidebar({
         >
           <Megaphone className="h-4 w-4" />
           General Notes
+        </Link>
+        <Link
+          href="/contacts"
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+        >
+          <Contact className="h-4 w-4" />
+          Schools Contact Info
         </Link>
         <Link
           href="/templates"

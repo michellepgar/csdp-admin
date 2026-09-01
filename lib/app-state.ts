@@ -23,6 +23,14 @@ export interface SchoolDataEntry {
   vaAssigned: string;
 }
 
+export interface Suggestion {
+  id: string;
+  text: string;
+  author: string;
+  createdAt: string;
+  status: "Requested" | "Working On It" | "Added";
+}
+
 export interface AppState {
   schools: School[];
   vas: Va[];
@@ -30,6 +38,11 @@ export interface AppState {
   checklistTemplate: { id: string }[];
   checklistProgress: Record<string, ChecklistProgressEntry>;
   communicationEditor?: string;
+  /* Optional, not required — existing app_state rows predate this field
+     entirely (it's not just an empty array, the key itself is absent).
+     Every read of this must fall back to [], same reasoning as the
+     schoolData/emailTracker bug fixed in the HTML app. */
+  suggestions?: Suggestion[];
 }
 
 /* Wrapped in React's cache() so the layout and the page it's rendering
@@ -66,6 +79,15 @@ export const SUPERADMIN_NAME = "Michelle";
 export function isAdmin(va: Va): boolean {
   if (va.name === SUPERADMIN_NAME) return true;
   return !!(va.admin || va.role === "owner");
+}
+
+/* Same rule as the HTML app's canDeleteNote: the author can always
+   delete their own suggestion; once they're no longer on the team,
+   anyone can clean it up (there's otherwise no way to ever remove it). */
+export function canDeleteSuggestion(state: AppState, suggestion: Suggestion, currentName: string): boolean {
+  if (suggestion.author === currentName) return true;
+  const authorStillOnTeam = state.vas.some((v) => v.name === suggestion.author);
+  return !authorStillOnTeam;
 }
 
 /* Same percentage the HTML app's Overview page shows: how much of the

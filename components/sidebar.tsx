@@ -1,7 +1,15 @@
-import { LayoutDashboard, School } from "lucide-react";
+import { LayoutDashboard, School, Users } from "lucide-react";
 import Link from "next/link";
 
-export function Sidebar({ currentName, schoolNames }: { currentName: string; schoolNames: string[] }) {
+export function Sidebar({
+  currentName,
+  schoolNames,
+  isAdmin,
+}: {
+  currentName: string;
+  schoolNames: string[];
+  isAdmin: boolean;
+}) {
   return (
     <aside className="flex w-64 flex-none flex-col border-r bg-background">
       <div className="border-b p-4">
@@ -16,6 +24,15 @@ export function Sidebar({ currentName, schoolNames }: { currentName: string; sch
           <LayoutDashboard className="h-4 w-4" />
           Overview
         </Link>
+        {isAdmin && (
+          <Link
+            href="/team"
+            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Users className="h-4 w-4" />
+            Team
+          </Link>
+        )}
         <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">
           Schools ({schoolNames.length})
         </div>

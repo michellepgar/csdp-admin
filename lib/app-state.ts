@@ -49,6 +49,14 @@ export interface PrivateNote {
   createdAt: string;
 }
 
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  category?: string;
+  subject: string;
+  body: string;
+}
+
 export interface AppState {
   schools: School[];
   vas: Va[];
@@ -63,6 +71,7 @@ export interface AppState {
   suggestions?: Suggestion[];
   generalNotes?: GeneralNote[];
   privateNotes?: PrivateNote[];
+  emailTemplates?: EmailTemplate[];
 }
 
 /* Wrapped in React's cache() so the layout and the page it's rendering

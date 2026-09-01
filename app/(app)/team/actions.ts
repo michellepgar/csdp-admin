@@ -21,7 +21,10 @@ async function requireAdminAndState() {
   return { supabase, state };
 }
 
-async function saveState(
+// communicationEditor and schoolData assignments still live in the
+// shared blob — they aren't migrating until later phases. vas is never
+// written through this anymore (see the vas-table actions below).
+async function saveLegacyState(
   supabase: Awaited<ReturnType<typeof createClient>>,
   state: AppState
 ) {
@@ -37,30 +40,31 @@ export async function addVa(formData: FormData) {
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
   if (state.vas.some((v) => v.name.toLowerCase() === name.toLowerCase())) return;
-  state.vas.push({ id: crypto.randomUUID(), name });
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("vas").insert({ id: crypto.randomUUID(), name });
+  if (error) throw new Error(error.message);
   revalidatePath("/team");
 }
 
 export async function removeVa(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
+  const { supabase } = await requireAdminAndState();
   const id = formData.get("id") as string;
-  state.vas = state.vas.filter((v) => v.id !== id);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("vas").delete().eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/team");
 }
 
 export async function updateVaField(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
+  const { supabase } = await requireAdminAndState();
   const id = formData.get("id") as string;
   const rawField = formData.get("field") as string;
   const value = ((formData.get("value") as string) || "").trim();
   if (rawField !== "email" && rawField !== "color") return;
   const field = rawField; // narrowed to "email" | "color" by the check above
-  const va = state.vas.find((v) => v.id === id);
-  if (!va) return;
-  va[field] = value;
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("vas").update({ [field]: value }).eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/team");
 }
 
@@ -69,15 +73,16 @@ export async function toggleVaAdmin(formData: FormData) {
   const id = formData.get("id") as string;
   const va = state.vas.find((v) => v.id === id);
   if (!va) return;
-  va.admin = !va.admin;
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("vas").update({ admin: !va.admin }).eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/team");
 }
 
 export async function setCommunicationEditor(formData: FormData) {
   const { supabase, state } = await requireAdminAndState();
   state.communicationEditor = (formData.get("name") as string) || "";
-  await saveState(supabase, state);
+  await saveLegacyState(supabase, state);
   revalidatePath("/team");
 }
 
@@ -87,6 +92,6 @@ export async function setSchoolAssignment(formData: FormData) {
   const vaName = (formData.get("vaName") as string) || "";
   if (!state.schoolData[schoolId]) state.schoolData[schoolId] = { vaAssigned: "" };
   state.schoolData[schoolId].vaAssigned = vaName;
-  await saveState(supabase, state);
+  await saveLegacyState(supabase, state);
   revalidatePath("/team");
 }

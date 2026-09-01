@@ -52,7 +52,27 @@ export async function restoreBackup(formData: FormData) {
      everything. */
   if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as AppState).vas)) return;
 
-  await saveState(supabase, parsed as AppState);
+  const backup = parsed as AppState;
+
+  /* vas and schools now live in their own tables (Phase 1 of the
+     relational backend migration) — a restore has to replace those
+     tables' contents too, not just the blob, or restoring a backup
+     would silently leave Team/Schools untouched. */
+  const { error: delVasError } = await supabase.from("vas").delete().neq("id", "");
+  if (delVasError) throw new Error(delVasError.message);
+  if (backup.vas.length) {
+    const { error: insVasError } = await supabase.from("vas").insert(backup.vas);
+    if (insVasError) throw new Error(insVasError.message);
+  }
+
+  const { error: delSchoolsError } = await supabase.from("schools").delete().neq("id", "");
+  if (delSchoolsError) throw new Error(delSchoolsError.message);
+  if (Array.isArray(backup.schools) && backup.schools.length) {
+    const { error: insSchoolsError } = await supabase.from("schools").insert(backup.schools);
+    if (insSchoolsError) throw new Error(insSchoolsError.message);
+  }
+
+  await saveState(supabase, backup);
   revalidatePath("/", "layout");
 }
 

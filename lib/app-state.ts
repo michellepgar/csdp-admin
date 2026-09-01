@@ -99,6 +99,19 @@ export const CONTACT_FIELDS: { key: keyof ContactRow; label: string }[] = [
   { key: "notes", label: "Notes" },
 ];
 
+export interface EodReport {
+  id: string;
+  author: string;
+  date: string;
+  timeIn?: string;
+  breakStart?: string;
+  breakEnd?: string;
+  timeOut?: string;
+  totalHours?: string;
+  tasks?: string[];
+  createdAt: string;
+}
+
 export interface AppState {
   schools: School[];
   vas: Va[];
@@ -116,6 +129,85 @@ export interface AppState {
   emailTemplates?: EmailTemplate[];
   contactGroups?: ContactGroup[];
   nurseLeader?: NurseLeader;
+  eodReports?: EodReport[];
+}
+
+/* ---------- EOD Reports: pure date/time helpers, same logic as the
+   HTML app's computeEodTotalHours/fmtTime12/etc. — no server imports,
+   safe to call from either a Server Action or a client component. */
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export function fmtEodDate(iso: string): string {
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  const mi = parseInt(parts[1], 10) - 1;
+  if (mi < 0 || mi > 11) return iso;
+  return `${MONTH_NAMES[mi]} ${parseInt(parts[2], 10)}, ${parts[0]}`;
+}
+
+export function fmtMonthLabel(ym: string): string {
+  const parts = String(ym || "").split("-");
+  if (parts.length !== 2) return ym;
+  const mi = parseInt(parts[1], 10) - 1;
+  if (mi < 0 || mi > 11) return ym;
+  return `${MONTH_NAMES[mi]} ${parts[0]}`;
+}
+
+export function parseHoursMinutesToMinutes(str?: string): number {
+  if (!str) return 0;
+  const parts = String(str).split(":");
+  if (parts.length !== 2) return 0;
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return 0;
+  return h * 60 + m;
+}
+
+export function fmtTime12(t?: string): string {
+  if (!t) return "";
+  const parts = t.split(":");
+  if (parts.length < 2) return t;
+  const h = parseInt(parts[0], 10);
+  if (isNaN(h)) return t;
+  const ampm = h >= 12 ? "PM" : "AM";
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return `${h12}:${parts[1]} ${ampm}`;
+}
+
+function timeStrToMinutes(str?: string): number | null {
+  if (!str) return null;
+  const parts = String(str).split(":");
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+export function formatMinutesAsHours(mins: number): string {
+  if (mins == null || isNaN(mins) || mins < 0) return "";
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return `${h}:${m < 10 ? "0" : ""}${m}`;
+}
+
+/* Auto-computes worked hours from Time in/out, minus a break (if both
+   Break and Resume are filled in). Assumes a same-day shift — if Time
+   out is earlier than Time in, treats it as crossing midnight. */
+export function computeEodTotalHours(timeIn?: string, timeOut?: string, breakStart?: string, breakEnd?: string): string {
+  const inM = timeStrToMinutes(timeIn);
+  const outM = timeStrToMinutes(timeOut);
+  if (inM == null || outM == null) return "";
+  let worked = outM - inM;
+  if (worked < 0) worked += 24 * 60;
+  const bStart = timeStrToMinutes(breakStart);
+  const bEnd = timeStrToMinutes(breakEnd);
+  if (bStart != null && bEnd != null) {
+    let breakMins = bEnd - bStart;
+    if (breakMins < 0) breakMins += 24 * 60;
+    worked -= breakMins;
+  }
+  if (worked < 0) worked = 0;
+  return formatMinutesAsHours(worked);
 }
 
 export function findVaByEmail(state: AppState, email: string): Va | undefined {

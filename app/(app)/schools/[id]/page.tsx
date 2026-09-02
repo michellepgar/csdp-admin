@@ -21,7 +21,11 @@ import {
   setEmailStatus,
   removeEmailItem,
   requestRemoval,
+  addSchoolContact,
+  updateSchoolContact,
+  removeSchoolContact,
 } from "./actions";
+import { SchoolContactsList } from "@/components/school-contacts-list";
 
 export default async function SchoolPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: schoolId } = await params;
@@ -111,7 +115,18 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         <div className="border-b p-3">
           <h2 className="font-semibold">Contact Info</h2>
         </div>
-        <div className="p-3">
+        <div className="space-y-4 p-3">
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-semibold uppercase text-muted-foreground">Website</dt>
+              <dd className="whitespace-pre-wrap text-sm">{school.website || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase text-muted-foreground">Hours</dt>
+              <dd className="whitespace-pre-wrap text-sm">{school.hours || "—"}</dd>
+            </div>
+          </dl>
+
           {!contactRow ? (
             <p className="text-sm text-muted-foreground">No contact info on file for this school yet.</p>
           ) : (
@@ -124,6 +139,17 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               ))}
             </dl>
           )}
+
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Contact People</div>
+            <SchoolContactsList
+              schoolId={schoolId}
+              contacts={(state.schoolContacts || {})[schoolId] || []}
+              addSchoolContact={addSchoolContact}
+              updateSchoolContact={updateSchoolContact}
+              removeSchoolContact={removeSchoolContact}
+            />
+          </div>
         </div>
       </div>
     </div>

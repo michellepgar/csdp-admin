@@ -10,6 +10,7 @@ import {
   type AppState,
   type SchoolDataEntry,
 } from "@/lib/app-state";
+import { syncContactRowEmail } from "@/lib/sync-contact-row";
 
 async function requireUserAndState() {
   const supabase = await createClient();
@@ -290,5 +291,58 @@ export async function removeEmailItem(formData: FormData) {
 
   const { error } = await supabase.from("email_tracker_items").delete().eq("id", itemId);
   orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+/* ---------- School Contacts (position + email, editable anytime) ---------- */
+
+export async function addSchoolContact(formData: FormData) {
+  const { supabase, state } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+  const position = (formData.get("position") as string) || "";
+  const email = ((formData.get("email") as string) || "").trim();
+  if (!email) return;
+
+  const { error } = await supabase.from("school_contacts").insert({
+    id: crypto.randomUUID(),
+    school_id: schoolId,
+    position,
+    email,
+  });
+  orThrow(error);
+
+  const school = state.schools.find((s) => s.id === schoolId);
+  if (school) await syncContactRowEmail(supabase, schoolId, school.name, position);
+  revalidateSchool(schoolId);
+}
+
+export async function updateSchoolContact(formData: FormData) {
+  const { supabase, state } = await requireUserAndState();
+  const id = formData.get("id") as string;
+  const schoolId = formData.get("schoolId") as string;
+  const position = (formData.get("position") as string) || "";
+  const email = ((formData.get("email") as string) || "").trim();
+  if (!email) return;
+
+  const { error } = await supabase.from("school_contacts").update({ position, email }).eq("id", id);
+  orThrow(error);
+
+  const school = state.schools.find((s) => s.id === schoolId);
+  if (school) await syncContactRowEmail(supabase, schoolId, school.name, position);
+  revalidateSchool(schoolId);
+}
+
+export async function removeSchoolContact(formData: FormData) {
+  const { supabase, state } = await requireUserAndState();
+  const id = formData.get("id") as string;
+  const schoolId = formData.get("schoolId") as string;
+
+  const { data: existing } = await supabase.from("school_contacts").select("position").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("school_contacts").delete().eq("id", id);
+  orThrow(error);
+
+  const school = state.schools.find((s) => s.id === schoolId);
+  if (school && existing) await syncContactRowEmail(supabase, schoolId, school.name, existing.position);
   revalidateSchool(schoolId);
 }

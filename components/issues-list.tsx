@@ -5,6 +5,11 @@ import { SubmitButton } from "@/components/submit-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { ISSUE_STATUS_OPTIONS, canDeleteIssue, type Issue } from "@/lib/app-state";
 
+/* Issue.status is a free-form string (unlike AccessRequest's or
+   Suggestion's status, which are real literal unions), so this can't
+   be an exhaustive Record keyed by every possible value the way those
+   two are — hence the "?? neutral" fallback at the call site below
+   for anything unrecognized. */
 const ISSUE_STATUS_TONE: Record<string, StatusTone> = {
   Pending: "warning",
   Resolved: "success",

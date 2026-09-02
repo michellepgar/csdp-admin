@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, isAdmin, canEditSchoolRecords, type AppState } from "@/lib/app-state";
+import { findVaByEmail, isAdmin, canEditSchoolRecords } from "@/lib/app-state";
 
 async function requireUserAndState() {
   const supabase = await createClient();
@@ -21,24 +21,27 @@ async function requireUserAndState() {
   return { supabase, state, me };
 }
 
-async function saveState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  state: AppState
-) {
-  const { error } = await supabase
-    .from("app_state")
-    .update({ data: state, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-function performRemoval(state: AppState, recordKind: string, schoolId: string, targetId: string) {
-  const sd = state.schoolData[schoolId];
-  if (!sd) return;
+/* Tasks and Email Tracker items live in their own tables (Phase 2) --
+   this used to mutate the blob's schoolData[schoolId].tasks/
+   .emailTracker arrays, which fetchAppState() no longer reads back out
+   at all once those tables took over. That mutation had gone silently
+   inert: approving a removal request stopped actually deleting
+   anything. Fixed by deleting the real row from the real table. */
+async function performRemoval(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  recordKind: string,
+  targetId: string
+) {
   if (recordKind === "task") {
-    sd.tasks = (sd.tasks || []).filter((t) => t.id !== targetId);
+    const { error } = await supabase.from("tasks").delete().eq("id", targetId);
+    orThrow(error);
   } else if (recordKind === "email-item") {
-    sd.emailTracker = (sd.emailTracker || []).filter((e) => e.id !== targetId);
+    const { error } = await supabase.from("email_tracker_items").delete().eq("id", targetId);
+    orThrow(error);
   }
 }
 
@@ -50,12 +53,14 @@ export async function approveAccessRequest(formData: FormData) {
   const sd = state.schoolData[req.schoolId];
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
 
-  performRemoval(state, req.recordKind, req.schoolId, req.targetId);
-  req.status = "fulfilled";
-  req.resolvedBy = me.name;
-  req.resolvedAt = new Date().toISOString();
+  await performRemoval(supabase, req.recordKind, req.targetId);
 
-  await saveState(supabase, state);
+  const { error } = await supabase
+    .from("access_requests")
+    .update({ status: "fulfilled", resolved_by: me.name, resolved_at: new Date().toISOString() })
+    .eq("id", id);
+  orThrow(error);
+
   revalidatePath("/approvals");
   revalidatePath(`/schools/${req.schoolId}`);
 }
@@ -68,11 +73,11 @@ export async function declineAccessRequest(formData: FormData) {
   const sd = state.schoolData[req.schoolId];
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
 
-  req.status = "declined";
-  req.resolvedBy = me.name;
-  req.resolvedAt = new Date().toISOString();
-
-  await saveState(supabase, state);
+  const { error } = await supabase
+    .from("access_requests")
+    .update({ status: "declined", resolved_by: me.name, resolved_at: new Date().toISOString() })
+    .eq("id", id);
+  orThrow(error);
   revalidatePath("/approvals");
 }
 
@@ -87,7 +92,7 @@ export async function deleteAccessRequestRow(formData: FormData) {
   const canManage = req.status !== "pending" && canEditSchoolRecords(sd, me.name, isAdmin(me));
   if (!isMine && !canManage) return;
 
-  state.accessRequests = (state.accessRequests || []).filter((r) => r.id !== id);
-  await saveState(supabase, state);
+  const { error } = await supabase.from("access_requests").delete().eq("id", id);
+  orThrow(error);
   revalidatePath("/approvals");
 }

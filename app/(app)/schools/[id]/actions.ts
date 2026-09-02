@@ -31,22 +31,6 @@ function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-// communicationEditor, accessRequests, and schoolData's vaAssigned/notes
-// still live in the shared blob -- they aren't migrating until later
-// phases (vaAssigned/notes) or aren't migrating at all this project
-// (accessRequests, see the design spec). Tasks/Email Tracker/Checklist/
-// Categories are never written through this anymore.
-async function saveLegacyState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  state: AppState
-) {
-  const { error } = await supabase
-    .from("app_state")
-    .update({ data: state, updated_at: new Date().toISOString() })
-    .eq("id", 1);
-  if (error) throw new Error(error.message);
-}
-
 function ensureSchoolData(state: AppState, schoolId: string): SchoolDataEntry {
   state.schoolData = state.schoolData || {};
   if (!state.schoolData[schoolId]) state.schoolData[schoolId] = { vaAssigned: "" };
@@ -61,10 +45,9 @@ function revalidateSchool(schoolId: string) {
    delete directly — this is what actually happens then: a request to
    whoever manages the school, resolved on the Approvals page. Same
    behavior for both, since the removeTask/removeEmailItem actions
-   themselves already silently no-op when not permitted. accessRequests
-   stays blob-based -- not migrating this phase. */
+   themselves already silently no-op when not permitted. */
 export async function requestRemoval(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireUserAndState();
   const recordKind = formData.get("recordKind") as string;
   const schoolId = formData.get("schoolId") as string;
   const targetId = formData.get("targetId") as string;
@@ -72,19 +55,17 @@ export async function requestRemoval(formData: FormData) {
   const reason = ((formData.get("reason") as string) || "").trim();
   if (!reason || (recordKind !== "task" && recordKind !== "email-item")) return;
 
-  state.accessRequests = state.accessRequests || [];
-  state.accessRequests.push({
+  const { error } = await supabase.from("access_requests").insert({
     id: crypto.randomUUID(),
-    recordKind,
-    schoolId,
-    targetId,
+    record_kind: recordKind,
+    school_id: schoolId,
+    target_id: targetId,
     label,
     reason,
-    requestedBy: me.name,
+    requested_by: me.name,
     status: "pending",
-    createdAt: new Date().toISOString(),
   });
-  await saveLegacyState(supabase, state);
+  if (error) throw new Error(error.message);
   revalidatePath("/approvals");
 }
 

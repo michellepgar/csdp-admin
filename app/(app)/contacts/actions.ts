@@ -46,7 +46,17 @@ export async function addContactGroup(formData: FormData) {
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
 
-  const { error } = await supabase.from("contact_groups").insert({ id: crypto.randomUUID(), name });
+  const { data: maxRow } = await supabase
+    .from("contact_groups")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase
+    .from("contact_groups")
+    .insert({ id: crypto.randomUUID(), name, sort_order: nextSortOrder });
   orThrow(error);
   revalidatePath("/contacts");
 }
@@ -77,10 +87,19 @@ export async function addContactRow(formData: FormData) {
   const school = ((formData.get("school") as string) || "").trim();
   if (!groupId || !school) return;
 
+  const { data: maxRow } = await supabase
+    .from("contact_rows")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
   const { error } = await supabase.from("contact_rows").insert({
     id: crypto.randomUUID(),
     group_id: groupId,
     school,
+    sort_order: nextSortOrder,
   });
   orThrow(error);
   revalidatePath("/contacts");

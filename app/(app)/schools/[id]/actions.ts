@@ -118,7 +118,17 @@ export async function addChecklistTemplateItem(formData: FormData) {
   const description = ((formData.get("description") as string) || "").trim();
   if (!description) return;
 
-  const { error } = await supabase.from("checklist_template").insert({ id: crypto.randomUUID(), description });
+  const { data: maxRow } = await supabase
+    .from("checklist_template")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase
+    .from("checklist_template")
+    .insert({ id: crypto.randomUUID(), description, sort_order: nextSortOrder });
   orThrow(error);
   revalidatePath("/", "layout");
 }
@@ -233,7 +243,17 @@ export async function addTaskCategory(formData: FormData) {
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
 
-  const { error } = await supabase.from("task_categories").insert({ id: crypto.randomUUID(), name });
+  const { data: maxRow } = await supabase
+    .from("task_categories")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase
+    .from("task_categories")
+    .insert({ id: crypto.randomUUID(), name, sort_order: nextSortOrder });
   orThrow(error);
   revalidatePath("/", "layout");
 }

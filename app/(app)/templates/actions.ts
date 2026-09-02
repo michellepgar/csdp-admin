@@ -35,12 +35,21 @@ export async function saveTemplate(formData: FormData) {
   if (!name || !subject) return;
 
   if (id === "new") {
+    const { data: maxRow } = await supabase
+      .from("email_templates")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
     const { error } = await supabase.from("email_templates").insert({
       id: crypto.randomUUID(),
       name,
       category: category || null,
       subject,
       body,
+      sort_order: nextSortOrder,
     });
     orThrow(error);
   } else {

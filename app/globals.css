@@ -151,6 +151,11 @@
   html {
     @apply font-sans;
   }
+  /* Every h1 in this app is a page title and every h2 a section
+     heading — no other use of either tag exists (verified by
+     grepping app/ and components/). Keep it that way: an h1/h2 added
+     for pure document-outline/SEO purposes elsewhere would silently
+     pick up the brand accent color too. */
   h1, h2 {
     @apply text-primary;
   }

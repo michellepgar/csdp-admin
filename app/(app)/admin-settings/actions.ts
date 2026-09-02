@@ -20,6 +20,7 @@ import {
   type ContactGroup,
   type ContactRow,
   type NurseLeader,
+  type EodReport,
 } from "@/lib/app-state";
 
 async function requireAdminAndState() {
@@ -200,6 +201,18 @@ function isValidNurseLeader(n: unknown): n is NurseLeader {
   );
 }
 
+function isValidEodReportRow(r: unknown): r is EodReport {
+  return (
+    !!r &&
+    typeof r === "object" &&
+    typeof (r as EodReport).id === "string" &&
+    (r as EodReport).id.length > 0 &&
+    typeof (r as EodReport).author === "string" &&
+    typeof (r as EodReport).date === "string" &&
+    (r as EodReport).date.length > 0
+  );
+}
+
 export async function restoreBackup(formData: FormData) {
   const { supabase } = await requireAdminAndState();
   const confirm = (formData.get("confirm") as string) || "";
@@ -271,7 +284,9 @@ export async function restoreBackup(formData: FormData) {
     !Array.isArray((parsed as AppState).contactGroups) ||
     !(parsed as AppState).contactGroups!.every(isValidContactGroupRow) ||
     ((parsed as AppState).nurseLeader !== undefined && !isValidNurseLeader((parsed as AppState).nurseLeader)) ||
-    ((parsed as AppState).communicationEditor !== undefined && typeof (parsed as AppState).communicationEditor !== "string")
+    ((parsed as AppState).communicationEditor !== undefined && typeof (parsed as AppState).communicationEditor !== "string") ||
+    !Array.isArray((parsed as AppState).eodReports) ||
+    !(parsed as AppState).eodReports!.every(isValidEodReportRow)
   ) {
     return;
   }
@@ -459,6 +474,24 @@ export async function restoreBackup(formData: FormData) {
       .from("settings")
       .upsert({ key: "communicationEditor", value: { value: backup.communicationEditor } }, { onConflict: "key" });
     orThrow(commEditorError);
+  }
+
+  const { error: delEodError } = await supabase.from("eod_reports").delete().neq("id", "");
+  orThrow(delEodError);
+  if (backup.eodReports!.length) {
+    const eodRows = backup.eodReports!.map((r) => ({
+      id: r.id,
+      author: r.author,
+      date: r.date,
+      time_in: r.timeIn || null,
+      break_start: r.breakStart || null,
+      break_end: r.breakEnd || null,
+      time_out: r.timeOut || null,
+      total_hours: r.totalHours || null,
+      tasks: r.tasks || [],
+    }));
+    const { error: insEodError } = await supabase.from("eod_reports").insert(eodRows);
+    orThrow(insEodError);
   }
 
   await saveState(supabase, backup);

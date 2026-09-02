@@ -224,7 +224,13 @@ function isValidAccessRequestRow(r: unknown): r is AccessRequest {
     typeof (r as AccessRequest).recordKind === "string" &&
     typeof (r as AccessRequest).targetId === "string" &&
     typeof (r as AccessRequest).requestedBy === "string" &&
-    typeof (r as AccessRequest).status === "string"
+    typeof (r as AccessRequest).status === "string" &&
+    // label/reason are NOT NULL with no default in access_requests --
+    // an unvalidated malformed row here would pass validation, empty
+    // the table on delete, then fail the insert with a NOT NULL
+    // violation, leaving it permanently empty with nothing to restore.
+    typeof (r as AccessRequest).label === "string" &&
+    typeof (r as AccessRequest).reason === "string"
   );
 }
 

@@ -2,6 +2,7 @@
 
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { StatusBadge } from "@/components/status-badge";
 import { ISSUE_STATUS_OPTIONS, canDeleteIssue, type Issue } from "@/lib/app-state";
 
 function fmtDate(iso: string) {
@@ -10,12 +11,15 @@ function fmtDate(iso: string) {
 
 function StatusSelect({ issue, setIssueStatus }: { issue: Issue; setIssueStatus: (formData: FormData) => void }) {
   return (
-    <AutoSubmitForm action={setIssueStatus}>
-      <input type="hidden" name="id" value={issue.id} />
-      <select key={issue.status} name="status" defaultValue={issue.status} className="rounded-md border px-2 py-1 text-xs">
-        {ISSUE_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-      </select>
-    </AutoSubmitForm>
+    <div className="flex items-center gap-2">
+      <StatusBadge tone={issue.status === "Resolved" ? "success" : "warning"}>{issue.status}</StatusBadge>
+      <AutoSubmitForm action={setIssueStatus}>
+        <input type="hidden" name="id" value={issue.id} />
+        <select key={issue.status} name="status" defaultValue={issue.status} className="rounded-md border px-2 py-1 text-xs">
+          {ISSUE_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </AutoSubmitForm>
+    </div>
   );
 }
 

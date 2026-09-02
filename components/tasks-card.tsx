@@ -137,7 +137,7 @@ function TaskRow({
           rather than truncating -- file names run long sometimes.
           Sign/status is pushed to the far right (ml-auto) regardless
           of how much room the name actually takes. */}
-      <div className="flex w-24 shrink-0 items-center gap-1">
+      <div className="flex w-14 shrink-0 items-center gap-1">
         {needsCount && (
           <AutoSubmitForm action={setTaskCount} className="flex items-center gap-1">
             <input type="hidden" name="schoolId" value={schoolId} />
@@ -148,9 +148,9 @@ function TaskRow({
               min={0}
               name="count"
               defaultValue={task.count || ""}
-              placeholder="Count"
+              placeholder="0"
               disabled={!canEdit}
-              className="w-24 rounded-md border px-2 py-1.5 text-sm"
+              className="w-14 rounded-md border px-1.5 py-0.5 text-sm"
             />
           </AutoSubmitForm>
         )}

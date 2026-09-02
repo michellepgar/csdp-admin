@@ -4,8 +4,9 @@ import { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact } from "@/lib/app-state";
+import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact, type SchoolContact } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
+import { SchoolContactsList } from "@/components/school-contacts-list";
 
 function ContactRowView({
   group,
@@ -36,16 +37,31 @@ function ContactRowEdit({
   group,
   row,
   groups,
+  schoolId,
+  schoolContacts,
   onDone,
   updateContactRow,
   removeContactRow,
+  addSchoolContact,
+  updateSchoolContact,
+  removeSchoolContact,
 }: {
   group: ContactGroup;
   row: ContactGroup["rows"][number];
   groups: ContactGroup[];
+  /* The real Schools-table id matching this row's school name (a
+     free-text field, not a foreign key -- see lib/app-state.ts's
+     ContactRow). null if no such school exists (e.g. the row predates
+     school_contacts, or its name no longer matches any real school) --
+     in that case the contact-person list can't be shown/edited here. */
+  schoolId: string | null;
+  schoolContacts: SchoolContact[];
   onDone: () => void;
   updateContactRow: (formData: FormData) => void;
   removeContactRow: (formData: FormData) => void;
+  addSchoolContact: (formData: FormData) => void;
+  updateSchoolContact: (formData: FormData) => void;
+  removeSchoolContact: (formData: FormData) => void;
 }) {
   return (
     <tr className="border-b bg-muted/30">
@@ -80,6 +96,23 @@ function ContactRowEdit({
             </SubmitButton>
           </div>
         </form>
+
+        <div className="mt-3 border-t pt-3">
+          <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">Contact People</div>
+          {schoolId ? (
+            <SchoolContactsList
+              schoolId={schoolId}
+              contacts={schoolContacts}
+              addSchoolContact={addSchoolContact}
+              updateSchoolContact={updateSchoolContact}
+              removeSchoolContact={removeSchoolContact}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No matching school found for &quot;{row.school}&quot; — contact people can only be added once this row&apos;s name matches a real school.
+            </p>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -89,6 +122,8 @@ export function ContactsList({
   groups,
   nurseLeader,
   otherContacts,
+  schools,
+  schoolContacts,
   addContactGroup,
   renameContactGroup,
   removeContactGroup,
@@ -98,10 +133,15 @@ export function ContactsList({
   addOtherContact,
   updateOtherContact,
   removeOtherContact,
+  addSchoolContact,
+  updateSchoolContact,
+  removeSchoolContact,
 }: {
   groups: ContactGroup[];
   nurseLeader: NurseLeader;
   otherContacts: OtherContact[];
+  schools: { id: string; name: string }[];
+  schoolContacts: Record<string, SchoolContact[]>;
   addContactGroup: (formData: FormData) => void;
   renameContactGroup: (formData: FormData) => void;
   removeContactGroup: (formData: FormData) => void;
@@ -111,6 +151,9 @@ export function ContactsList({
   addOtherContact: (formData: FormData) => void;
   updateOtherContact: (formData: FormData) => void;
   removeOtherContact: (formData: FormData) => void;
+  addSchoolContact: (formData: FormData) => void;
+  updateSchoolContact: (formData: FormData) => void;
+  removeSchoolContact: (formData: FormData) => void;
 }) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
@@ -191,16 +234,23 @@ export function ContactsList({
                     </td>
                   </tr>
                 )}
-                {group.rows.map((row) =>
-                  editingRow === row.id ? (
+                {group.rows.map((row) => {
+                  const matchedSchoolId =
+                    schools.find((s) => s.name.trim().toLowerCase() === row.school.trim().toLowerCase())?.id ?? null;
+                  return editingRow === row.id ? (
                     <ContactRowEdit
                       key={row.id}
                       group={group}
                       row={row}
                       groups={groups}
+                      schoolId={matchedSchoolId}
+                      schoolContacts={(matchedSchoolId && schoolContacts[matchedSchoolId]) || []}
                       onDone={() => setEditingRow(null)}
                       updateContactRow={updateContactRow}
                       removeContactRow={removeContactRow}
+                      addSchoolContact={addSchoolContact}
+                      updateSchoolContact={updateSchoolContact}
+                      removeSchoolContact={removeSchoolContact}
                     />
                   ) : (
                     <ContactRowView
@@ -210,8 +260,8 @@ export function ContactsList({
                       groups={groups}
                       onEdit={() => setEditingRow(row.id)}
                     />
-                  )
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>

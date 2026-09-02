@@ -34,22 +34,13 @@ export function EmailTrackerCard({
   removeEmailItem: (formData: FormData) => void;
   requestRemoval: (formData: FormData) => void;
 }) {
-  const openCount = items.filter((e) => e.status !== "Done").length;
   const sorted = [...items].reverse();
   const pendingSet = new Set(pendingRemovalRequestIds);
-  const needsResponseCount = items.filter((e) => e.status === "Needs My Response").length;
-  const waitingCount = items.filter((e) => e.status === "Waiting on Them").length;
-  const doneCount = items.filter((e) => e.status === "Done").length;
 
   return (
-    <div className="rounded-md border">
+    <div id="email-tracker" className="scroll-mt-20 rounded-md border">
       <div className="flex items-center gap-2 border-b bg-header-background p-3">
-        <h2 className="font-semibold">
-          Email Tracker {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}
-        </h2>
-        <StatusBadge tone="warning">{needsResponseCount}</StatusBadge>
-        <StatusBadge tone="paused">{waitingCount}</StatusBadge>
-        <StatusBadge tone="success">{doneCount}</StatusBadge>
+        <h2 className="font-semibold">Email Tracker</h2>
       </div>
       <div className="space-y-3 p-3">
         {canEdit ? (

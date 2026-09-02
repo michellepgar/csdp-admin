@@ -18,6 +18,10 @@ import {
   removeTask,
   addTaskCategory,
   removeTaskCategory,
+  setCommsStatus,
+  signComms,
+  removeVaFromComms,
+  setNoRecheck,
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
@@ -48,12 +52,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
 
   const sd = state.schoolData[schoolId] || { vaAssigned: "" };
   const canEdit = canEditSchoolRecords(sd, me.name, isAdmin(me));
-  const doneIds = (state.checklistTemplate || [])
-    .filter((item) => {
-      const p = state.checklistProgress[`${schoolId}:${item.id}`];
-      return p && p.status === "Done";
-    })
-    .map((item) => item.id);
+  const checklistProgressForSchool: Record<string, { status: string; checkedBy?: string }> = {};
+  for (const item of state.checklistTemplate || []) {
+    const p = state.checklistProgress[`${schoolId}:${item.id}`];
+    if (p) checklistProgressForSchool[item.id] = p;
+  }
 
   const contactRow = (state.contactGroups || [])
     .flatMap((g) => g.rows)
@@ -94,30 +97,41 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TasksCard
-          schoolId={schoolId}
-          categories={state.taskCategories || []}
-          tasks={sd.tasks || []}
-          canEdit={canEdit}
-          currentUserName={me.name}
-          pendingRemovalRequestIds={myPendingRequestTargetIds}
-          addTask={addTask}
-          setTaskStatus={setTaskStatus}
-          setTaskCount={setTaskCount}
-          signTask={signTask}
-          removeVaFromTask={removeVaFromTask}
-          removeTask={removeTask}
-          requestRemoval={requestRemoval}
-          addTaskCategory={addTaskCategory}
-          removeTaskCategory={removeTaskCategory}
-        />
+      {/* flex, not grid -- Yearly Checklist can collapse to just its
+          header (its own "Hide" button) and shrink to that header's
+          width instead of always taking a fixed half-width column;
+          Tasks grows to fill whatever space that frees up. */}
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="min-w-0 flex-1 basis-0">
+          <TasksCard
+            schoolId={schoolId}
+            categories={state.taskCategories || []}
+            tasks={sd.tasks || []}
+            vas={state.vas}
+            canEdit={canEdit}
+            currentUserName={me.name}
+            pendingRemovalRequestIds={myPendingRequestTargetIds}
+            noRecheck={!!school.noRecheck}
+            addTask={addTask}
+            setTaskStatus={setTaskStatus}
+            setTaskCount={setTaskCount}
+            signTask={signTask}
+            removeVaFromTask={removeVaFromTask}
+            removeTask={removeTask}
+            requestRemoval={requestRemoval}
+            addTaskCategory={addTaskCategory}
+            removeTaskCategory={removeTaskCategory}
+            setCommsStatus={setCommsStatus}
+            signComms={signComms}
+            removeVaFromComms={removeVaFromComms}
+            setNoRecheck={setNoRecheck}
+          />
+        </div>
         <ChecklistCard
           schoolId={schoolId}
           template={state.checklistTemplate || []}
-          doneIds={doneIds}
-          canCheckOff={!!sd.vaAssigned && sd.vaAssigned === me.name}
-          vaAssigned={sd.vaAssigned}
+          progress={checklistProgressForSchool}
+          vas={state.vas}
           toggleChecklistItem={toggleChecklistItem}
           addChecklistTemplateItem={addChecklistTemplateItem}
           removeChecklistTemplateItem={removeChecklistTemplateItem}

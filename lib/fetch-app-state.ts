@@ -25,10 +25,10 @@ import type {
   AccessRequest,
 } from "@/lib/app-state";
 
-type SchoolRow = { id: string; name: string; website: string | null; hours: string | null };
+type SchoolRow = { id: string; name: string; website: string | null; hours: string | null; no_recheck: boolean | null };
 
 function mapSchoolRow(r: SchoolRow): School {
-  return { id: r.id, name: r.name, website: r.website ?? undefined, hours: r.hours ?? undefined };
+  return { id: r.id, name: r.name, website: r.website ?? undefined, hours: r.hours ?? undefined, noRecheck: r.no_recheck ?? false };
 }
 
 type VaRow = {
@@ -60,6 +60,8 @@ type TaskRow = {
   status: string;
   va_assigned: string[];
   created_at: string;
+  comms_status: string | null;
+  comms_va_assigned: string[] | null;
 };
 
 function mapTaskRow(r: TaskRow): Task {
@@ -71,6 +73,8 @@ function mapTaskRow(r: TaskRow): Task {
     status: r.status,
     vaAssigned: r.va_assigned,
     createdAt: r.created_at,
+    commsStatus: r.comms_status ?? undefined,
+    commsVaAssigned: r.comms_va_assigned ?? undefined,
   };
 }
 
@@ -418,11 +422,11 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).single(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
-    supabase.from("schools").select("id, name, website, hours").order("name"),
+    supabase.from("schools").select("id, name, website, hours, no_recheck").order("name"),
     supabase.from("task_categories").select("id, name").order("sort_order"),
     supabase.from("checklist_template").select("id, description").order("sort_order"),
-    supabase.from("checklist_progress").select("school_id, template_item_id, status"),
-    supabase.from("tasks").select("id, school_id, category, file_name, count, status, va_assigned, created_at").order("created_at"),
+    supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by"),
+    supabase.from("tasks").select("id, school_id, category, file_name, count, status, va_assigned, created_at, comms_status, comms_va_assigned").order("created_at"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
     supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at").order("created_at"),
@@ -474,7 +478,10 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
 
   state.checklistProgress = {};
   for (const row of checklistProgressResult.data || []) {
-    state.checklistProgress[`${row.school_id}:${row.template_item_id}`] = { status: row.status };
+    state.checklistProgress[`${row.school_id}:${row.template_item_id}`] = {
+      status: row.status,
+      checkedBy: row.checked_by ?? undefined,
+    };
   }
 
   /* Fresh tasks/emailTracker replace whatever the blob still carries

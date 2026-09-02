@@ -77,10 +77,9 @@ export async function toggleChecklistItem(formData: FormData) {
   const { supabase, state, me } = await requireUserAndState();
   const schoolId = formData.get("schoolId") as string;
   const itemId = formData.get("itemId") as string;
-  const sd = ensureSchoolData(state, schoolId);
-  /* No admin override here — matches the HTML app exactly: only the VA
-     actually assigned to this school can check items off. */
-  if (!sd.vaAssigned || sd.vaAssigned !== me.name) return;
+  /* Anyone on the team can check a checklist item off, not just the
+     school's assigned VA -- who actually did it is recorded below and
+     shown as a small signature, instead of gating who's allowed to. */
 
   const key = `${schoolId}:${itemId}`;
   const current = state.checklistProgress[key];
@@ -89,7 +88,7 @@ export async function toggleChecklistItem(formData: FormData) {
   const { error } = await supabase
     .from("checklist_progress")
     .upsert(
-      { school_id: schoolId, template_item_id: itemId, status: isDone ? "Open" : "Done" },
+      { school_id: schoolId, template_item_id: itemId, status: isDone ? "Open" : "Done", checked_by: isDone ? null : me.name },
       { onConflict: "school_id,template_item_id" }
     );
   orThrow(error);
@@ -217,6 +216,71 @@ export async function removeTask(formData: FormData) {
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
 
   const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+/* ---------- Task Communications (Initial/Recheck only) ---------- */
+
+export async function setCommsStatus(formData: FormData) {
+  const { supabase, state, me } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+  const taskId = formData.get("taskId") as string;
+  const status = (formData.get("status") as string) || "";
+  const sd = ensureSchoolData(state, schoolId);
+  if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
+
+  const { error } = await supabase.from("tasks").update({ comms_status: status }).eq("id", taskId);
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+export async function signComms(formData: FormData) {
+  const { supabase, state, me } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+  const taskId = formData.get("taskId") as string;
+  const sd = ensureSchoolData(state, schoolId);
+  const task = (sd.tasks || []).find((t) => t.id === taskId);
+  if (!task) return;
+  const commsVaAssigned = task.commsVaAssigned || [];
+  if (commsVaAssigned.includes(me.name)) return;
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ comms_va_assigned: [...commsVaAssigned, me.name] })
+    .eq("id", taskId);
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+export async function removeVaFromComms(formData: FormData) {
+  const { supabase, state, me } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+  const taskId = formData.get("taskId") as string;
+  const vaName = formData.get("vaName") as string;
+  const sd = ensureSchoolData(state, schoolId);
+  if (vaName !== me.name && !canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
+  const task = (sd.tasks || []).find((t) => t.id === taskId);
+  if (!task) return;
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ comms_va_assigned: (task.commsVaAssigned || []).filter((n) => n !== vaName) })
+    .eq("id", taskId);
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+/* ---------- No Recheck ---------- */
+
+export async function setNoRecheck(formData: FormData) {
+  const { supabase, state, me } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+  const noRecheck = formData.get("noRecheck") === "true";
+  const sd = ensureSchoolData(state, schoolId);
+  if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
+
+  const { error } = await supabase.from("schools").update({ no_recheck: noRecheck }).eq("id", schoolId);
   orThrow(error);
   revalidateSchool(schoolId);
 }

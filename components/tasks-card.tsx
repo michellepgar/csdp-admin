@@ -5,26 +5,91 @@ import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TASK_STATUS_OPTIONS, COUNT_CATEGORIES, type Task, type TaskCategory } from "@/lib/app-state";
+import {
+  TASK_STATUS_OPTIONS,
+  COUNT_CATEGORIES,
+  CATEGORIES_WITH_COMMUNICATIONS,
+  vaColorByName,
+  type Task,
+  type TaskCategory,
+  type Va,
+} from "@/lib/app-state";
 
 const TASK_STATUS_TONE: Record<string, StatusTone> = {
   "In Progress": "warning",
   Paused: "paused",
   Completed: "success",
-  Communications: "neutral",
 };
 
-/* Initial and Recheck are the two categories where a VA sometimes
-   needs to log "we reached out about this record" separately from
-   the regular In Progress/Paused/Completed lifecycle -- so those two
-   categories' status dropdown gets this extra option, others don't. */
-const CATEGORIES_WITH_COMMUNICATIONS_STATUS = ["Initial", "Recheck"];
+/* Shared by both the main status/signatures and the Communications
+   status/signatures on an Initial/Recheck row -- same controls, just
+   pointed at different fields/actions. */
+function SignAndStatus({
+  schoolId,
+  taskId,
+  vas,
+  vaAssigned,
+  status,
+  currentUserName,
+  canEdit,
+  signAction,
+  removeVaAction,
+  setStatusAction,
+}: {
+  schoolId: string;
+  taskId: string;
+  vas: Va[];
+  vaAssigned: string[];
+  status: string;
+  currentUserName: string;
+  canEdit: boolean;
+  signAction: (formData: FormData) => void;
+  removeVaAction: (formData: FormData) => void;
+  setStatusAction: (formData: FormData) => void;
+}) {
+  const iSigned = vaAssigned.includes(currentUserName);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1">
+        {vaAssigned.map((name) => (
+          <form key={name} action={removeVaAction} className="inline-flex items-center gap-1">
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <input type="hidden" name="taskId" value={taskId} />
+            <input type="hidden" name="vaName" value={name} />
+            <SignatureChip name={name} color={vaColorByName(vas, name)} small />
+            <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+          </form>
+        ))}
+        {!iSigned && (
+          <form action={signAction}>
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <input type="hidden" name="taskId" value={taskId} />
+            <SubmitButton pendingLabel="…" variant="outline" size="sm">+ Sign</SubmitButton>
+          </form>
+        )}
+      </div>
+
+      <StatusBadge tone={TASK_STATUS_TONE[status] ?? "neutral"}>{status || "—"}</StatusBadge>
+      <AutoSubmitForm action={setStatusAction}>
+        <input type="hidden" name="schoolId" value={schoolId} />
+        <input type="hidden" name="taskId" value={taskId} />
+        <select key={status} name="status" defaultValue={status} disabled={!canEdit} className="rounded-md border px-2 py-1 text-xs">
+          {TASK_STATUS_OPTIONS.map((s) => (
+            <option key={s || "none"} value={s}>{s || "—"}</option>
+          ))}
+        </select>
+      </AutoSubmitForm>
+    </div>
+  );
+}
 
 function TaskRow({
   schoolId,
   task,
+  vas,
   canEdit,
   currentUserName,
   hasPendingRemovalRequest,
@@ -34,9 +99,13 @@ function TaskRow({
   removeVaFromTask,
   removeTask,
   requestRemoval,
+  setCommsStatus,
+  signComms,
+  removeVaFromComms,
 }: {
   schoolId: string;
   task: Task;
+  vas: Va[];
   canEdit: boolean;
   currentUserName: string;
   hasPendingRemovalRequest: boolean;
@@ -46,72 +115,69 @@ function TaskRow({
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
   requestRemoval: (formData: FormData) => void;
+  setCommsStatus: (formData: FormData) => void;
+  signComms: (formData: FormData) => void;
+  removeVaFromComms: (formData: FormData) => void;
 }) {
   const needsCount = COUNT_CATEGORIES.includes(task.category);
-  const iSigned = task.vaAssigned.includes(currentUserName);
+  const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(task.category);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
-      <span className="text-sm font-bold">{task.fileName}</span>
+    <div className="flex flex-wrap items-center gap-3 rounded-md border p-2">
+      {/* Fixed-width filename column (wraps rather than shrinks) so
+          Count and everything after it lines up at the same x
+          regardless of how long a given file name is. */}
+      <span className="w-48 shrink-0 text-sm font-bold">{task.fileName}</span>
 
-      {needsCount && (
-        <AutoSubmitForm action={setTaskCount} className="flex items-center gap-1">
-          <input type="hidden" name="schoolId" value={schoolId} />
-          <input type="hidden" name="taskId" value={task.id} />
-          <span className="text-xs text-muted-foreground">Count</span>
-          <input
-            key={task.count || ""}
-            type="number"
-            min={0}
-            name="count"
-            defaultValue={task.count || ""}
-            placeholder="0"
-            disabled={!canEdit}
-            className="w-16 rounded-md border px-2 py-1 text-sm"
-          />
-        </AutoSubmitForm>
-      )}
-
-      <div className="flex flex-wrap items-center gap-1">
-        {task.vaAssigned.map((name) => (
-          <form key={name} action={removeVaFromTask} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
+      <div className="flex w-20 shrink-0 items-center gap-1">
+        {needsCount && (
+          <AutoSubmitForm action={setTaskCount} className="flex items-center gap-1">
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="taskId" value={task.id} />
-            <input type="hidden" name="vaName" value={name} />
-            <span>{name}</span>
-            <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
-          </form>
-        ))}
-        {!iSigned && (
-          <form action={signTask}>
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <input type="hidden" name="taskId" value={task.id} />
-            <SubmitButton pendingLabel="…" variant="outline" size="sm">+ Sign</SubmitButton>
-          </form>
+            <input
+              key={task.count || ""}
+              type="number"
+              min={0}
+              name="count"
+              defaultValue={task.count || ""}
+              placeholder="Count"
+              disabled={!canEdit}
+              className="w-20 rounded-md border px-2 py-1 text-sm"
+            />
+          </AutoSubmitForm>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <StatusBadge tone={TASK_STATUS_TONE[task.status] ?? "neutral"}>{task.status || "—"}</StatusBadge>
-        <AutoSubmitForm action={setTaskStatus}>
-          <input type="hidden" name="schoolId" value={schoolId} />
-          <input type="hidden" name="taskId" value={task.id} />
-          <select
-            key={task.status}
-            name="status"
-            defaultValue={task.status}
-            disabled={!canEdit}
-            className="rounded-md border px-2 py-1 text-xs"
-          >
-            {(CATEGORIES_WITH_COMMUNICATIONS_STATUS.includes(task.category)
-              ? [...TASK_STATUS_OPTIONS, "Communications"]
-              : TASK_STATUS_OPTIONS
-            ).map((s) => (
-              <option key={s || "none"} value={s}>{s || "—"}</option>
-            ))}
-          </select>
-        </AutoSubmitForm>
-      </div>
+      <SignAndStatus
+        schoolId={schoolId}
+        taskId={task.id}
+        vas={vas}
+        vaAssigned={task.vaAssigned}
+        status={task.status}
+        currentUserName={currentUserName}
+        canEdit={canEdit}
+        signAction={signTask}
+        removeVaAction={removeVaFromTask}
+        setStatusAction={setTaskStatus}
+      />
+
+      {hasComms && (
+        <>
+          <span className="text-sm font-medium text-muted-foreground">Communications</span>
+          <SignAndStatus
+            schoolId={schoolId}
+            taskId={task.id}
+            vas={vas}
+            vaAssigned={task.commsVaAssigned || []}
+            status={task.commsStatus || ""}
+            currentUserName={currentUserName}
+            canEdit={canEdit}
+            signAction={signComms}
+            removeVaAction={removeVaFromComms}
+            setStatusAction={setCommsStatus}
+          />
+        </>
+      )}
 
       <DeleteOrRequestControl
         canDelete={canEdit}
@@ -132,9 +198,11 @@ export function TasksCard({
   schoolId,
   categories,
   tasks,
+  vas,
   canEdit,
   currentUserName,
   pendingRemovalRequestIds,
+  noRecheck,
   addTask,
   setTaskStatus,
   setTaskCount,
@@ -144,13 +212,19 @@ export function TasksCard({
   requestRemoval,
   addTaskCategory,
   removeTaskCategory,
+  setCommsStatus,
+  signComms,
+  removeVaFromComms,
+  setNoRecheck,
 }: {
   schoolId: string;
   categories: TaskCategory[];
   tasks: Task[];
+  vas: Va[];
   canEdit: boolean;
   currentUserName: string;
   pendingRemovalRequestIds: string[];
+  noRecheck: boolean;
   addTask: (formData: FormData) => void;
   setTaskStatus: (formData: FormData) => void;
   setTaskCount: (formData: FormData) => void;
@@ -160,6 +234,10 @@ export function TasksCard({
   requestRemoval: (formData: FormData) => void;
   addTaskCategory: (formData: FormData) => void;
   removeTaskCategory: (formData: FormData) => void;
+  setCommsStatus: (formData: FormData) => void;
+  signComms: (formData: FormData) => void;
+  removeVaFromComms: (formData: FormData) => void;
+  setNoRecheck: (formData: FormData) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const catNames = categories.map((c) => c.name);
@@ -171,6 +249,7 @@ export function TasksCard({
 
   const rowProps = {
     schoolId,
+    vas,
     canEdit,
     currentUserName,
     setTaskStatus,
@@ -179,6 +258,9 @@ export function TasksCard({
     removeVaFromTask,
     removeTask,
     requestRemoval,
+    setCommsStatus,
+    signComms,
+    removeVaFromComms,
   };
 
   return (
@@ -228,13 +310,25 @@ export function TasksCard({
         {categories.map((c) => {
           const items = tasks.filter((t) => t.category === c.name);
           const total = COUNT_CATEGORIES.includes(c.name) ? items.reduce((sum, t) => sum + (parseInt(t.count || "0", 10) || 0), 0) : null;
+          const isRecheck = c.name === "Recheck";
           return (
-            <div key={c.id} className="space-y-2">
+            <div key={c.id} className={`space-y-2 ${isRecheck && noRecheck ? "opacity-40" : ""}`}>
               <div className="flex items-center gap-2 text-sm font-medium">
                 <span>{c.name}</span>
                 {total !== null && items.length > 0 && <span className="text-xs text-muted-foreground">Total: {total}</span>}
+                {isRecheck && (
+                  <form action={setNoRecheck} className="ml-auto">
+                    <input type="hidden" name="schoolId" value={schoolId} />
+                    <input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} />
+                    <SubmitButton pendingLabel="…" variant={noRecheck ? "default" : "outline"} size="sm" disabled={!canEdit}>
+                      {noRecheck ? "Recheck needed after all" : "No Recheck"}
+                    </SubmitButton>
+                  </form>
+                )}
               </div>
-              {items.length === 0 ? (
+              {isRecheck && noRecheck ? (
+                <p className="text-xs text-muted-foreground">Marked as not needing a recheck.</p>
+              ) : items.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No files yet in this category.</p>
               ) : (
                 items.map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)

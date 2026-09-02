@@ -22,6 +22,11 @@ export interface School {
   name: string;
   website?: string;
   hours?: string;
+  /* Some schools don't need a second pass after Initial -- clicking
+     "No Recheck" on the school page sets this so Recheck's section
+     shows as disabled/grayed-out there, instead of tracking files that
+     will never apply to this school. */
+  noRecheck?: boolean;
 }
 
 export interface SchoolContact {
@@ -33,6 +38,10 @@ export interface SchoolContact {
 
 export interface ChecklistProgressEntry {
   status: string;
+  /* Name of whoever last checked this off -- shown as a small signature
+     next to the item. Anyone on the team can check a checklist item off
+     (not just the assigned VA), so this records who actually did it. */
+  checkedBy?: string;
 }
 
 export interface TaskCategory {
@@ -48,7 +57,18 @@ export interface Task {
   status: string;
   vaAssigned: string[];
   createdAt: string;
+  /* Initial/Recheck files often need a separate "we reached out about
+     this record" trail, tracked against the SAME file name rather than
+     as a second task row -- its own status/signatures, independent of
+     the main status/vaAssigned above. Unused (undefined) for every
+     other category. */
+  commsStatus?: string;
+  commsVaAssigned?: string[];
 }
+
+/* Categories where a task also gets its own parallel Communications
+   status+signatures, shown alongside the main one on the same row. */
+export const CATEGORIES_WITH_COMMUNICATIONS = ["Initial", "Recheck"];
 
 export interface EmailTrackerItem {
   id: string;
@@ -447,6 +467,15 @@ export function computeEodTotalHours(timeIn?: string, timeOut?: string, breakSta
 export function findVaByEmail(state: AppState, email: string): Va | undefined {
   const lower = email.toLowerCase();
   return state.vas.find((v) => (v.email || "").toLowerCase() === lower);
+}
+
+/* Every VA gets an assigned color (Team page "VA Colors"); signatures
+   everywhere (task sign-off, checklist auto-sign) use that same color
+   so a name reads as "the same person" wherever it shows up. Falls
+   back to undefined (caller uses a neutral default) for a name that
+   isn't a current VA, or has no color set yet. */
+export function vaColorByName(vas: Va[], name: string): string | undefined {
+  return vas.find((v) => v.name === name)?.color || undefined;
 }
 
 /* Same rule as the HTML app's isSuperAdmin(): Michelle by name, or anyone

@@ -1,29 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sidebar } from "@/components/sidebar";
+import type { Va } from "@/lib/app-state";
 
 const COOKIE_NAME = "sidebar-collapsed";
 
-/* Wraps the app's sidebar + main-content layout. `sidebar` is already
-   server-rendered JSX (the caller passes <Sidebar .../> straight
-   through) — this component only decides whether to show it, it
-   never constructs it itself. `initialCollapsed` comes from a cookie
-   read server-side in app/(app)/layout.tsx, so this component's first
-   client render always matches what the server already sent — no
-   flash of the sidebar before it collapses, unlike a
-   useEffect+localStorage approach would cause.
-
-   The toggle button is fixed in the same screen position (top-left)
-   whether the sidebar is shown or hidden, so it's always exactly
-   where you last clicked it. */
+/* Renders Sidebar directly (rather than receiving it pre-rendered as
+   a ReactNode, like before) because Sidebar's own inline collapse
+   button needs to call back into this component's toggle() -- a
+   client callback can't cross the server->client boundary as part of
+   pre-rendered JSX, so the caller (app/(app)/layout.tsx) now passes
+   Sidebar's plain data props through this component instead. */
 export function SidebarShell({
-  sidebar,
+  currentName,
+  schools,
+  isAdmin,
+  vas,
+  schoolVaAssigned,
+  addSchool,
   initialCollapsed,
   children,
 }: {
-  sidebar: React.ReactNode;
+  currentName: string;
+  schools: { id: string; name: string }[];
+  isAdmin: boolean;
+  vas: Va[];
+  schoolVaAssigned: Record<string, string>;
+  addSchool: (formData: FormData) => void;
   initialCollapsed: boolean;
   children: React.ReactNode;
 }) {
@@ -37,17 +43,29 @@ export function SidebarShell({
 
   return (
     <div className="flex min-h-screen">
-      {!collapsed && sidebar}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={toggle}
-        aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
-        className="fixed top-4 left-4 z-20 border bg-background"
-      >
-        {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-      </Button>
+      {!collapsed && (
+        <Sidebar
+          currentName={currentName}
+          schools={schools}
+          isAdmin={isAdmin}
+          vas={vas}
+          schoolVaAssigned={schoolVaAssigned}
+          addSchool={addSchool}
+          onCollapse={toggle}
+        />
+      )}
+      {collapsed && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggle}
+          aria-label="Show sidebar"
+          className="fixed top-4 left-4 z-20 border bg-background"
+        >
+          <PanelLeftOpen className="h-4 w-4" />
+        </Button>
+      )}
       <main className={`flex-1 overflow-y-auto p-8 ${collapsed ? "pt-12 pl-12" : ""}`}>{children}</main>
     </div>
   );

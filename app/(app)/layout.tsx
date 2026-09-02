@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
-import { Sidebar } from "@/components/sidebar";
 import { SidebarShell } from "@/components/sidebar-shell";
+import { addSchool } from "./layout-actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -24,9 +24,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const sidebarCollapsed = (await cookies()).get("sidebar-collapsed")?.value === "1";
 
+  const schoolVaAssigned: Record<string, string> = {};
+  for (const schoolId of Object.keys(state.schoolData)) {
+    const va = state.schoolData[schoolId]?.vaAssigned;
+    if (va) schoolVaAssigned[schoolId] = va;
+  }
+
   return (
     <SidebarShell
-      sidebar={<Sidebar currentName={me.name} schools={state.schools} isAdmin={isAdmin(me)} />}
+      currentName={me.name}
+      schools={state.schools}
+      isAdmin={isAdmin(me)}
+      vas={state.vas}
+      schoolVaAssigned={schoolVaAssigned}
+      addSchool={addSchool}
       initialCollapsed={sidebarCollapsed}
     >
       {children}

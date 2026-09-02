@@ -303,13 +303,13 @@ export async function restoreBackup(formData: FormData) {
      delete-then-insert is safe -- no security definer function needed. */
   const { error: delCatError } = await supabase.from("task_categories").delete().neq("id", "");
   orThrow(delCatError);
-  const catRows = backup.taskCategories!.map((c) => ({ id: c.id, name: c.name }));
+  const catRows = backup.taskCategories!.map((c, index) => ({ id: c.id, name: c.name, sort_order: index }));
   const { error: insCatError } = await supabase.from("task_categories").insert(catRows);
   orThrow(insCatError);
 
   const { error: delTemplateError } = await supabase.from("checklist_template").delete().neq("id", "");
   orThrow(delTemplateError);
-  const templateRows = backup.checklistTemplate.map((t) => ({ id: t.id, description: t.description }));
+  const templateRows = backup.checklistTemplate.map((t, index) => ({ id: t.id, description: t.description, sort_order: index }));
   const { error: insTemplateError } = await supabase.from("checklist_template").insert(templateRows);
   orThrow(insTemplateError);
 
@@ -402,12 +402,13 @@ export async function restoreBackup(formData: FormData) {
   const { error: delTemplatesError } = await supabase.from("email_templates").delete().neq("id", "");
   orThrow(delTemplatesError);
   if (backup.emailTemplates!.length) {
-    const templateRows = backup.emailTemplates!.map((t) => ({
+    const templateRows = backup.emailTemplates!.map((t, index) => ({
       id: t.id,
       name: t.name,
       category: t.category || null,
       subject: t.subject,
       body: t.body,
+      sort_order: index,
     }));
     const { error: insTemplatesError } = await supabase.from("email_templates").insert(templateRows);
     orThrow(insTemplatesError);
@@ -419,26 +420,28 @@ export async function restoreBackup(formData: FormData) {
   const { error: delGroupsError } = await supabase.from("contact_groups").delete().neq("id", "");
   orThrow(delGroupsError);
   if (backup.contactGroups!.length) {
-    const groupRows = backup.contactGroups!.map((g) => ({ id: g.id, name: g.name }));
+    const groupRows = backup.contactGroups!.map((g, index) => ({ id: g.id, name: g.name, sort_order: index }));
     const { error: insGroupsError } = await supabase.from("contact_groups").insert(groupRows);
     orThrow(insGroupsError);
 
-    const contactRowRows = backup.contactGroups!.flatMap((g) =>
-      g.rows.map((r) => ({
-        id: r.id,
-        group_id: g.id,
-        school: r.school,
-        principal: r.principal || null,
-        principal_email: r.principalEmail || null,
-        asst_principal: r.asstPrincipal || null,
-        asst_principal_email: r.asstPrincipalEmail || null,
-        front_desk: r.frontDesk || null,
-        front_desk_email: r.frontDeskEmail || null,
-        nurse_name: r.nurseName || null,
-        nurse_email: r.nurseEmail || null,
-        notes: r.notes || null,
-      }))
+    const allContactRows = backup.contactGroups!.flatMap((g) =>
+      g.rows.map((r) => ({ groupId: g.id, row: r }))
     );
+    const contactRowRows = allContactRows.map((entry, index) => ({
+      id: entry.row.id,
+      group_id: entry.groupId,
+      school: entry.row.school,
+      principal: entry.row.principal || null,
+      principal_email: entry.row.principalEmail || null,
+      asst_principal: entry.row.asstPrincipal || null,
+      asst_principal_email: entry.row.asstPrincipalEmail || null,
+      front_desk: entry.row.frontDesk || null,
+      front_desk_email: entry.row.frontDeskEmail || null,
+      nurse_name: entry.row.nurseName || null,
+      nurse_email: entry.row.nurseEmail || null,
+      notes: entry.row.notes || null,
+      sort_order: index,
+    }));
     if (contactRowRows.length) {
       const { error: insRowsError } = await supabase.from("contact_rows").insert(contactRowRows);
       orThrow(insRowsError);

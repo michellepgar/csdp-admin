@@ -13,6 +13,9 @@ import {
   type ChecklistTemplateItem,
   type Task,
   type EmailTrackerItem,
+  type Suggestion,
+  type GeneralNote,
+  type PrivateNote,
 } from "@/lib/app-state";
 
 async function requireAdminAndState() {
@@ -116,6 +119,40 @@ function isValidEmailTrackerRow(e: unknown): e is EmailTrackerItem {
   );
 }
 
+function isValidSuggestionRow(s: unknown): s is Suggestion {
+  return (
+    !!s &&
+    typeof s === "object" &&
+    typeof (s as Suggestion).id === "string" &&
+    (s as Suggestion).id.length > 0 &&
+    typeof (s as Suggestion).text === "string" &&
+    typeof (s as Suggestion).author === "string" &&
+    typeof (s as Suggestion).status === "string"
+  );
+}
+
+function isValidGeneralNoteRow(n: unknown): n is GeneralNote {
+  return (
+    !!n &&
+    typeof n === "object" &&
+    typeof (n as GeneralNote).id === "string" &&
+    (n as GeneralNote).id.length > 0 &&
+    typeof (n as GeneralNote).text === "string" &&
+    typeof (n as GeneralNote).author === "string"
+  );
+}
+
+function isValidPrivateNoteRow(n: unknown): n is PrivateNote {
+  return (
+    !!n &&
+    typeof n === "object" &&
+    typeof (n as PrivateNote).id === "string" &&
+    (n as PrivateNote).id.length > 0 &&
+    typeof (n as PrivateNote).text === "string" &&
+    typeof (n as PrivateNote).author === "string"
+  );
+}
+
 export async function restoreBackup(formData: FormData) {
   const { supabase } = await requireAdminAndState();
   const confirm = (formData.get("confirm") as string) || "";
@@ -175,7 +212,13 @@ export async function restoreBackup(formData: FormData) {
         typeof sd === "object" &&
         (sd.tasks || []).every(isValidTaskRow) &&
         (sd.emailTracker || []).every(isValidEmailTrackerRow)
-    )
+    ) ||
+    !Array.isArray((parsed as AppState).suggestions) ||
+    !(parsed as AppState).suggestions!.every(isValidSuggestionRow) ||
+    !Array.isArray((parsed as AppState).generalNotes) ||
+    !(parsed as AppState).generalNotes!.every(isValidGeneralNoteRow) ||
+    !Array.isArray((parsed as AppState).privateNotes) ||
+    !(parsed as AppState).privateNotes!.every(isValidPrivateNoteRow)
   ) {
     return;
   }
@@ -260,6 +303,47 @@ export async function restoreBackup(formData: FormData) {
   if (emailRows.length) {
     const { error: insEmailError } = await supabase.from("email_tracker_items").insert(emailRows);
     orThrow(insEmailError);
+  }
+
+  const { error: delSuggestionsError } = await supabase.from("suggestions").delete().neq("id", "");
+  orThrow(delSuggestionsError);
+  if (backup.suggestions!.length) {
+    const suggestionRows = backup.suggestions!.map((s) => ({
+      id: s.id,
+      text: s.text,
+      author: s.author,
+      status: s.status,
+    }));
+    const { error: insSuggestionsError } = await supabase.from("suggestions").insert(suggestionRows);
+    orThrow(insSuggestionsError);
+  }
+
+  const { error: delNotesError } = await supabase.from("general_notes").delete().neq("id", "");
+  orThrow(delNotesError);
+  if (backup.generalNotes!.length) {
+    const noteRows = backup.generalNotes!.map((n) => ({
+      id: n.id,
+      text: n.text,
+      author: n.author,
+      urgency: n.urgency || null,
+      ack_by: n.ackBy || [],
+    }));
+    const { error: insNotesError } = await supabase.from("general_notes").insert(noteRows);
+    orThrow(insNotesError);
+  }
+
+  const { error: delPrivateError } = await supabase.from("private_notes").delete().neq("id", "");
+  orThrow(delPrivateError);
+  if (backup.privateNotes!.length) {
+    const privateRows = backup.privateNotes!.map((n) => ({
+      id: n.id,
+      text: n.text,
+      author: n.author,
+      shared_with: n.sharedWith || [],
+      ack_by: n.ackBy || [],
+    }));
+    const { error: insPrivateError } = await supabase.from("private_notes").insert(privateRows);
+    orThrow(insPrivateError);
   }
 
   await saveState(supabase, backup);

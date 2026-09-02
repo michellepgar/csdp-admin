@@ -11,6 +11,10 @@ import type {
   Suggestion,
   GeneralNote,
   PrivateNote,
+  EmailTemplate,
+  ContactGroup,
+  ContactRow,
+  NurseLeader,
 } from "@/lib/app-state";
 
 type VaRow = {
@@ -133,6 +137,57 @@ function mapPrivateNoteRow(r: PrivateNoteRow): PrivateNote {
   };
 }
 
+type EmailTemplateRow = {
+  id: string;
+  name: string;
+  category: string | null;
+  subject: string;
+  body: string;
+};
+
+function mapEmailTemplateRow(r: EmailTemplateRow): EmailTemplate {
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category ?? undefined,
+    subject: r.subject,
+    body: r.body,
+  };
+}
+
+type ContactGroupRow = { id: string; name: string };
+
+type ContactRowDbRow = {
+  id: string;
+  group_id: string;
+  school: string;
+  principal: string | null;
+  principal_email: string | null;
+  asst_principal: string | null;
+  asst_principal_email: string | null;
+  front_desk: string | null;
+  front_desk_email: string | null;
+  nurse_name: string | null;
+  nurse_email: string | null;
+  notes: string | null;
+};
+
+function mapContactRowDbRow(r: ContactRowDbRow): ContactRow {
+  return {
+    id: r.id,
+    school: r.school,
+    principal: r.principal ?? undefined,
+    principalEmail: r.principal_email ?? undefined,
+    asstPrincipal: r.asst_principal ?? undefined,
+    asstPrincipalEmail: r.asst_principal_email ?? undefined,
+    frontDesk: r.front_desk ?? undefined,
+    frontDeskEmail: r.front_desk_email ?? undefined,
+    nurseName: r.nurse_name ?? undefined,
+    nurseEmail: r.nurse_email ?? undefined,
+    notes: r.notes ?? undefined,
+  };
+}
+
 /* Kept in its own file, separate from lib/app-state.ts's types/constants
    — this imports @/lib/supabase/server (next/headers), which is
    server-only. lib/app-state.ts is imported by client components too
@@ -170,6 +225,10 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     suggestionsResult,
     generalNotesResult,
     privateNotesResult,
+    emailTemplatesResult,
+    contactGroupsResult,
+    contactRowsResult,
+    settingsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).single(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
@@ -182,6 +241,10 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
     supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at").order("created_at"),
     supabase.from("private_notes").select("id, text, author, shared_with, ack_by, created_at").order("created_at"),
+    supabase.from("email_templates").select("id, name, category, subject, body").order("created_at"),
+    supabase.from("contact_groups").select("id, name").order("created_at"),
+    supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("created_at"),
+    supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -195,6 +258,10 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (suggestionsResult.error) return null;
   if (generalNotesResult.error) return null;
   if (privateNotesResult.error) return null;
+  if (emailTemplatesResult.error) return null;
+  if (contactGroupsResult.error) return null;
+  if (contactRowsResult.error) return null;
+  if (settingsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -233,6 +300,24 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     sd.emailTracker = sd.emailTracker || [];
     sd.emailTracker.push(mapEmailTrackerRow(e as EmailTrackerRow));
   }
+
+  state.emailTemplates = (emailTemplatesResult.data || []).map((r) => mapEmailTemplateRow(r as EmailTemplateRow));
+
+  const contactGroupsById = new Map<string, ContactGroup>();
+  for (const g of (contactGroupsResult.data || []) as ContactGroupRow[]) {
+    contactGroupsById.set(g.id, { id: g.id, name: g.name, rows: [] });
+  }
+  for (const r of (contactRowsResult.data || []) as ContactRowDbRow[]) {
+    const group = contactGroupsById.get(r.group_id);
+    if (group) group.rows.push(mapContactRowDbRow(r));
+  }
+  state.contactGroups = Array.from(contactGroupsById.values());
+
+  const settingsByKey = new Map((settingsResult.data || []).map((s) => [s.key, s.value]));
+  const nurseLeaderValue = settingsByKey.get("nurseLeader") as NurseLeader | undefined;
+  state.nurseLeader = nurseLeaderValue || { name: "", email: "" };
+  const communicationEditorValue = settingsByKey.get("communicationEditor") as { value?: string } | undefined;
+  state.communicationEditor = communicationEditorValue?.value || undefined;
 
   return state;
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardCheck, PanelRightClose } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export function ChecklistCard({
         aria-label="Show Yearly Checklist"
         className="ml-auto border bg-background"
       >
-        <ClipboardCheck className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" />
       </Button>
     );
   }
@@ -58,7 +58,7 @@ export function ChecklistCard({
     // the row's width. Tasks (flex-1 on its own wrapper in
     // schools/[id]/page.tsx) takes whatever this leaves. ml-auto docks
     // it to the row's right edge explicitly.
-    <div className="ml-auto w-fit max-w-full rounded-md border sm:max-w-sm">
+    <div className="ml-auto w-fit max-w-full rounded-md border sm:max-w-xs">
       <div className="flex items-center justify-between gap-2 border-b bg-header-background p-3">
         <h2 className="font-semibold whitespace-nowrap">
           Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{doneCount}/{template.length}</span>}
@@ -68,7 +68,7 @@ export function ChecklistCard({
             {editorOpen ? "Close editor" : "Edit template"}
           </Button>
           <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHidden(true)} aria-label="Hide Yearly Checklist">
-            <PanelRightClose className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>

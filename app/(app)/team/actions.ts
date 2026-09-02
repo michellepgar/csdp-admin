@@ -87,9 +87,13 @@ export async function toggleVaAdmin(formData: FormData) {
 }
 
 export async function setCommunicationEditor(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
-  state.communicationEditor = (formData.get("name") as string) || "";
-  await saveLegacyState(supabase, state);
+  const { supabase } = await requireAdminAndState();
+  const name = (formData.get("name") as string) || "";
+
+  const { error } = await supabase
+    .from("settings")
+    .upsert({ key: "communicationEditor", value: { value: name } }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
   revalidatePath("/team");
 }
 

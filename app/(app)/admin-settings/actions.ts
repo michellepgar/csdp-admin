@@ -73,18 +73,25 @@ export async function restoreBackup(formData: FormData) {
     return;
   }
   /* Sanity check before touching anything: a real backup always has
-     vas and schools arrays, and every row in them must at least look
-     like a real Va/School (non-empty id + name) — vas and schools now
-     live in their own tables, and this restore deletes-then-reinserts
-     both, so a malformed file must be rejected upfront rather than
-     partway through, or it can leave a table wiped with nothing valid
-     to put back. */
+     non-empty vas and schools arrays, and every row in them must at
+     least look like a real Va/School (non-empty id + name) — vas and
+     schools now live in their own tables, and this restore
+     deletes-then-reinserts both, so a malformed file must be rejected
+     upfront rather than partway through, or it can leave a table
+     wiped with nothing valid to put back. The length checks matter as
+     much as the row-shape checks: an EMPTY array passes `.every(...)`
+     vacuously (there are no invalid rows in nothing), so without them
+     a backup with an empty vas/schools array would sail through
+     validation and still wipe the table with nothing to restore —
+     this happened for real during Phase 1's rollout. */
   if (
     !parsed ||
     typeof parsed !== "object" ||
     !Array.isArray((parsed as AppState).vas) ||
+    (parsed as AppState).vas.length === 0 ||
     !(parsed as AppState).vas.every(isValidVaRow) ||
     !Array.isArray((parsed as AppState).schools) ||
+    (parsed as AppState).schools.length === 0 ||
     !(parsed as AppState).schools.every(isValidSchoolRow)
   ) {
     return;

@@ -1,10 +1,11 @@
-export type StatusTone = "neutral" | "success" | "warning" | "danger";
+export type StatusTone = "neutral" | "success" | "warning" | "danger" | "paused";
 
 const TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "bg-status-neutral text-status-neutral-foreground",
   success: "bg-status-success text-status-success-foreground",
   warning: "bg-status-warning text-status-warning-foreground",
   danger: "bg-status-danger text-status-danger-foreground",
+  paused: "bg-status-paused text-status-paused-foreground",
 };
 
 // A colored pill for a status or severity value (e.g. "Pending",

@@ -47,6 +47,8 @@
   --color-status-danger-foreground: var(--status-danger-foreground);
   --color-status-neutral: var(--status-neutral);
   --color-status-neutral-foreground: var(--status-neutral-foreground);
+  --color-status-paused: var(--status-paused);
+  --color-status-paused-foreground: var(--status-paused-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -97,6 +99,8 @@
   --status-danger-foreground: oklch(0.505 0.213 27.518);
   --status-neutral: oklch(0.968 0.007 247.896);
   --status-neutral-foreground: oklch(0.372 0.044 257.287);
+  --status-paused: oklch(0.954 0.038 75.164);
+  --status-paused-foreground: oklch(0.553 0.195 38.402);
 }
 
 .dark {
@@ -139,6 +143,8 @@
   --status-danger-foreground: oklch(0.704 0.191 22.216);
   --status-neutral: oklch(0.279 0.041 260.031);
   --status-neutral-foreground: oklch(0.869 0.022 252.894);
+  --status-paused: oklch(0.408 0.123 38.172);
+  --status-paused-foreground: oklch(0.75 0.183 55.934);
 }
 
 @layer base {

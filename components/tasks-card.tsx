@@ -4,9 +4,23 @@ import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TASK_STATUS_OPTIONS, COUNT_CATEGORIES, type Task, type TaskCategory } from "@/lib/app-state";
+
+const TASK_STATUS_TONE: Record<string, StatusTone> = {
+  "In Progress": "warning",
+  Paused: "paused",
+  Completed: "success",
+  Communications: "neutral",
+};
+
+/* Initial and Recheck are the two categories where a VA sometimes
+   needs to log "we reached out about this record" separately from
+   the regular In Progress/Paused/Completed lifecycle -- so those two
+   categories' status dropdown gets this extra option, others don't. */
+const CATEGORIES_WITH_COMMUNICATIONS_STATUS = ["Initial", "Recheck"];
 
 function TaskRow({
   schoolId,
@@ -77,21 +91,27 @@ function TaskRow({
         )}
       </div>
 
-      <AutoSubmitForm action={setTaskStatus}>
-        <input type="hidden" name="schoolId" value={schoolId} />
-        <input type="hidden" name="taskId" value={task.id} />
-        <select
-          key={task.status}
-          name="status"
-          defaultValue={task.status}
-          disabled={!canEdit}
-          className="rounded-md border px-2 py-1 text-xs"
-        >
-          {TASK_STATUS_OPTIONS.map((s) => (
-            <option key={s || "none"} value={s}>{s || "—"}</option>
-          ))}
-        </select>
-      </AutoSubmitForm>
+      <div className="flex items-center gap-2">
+        <StatusBadge tone={TASK_STATUS_TONE[task.status] ?? "neutral"}>{task.status || "—"}</StatusBadge>
+        <AutoSubmitForm action={setTaskStatus}>
+          <input type="hidden" name="schoolId" value={schoolId} />
+          <input type="hidden" name="taskId" value={task.id} />
+          <select
+            key={task.status}
+            name="status"
+            defaultValue={task.status}
+            disabled={!canEdit}
+            className="rounded-md border px-2 py-1 text-xs"
+          >
+            {(CATEGORIES_WITH_COMMUNICATIONS_STATUS.includes(task.category)
+              ? [...TASK_STATUS_OPTIONS, "Communications"]
+              : TASK_STATUS_OPTIONS
+            ).map((s) => (
+              <option key={s || "none"} value={s}>{s || "—"}</option>
+            ))}
+          </select>
+        </AutoSubmitForm>
+      </div>
 
       <DeleteOrRequestControl
         canDelete={canEdit}
@@ -145,6 +165,9 @@ export function TasksCard({
   const catNames = categories.map((c) => c.name);
   const openCount = tasks.filter((t) => t.status !== "Completed").length;
   const pendingSet = new Set(pendingRemovalRequestIds);
+  const inProgressCount = tasks.filter((t) => t.status === "In Progress").length;
+  const pausedCount = tasks.filter((t) => t.status === "Paused").length;
+  const completedCount = tasks.filter((t) => t.status === "Completed").length;
 
   const rowProps = {
     schoolId,
@@ -161,9 +184,14 @@ export function TasksCard({
   return (
     <div className="rounded-md border">
       <div className="flex items-center justify-between border-b p-3">
-        <h2 className="font-semibold">
-          Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">
+            Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}
+          </h2>
+          <StatusBadge tone="warning">{inProgressCount}</StatusBadge>
+          <StatusBadge tone="paused">{pausedCount}</StatusBadge>
+          <StatusBadge tone="success">{completedCount}</StatusBadge>
+        </div>
         <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
           {editorOpen ? "Close editor" : "Edit categories"}
         </Button>

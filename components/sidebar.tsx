@@ -23,7 +23,6 @@ import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
-import { DraftContactList, type DraftContact } from "@/components/draft-contact-list";
 
 export function Sidebar({
   currentName,
@@ -32,6 +31,7 @@ export function Sidebar({
   vas,
   schoolVaAssigned,
   addSchool,
+  addSchoolAndOpen,
   onCollapse,
 }: {
   currentName: string;
@@ -45,12 +45,15 @@ export function Sidebar({
      down here). */
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
+  /* Same as addSchool, but navigates to the new school's own page
+     afterward -- used by the "Add + Contact Info" button below, since
+     that page already has room for website/hours/contact people. */
+  addSchoolAndOpen: (formData: FormData) => void;
   onCollapse: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [vaFilter, setVaFilter] = useState("");
   const [addingSchool, setAddingSchool] = useState(false);
-  const [draftContacts, setDraftContacts] = useState<DraftContact[]>([]);
 
   const colorByVaName = new Map(vas.filter((v) => v.color).map((v) => [v.name, v.color as string]));
   const myColor = colorByVaName.get(currentName);
@@ -128,10 +131,7 @@ export function Sidebar({
         {addingSchool ? (
           <form
             action={addSchool}
-            onSubmit={() => {
-              setAddingSchool(false);
-              setDraftContacts([]);
-            }}
+            onSubmit={() => setAddingSchool(false)}
             className="mx-2 mt-1 space-y-2 rounded-md border p-2"
           >
             <Input name="name" placeholder="School name" required autoFocus className="h-8 text-sm" />
@@ -141,12 +141,14 @@ export function Sidebar({
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
-            <DraftContactList contacts={draftContacts} onChange={setDraftContacts} />
-            <input type="hidden" name="contacts" value={JSON.stringify(draftContacts)} />
-            <Input name="website" placeholder="School website (optional)" className="h-8 text-sm" />
-            <Input name="hours" placeholder="School hours (optional)" className="h-8 text-sm" />
-            <div className="flex items-center gap-1">
-              <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
+            <p className="text-xs text-muted-foreground">Add contact info (website, hours, contact people) now, or later on the school's own page?</p>
+            <div className="flex flex-col gap-1">
+              <SubmitButton formAction={addSchoolAndOpen} pendingLabel="…" size="sm">
+                Add + contact info now
+              </SubmitButton>
+              <SubmitButton pendingLabel="…" variant="outline" size="sm">
+                Add, I&apos;ll fill it in later
+              </SubmitButton>
               <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>
                 Cancel
               </Button>

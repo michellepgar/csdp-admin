@@ -1,0 +1,26 @@
+-- clear_all_schools.sql — run once in Supabase's SQL Editor for
+-- project jqsqstjmfsqqrnoxpuvn, whenever Michelle is ready to remove
+-- every current school and start adding real ones manually.
+--
+-- Safe by construction: tasks, email_tracker_items, and
+-- checklist_progress all have "on delete cascade" on their
+-- school_id foreign key (see supabase/phase2_relational_tasks_checklist.sql),
+-- so deleting from schools automatically removes every task,
+-- checklist-progress entry, and email-tracker item tied to a deleted
+-- school — no separate delete statements needed for those three.
+--
+-- NOT touched by this (on purpose): Contacts (contact_rows) and
+-- Distribution List (distribution_rows) store the school as a plain
+-- text field, not a foreign key to the schools table, so they are
+-- completely unaffected — any existing contact/distribution rows for
+-- these schools will still be there afterward, just no longer linked
+-- to anything in the Schools list. (This is exactly the gap the
+-- "school onboarding" idea — auto-populating Contacts/Distribution
+-- List when a school is added — is meant to close later.)
+--
+-- Also unaffected: each VA's own school assignment lives in the
+-- app_state blob's schoolData, keyed by school id. Deleting a school
+-- leaves a harmless orphaned entry there (never looked up again once
+-- the school itself is gone) — no cleanup needed.
+
+delete from schools where true;

@@ -295,6 +295,22 @@ export async function removeEmailItem(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
+/* ---------- School details (website/hours) ---------- */
+
+export async function updateSchoolDetails(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+  const website = ((formData.get("website") as string) || "").trim();
+  const hours = ((formData.get("hours") as string) || "").trim();
+
+  const { error } = await supabase
+    .from("schools")
+    .update({ website: website || null, hours: hours || null })
+    .eq("id", schoolId);
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
 /* ---------- Remove school ---------- */
 
 /* Deletes the school row only. Cascades (via "on delete cascade" FKs)

@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, DISTRIBUTION_CLASSROOM_TYPES, DISTRIBUTION_LANGUAGES } from "@/lib/app-state";
-import { syncContactRowEmail } from "@/lib/sync-contact-row";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -37,7 +37,7 @@ function emptyBreakdown(): Record<string, Record<string, string>> {
 
 // Finds a group by exact name, or creates it with the next sort_order,
 // and returns its id either way. Shared by the Contacts and
-// Distribution List "find or create the group" steps in addSchool
+// Distribution List "find or create the group" steps in createSchool
 // below, which were otherwise identical apart from the table name.
 async function findOrCreateGroupByName(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -62,50 +62,33 @@ async function findOrCreateGroupByName(
   return newId;
 }
 
-/* Any signed-in team member can add a school (not admin-only),
-   matching addContactGroup/addDistributionGroup elsewhere in this
-   app. When a group is picked, also adds a blank row for this school
-   to the same-named group on Contacts and Distribution List --
-   creating that group there too if it doesn't already exist with
-   that exact name -- so the school doesn't need adding a second and
-   third time on those pages. Contact/distribution detail fields are
-   deliberately left blank; filling them in is a normal edit on those
-   pages, same as any other row.
+/* Shared by addSchool and addSchoolAndOpen -- creates the school row
+   and, if a group is picked, a blank row for it on Contacts and
+   Distribution List (creating that group there too if it doesn't
+   already exist with that exact name). Website/hours and the
+   contact-person list are entered later, on the school's own page
+   (which has room for them) -- not part of this quick sidebar form
+   anymore.
 
    Known, accepted risks:
    - Neither contact_groups.name nor distribution_groups.name has a
-     unique constraint, so two concurrent addSchool calls picking the
-     same brand-new group name could both pass the "does it exist"
-     check and insert a duplicate group. This is a small team doing
+     unique constraint, so two concurrent calls picking the same
+     brand-new group name could both pass the "does it exist" check
+     and insert a duplicate group. This is a small team doing
      infrequent school additions, so a DB constraint/transaction isn't
      warranted right now -- just noting the gap.
-   - This function does 5 sequential writes with no transaction or
-     rollback. If an early write succeeds and a later one fails (e.g.
-     the school insert succeeds but a group or row insert doesn't),
+   - This function does several sequential writes with no transaction
+     or rollback. If an early write succeeds and a later one fails,
      the school or a group can be left without its counterpart rows.
      Noted here so a future debugger knows where to look. */
-export async function addSchool(formData: FormData) {
-  const { supabase } = await requireUserAndState();
-
-  const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
-
-  const website = ((formData.get("website") as string) || "").trim();
-  const hours = ((formData.get("hours") as string) || "").trim();
-
+async function createSchool(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  name: string,
+  groupName: string
+): Promise<string> {
   const schoolId = crypto.randomUUID();
-  orThrow(
-    (
-      await supabase.from("schools").insert({
-        id: schoolId,
-        name,
-        website: website || null,
-        hours: hours || null,
-      })
-    ).error
-  );
+  orThrow((await supabase.from("schools").insert({ id: schoolId, name })).error);
 
-  const groupName = ((formData.get("groupName") as string) || "").trim();
   if (groupName) {
     // Contacts: find-or-create the group, then add a blank row.
     // sort_order here mirrors addContactRow's own existing convention
@@ -154,39 +137,39 @@ export async function addSchool(formData: FormData) {
     );
   }
 
-  // Contact people: each becomes a school_contacts row; the affected
-  // positions' matching contact_rows email columns are synced
-  // afterward (a no-op for any position with no contact_rows entry to
-  // write into -- see syncContactRowEmail's own doc comment).
-  const contactsJson = (formData.get("contacts") as string) || "[]";
-  let contacts: { position: string; email: string }[] = [];
-  try {
-    const parsed = JSON.parse(contactsJson);
-    if (Array.isArray(parsed)) contacts = parsed;
-  } catch {
-    contacts = [];
-  }
+  return schoolId;
+}
 
-  const positionsUsed = new Set<string>();
-  for (const c of contacts) {
-    if (!c || typeof c.position !== "string" || typeof c.email !== "string") continue;
-    const email = c.email.trim();
-    if (!email) continue;
-    orThrow(
-      (
-        await supabase.from("school_contacts").insert({
-          id: crypto.randomUUID(),
-          school_id: schoolId,
-          position: c.position,
-          email,
-        })
-      ).error
-    );
-    positionsUsed.add(c.position);
-  }
-  for (const position of positionsUsed) {
-    await syncContactRowEmail(supabase, schoolId, name, position);
-  }
+/* Any signed-in team member can add a school (not admin-only),
+   matching addContactGroup/addDistributionGroup elsewhere in this
+   app. Just creates the school (and its Contacts/Distribution List
+   rows, if a group is picked) and stays on the current page -- use
+   addSchoolAndOpen instead when the sidebar's "Add + Contact Info"
+   button is used, which also navigates to the new school's own page
+   afterward. */
+export async function addSchool(formData: FormData) {
+  const { supabase } = await requireUserAndState();
 
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+  const groupName = ((formData.get("groupName") as string) || "").trim();
+
+  await createSchool(supabase, name, groupName);
   revalidatePath("/", "layout");
+}
+
+/* Same as addSchool, but navigates straight to the new school's own
+   page afterward -- that page already has room for website, hours,
+   and the contact-person list, so there's no separate "add contact
+   info" page to build. */
+export async function addSchoolAndOpen(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+  const groupName = ((formData.get("groupName") as string) || "").trim();
+
+  const schoolId = await createSchool(supabase, name, groupName);
+  revalidatePath("/", "layout");
+  redirect(`/schools/${schoolId}`);
 }

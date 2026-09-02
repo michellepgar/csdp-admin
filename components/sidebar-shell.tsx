@@ -21,6 +21,7 @@ export function SidebarShell({
   vas,
   schoolVaAssigned,
   addSchool,
+  addSchoolAndOpen,
   initialCollapsed,
   children,
 }: {
@@ -30,6 +31,7 @@ export function SidebarShell({
   vas: Va[];
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
+  addSchoolAndOpen: (formData: FormData) => void;
   initialCollapsed: boolean;
   children: React.ReactNode;
 }) {
@@ -51,6 +53,7 @@ export function SidebarShell({
           vas={vas}
           schoolVaAssigned={schoolVaAssigned}
           addSchool={addSchool}
+          addSchoolAndOpen={addSchoolAndOpen}
           onCollapse={toggle}
         />
       )}

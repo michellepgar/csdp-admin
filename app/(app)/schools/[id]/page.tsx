@@ -24,11 +24,14 @@ import {
   addSchoolContact,
   updateSchoolContact,
   removeSchoolContact,
+  updateSchoolDetails,
   removeSchool,
   removeSchoolAndContacts,
 } from "./actions";
 import { SchoolContactsList } from "@/components/school-contacts-list";
 import { RemoveSchoolControl } from "@/components/remove-school-control";
+import { AutoSubmitForm } from "@/components/auto-submit-form";
+import { Input } from "@/components/ui/input";
 
 export default async function SchoolPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: schoolId } = await params;
@@ -125,16 +128,17 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           <h2 className="font-semibold">Contact Info</h2>
         </div>
         <div className="space-y-4 p-3">
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs font-semibold uppercase text-muted-foreground">Website</dt>
-              <dd className="whitespace-pre-wrap text-sm">{school.website || "—"}</dd>
+          <AutoSubmitForm action={updateSchoolDetails} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Website</label>
+              <Input key={school.website || ""} name="website" defaultValue={school.website || ""} placeholder="—" className="h-8 text-sm" />
             </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase text-muted-foreground">Hours</dt>
-              <dd className="whitespace-pre-wrap text-sm">{school.hours || "—"}</dd>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Hours</label>
+              <Input key={school.hours || ""} name="hours" defaultValue={school.hours || ""} placeholder="—" className="h-8 text-sm" />
             </div>
-          </dl>
+          </AutoSubmitForm>
 
           {!contactRow ? (
             <p className="text-sm text-muted-foreground">No contact info on file for this school yet.</p>

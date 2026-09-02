@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CONTACT_POSITIONS, type SchoolContact } from "@/lib/app-state";
 
-/* Live version of the contact-person list -- editable anytime on a
-   school's own page, unlike components/draft-contact-list.tsx's
-   client-only draft used in the add-school form before the school
-   exists. Every add/edit/delete here is a real Server Action call,
-   each of which re-syncs the matching contact_rows email column
-   server-side (see app/(app)/schools/[id]/actions.ts). */
+/* The contact-person list on a school's own page -- editable anytime.
+   The sidebar's add-school form no longer collects contacts directly;
+   it offers "Add + contact info now" (redirects here right after
+   creation, via addSchoolAndOpen) or "add later" (stays on the
+   sidebar, fill this in whenever). Every add/edit/delete here is a
+   real Server Action call, each of which re-syncs the matching
+   contact_rows email column server-side (see
+   app/(app)/schools/[id]/actions.ts). */
 export function SchoolContactsList({
   schoolId,
   contacts,

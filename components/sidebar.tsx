@@ -22,7 +22,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Va } from "@/lib/app-state";
+import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
+import { DraftContactList, type DraftContact } from "@/components/draft-contact-list";
 
 export function Sidebar({
   currentName,
@@ -31,7 +32,6 @@ export function Sidebar({
   vas,
   schoolVaAssigned,
   addSchool,
-  groupNames,
   onCollapse,
 }: {
   currentName: string;
@@ -45,16 +45,12 @@ export function Sidebar({
      down here). */
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
-  /* Deduplicated union of existing Contacts + Distribution List group
-     names, computed once in app/(app)/layout.tsx. Picking one in the
-     add-school form below adds the school to that same-named group on
-     both pages (see addSchool in app/(app)/layout-actions.ts). */
-  groupNames: string[];
   onCollapse: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [vaFilter, setVaFilter] = useState("");
   const [addingSchool, setAddingSchool] = useState(false);
+  const [draftContacts, setDraftContacts] = useState<DraftContact[]>([]);
 
   const colorByVaName = new Map(vas.filter((v) => v.color).map((v) => [v.name, v.color as string]));
   const myColor = colorByVaName.get(currentName);
@@ -132,16 +128,23 @@ export function Sidebar({
         {addingSchool ? (
           <form
             action={addSchool}
-            onSubmit={() => setAddingSchool(false)}
-            className="mx-2 mt-1 space-y-1 rounded-md border p-2"
+            onSubmit={() => {
+              setAddingSchool(false);
+              setDraftContacts([]);
+            }}
+            className="mx-2 mt-1 space-y-2 rounded-md border p-2"
           >
             <Input name="name" placeholder="School name" required autoFocus className="h-8 text-sm" />
             <select name="groupName" defaultValue="" className="w-full rounded-md border px-2 py-1.5 text-sm">
               <option value="">No group (add later)</option>
-              {groupNames.map((g) => (
+              {SCHOOL_GROUPS.map((g) => (
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
+            <DraftContactList contacts={draftContacts} onChange={setDraftContacts} />
+            <input type="hidden" name="contacts" value={JSON.stringify(draftContacts)} />
+            <Input name="website" placeholder="School website (optional)" className="h-8 text-sm" />
+            <Input name="hours" placeholder="School hours (optional)" className="h-8 text-sm" />
             <div className="flex items-center gap-1">
               <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
               <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>

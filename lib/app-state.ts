@@ -14,9 +14,21 @@ export interface Va {
   color?: string;
 }
 
+export const SCHOOL_GROUPS = ["Pre-K", "Elementary School", "Middle School", "High School"];
+export const CONTACT_POSITIONS = ["Principal", "Assistant Principal", "Front Desk", "Nurse"];
+
 export interface School {
   id: string;
   name: string;
+  website?: string;
+  hours?: string;
+}
+
+export interface SchoolContact {
+  id: string;
+  position: string;
+  email: string;
+  createdAt: string;
 }
 
 export interface ChecklistProgressEntry {
@@ -176,6 +188,10 @@ export interface AppState {
   schools: School[];
   vas: Va[];
   schoolData: Record<string, SchoolDataEntry>;
+  /* Keyed by school id -- every contact person for that school, in no
+     particular guaranteed order (fetch-app-state.ts pushes them in
+     created_at order, but this isn't re-sorted defensively here). */
+  schoolContacts?: Record<string, SchoolContact[]>;
   checklistTemplate: ChecklistTemplateItem[];
   checklistProgress: Record<string, ChecklistProgressEntry>;
   communicationEditor?: string;

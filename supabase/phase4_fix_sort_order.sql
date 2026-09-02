@@ -13,11 +13,13 @@
 -- out anymore) so the true original order is restored exactly once,
 -- then stays fixed regardless of future edits.
 
-alter table task_categories add column sort_order integer;
-alter table checklist_template add column sort_order integer;
-alter table email_templates add column sort_order integer;
-alter table contact_groups add column sort_order integer;
-alter table contact_rows add column sort_order integer;
+-- "if not exists" makes this safe to re-run in case an earlier attempt
+-- partially applied before failing on a later statement.
+alter table task_categories add column if not exists sort_order integer;
+alter table checklist_template add column if not exists sort_order integer;
+alter table email_templates add column if not exists sort_order integer;
+alter table contact_groups add column if not exists sort_order integer;
+alter table contact_rows add column if not exists sort_order integer;
 
 update task_categories t
 set sort_order = sub.idx

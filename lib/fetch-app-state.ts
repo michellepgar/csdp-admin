@@ -14,6 +14,9 @@ import type {
   EmailTemplate,
   ContactGroup,
   ContactRow,
+  DistributionRow,
+  DistributionCell,
+  DistributionGroup,
   NurseLeader,
   EodReport,
   Issue,
@@ -191,6 +194,29 @@ function mapContactRowDbRow(r: ContactRowDbRow): ContactRow {
   };
 }
 
+type DistributionGroupRow = { id: string; name: string };
+
+type DistributionRowDbRow = {
+  id: string;
+  group_id: string;
+  school: string;
+  enrolled: string | null;
+  contact_person: string | null;
+  remarks: string | null;
+  breakdown: Record<string, Record<string, DistributionCell>>;
+};
+
+function mapDistributionRowDbRow(r: DistributionRowDbRow): DistributionRow {
+  return {
+    id: r.id,
+    school: r.school,
+    enrolled: r.enrolled ?? undefined,
+    contactPerson: r.contact_person ?? undefined,
+    remarks: r.remarks ?? undefined,
+    breakdown: r.breakdown,
+  };
+}
+
 type EodReportRow = {
   id: string;
   author: string;
@@ -347,6 +373,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     emailTemplatesResult,
     contactGroupsResult,
     contactRowsResult,
+    distributionGroupsResult,
+    distributionRowsResult,
     settingsResult,
     eodReportsResult,
     issuesResult,
@@ -366,6 +394,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("email_templates").select("id, name, category, subject, body").order("sort_order"),
     supabase.from("contact_groups").select("id, name").order("sort_order"),
     supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),
+    supabase.from("distribution_groups").select("id, name").order("sort_order"),
+    supabase.from("distribution_rows").select("id, group_id, school, enrolled, contact_person, remarks, breakdown").order("sort_order"),
     supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
     supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
     supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by").order("created_at"),
@@ -386,6 +416,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (emailTemplatesResult.error) return null;
   if (contactGroupsResult.error) return null;
   if (contactRowsResult.error) return null;
+  if (distributionGroupsResult.error) return null;
+  if (distributionRowsResult.error) return null;
   if (settingsResult.error) return null;
   if (eodReportsResult.error) return null;
   if (issuesResult.error) return null;
@@ -440,6 +472,16 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     if (group) group.rows.push(mapContactRowDbRow(r));
   }
   state.contactGroups = Array.from(contactGroupsById.values());
+
+  const distributionGroupsById = new Map<string, DistributionGroup>();
+  for (const g of (distributionGroupsResult.data || []) as DistributionGroupRow[]) {
+    distributionGroupsById.set(g.id, { id: g.id, name: g.name, rows: [] });
+  }
+  for (const r of (distributionRowsResult.data || []) as DistributionRowDbRow[]) {
+    const group = distributionGroupsById.get(r.group_id);
+    if (group) group.rows.push(mapDistributionRowDbRow(r));
+  }
+  state.distributionGroups = Array.from(distributionGroupsById.values());
 
   const settingsByKey = new Map((settingsResult.data || []).map((s) => [s.key, s.value]));
   const nurseLeaderValue = settingsByKey.get("nurseLeader") as NurseLeader | undefined;

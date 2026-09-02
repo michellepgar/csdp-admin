@@ -16,6 +16,8 @@ import type {
   ContactRow,
   NurseLeader,
   EodReport,
+  Issue,
+  AccessRequest,
 } from "@/lib/app-state";
 
 type VaRow = {
@@ -217,6 +219,94 @@ function mapEodReportRow(r: EodReportRow): EodReport {
   };
 }
 
+type IssueRow = {
+  id: string;
+  type: string;
+  reported_by: string;
+  status: string;
+  created_at: string;
+  description: string | null;
+  category: string | null;
+  remarks: string | null;
+  student_name: string | null;
+  dob: string | null;
+  insurance_number: string | null;
+  school_year: string | null;
+  file_name: string | null;
+  page_number: string | null;
+  correcting_category: string | null;
+  correct_info: string | null;
+  correction_kind: string | null;
+  student_record_link: string | null;
+  needs_name_correction: boolean | null;
+  needs_dob_correction: boolean | null;
+  needs_insurance_correction: boolean | null;
+  needs_other_correction: boolean | null;
+  other_correction_detail: string | null;
+  question: string | null;
+  fixed_by: string[];
+};
+
+function mapIssueRow(r: IssueRow): Issue {
+  return {
+    id: r.id,
+    type: r.type as Issue["type"],
+    reportedBy: r.reported_by,
+    status: r.status,
+    createdAt: r.created_at,
+    description: r.description ?? undefined,
+    category: r.category ?? undefined,
+    remarks: r.remarks ?? undefined,
+    studentName: r.student_name ?? undefined,
+    dob: r.dob ?? undefined,
+    insuranceNumber: r.insurance_number ?? undefined,
+    schoolYear: r.school_year ?? undefined,
+    fileName: r.file_name ?? undefined,
+    pageNumber: r.page_number ?? undefined,
+    correctingCategory: r.correcting_category ?? undefined,
+    correctInfo: r.correct_info ?? undefined,
+    correctionKind: r.correction_kind ?? undefined,
+    studentRecordLink: r.student_record_link ?? undefined,
+    needsNameCorrection: r.needs_name_correction ?? undefined,
+    needsDobCorrection: r.needs_dob_correction ?? undefined,
+    needsInsuranceCorrection: r.needs_insurance_correction ?? undefined,
+    needsOtherCorrection: r.needs_other_correction ?? undefined,
+    otherCorrectionDetail: r.other_correction_detail ?? undefined,
+    question: r.question ?? undefined,
+    fixedBy: r.fixed_by,
+  };
+}
+
+type AccessRequestRow = {
+  id: string;
+  record_kind: string;
+  school_id: string | null;
+  target_id: string;
+  label: string;
+  reason: string;
+  requested_by: string;
+  status: string;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+};
+
+function mapAccessRequestRow(r: AccessRequestRow): AccessRequest {
+  return {
+    id: r.id,
+    recordKind: r.record_kind as AccessRequest["recordKind"],
+    schoolId: r.school_id ?? "",
+    targetId: r.target_id,
+    label: r.label,
+    reason: r.reason,
+    requestedBy: r.requested_by,
+    status: r.status as AccessRequest["status"],
+    resolvedBy: r.resolved_by ?? undefined,
+    resolvedAt: r.resolved_at ?? undefined,
+    createdAt: r.created_at,
+  };
+}
+
 /* Kept in its own file, separate from lib/app-state.ts's types/constants
    — this imports @/lib/supabase/server (next/headers), which is
    server-only. lib/app-state.ts is imported by client components too
@@ -259,6 +349,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     contactRowsResult,
     settingsResult,
     eodReportsResult,
+    issuesResult,
+    accessRequestsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).single(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
@@ -276,6 +368,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),
     supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
     supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
+    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by").order("created_at"),
+    supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -294,6 +388,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (contactRowsResult.error) return null;
   if (settingsResult.error) return null;
   if (eodReportsResult.error) return null;
+  if (issuesResult.error) return null;
+  if (accessRequestsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -352,6 +448,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   state.communicationEditor = communicationEditorValue?.value || undefined;
 
   state.eodReports = (eodReportsResult.data || []).map((r) => mapEodReportRow(r as EodReportRow));
+
+  state.issues = (issuesResult.data || []).map((r) => mapIssueRow(r as unknown as IssueRow));
+  state.accessRequests = (accessRequestsResult.data || []).map((r) => mapAccessRequestRow(r as AccessRequestRow));
 
   return state;
 });

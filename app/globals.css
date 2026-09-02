@@ -49,6 +49,7 @@
   --color-status-neutral-foreground: var(--status-neutral-foreground);
   --color-status-paused: var(--status-paused);
   --color-status-paused-foreground: var(--status-paused-foreground);
+  --color-header-background: var(--header-background);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -101,6 +102,12 @@
   --status-neutral-foreground: oklch(0.372 0.044 257.287);
   --status-paused: oklch(0.954 0.038 75.164);
   --status-paused-foreground: oklch(0.553 0.195 38.402);
+  /* A pale wash of --primary's own hue -- deliberately colored (not a
+     near-white neutral like --muted) so a header's background is
+     visibly distinct from the plain page background behind it, with
+     enough lightness gap from --primary for the header text to stay
+     legible sitting on top of it. */
+  --header-background: oklch(0.95 0.03 223.128);
 }
 
 .dark {
@@ -145,6 +152,7 @@
   --status-neutral-foreground: oklch(0.869 0.022 252.894);
   --status-paused: oklch(0.408 0.123 38.172);
   --status-paused-foreground: oklch(0.75 0.183 55.934);
+  --header-background: oklch(0.279 0.08 211.53);
 }
 
 @layer base {
@@ -161,14 +169,18 @@
      heading — no other use of either tag exists (verified by
      grepping app/ and components/). Keep it that way: an h1/h2 added
      for pure document-outline/SEO purposes elsewhere would silently
-     pick up the brand accent color too. h1 additionally stays pinned
-     to the top of the scrolling <main> while the rest of the page
-     scrolls beneath it — z-10/bg-background so scrolled content
-     doesn't show through underneath it. */
+     pick up the brand accent color too. Both get a visibly-colored
+     chip background (--header-background, a pale wash of --primary's
+     hue, not the plain page background -- that read as "no color at
+     all" against a white page) sized to the text itself
+     (inline-block + padding), not a full-width bar. h1 additionally
+     stays pinned to the top of the page while the rest of it scrolls
+     beneath -- z-10 plus the opaque chip background so scrolled
+     content doesn't show through underneath it. */
   h1 {
-    @apply text-primary sticky top-0 z-10 bg-background;
+    @apply text-primary sticky top-0 z-10 inline-block rounded-md bg-header-background px-3 py-1;
   }
   h2 {
-    @apply text-primary;
+    @apply text-primary inline-block rounded-md bg-header-background px-2 py-0.5;
   }
 }

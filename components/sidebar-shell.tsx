@@ -76,7 +76,7 @@ export function SidebarShell({
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex min-h-screen">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
@@ -85,10 +85,19 @@ export function SidebarShell({
         />
       )}
 
+      {/* On desktop the sidebar is "sticky" to the viewport and
+          scrolls its own overflow internally, rather than <main>
+          being the scrollable element -- position:sticky on a page's
+          h1 is anchored to whichever ancestor actually scrolls, and
+          nested-overflow scroll containers are exactly the case
+          mobile Safari (and some older WebKit) handles unreliably for
+          sticky positioning. Letting the document/body scroll
+          normally, like a plain page, is the one case sticky is
+          reliably supported everywhere. */}
       <div
         className={`fixed inset-y-0 left-0 z-40 transition-transform duration-200 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } md:static md:z-auto md:translate-x-0 md:transition-none ${collapsed ? "md:hidden" : "md:flex"}`}
+        } md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 md:overflow-y-auto md:transition-none ${collapsed ? "md:hidden" : "md:flex"}`}
       >
         <Sidebar
           currentName={currentName}
@@ -127,12 +136,15 @@ export function SidebarShell({
         </Button>
       )}
 
-      {/* Longhand padding per side and breakpoint, not the shorthand
+      {/* No overflow-y-auto here on purpose -- see the comment on the
+          sidebar wrapper above. The document itself scrolls; this is
+          just a normal flex-1 block.
+          Longhand padding per side and breakpoint, not the shorthand
           "p" / "pt" utilities, so the mobile top padding reserved for
           the hamburger button above can't be silently overridden by a
           same-breakpoint shorthand utility. */}
       <main
-        className={`min-h-0 flex-1 overflow-y-auto pt-14 pr-4 pb-4 pl-4 sm:pt-16 sm:pr-6 sm:pb-6 sm:pl-6 md:pt-8 md:pr-8 md:pb-8 md:pl-8 ${
+        className={`flex-1 pt-14 pr-4 pb-4 pl-4 sm:pt-16 sm:pr-6 sm:pb-6 sm:pl-6 md:pt-8 md:pr-8 md:pb-8 md:pl-8 ${
           collapsed ? "md:pt-12 md:pl-12" : ""
         }`}
       >

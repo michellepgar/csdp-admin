@@ -151,4 +151,7 @@
   html {
     @apply font-sans;
   }
+  h1, h2 {
+    @apply text-primary;
+  }
 }

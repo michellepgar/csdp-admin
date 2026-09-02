@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, DISTRIBUTION_CLASSROOM_TYPES, DISTRIBUTION_LANGUAGES } from "@/lib/app-state";
@@ -142,11 +141,9 @@ async function createSchool(
 
 /* Any signed-in team member can add a school (not admin-only),
    matching addContactGroup/addDistributionGroup elsewhere in this
-   app. Just creates the school (and its Contacts/Distribution List
-   rows, if a group is picked) and stays on the current page -- use
-   addSchoolAndOpen instead when the sidebar's "Add + Contact Info"
-   button is used, which also navigates to the new school's own page
-   afterward. */
+   app. Contacts/Distribution List rows are added automatically when a
+   group is picked; contact-person details, website, and hours are
+   filled in later, anytime, on the school's own page. */
 export async function addSchool(formData: FormData) {
   const { supabase } = await requireUserAndState();
 
@@ -156,20 +153,4 @@ export async function addSchool(formData: FormData) {
 
   await createSchool(supabase, name, groupName);
   revalidatePath("/", "layout");
-}
-
-/* Same as addSchool, but navigates straight to the new school's own
-   page afterward -- that page already has room for website, hours,
-   and the contact-person list, so there's no separate "add contact
-   info" page to build. */
-export async function addSchoolAndOpen(formData: FormData) {
-  const { supabase } = await requireUserAndState();
-
-  const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
-  const groupName = ((formData.get("groupName") as string) || "").trim();
-
-  const schoolId = await createSchool(supabase, name, groupName);
-  revalidatePath("/", "layout");
-  redirect(`/schools/${schoolId}`);
 }

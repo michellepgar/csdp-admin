@@ -81,30 +81,6 @@ export async function removeContactGroup(formData: FormData) {
   revalidatePath("/contacts");
 }
 
-export async function addContactRow(formData: FormData) {
-  const { supabase } = await requireUserAndState();
-  const groupId = formData.get("group") as string;
-  const school = ((formData.get("school") as string) || "").trim();
-  if (!groupId || !school) return;
-
-  const { data: maxRow } = await supabase
-    .from("contact_rows")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
-
-  const { error } = await supabase.from("contact_rows").insert({
-    id: crypto.randomUUID(),
-    group_id: groupId,
-    school,
-    sort_order: nextSortOrder,
-  });
-  orThrow(error);
-  revalidatePath("/contacts");
-}
-
 export async function updateContactRow(formData: FormData) {
   const { supabase } = await requireUserAndState();
   const rowId = formData.get("rowId") as string;
@@ -142,6 +118,62 @@ export async function setNurseLeader(formData: FormData) {
   const { error } = await supabase
     .from("settings")
     .upsert({ key: "nurseLeader", value: { name, email } }, { onConflict: "key" });
+  orThrow(error);
+  revalidatePath("/contacts");
+}
+
+/* ---------- Other Contacts (not tied to any school) ---------- */
+
+export async function addOtherContact(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+  const organization = ((formData.get("organization") as string) || "").trim();
+  const email = ((formData.get("email") as string) || "").trim();
+  const phone = ((formData.get("phone") as string) || "").trim();
+  const notes = ((formData.get("notes") as string) || "").trim();
+
+  const { error } = await supabase.from("other_contacts").insert({
+    id: crypto.randomUUID(),
+    name,
+    organization: organization || null,
+    email: email || null,
+    phone: phone || null,
+    notes: notes || null,
+  });
+  orThrow(error);
+  revalidatePath("/contacts");
+}
+
+export async function updateOtherContact(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const id = formData.get("id") as string;
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+  const organization = ((formData.get("organization") as string) || "").trim();
+  const email = ((formData.get("email") as string) || "").trim();
+  const phone = ((formData.get("phone") as string) || "").trim();
+  const notes = ((formData.get("notes") as string) || "").trim();
+
+  const { error } = await supabase
+    .from("other_contacts")
+    .update({
+      name,
+      organization: organization || null,
+      email: email || null,
+      phone: phone || null,
+      notes: notes || null,
+    })
+    .eq("id", id);
+  orThrow(error);
+  revalidatePath("/contacts");
+}
+
+export async function removeOtherContact(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const id = formData.get("id") as string;
+
+  const { error } = await supabase.from("other_contacts").delete().eq("id", id);
   orThrow(error);
   revalidatePath("/contacts");
 }

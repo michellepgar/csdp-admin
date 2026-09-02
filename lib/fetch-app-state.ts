@@ -15,6 +15,7 @@ import type {
   EmailTemplate,
   ContactGroup,
   ContactRow,
+  OtherContact,
   DistributionRow,
   DistributionCell,
   DistributionGroup,
@@ -197,6 +198,26 @@ function mapContactRowDbRow(r: ContactRowDbRow): ContactRow {
     frontDeskEmail: r.front_desk_email ?? undefined,
     nurseName: r.nurse_name ?? undefined,
     nurseEmail: r.nurse_email ?? undefined,
+    notes: r.notes ?? undefined,
+  };
+}
+
+type OtherContactRow = {
+  id: string;
+  name: string;
+  organization: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+};
+
+function mapOtherContactRow(r: OtherContactRow): OtherContact {
+  return {
+    id: r.id,
+    name: r.name,
+    organization: r.organization ?? undefined,
+    email: r.email ?? undefined,
+    phone: r.phone ?? undefined,
     notes: r.notes ?? undefined,
   };
 }
@@ -393,6 +414,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     issuesResult,
     accessRequestsResult,
     schoolContactsResult,
+    otherContactsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).single(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
@@ -415,6 +437,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by").order("created_at"),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, email, created_at").order("created_at"),
+    supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -438,6 +461,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (issuesResult.error) return null;
   if (accessRequestsResult.error) return null;
   if (schoolContactsResult.error) return null;
+  if (otherContactsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -488,6 +512,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     if (group) group.rows.push(mapContactRowDbRow(r));
   }
   state.contactGroups = Array.from(contactGroupsById.values());
+
+  state.otherContacts = (otherContactsResult.data || []).map((r) => mapOtherContactRow(r as OtherContactRow));
 
   const distributionGroupsById = new Map<string, DistributionGroup>();
   for (const g of (distributionGroupsResult.data || []) as DistributionGroupRow[]) {

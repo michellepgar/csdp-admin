@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { SidebarShell } from "@/components/sidebar-shell";
-import { addSchool, addSchoolAndOpen } from "./layout-actions";
+import { addSchool } from "./layout-actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -38,7 +38,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       vas={state.vas}
       schoolVaAssigned={schoolVaAssigned}
       addSchool={addSchool}
-      addSchoolAndOpen={addSchoolAndOpen}
       initialCollapsed={sidebarCollapsed}
     >
       {children}

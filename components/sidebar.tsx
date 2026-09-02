@@ -31,7 +31,6 @@ export function Sidebar({
   vas,
   schoolVaAssigned,
   addSchool,
-  addSchoolAndOpen,
   onCollapse,
 }: {
   currentName: string;
@@ -45,10 +44,6 @@ export function Sidebar({
      down here). */
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
-  /* Same as addSchool, but navigates to the new school's own page
-     afterward -- used by the "Add + Contact Info" button below, since
-     that page already has room for website/hours/contact people. */
-  addSchoolAndOpen: (formData: FormData) => void;
   onCollapse: () => void;
 }) {
   const [search, setSearch] = useState("");
@@ -141,14 +136,8 @@ export function Sidebar({
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">Add contact info (website, hours, contact people) now, or later on the school's own page?</p>
-            <div className="flex flex-col gap-1">
-              <SubmitButton formAction={addSchoolAndOpen} pendingLabel="…" size="sm">
-                Add + contact info now
-              </SubmitButton>
-              <SubmitButton pendingLabel="…" variant="outline" size="sm">
-                Add, I&apos;ll fill it in later
-              </SubmitButton>
+            <div className="flex items-center gap-1">
+              <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
               <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>
                 Cancel
               </Button>

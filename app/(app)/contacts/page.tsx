@@ -7,10 +7,12 @@ import {
   addContactGroup,
   renameContactGroup,
   removeContactGroup,
-  addContactRow,
   updateContactRow,
   removeContactRow,
   setNurseLeader,
+  addOtherContact,
+  updateOtherContact,
+  removeOtherContact,
 } from "./actions";
 
 export default async function ContactsPage() {
@@ -29,13 +31,16 @@ export default async function ContactsPage() {
       <ContactsList
         groups={state.contactGroups || []}
         nurseLeader={state.nurseLeader || { name: "", email: "" }}
+        otherContacts={state.otherContacts || []}
         addContactGroup={addContactGroup}
         renameContactGroup={renameContactGroup}
         removeContactGroup={removeContactGroup}
-        addContactRow={addContactRow}
         updateContactRow={updateContactRow}
         removeContactRow={removeContactRow}
         setNurseLeader={setNurseLeader}
+        addOtherContact={addOtherContact}
+        updateOtherContact={updateOtherContact}
+        removeOtherContact={removeOtherContact}
       />
     </div>
   );

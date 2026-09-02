@@ -128,6 +128,18 @@ export interface ContactRow {
   notes?: string;
 }
 
+/* A contact not tied to any school (e.g. "District Office", "IT
+   Support", a vendor) -- a flat list, unlike ContactRow/ContactGroup
+   which are always grouped by school-type (Pre-K/Elementary/etc.). */
+export interface OtherContact {
+  id: string;
+  name: string;
+  organization?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+}
+
 export interface ContactGroup {
   id: string;
   name: string;
@@ -204,6 +216,7 @@ export interface AppState {
   privateNotes?: PrivateNote[];
   emailTemplates?: EmailTemplate[];
   contactGroups?: ContactGroup[];
+  otherContacts?: OtherContact[];
   nurseLeader?: NurseLeader;
   eodReports?: EodReport[];
   taskCategories?: TaskCategory[];

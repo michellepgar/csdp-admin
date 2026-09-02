@@ -4,7 +4,8 @@ import { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CONTACT_FIELDS, type ContactGroup, type NurseLeader } from "@/lib/app-state";
+import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact } from "@/lib/app-state";
+import { OtherContactsList } from "@/components/other-contacts-list";
 
 function ContactRowView({
   group,
@@ -87,23 +88,29 @@ function ContactRowEdit({
 export function ContactsList({
   groups,
   nurseLeader,
+  otherContacts,
   addContactGroup,
   renameContactGroup,
   removeContactGroup,
-  addContactRow,
   updateContactRow,
   removeContactRow,
   setNurseLeader,
+  addOtherContact,
+  updateOtherContact,
+  removeOtherContact,
 }: {
   groups: ContactGroup[];
   nurseLeader: NurseLeader;
+  otherContacts: OtherContact[];
   addContactGroup: (formData: FormData) => void;
   renameContactGroup: (formData: FormData) => void;
   removeContactGroup: (formData: FormData) => void;
-  addContactRow: (formData: FormData) => void;
   updateContactRow: (formData: FormData) => void;
   removeContactRow: (formData: FormData) => void;
   setNurseLeader: (formData: FormData) => void;
+  addOtherContact: (formData: FormData) => void;
+  updateOtherContact: (formData: FormData) => void;
+  removeOtherContact: (formData: FormData) => void;
 }) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
@@ -136,17 +143,6 @@ export function ContactsList({
           )}
         </div>
       </div>
-
-      <form action={addContactRow} className="flex flex-wrap items-center gap-2 rounded-md border p-3">
-        <select name="group" required defaultValue="" className="rounded-md border px-2 py-1.5 text-sm">
-          <option value="" disabled>Choose group…</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
-          ))}
-        </select>
-        <Input name="school" placeholder="School name" required className="max-w-xs" />
-        <SubmitButton pendingLabel="Adding…">+ Add school</SubmitButton>
-      </form>
 
       <form action={addContactGroup} className="flex items-center gap-2">
         <Input name="name" placeholder="New group name" required className="max-w-xs" />
@@ -221,6 +217,13 @@ export function ContactsList({
           </div>
         </div>
       ))}
+
+      <OtherContactsList
+        contacts={otherContacts}
+        addOtherContact={addOtherContact}
+        updateOtherContact={updateOtherContact}
+        removeOtherContact={removeOtherContact}
+      />
     </div>
   );
 }

@@ -131,7 +131,7 @@ function TaskRow({
   const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(task.category);
 
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-md border p-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-1.5">
       {/* Count comes first (fixed width, so it lines up row to row),
           then the file name gets whatever space is left and wraps
           rather than truncating -- file names run long sometimes.

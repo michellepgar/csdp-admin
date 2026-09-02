@@ -21,6 +21,8 @@ import {
   type ContactRow,
   type NurseLeader,
   type EodReport,
+  type Issue,
+  type AccessRequest,
 } from "@/lib/app-state";
 
 async function requireAdminAndState() {
@@ -201,6 +203,31 @@ function isValidNurseLeader(n: unknown): n is NurseLeader {
   );
 }
 
+function isValidIssueRow(i: unknown): i is Issue {
+  return (
+    !!i &&
+    typeof i === "object" &&
+    typeof (i as Issue).id === "string" &&
+    (i as Issue).id.length > 0 &&
+    typeof (i as Issue).type === "string" &&
+    typeof (i as Issue).reportedBy === "string" &&
+    typeof (i as Issue).status === "string"
+  );
+}
+
+function isValidAccessRequestRow(r: unknown): r is AccessRequest {
+  return (
+    !!r &&
+    typeof r === "object" &&
+    typeof (r as AccessRequest).id === "string" &&
+    (r as AccessRequest).id.length > 0 &&
+    typeof (r as AccessRequest).recordKind === "string" &&
+    typeof (r as AccessRequest).targetId === "string" &&
+    typeof (r as AccessRequest).requestedBy === "string" &&
+    typeof (r as AccessRequest).status === "string"
+  );
+}
+
 function isValidEodReportRow(r: unknown): r is EodReport {
   return (
     !!r &&
@@ -286,7 +313,11 @@ export async function restoreBackup(formData: FormData) {
     ((parsed as AppState).nurseLeader !== undefined && !isValidNurseLeader((parsed as AppState).nurseLeader)) ||
     ((parsed as AppState).communicationEditor !== undefined && typeof (parsed as AppState).communicationEditor !== "string") ||
     !Array.isArray((parsed as AppState).eodReports) ||
-    !(parsed as AppState).eodReports!.every(isValidEodReportRow)
+    !(parsed as AppState).eodReports!.every(isValidEodReportRow) ||
+    !Array.isArray((parsed as AppState).issues) ||
+    !(parsed as AppState).issues!.every(isValidIssueRow) ||
+    !Array.isArray((parsed as AppState).accessRequests) ||
+    !(parsed as AppState).accessRequests!.every(isValidAccessRequestRow)
   ) {
     return;
   }
@@ -498,6 +529,60 @@ export async function restoreBackup(formData: FormData) {
     }));
     const { error: insEodError } = await supabase.from("eod_reports").insert(eodRows);
     orThrow(insEodError);
+  }
+
+  const { error: delIssuesError } = await supabase.from("issues").delete().neq("id", "");
+  orThrow(delIssuesError);
+  if (backup.issues!.length) {
+    const issueRows = backup.issues!.map((i) => ({
+      id: i.id,
+      type: i.type,
+      reported_by: i.reportedBy,
+      status: i.status,
+      created_at: i.createdAt,
+      description: i.description || null,
+      category: i.category || null,
+      remarks: i.remarks || null,
+      student_name: i.studentName || null,
+      dob: i.dob || null,
+      insurance_number: i.insuranceNumber || null,
+      school_year: i.schoolYear || null,
+      file_name: i.fileName || null,
+      page_number: i.pageNumber || null,
+      correcting_category: i.correctingCategory || null,
+      correct_info: i.correctInfo || null,
+      correction_kind: i.correctionKind || null,
+      student_record_link: i.studentRecordLink || null,
+      needs_name_correction: i.needsNameCorrection ?? null,
+      needs_dob_correction: i.needsDobCorrection ?? null,
+      needs_insurance_correction: i.needsInsuranceCorrection ?? null,
+      needs_other_correction: i.needsOtherCorrection ?? null,
+      other_correction_detail: i.otherCorrectionDetail || null,
+      question: i.question || null,
+      fixed_by: i.fixedBy || [],
+    }));
+    const { error: insIssuesError } = await supabase.from("issues").insert(issueRows);
+    orThrow(insIssuesError);
+  }
+
+  const { error: delAccessError } = await supabase.from("access_requests").delete().neq("id", "");
+  orThrow(delAccessError);
+  if (backup.accessRequests!.length) {
+    const accessRows = backup.accessRequests!.map((r) => ({
+      id: r.id,
+      record_kind: r.recordKind,
+      school_id: r.schoolId || null,
+      target_id: r.targetId,
+      label: r.label,
+      reason: r.reason,
+      requested_by: r.requestedBy,
+      status: r.status,
+      resolved_by: r.resolvedBy || null,
+      resolved_at: r.resolvedAt || null,
+      created_at: r.createdAt,
+    }));
+    const { error: insAccessError } = await supabase.from("access_requests").insert(accessRows);
+    orThrow(insAccessError);
   }
 
   await saveState(supabase, backup);

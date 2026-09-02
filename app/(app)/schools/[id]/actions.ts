@@ -27,7 +27,16 @@ async function requireUserAndState() {
   return { supabase, state, me };
 }
 
-async function saveState(
+function orThrow(error: { message: string } | null) {
+  if (error) throw new Error(error.message);
+}
+
+// communicationEditor, accessRequests, and schoolData's vaAssigned/notes
+// still live in the shared blob -- they aren't migrating until later
+// phases (vaAssigned/notes) or aren't migrating at all this project
+// (accessRequests, see the design spec). Tasks/Email Tracker/Checklist/
+// Categories are never written through this anymore.
+async function saveLegacyState(
   supabase: Awaited<ReturnType<typeof createClient>>,
   state: AppState
 ) {
@@ -52,7 +61,8 @@ function revalidateSchool(schoolId: string) {
    delete directly — this is what actually happens then: a request to
    whoever manages the school, resolved on the Approvals page. Same
    behavior for both, since the removeTask/removeEmailItem actions
-   themselves already silently no-op when not permitted. */
+   themselves already silently no-op when not permitted. accessRequests
+   stays blob-based -- not migrating this phase. */
 export async function requestRemoval(formData: FormData) {
   const { supabase, state, me } = await requireUserAndState();
   const recordKind = formData.get("recordKind") as string;
@@ -74,7 +84,7 @@ export async function requestRemoval(formData: FormData) {
     status: "pending",
     createdAt: new Date().toISOString(),
   });
-  await saveState(supabase, state);
+  await saveLegacyState(supabase, state);
   revalidatePath("/approvals");
 }
 
@@ -92,48 +102,54 @@ export async function toggleChecklistItem(formData: FormData) {
   const key = `${schoolId}:${itemId}`;
   const current = state.checklistProgress[key];
   const isDone = current && current.status === "Done";
-  state.checklistProgress[key] = { status: isDone ? "Open" : "Done" };
-  await saveState(supabase, state);
+
+  const { error } = await supabase
+    .from("checklist_progress")
+    .upsert(
+      { school_id: schoolId, template_item_id: itemId, status: isDone ? "Open" : "Done" },
+      { onConflict: "school_id,template_item_id" }
+    );
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
 export async function addChecklistTemplateItem(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
+  const { supabase } = await requireUserAndState();
   const description = ((formData.get("description") as string) || "").trim();
   if (!description) return;
-  state.checklistTemplate = state.checklistTemplate || [];
-  state.checklistTemplate.push({ id: crypto.randomUUID(), description });
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("checklist_template").insert({ id: crypto.randomUUID(), description });
+  orThrow(error);
   revalidatePath("/", "layout");
 }
 
 export async function removeChecklistTemplateItem(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
+  const { supabase } = await requireUserAndState();
   const id = formData.get("id") as string;
-  state.checklistTemplate = (state.checklistTemplate || []).filter((i) => i.id !== id);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("checklist_template").delete().eq("id", id);
+  orThrow(error);
   revalidatePath("/", "layout");
 }
 
 /* ---------- Tasks ---------- */
 
 export async function addTask(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
+  const { supabase } = await requireUserAndState();
   const schoolId = formData.get("schoolId") as string;
   const category = (formData.get("category") as string) || "";
   const fileName = ((formData.get("fileName") as string) || "").trim();
   if (!fileName) return;
-  const sd = ensureSchoolData(state, schoolId);
-  sd.tasks = sd.tasks || [];
-  sd.tasks.push({
+
+  const { error } = await supabase.from("tasks").insert({
     id: crypto.randomUUID(),
+    school_id: schoolId,
     category,
-    fileName,
+    file_name: fileName,
     status: "",
-    vaAssigned: [],
-    createdAt: new Date().toISOString(),
+    va_assigned: [],
   });
-  await saveState(supabase, state);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
@@ -144,10 +160,9 @@ export async function setTaskStatus(formData: FormData) {
   const status = (formData.get("status") as string) || "";
   const sd = ensureSchoolData(state, schoolId);
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
-  const task = (sd.tasks || []).find((t) => t.id === taskId);
-  if (!task) return;
-  task.status = status;
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("tasks").update({ status }).eq("id", taskId);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
@@ -158,10 +173,9 @@ export async function setTaskCount(formData: FormData) {
   const count = (formData.get("count") as string) || "";
   const sd = ensureSchoolData(state, schoolId);
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
-  const task = (sd.tasks || []).find((t) => t.id === taskId);
-  if (!task) return;
-  task.count = count;
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("tasks").update({ count }).eq("id", taskId);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
@@ -172,9 +186,13 @@ export async function signTask(formData: FormData) {
   const sd = ensureSchoolData(state, schoolId);
   const task = (sd.tasks || []).find((t) => t.id === taskId);
   if (!task) return;
-  task.vaAssigned = task.vaAssigned || [];
-  if (!task.vaAssigned.includes(me.name)) task.vaAssigned.push(me.name);
-  await saveState(supabase, state);
+  if (task.vaAssigned.includes(me.name)) return;
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ va_assigned: [...task.vaAssigned, me.name] })
+    .eq("id", taskId);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
@@ -189,8 +207,12 @@ export async function removeVaFromTask(formData: FormData) {
   if (vaName !== me.name && !canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
   const task = (sd.tasks || []).find((t) => t.id === taskId);
   if (!task) return;
-  task.vaAssigned = (task.vaAssigned || []).filter((n) => n !== vaName);
-  await saveState(supabase, state);
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ va_assigned: task.vaAssigned.filter((n) => n !== vaName) })
+    .eq("id", taskId);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
@@ -200,26 +222,28 @@ export async function removeTask(formData: FormData) {
   const taskId = formData.get("taskId") as string;
   const sd = ensureSchoolData(state, schoolId);
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
-  sd.tasks = (sd.tasks || []).filter((t) => t.id !== taskId);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
 export async function addTaskCategory(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
+  const { supabase } = await requireUserAndState();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
-  state.taskCategories = state.taskCategories || [];
-  state.taskCategories.push({ id: crypto.randomUUID(), name });
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("task_categories").insert({ id: crypto.randomUUID(), name });
+  orThrow(error);
   revalidatePath("/", "layout");
 }
 
 export async function removeTaskCategory(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
+  const { supabase } = await requireUserAndState();
   const id = formData.get("id") as string;
-  state.taskCategories = (state.taskCategories || []).filter((c) => c.id !== id);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("task_categories").delete().eq("id", id);
+  orThrow(error);
   revalidatePath("/", "layout");
 }
 
@@ -231,15 +255,15 @@ export async function addEmailItem(formData: FormData) {
   const description = ((formData.get("description") as string) || "").trim();
   const sd = ensureSchoolData(state, schoolId);
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me)) || !description) return;
-  sd.emailTracker = sd.emailTracker || [];
-  sd.emailTracker.push({
+
+  const { error } = await supabase.from("email_tracker_items").insert({
     id: crypto.randomUUID(),
+    school_id: schoolId,
     description,
     status: "Needs My Response",
-    addedBy: me.name,
-    createdAt: new Date().toISOString(),
+    added_by: me.name,
   });
-  await saveState(supabase, state);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
@@ -250,10 +274,9 @@ export async function setEmailStatus(formData: FormData) {
   const status = (formData.get("status") as string) || "";
   const sd = ensureSchoolData(state, schoolId);
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
-  const item = (sd.emailTracker || []).find((e) => e.id === itemId);
-  if (!item) return;
-  item.status = status;
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("email_tracker_items").update({ status }).eq("id", itemId);
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
@@ -263,7 +286,8 @@ export async function removeEmailItem(formData: FormData) {
   const itemId = formData.get("itemId") as string;
   const sd = ensureSchoolData(state, schoolId);
   if (!canEditSchoolRecords(sd, me.name, isAdmin(me))) return;
-  sd.emailTracker = (sd.emailTracker || []).filter((e) => e.id !== itemId);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("email_tracker_items").delete().eq("id", itemId);
+  orThrow(error);
   revalidateSchool(schoolId);
 }

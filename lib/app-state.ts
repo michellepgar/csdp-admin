@@ -23,7 +23,7 @@ export interface School {
   website?: string;
   hours?: string;
   /* Some schools don't need a second pass after Initial -- clicking
-     "No Recheck" on the school page sets this so Recheck's section
+     "No Follow up" on the school page sets this so Follow up's section
      shows as disabled/grayed-out there, instead of tracking files that
      will never apply to this school. */
   noRecheck?: boolean;
@@ -57,7 +57,7 @@ export interface Task {
   status: string;
   vaAssigned: string[];
   createdAt: string;
-  /* Initial/Recheck files often need a separate "we reached out about
+  /* Initial/Follow up files often need a separate "we reached out about
      this record" trail, tracked against the SAME file name rather than
      as a second task row -- its own status/signatures, independent of
      the main status/vaAssigned above. Unused (undefined) for every
@@ -68,7 +68,7 @@ export interface Task {
 
 /* Categories where a task also gets its own parallel Communications
    status+signatures, shown alongside the main one on the same row. */
-export const CATEGORIES_WITH_COMMUNICATIONS = ["Initial", "Recheck"];
+export const CATEGORIES_WITH_COMMUNICATIONS = ["Initial", "Follow up"];
 
 export interface EmailTrackerItem {
   id: string;
@@ -80,7 +80,7 @@ export interface EmailTrackerItem {
 
 export const TASK_STATUS_OPTIONS = ["", "In Progress", "Paused", "Completed"];
 export const EMAIL_STATUS_OPTIONS = ["Needs My Response", "Waiting on Them", "Done"];
-export const COUNT_CATEGORIES = ["Encoding & Uploading (Consent & SDF)", "Initial", "Recheck"];
+export const COUNT_CATEGORIES = ["Encoding & Uploading (Consent & SDF)", "Initial", "Follow up"];
 
 export interface SchoolDataEntry {
   vaAssigned: string;

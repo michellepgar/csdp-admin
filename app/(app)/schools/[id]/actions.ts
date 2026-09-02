@@ -220,7 +220,7 @@ export async function removeTask(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
-/* ---------- Task Communications (Initial/Recheck only) ---------- */
+/* ---------- Task Communications (Initial/Follow up only) ---------- */
 
 export async function setCommsStatus(formData: FormData) {
   const { supabase, state, me } = await requireUserAndState();

@@ -131,13 +131,13 @@ function TaskRow({
   const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(task.category);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border p-2">
+    <div className="flex flex-wrap items-center gap-4 rounded-md border p-3">
       {/* Fixed-width filename column (wraps rather than shrinks) so
           Count and everything after it lines up at the same x
           regardless of how long a given file name is. */}
-      <span className="w-48 shrink-0 text-sm font-bold">{task.fileName}</span>
+      <span className="w-64 shrink-0 text-sm font-bold">{task.fileName}</span>
 
-      <div className="flex w-20 shrink-0 items-center gap-1">
+      <div className="flex w-24 shrink-0 items-center gap-1">
         {needsCount && (
           <AutoSubmitForm action={setTaskCount} className="flex items-center gap-1">
             <input type="hidden" name="schoolId" value={schoolId} />
@@ -150,7 +150,7 @@ function TaskRow({
               defaultValue={task.count || ""}
               placeholder="Count"
               disabled={!canEdit}
-              className="w-20 rounded-md border px-2 py-1 text-sm"
+              className="w-24 rounded-md border px-2 py-1.5 text-sm"
             />
           </AutoSubmitForm>
         )}
@@ -170,7 +170,7 @@ function TaskRow({
       />
 
       {hasComms && (
-        <>
+        <div className="flex flex-wrap items-center gap-2 border-l pl-4">
           <span className="text-sm font-medium text-muted-foreground">Communications</span>
           <SignAndStatus
             schoolId={schoolId}
@@ -184,7 +184,7 @@ function TaskRow({
             removeVaAction={removeVaFromComms}
             setStatusAction={setCommsStatus}
           />
-        </>
+        </div>
       )}
 
       <DeleteOrRequestControl
@@ -318,24 +318,24 @@ export function TasksCard({
         {categories.map((c) => {
           const items = tasks.filter((t) => t.category === c.name);
           const total = COUNT_CATEGORIES.includes(c.name) ? items.reduce((sum, t) => sum + (parseInt(t.count || "0", 10) || 0), 0) : null;
-          const isRecheck = c.name === "Recheck";
+          const isFollowUp = c.name === "Follow up";
           return (
-            <div key={c.id} className={`space-y-2 ${isRecheck && noRecheck ? "opacity-40" : ""}`}>
+            <div key={c.id} className={`space-y-2 ${isFollowUp && noRecheck ? "opacity-40" : ""}`}>
               <div className="flex items-center gap-2 text-sm font-medium">
                 <span>{c.name}</span>
                 {total !== null && items.length > 0 && <span className="text-xs text-muted-foreground">Total: {total}</span>}
-                {isRecheck && (
+                {isFollowUp && (
                   <form action={setNoRecheck} className="ml-auto">
                     <input type="hidden" name="schoolId" value={schoolId} />
                     <input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} />
                     <SubmitButton pendingLabel="…" variant={noRecheck ? "default" : "outline"} size="sm" disabled={!canEdit}>
-                      {noRecheck ? "Recheck needed after all" : "No Recheck"}
+                      {noRecheck ? "Undo" : "No Follow up"}
                     </SubmitButton>
                   </form>
                 )}
               </div>
-              {isRecheck && noRecheck ? (
-                <p className="text-xs text-muted-foreground">Marked as not needing a recheck.</p>
+              {isFollowUp && noRecheck ? (
+                <p className="text-xs font-medium text-muted-foreground">No Follow up</p>
               ) : items.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No files yet in this category.</p>
               ) : (

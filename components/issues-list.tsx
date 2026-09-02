@@ -2,8 +2,13 @@
 
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { ISSUE_STATUS_OPTIONS, canDeleteIssue, type Issue } from "@/lib/app-state";
+
+const ISSUE_STATUS_TONE: Record<string, StatusTone> = {
+  Pending: "warning",
+  Resolved: "success",
+};
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -12,7 +17,7 @@ function fmtDate(iso: string) {
 function StatusSelect({ issue, setIssueStatus }: { issue: Issue; setIssueStatus: (formData: FormData) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <StatusBadge tone={issue.status === "Resolved" ? "success" : "warning"}>{issue.status}</StatusBadge>
+      <StatusBadge tone={ISSUE_STATUS_TONE[issue.status] ?? "neutral"}>{issue.status}</StatusBadge>
       <AutoSubmitForm action={setIssueStatus}>
         <input type="hidden" name="id" value={issue.id} />
         <select key={issue.status} name="status" defaultValue={issue.status} className="rounded-md border px-2 py-1 text-xs">

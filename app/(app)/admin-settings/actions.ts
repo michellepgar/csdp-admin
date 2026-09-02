@@ -23,6 +23,8 @@ import {
   type EodReport,
   type Issue,
   type AccessRequest,
+  type DistributionGroup,
+  type DistributionRow,
 } from "@/lib/app-state";
 
 async function requireAdminAndState() {
@@ -234,6 +236,28 @@ function isValidAccessRequestRow(r: unknown): r is AccessRequest {
   );
 }
 
+function isValidDistributionRowShape(r: unknown): r is DistributionRow {
+  return (
+    !!r &&
+    typeof r === "object" &&
+    typeof (r as DistributionRow).id === "string" &&
+    (r as DistributionRow).id.length > 0 &&
+    typeof (r as DistributionRow).school === "string"
+  );
+}
+
+function isValidDistributionGroupRow(g: unknown): g is DistributionGroup {
+  return (
+    !!g &&
+    typeof g === "object" &&
+    typeof (g as DistributionGroup).id === "string" &&
+    (g as DistributionGroup).id.length > 0 &&
+    typeof (g as DistributionGroup).name === "string" &&
+    Array.isArray((g as DistributionGroup).rows) &&
+    (g as DistributionGroup).rows.every(isValidDistributionRowShape)
+  );
+}
+
 function isValidEodReportRow(r: unknown): r is EodReport {
   return (
     !!r &&
@@ -323,7 +347,9 @@ export async function restoreBackup(formData: FormData) {
     !Array.isArray((parsed as AppState).issues) ||
     !(parsed as AppState).issues!.every(isValidIssueRow) ||
     !Array.isArray((parsed as AppState).accessRequests) ||
-    !(parsed as AppState).accessRequests!.every(isValidAccessRequestRow)
+    !(parsed as AppState).accessRequests!.every(isValidAccessRequestRow) ||
+    !Array.isArray((parsed as AppState).distributionGroups) ||
+    !(parsed as AppState).distributionGroups!.every(isValidDistributionGroupRow)
   ) {
     return;
   }
@@ -589,6 +615,38 @@ export async function restoreBackup(formData: FormData) {
     }));
     const { error: insAccessError } = await supabase.from("access_requests").insert(accessRows);
     orThrow(insAccessError);
+  }
+
+  /* Deleting distribution_groups cascades to distribution_rows
+     automatically (group_id references distribution_groups(id) on
+     delete cascade) -- no separate distribution_rows delete needed. */
+  const { error: delDistGroupsError } = await supabase.from("distribution_groups").delete().neq("id", "");
+  orThrow(delDistGroupsError);
+  if (backup.distributionGroups!.length) {
+    const distGroupRows = backup.distributionGroups!.map((g, index) => ({
+      id: g.id,
+      name: g.name,
+      sort_order: index,
+    }));
+    const { error: insDistGroupsError } = await supabase.from("distribution_groups").insert(distGroupRows);
+    orThrow(insDistGroupsError);
+
+    const distRowRows = backup.distributionGroups!.flatMap((g) =>
+      g.rows.map((r, rowIndex) => ({
+        id: r.id,
+        group_id: g.id,
+        school: r.school,
+        enrolled: r.enrolled || null,
+        contact_person: r.contactPerson || null,
+        remarks: r.remarks || null,
+        breakdown: r.breakdown || {},
+        sort_order: rowIndex,
+      }))
+    );
+    if (distRowRows.length) {
+      const { error: insDistRowsError } = await supabase.from("distribution_rows").insert(distRowRows);
+      orThrow(insDistRowsError);
+    }
   }
 
   await saveState(supabase, backup);

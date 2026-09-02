@@ -74,11 +74,9 @@ function ContactRowEdit({
           </div>
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
-            <form action={removeContactRow}>
-              <input type="hidden" name="groupId" value={group.id} />
-              <input type="hidden" name="rowId" value={row.id} />
-              <SubmitButton pendingLabel="…" variant="ghost">Remove</SubmitButton>
-            </form>
+            <SubmitButton pendingLabel="…" variant="ghost" formAction={removeContactRow}>
+              Remove
+            </SubmitButton>
           </div>
         </form>
       </td>

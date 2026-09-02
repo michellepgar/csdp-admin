@@ -67,3 +67,40 @@ create policy "team members can access schools"
 on schools for all
 using (auth.uid() is not null and is_team_member())
 with check (auth.uid() is not null and is_team_member());
+
+-- Restoring a backup replaces vas/schools wholesale (delete everything,
+-- insert the backup's rows). A plain delete-then-insert from the app
+-- breaks this: is_team_member() checks "does any row in vas match my
+-- email?", so the instant the delete empties vas, that check starts
+-- failing — including for the very insert meant to repopulate it. The
+-- delete commits, the insert gets rejected by RLS, and vas is left
+-- permanently empty (this happened for real during Phase 1's rollout —
+-- see git history around supabase/phase1_fix_restore_lockout.sql).
+-- Doing both steps inside one security definer function sidesteps that
+-- empty-table window entirely.
+create or replace function restore_vas_and_schools(new_vas jsonb, new_schools jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from vas;
+  insert into vas (id, name, email, admin, role, color)
+  select
+    v->>'id',
+    v->>'name',
+    v->>'email',
+    (v->>'admin')::boolean,
+    v->>'role',
+    v->>'color'
+  from jsonb_array_elements(new_vas) as v;
+
+  delete from schools;
+  insert into schools (id, name)
+  select s->>'id', s->>'name'
+  from jsonb_array_elements(new_schools) as s;
+end;
+$$;
+
+grant execute on function restore_vas_and_schools(jsonb, jsonb) to authenticated;

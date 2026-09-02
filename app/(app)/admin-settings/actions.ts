@@ -102,31 +102,34 @@ export async function restoreBackup(formData: FormData) {
   /* vas and schools now live in their own tables (Phase 1 of the
      relational backend migration) — a restore has to replace those
      tables' contents too, not just the blob, or restoring a backup
-     would silently leave Team/Schools untouched. Rows are mapped to
-     their known columns rather than inserted as-is, since Supabase
-     rejects an insert containing any unrecognized JSON key. */
-  const { error: delVasError } = await supabase.from("vas").delete().neq("id", ""); // delete-all requires a filter; no real id is ever ""
-  orThrow(delVasError);
-  if (backup.vas.length) {
-    const vasRows = backup.vas.map((v) => ({
-      id: v.id,
-      name: v.name,
-      email: v.email,
-      admin: v.admin,
-      role: v.role,
-      color: v.color,
-    }));
-    const { error: insVasError } = await supabase.from("vas").insert(vasRows);
-    orThrow(insVasError);
-  }
+     would silently leave Team/Schools untouched.
 
-  const { error: delSchoolsError } = await supabase.from("schools").delete().neq("id", "");
-  orThrow(delSchoolsError);
-  if (backup.schools.length) {
-    const schoolRows = backup.schools.map((s) => ({ id: s.id, name: s.name }));
-    const { error: insSchoolsError } = await supabase.from("schools").insert(schoolRows);
-    orThrow(insSchoolsError);
-  }
+     This has to go through the restore_vas_and_schools() database
+     function rather than a plain delete-then-insert from here: vas's
+     own security policy checks "does any row in vas match my email?",
+     so the instant a plain delete empties the table, that check starts
+     failing — including for the very insert meant to repopulate it.
+     The delete would commit, the insert would get rejected, and vas
+     would be left permanently empty (this happened for real during
+     Phase 1's rollout). The database function does both steps as one
+     security definer operation, sidestepping that empty-table window
+     entirely. Rows are still mapped to their known columns before
+     being handed to it, since an unrecognized JSON key would otherwise
+     make the insert inside that function fail. */
+  const vasRows = backup.vas.map((v) => ({
+    id: v.id,
+    name: v.name,
+    email: v.email,
+    admin: v.admin,
+    role: v.role,
+    color: v.color,
+  }));
+  const schoolRows = backup.schools.map((s) => ({ id: s.id, name: s.name }));
+  const { error: restoreError } = await supabase.rpc("restore_vas_and_schools", {
+    new_vas: vasRows,
+    new_schools: schoolRows,
+  });
+  orThrow(restoreError);
 
   /* vas/schools are still included in this blob write even though
      fetchAppState() never reads them back out (they're stale, unused

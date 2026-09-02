@@ -57,40 +57,44 @@ export function EmailTrackerCard({
           <p className="text-sm text-muted-foreground">Nothing being tracked — add an email that needs a response or a reply.</p>
         )}
 
-        {sorted.map((e) => (
-          <div key={e.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
-            <span className="text-sm">{e.description}</span>
-            <div className="flex flex-none items-center gap-2">
-              <AutoSubmitForm action={setEmailStatus}>
-                <input type="hidden" name="schoolId" value={schoolId} />
-                <input type="hidden" name="itemId" value={e.id} />
-                {/* The dropdown itself carries the status color (was
-                    previously paired with a separate read-only
-                    StatusBadge showing the same value again). */}
-                <select
-                  key={e.status}
-                  name="status"
-                  defaultValue={e.status}
-                  disabled={!canEdit}
-                  className={`rounded-md border px-2 py-1 text-xs font-medium ${TONE_CLASSES[EMAIL_STATUS_TONE[e.status] ?? "neutral"]}`}
-                >
-                  {EMAIL_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </AutoSubmitForm>
-              <DeleteOrRequestControl
-                canDelete={canEdit}
-                hasPendingRequest={pendingSet.has(e.id)}
-                recordKind="email-item"
-                idFieldName="itemId"
-                schoolId={schoolId}
-                targetId={e.id}
-                label={`email "${e.description}"`}
-                removeAction={removeEmailItem}
-                requestAction={requestRemoval}
-              />
-            </div>
+        {sorted.length > 0 && (
+          <div className="divide-y rounded-md border">
+            {sorted.map((e) => (
+              <div key={e.id} className="flex items-center justify-between gap-2 px-2 py-1">
+                <span className="min-w-0 flex-1 text-sm">{e.description}</span>
+                <div className="flex flex-none items-center gap-2">
+                  <AutoSubmitForm action={setEmailStatus}>
+                    <input type="hidden" name="schoolId" value={schoolId} />
+                    <input type="hidden" name="itemId" value={e.id} />
+                    {/* The dropdown itself carries the status color (was
+                        previously paired with a separate read-only
+                        StatusBadge showing the same value again). */}
+                    <select
+                      key={e.status}
+                      name="status"
+                      defaultValue={e.status}
+                      disabled={!canEdit}
+                      className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[EMAIL_STATUS_TONE[e.status] ?? "neutral"]}`}
+                    >
+                      {EMAIL_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </AutoSubmitForm>
+                  <DeleteOrRequestControl
+                    canDelete={canEdit}
+                    hasPendingRequest={pendingSet.has(e.id)}
+                    recordKind="email-item"
+                    idFieldName="itemId"
+                    schoolId={schoolId}
+                    targetId={e.id}
+                    label={`email "${e.description}"`}
+                    removeAction={removeEmailItem}
+                    requestAction={requestRemoval}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

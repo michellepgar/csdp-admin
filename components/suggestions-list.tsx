@@ -4,9 +4,16 @@ import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import type { Suggestion } from "@/lib/app-state";
 
 const STATUSES = ["Requested", "Working On It", "Added"] as const;
+
+const STATUS_TONE: Record<(typeof STATUSES)[number], StatusTone> = {
+  Requested: "neutral",
+  "Working On It": "warning",
+  Added: "success",
+};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -56,7 +63,10 @@ export function SuggestionsList({
         const list = sorted.filter((s) => s.status === status);
         return (
           <section key={status} className="space-y-2">
-            <h2 className="text-lg font-semibold">{status}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">{status}</h2>
+              <StatusBadge tone={STATUS_TONE[status]}>{list.length}</StatusBadge>
+            </div>
             {list.length === 0 && <p className="text-sm text-muted-foreground">Nothing here yet.</p>}
             {list.map((s) => {
               const canDelete = s.author === currentUserName || !teamNames.includes(s.author);

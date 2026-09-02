@@ -1,32 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, computeEodTotalHours } from "@/lib/app-state";
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase, me };
-}
+import { computeEodTotalHours } from "@/lib/app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addEodReport(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const date = (formData.get("date") as string) || "";
   if (!date) return;
   const timeIn = (formData.get("timeIn") as string) || "";

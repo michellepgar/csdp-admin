@@ -1,36 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
-import {
-  findVaByEmail,
-  canDeleteSuggestion,
-  SUPERADMIN_NAME,
-} from "@/lib/app-state";
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase, state, me };
-}
+import { SUPERADMIN_NAME } from "@/lib/app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addSuggestion(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const text = ((formData.get("text") as string) || "").trim();
   if (!text) return;
 
@@ -45,7 +24,7 @@ export async function addSuggestion(formData: FormData) {
 }
 
 export async function setSuggestionStatus(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   if (me.name !== SUPERADMIN_NAME) throw new Error("Not authorized");
   const id = formData.get("id") as string;
   const status = formData.get("status") as string;
@@ -56,11 +35,23 @@ export async function setSuggestionStatus(formData: FormData) {
   revalidatePath("/suggestions");
 }
 
+/* Same rule as canDeleteSuggestion in lib/app-state.ts (the author can
+   always delete their own; once they're no longer on the team, anyone
+   can clean it up), reimplemented as two targeted queries instead of
+   fetchAppState()'s full ~19-table fetch. */
 export async function removeSuggestion(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
-  const suggestion = (state.suggestions || []).find((s) => s.id === id);
-  if (!suggestion || !canDeleteSuggestion(state, suggestion, me.name)) return;
+
+  const { data: suggestion } = await supabase.from("suggestions").select("author").eq("id", id).maybeSingle();
+  if (!suggestion) return;
+
+  let canDelete = suggestion.author === me.name;
+  if (!canDelete) {
+    const { data: authorVa } = await supabase.from("vas").select("id").eq("name", suggestion.author).maybeSingle();
+    canDelete = !authorVa;
+  }
+  if (!canDelete) return;
 
   const { error } = await supabase.from("suggestions").delete().eq("id", id);
   orThrow(error);

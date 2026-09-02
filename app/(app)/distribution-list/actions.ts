@@ -1,29 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
 import {
-  findVaByEmail,
   DISTRIBUTION_CLASSROOM_TYPES,
   DISTRIBUTION_LANGUAGES,
 } from "@/lib/app-state";
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase };
-}
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -39,7 +21,7 @@ function emptyBreakdown(): Record<string, Record<string, string>> {
 }
 
 export async function addDistributionGroup(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
 
@@ -59,7 +41,7 @@ export async function addDistributionGroup(formData: FormData) {
 }
 
 export async function renameDistributionGroup(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
@@ -70,7 +52,7 @@ export async function renameDistributionGroup(formData: FormData) {
 }
 
 export async function removeDistributionGroup(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
 
   const { error } = await supabase.from("distribution_groups").delete().eq("id", id);
@@ -79,7 +61,7 @@ export async function removeDistributionGroup(formData: FormData) {
 }
 
 export async function addDistributionRow(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const groupId = formData.get("group") as string;
   const school = ((formData.get("school") as string) || "").trim();
   if (!groupId || !school) return;
@@ -105,7 +87,7 @@ export async function addDistributionRow(formData: FormData) {
 }
 
 export async function updateDistributionRow(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
 
   const breakdown: Record<string, Record<string, string>> = emptyBreakdown();
@@ -130,7 +112,7 @@ export async function updateDistributionRow(formData: FormData) {
 }
 
 export async function removeDistributionRow(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
 
   const { error } = await supabase.from("distribution_rows").delete().eq("id", rowId);

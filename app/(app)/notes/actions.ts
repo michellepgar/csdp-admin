@@ -1,36 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
-import {
-  findVaByEmail,
-  isAdmin,
-  canDeleteGeneralNote,
-} from "@/lib/app-state";
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase, state, me };
-}
+import { isAdmin } from "@/lib/app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addGeneralNote(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const text = ((formData.get("text") as string) || "").trim();
   if (!text) return;
   const urgency = formData.get("urgent") ? "Urgent" : "";
@@ -47,11 +26,12 @@ export async function addGeneralNote(formData: FormData) {
 }
 
 export async function ackGeneralNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
-  const note = (state.generalNotes || []).find((n) => n.id === id);
+
+  const { data: note } = await supabase.from("general_notes").select("ack_by").eq("id", id).maybeSingle();
   if (!note) return;
-  const ackBy = note.ackBy || [];
+  const ackBy: string[] = note.ack_by || [];
   if (ackBy.includes(me.name)) return;
 
   const { error } = await supabase
@@ -62,11 +42,24 @@ export async function ackGeneralNote(formData: FormData) {
   revalidatePath("/notes");
 }
 
+/* Same rule as canDeleteGeneralNote in lib/app-state.ts (the author
+   can always delete their own; once they're off the team, only an
+   admin can), reimplemented as targeted queries instead of
+   fetchAppState()'s full ~19-table fetch. */
 export async function removeGeneralNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
-  const note = (state.generalNotes || []).find((n) => n.id === id);
-  if (!note || !canDeleteGeneralNote(state, note, me.name, isAdmin(me))) return;
+
+  const { data: note } = await supabase.from("general_notes").select("author").eq("id", id).maybeSingle();
+  if (!note) return;
+
+  let canDelete = note.author === me.name;
+  if (!canDelete) {
+    const { data: authorVa } = await supabase.from("vas").select("id").eq("name", note.author).maybeSingle();
+    const authorStillOnTeam = !!authorVa;
+    canDelete = !authorStillOnTeam && isAdmin(me);
+  }
+  if (!canDelete) return;
 
   const { error } = await supabase.from("general_notes").delete().eq("id", id);
   orThrow(error);

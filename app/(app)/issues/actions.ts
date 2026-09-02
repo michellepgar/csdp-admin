@@ -1,25 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, isAdmin, canDeleteIssue, type Issue } from "@/lib/app-state";
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase, state, me };
-}
+import { isAdmin, type Issue } from "@/lib/app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -35,7 +18,7 @@ function baseIssueRow(me: { name: string }, type: Issue["type"]) {
 }
 
 export async function addSoftwareIssue(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const description = ((formData.get("description") as string) || "").trim();
   if (!description) return;
 
@@ -50,7 +33,7 @@ export async function addSoftwareIssue(formData: FormData) {
 }
 
 export async function addRecordUpdate(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const fileName = ((formData.get("fileName") as string) || "").trim();
   if (!fileName) return;
 
@@ -70,7 +53,7 @@ export async function addRecordUpdate(formData: FormData) {
 }
 
 export async function addCorrection(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
   if (!studentRecordLink) return;
 
@@ -90,7 +73,7 @@ export async function addCorrection(formData: FormData) {
 }
 
 export async function addCharting(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
   const question = ((formData.get("question") as string) || "").trim();
   if (!studentRecordLink || !question) return;
@@ -106,7 +89,7 @@ export async function addCharting(formData: FormData) {
 }
 
 export async function setIssueStatus(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const status = (formData.get("status") as string) || "";
 
@@ -115,11 +98,16 @@ export async function setIssueStatus(formData: FormData) {
   revalidatePath("/issues");
 }
 
+/* Same rule as canDeleteIssue in lib/app-state.ts (an admin can delete
+   anything; otherwise only the reporter can), reimplemented as a
+   targeted query instead of fetchAppState()'s full ~19-table fetch. */
 export async function removeIssue(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
-  const issue = (state.issues || []).find((i) => i.id === id);
-  if (!issue || !canDeleteIssue(issue, me.name, isAdmin(me))) return;
+
+  const { data: issue } = await supabase.from("issues").select("reported_by").eq("id", id).maybeSingle();
+  if (!issue) return;
+  if (!isAdmin(me) && issue.reported_by !== me.name) return;
 
   const { error } = await supabase.from("issues").delete().eq("id", id);
   orThrow(error);
@@ -127,11 +115,12 @@ export async function removeIssue(formData: FormData) {
 }
 
 export async function signIssueFix(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
-  const issue = (state.issues || []).find((i) => i.id === id);
+
+  const { data: issue } = await supabase.from("issues").select("fixed_by").eq("id", id).maybeSingle();
   if (!issue) return;
-  const fixedBy = issue.fixedBy || [];
+  const fixedBy: string[] = issue.fixed_by || [];
   if (fixedBy.includes(me.name)) return;
 
   const { error } = await supabase.from("issues").update({ fixed_by: [...fixedBy, me.name] }).eq("id", id);
@@ -140,16 +129,17 @@ export async function signIssueFix(formData: FormData) {
 }
 
 export async function removeIssueFixSignature(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = formData.get("name") as string;
-  const issue = (state.issues || []).find((i) => i.id === id);
-  if (!issue) return;
   if (name !== me.name && !isAdmin(me)) return;
+
+  const { data: issue } = await supabase.from("issues").select("fixed_by").eq("id", id).maybeSingle();
+  if (!issue) return;
 
   const { error } = await supabase
     .from("issues")
-    .update({ fixed_by: (issue.fixedBy || []).filter((n) => n !== name) })
+    .update({ fixed_by: ((issue.fixed_by as string[]) || []).filter((n) => n !== name) })
     .eq("id", id);
   orThrow(error);
   revalidatePath("/issues");

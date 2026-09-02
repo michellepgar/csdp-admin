@@ -2,27 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, DISTRIBUTION_CLASSROOM_TYPES, DISTRIBUTION_LANGUAGES } from "@/lib/app-state";
+import { DISTRIBUTION_CLASSROOM_TYPES, DISTRIBUTION_LANGUAGES } from "@/lib/app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
-}
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase };
 }
 
 function emptyBreakdown(): Record<string, Record<string, string>> {
@@ -145,7 +129,7 @@ async function createSchool(
    group is picked; contact-person details, website, and hours are
    filled in later, anytime, on the school's own page. */
 export async function addSchool(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
 
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;

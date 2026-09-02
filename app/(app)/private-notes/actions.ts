@@ -1,35 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
-import {
-  findVaByEmail,
-  canDeletePrivateNote,
-} from "@/lib/app-state";
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase, state, me };
-}
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addPrivateNote(formData: FormData) {
-  const { supabase, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const text = ((formData.get("text") as string) || "").trim();
   if (!text) return;
 
@@ -45,12 +24,14 @@ export async function addPrivateNote(formData: FormData) {
 }
 
 export async function sharePrivateNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
   const vaName = formData.get("vaName") as string;
-  const note = (state.privateNotes || []).find((n) => n.id === id);
-  if (!note || note.author !== me.name || !vaName) return;
-  const sharedWith = note.sharedWith || [];
+  if (!vaName) return;
+
+  const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", id).maybeSingle();
+  if (!note || note.author !== me.name) return;
+  const sharedWith: string[] = note.shared_with || [];
   if (sharedWith.includes(vaName)) return;
 
   const { error } = await supabase
@@ -62,26 +43,28 @@ export async function sharePrivateNote(formData: FormData) {
 }
 
 export async function unsharePrivateNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
   const vaName = formData.get("vaName") as string;
-  const note = (state.privateNotes || []).find((n) => n.id === id);
+
+  const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", id).maybeSingle();
   if (!note || note.author !== me.name) return;
 
   const { error } = await supabase
     .from("private_notes")
-    .update({ shared_with: (note.sharedWith || []).filter((n) => n !== vaName) })
+    .update({ shared_with: ((note.shared_with as string[]) || []).filter((n) => n !== vaName) })
     .eq("id", id);
   orThrow(error);
   revalidatePath("/private-notes");
 }
 
 export async function ackPrivateNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
-  const note = (state.privateNotes || []).find((n) => n.id === id);
+
+  const { data: note } = await supabase.from("private_notes").select("ack_by").eq("id", id).maybeSingle();
   if (!note) return;
-  const ackBy = note.ackBy || [];
+  const ackBy: string[] = note.ack_by || [];
   if (ackBy.includes(me.name)) return;
 
   const { error } = await supabase
@@ -92,11 +75,23 @@ export async function ackPrivateNote(formData: FormData) {
   revalidatePath("/private-notes");
 }
 
+/* Same rule as canDeletePrivateNote in lib/app-state.ts (the author
+   can always delete their own; once they're off the team, anyone who
+   can see it can clean it up), reimplemented as targeted queries
+   instead of fetchAppState()'s full ~19-table fetch. */
 export async function removePrivateNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
-  const note = (state.privateNotes || []).find((n) => n.id === id);
-  if (!note || !canDeletePrivateNote(state, note, me.name)) return;
+
+  const { data: note } = await supabase.from("private_notes").select("author").eq("id", id).maybeSingle();
+  if (!note) return;
+
+  let canDelete = note.author === me.name;
+  if (!canDelete) {
+    const { data: authorVa } = await supabase.from("vas").select("id").eq("name", note.author).maybeSingle();
+    canDelete = !authorVa;
+  }
+  if (!canDelete) return;
 
   const { error } = await supabase.from("private_notes").delete().eq("id", id);
   orThrow(error);

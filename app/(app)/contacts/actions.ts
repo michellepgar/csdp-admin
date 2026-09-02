@@ -1,25 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, CONTACT_FIELDS, type ContactRow } from "@/lib/app-state";
-
-async function requireUserAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) throw new Error("Not on the team list");
-
-  return { supabase };
-}
+import { CONTACT_FIELDS, type ContactRow } from "@/lib/app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -42,7 +25,7 @@ const CONTACT_FIELD_TO_COLUMN: Record<keyof ContactRow, string> = {
 };
 
 export async function addContactGroup(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
 
@@ -62,7 +45,7 @@ export async function addContactGroup(formData: FormData) {
 }
 
 export async function renameContactGroup(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
@@ -73,7 +56,7 @@ export async function renameContactGroup(formData: FormData) {
 }
 
 export async function removeContactGroup(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
 
   const { error } = await supabase.from("contact_groups").delete().eq("id", id);
@@ -82,7 +65,7 @@ export async function removeContactGroup(formData: FormData) {
 }
 
 export async function updateContactRow(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
   const moveToGroupId = formData.get("moveToGroupId") as string;
 
@@ -102,7 +85,7 @@ export async function updateContactRow(formData: FormData) {
 }
 
 export async function removeContactRow(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
 
   const { error } = await supabase.from("contact_rows").delete().eq("id", rowId);
@@ -111,7 +94,7 @@ export async function removeContactRow(formData: FormData) {
 }
 
 export async function setNurseLeader(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
 
@@ -125,7 +108,7 @@ export async function setNurseLeader(formData: FormData) {
 /* ---------- Other Contacts (not tied to any school) ---------- */
 
 export async function addOtherContact(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
   const organization = ((formData.get("organization") as string) || "").trim();
@@ -146,7 +129,7 @@ export async function addOtherContact(formData: FormData) {
 }
 
 export async function updateOtherContact(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
@@ -170,7 +153,7 @@ export async function updateOtherContact(formData: FormData) {
 }
 
 export async function removeOtherContact(formData: FormData) {
-  const { supabase } = await requireUserAndState();
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
 
   const { error } = await supabase.from("other_contacts").delete().eq("id", id);

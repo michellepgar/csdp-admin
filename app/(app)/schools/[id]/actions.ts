@@ -370,6 +370,7 @@ export async function addSchoolContact(formData: FormData) {
   const school = state.schools.find((s) => s.id === schoolId);
   if (school) await syncContactRowEmail(supabase, schoolId, school.name, position);
   revalidateSchool(schoolId);
+  revalidatePath("/contacts");
 }
 
 export async function updateSchoolContact(formData: FormData) {
@@ -386,6 +387,7 @@ export async function updateSchoolContact(formData: FormData) {
   const school = state.schools.find((s) => s.id === schoolId);
   if (school) await syncContactRowEmail(supabase, schoolId, school.name, position);
   revalidateSchool(schoolId);
+  revalidatePath("/contacts");
 }
 
 export async function removeSchoolContact(formData: FormData) {
@@ -401,4 +403,5 @@ export async function removeSchoolContact(formData: FormData) {
   const school = state.schools.find((s) => s.id === schoolId);
   if (school && existing) await syncContactRowEmail(supabase, schoolId, school.name, existing.position);
   revalidateSchool(schoolId);
+  revalidatePath("/contacts");
 }

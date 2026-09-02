@@ -1,5 +1,6 @@
 import { LayoutDashboard, School, Users, MessageSquarePlus, Megaphone, Lock, Mail, Contact, Clock, ShieldAlert, CheckSquare, AlertTriangle, Send } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Sidebar({
   currentName,
@@ -12,9 +13,12 @@ export function Sidebar({
 }) {
   return (
     <aside className="flex w-64 flex-none flex-col border-r bg-background">
-      <div className="border-b p-4">
-        <div className="text-lg font-bold text-primary">CSDP Tracker</div>
-        <div className="mt-1 text-sm text-muted-foreground">{currentName}</div>
+      <div className="flex items-center justify-between gap-2 border-b p-4">
+        <div>
+          <div className="text-lg font-bold text-primary">CSDP Tracker</div>
+          <div className="mt-1 text-sm text-muted-foreground">{currentName}</div>
+        </div>
+        <ThemeToggle />
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
         <Link

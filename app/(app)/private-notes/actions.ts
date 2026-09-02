@@ -6,7 +6,6 @@ import { fetchAppState } from "@/lib/fetch-app-state";
 import {
   findVaByEmail,
   canDeletePrivateNote,
-  type AppState,
 } from "@/lib/app-state";
 
 async function requireUserAndState() {
@@ -25,31 +24,23 @@ async function requireUserAndState() {
   return { supabase, state, me };
 }
 
-async function saveState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  state: AppState
-) {
-  const { error } = await supabase
-    .from("app_state")
-    .update({ data: state, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addPrivateNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireUserAndState();
   const text = ((formData.get("text") as string) || "").trim();
   if (!text) return;
-  state.privateNotes = state.privateNotes || [];
-  state.privateNotes.push({
+
+  const { error } = await supabase.from("private_notes").insert({
     id: crypto.randomUUID(),
     text,
     author: me.name,
-    sharedWith: [],
-    ackBy: [],
-    createdAt: new Date().toISOString(),
+    shared_with: [],
+    ack_by: [],
   });
-  await saveState(supabase, state);
+  orThrow(error);
   revalidatePath("/private-notes");
 }
 
@@ -59,9 +50,14 @@ export async function sharePrivateNote(formData: FormData) {
   const vaName = formData.get("vaName") as string;
   const note = (state.privateNotes || []).find((n) => n.id === id);
   if (!note || note.author !== me.name || !vaName) return;
-  note.sharedWith = note.sharedWith || [];
-  if (!note.sharedWith.includes(vaName)) note.sharedWith.push(vaName);
-  await saveState(supabase, state);
+  const sharedWith = note.sharedWith || [];
+  if (sharedWith.includes(vaName)) return;
+
+  const { error } = await supabase
+    .from("private_notes")
+    .update({ shared_with: [...sharedWith, vaName] })
+    .eq("id", id);
+  orThrow(error);
   revalidatePath("/private-notes");
 }
 
@@ -71,8 +67,12 @@ export async function unsharePrivateNote(formData: FormData) {
   const vaName = formData.get("vaName") as string;
   const note = (state.privateNotes || []).find((n) => n.id === id);
   if (!note || note.author !== me.name) return;
-  note.sharedWith = (note.sharedWith || []).filter((n) => n !== vaName);
-  await saveState(supabase, state);
+
+  const { error } = await supabase
+    .from("private_notes")
+    .update({ shared_with: (note.sharedWith || []).filter((n) => n !== vaName) })
+    .eq("id", id);
+  orThrow(error);
   revalidatePath("/private-notes");
 }
 
@@ -81,9 +81,14 @@ export async function ackPrivateNote(formData: FormData) {
   const id = formData.get("id") as string;
   const note = (state.privateNotes || []).find((n) => n.id === id);
   if (!note) return;
-  note.ackBy = note.ackBy || [];
-  if (!note.ackBy.includes(me.name)) note.ackBy.push(me.name);
-  await saveState(supabase, state);
+  const ackBy = note.ackBy || [];
+  if (ackBy.includes(me.name)) return;
+
+  const { error } = await supabase
+    .from("private_notes")
+    .update({ ack_by: [...ackBy, me.name] })
+    .eq("id", id);
+  orThrow(error);
   revalidatePath("/private-notes");
 }
 
@@ -92,7 +97,8 @@ export async function removePrivateNote(formData: FormData) {
   const id = formData.get("id") as string;
   const note = (state.privateNotes || []).find((n) => n.id === id);
   if (!note || !canDeletePrivateNote(state, note, me.name)) return;
-  state.privateNotes = (state.privateNotes || []).filter((n) => n.id !== id);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("private_notes").delete().eq("id", id);
+  orThrow(error);
   revalidatePath("/private-notes");
 }

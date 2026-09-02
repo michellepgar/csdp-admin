@@ -4,6 +4,7 @@ import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin, canEditSchoolRecords, type AccessRequest, type AppState } from "@/lib/app-state";
 import { SubmitButton } from "@/components/submit-button";
 import { approveAccessRequest, declineAccessRequest, deleteAccessRequestRow } from "./actions";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 function fmtDateTime(iso?: string) {
   if (!iso) return "";
@@ -11,6 +12,7 @@ function fmtDateTime(iso?: string) {
 }
 
 const STATUS_LABEL: Record<string, string> = { pending: "Pending", declined: "Declined", fulfilled: "Done" };
+const STATUS_TONE: Record<string, StatusTone> = { pending: "neutral", declined: "danger", fulfilled: "success" };
 
 function RequestRow({ state, req, showApproveDecline }: { state: AppState; req: AccessRequest; showApproveDecline: boolean }) {
   const school = state.schools.find((s) => s.id === req.schoolId);
@@ -46,7 +48,7 @@ function RequestRow({ state, req, showApproveDecline }: { state: AppState; req: 
         </div>
       ) : (
         <div className="flex flex-none items-center gap-2">
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{STATUS_LABEL[req.status] || req.status}</span>
+          <StatusBadge tone={STATUS_TONE[req.status] || "neutral"}>{STATUS_LABEL[req.status] || req.status}</StatusBadge>
           <form action={deleteAccessRequestRow}>
             <input type="hidden" name="id" value={req.id} />
             <SubmitButton pendingLabel="…" variant="ghost" size="sm">

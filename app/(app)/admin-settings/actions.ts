@@ -16,6 +16,10 @@ import {
   type Suggestion,
   type GeneralNote,
   type PrivateNote,
+  type EmailTemplate,
+  type ContactGroup,
+  type ContactRow,
+  type NurseLeader,
 } from "@/lib/app-state";
 
 async function requireAdminAndState() {
@@ -153,6 +157,49 @@ function isValidPrivateNoteRow(n: unknown): n is PrivateNote {
   );
 }
 
+function isValidEmailTemplateRow(t: unknown): t is EmailTemplate {
+  return (
+    !!t &&
+    typeof t === "object" &&
+    typeof (t as EmailTemplate).id === "string" &&
+    (t as EmailTemplate).id.length > 0 &&
+    typeof (t as EmailTemplate).name === "string" &&
+    typeof (t as EmailTemplate).subject === "string" &&
+    typeof (t as EmailTemplate).body === "string"
+  );
+}
+
+function isValidContactRowShape(r: unknown): r is ContactRow {
+  return (
+    !!r &&
+    typeof r === "object" &&
+    typeof (r as ContactRow).id === "string" &&
+    (r as ContactRow).id.length > 0 &&
+    typeof (r as ContactRow).school === "string"
+  );
+}
+
+function isValidContactGroupRow(g: unknown): g is ContactGroup {
+  return (
+    !!g &&
+    typeof g === "object" &&
+    typeof (g as ContactGroup).id === "string" &&
+    (g as ContactGroup).id.length > 0 &&
+    typeof (g as ContactGroup).name === "string" &&
+    Array.isArray((g as ContactGroup).rows) &&
+    (g as ContactGroup).rows.every(isValidContactRowShape)
+  );
+}
+
+function isValidNurseLeader(n: unknown): n is NurseLeader {
+  return (
+    !!n &&
+    typeof n === "object" &&
+    typeof (n as NurseLeader).name === "string" &&
+    typeof (n as NurseLeader).email === "string"
+  );
+}
+
 export async function restoreBackup(formData: FormData) {
   const { supabase } = await requireAdminAndState();
   const confirm = (formData.get("confirm") as string) || "";
@@ -218,7 +265,13 @@ export async function restoreBackup(formData: FormData) {
     !Array.isArray((parsed as AppState).generalNotes) ||
     !(parsed as AppState).generalNotes!.every(isValidGeneralNoteRow) ||
     !Array.isArray((parsed as AppState).privateNotes) ||
-    !(parsed as AppState).privateNotes!.every(isValidPrivateNoteRow)
+    !(parsed as AppState).privateNotes!.every(isValidPrivateNoteRow) ||
+    !Array.isArray((parsed as AppState).emailTemplates) ||
+    !(parsed as AppState).emailTemplates!.every(isValidEmailTemplateRow) ||
+    !Array.isArray((parsed as AppState).contactGroups) ||
+    !(parsed as AppState).contactGroups!.every(isValidContactGroupRow) ||
+    ((parsed as AppState).nurseLeader !== undefined && !isValidNurseLeader((parsed as AppState).nurseLeader)) ||
+    ((parsed as AppState).communicationEditor !== undefined && typeof (parsed as AppState).communicationEditor !== "string")
   ) {
     return;
   }
@@ -344,6 +397,65 @@ export async function restoreBackup(formData: FormData) {
     }));
     const { error: insPrivateError } = await supabase.from("private_notes").insert(privateRows);
     orThrow(insPrivateError);
+  }
+
+  const { error: delTemplatesError } = await supabase.from("email_templates").delete().neq("id", "");
+  orThrow(delTemplatesError);
+  if (backup.emailTemplates!.length) {
+    const templateRows = backup.emailTemplates!.map((t) => ({
+      id: t.id,
+      name: t.name,
+      category: t.category || null,
+      subject: t.subject,
+      body: t.body,
+    }));
+    const { error: insTemplatesError } = await supabase.from("email_templates").insert(templateRows);
+    orThrow(insTemplatesError);
+  }
+
+  /* Deleting contact_groups cascades to contact_rows automatically
+     (group_id references contact_groups(id) on delete cascade) -- no
+     separate contact_rows delete needed. */
+  const { error: delGroupsError } = await supabase.from("contact_groups").delete().neq("id", "");
+  orThrow(delGroupsError);
+  if (backup.contactGroups!.length) {
+    const groupRows = backup.contactGroups!.map((g) => ({ id: g.id, name: g.name }));
+    const { error: insGroupsError } = await supabase.from("contact_groups").insert(groupRows);
+    orThrow(insGroupsError);
+
+    const contactRowRows = backup.contactGroups!.flatMap((g) =>
+      g.rows.map((r) => ({
+        id: r.id,
+        group_id: g.id,
+        school: r.school,
+        principal: r.principal || null,
+        principal_email: r.principalEmail || null,
+        asst_principal: r.asstPrincipal || null,
+        asst_principal_email: r.asstPrincipalEmail || null,
+        front_desk: r.frontDesk || null,
+        front_desk_email: r.frontDeskEmail || null,
+        nurse_name: r.nurseName || null,
+        nurse_email: r.nurseEmail || null,
+        notes: r.notes || null,
+      }))
+    );
+    if (contactRowRows.length) {
+      const { error: insRowsError } = await supabase.from("contact_rows").insert(contactRowRows);
+      orThrow(insRowsError);
+    }
+  }
+
+  if (backup.nurseLeader) {
+    const { error: nurseLeaderError } = await supabase
+      .from("settings")
+      .upsert({ key: "nurseLeader", value: backup.nurseLeader }, { onConflict: "key" });
+    orThrow(nurseLeaderError);
+  }
+  if (backup.communicationEditor !== undefined) {
+    const { error: commEditorError } = await supabase
+      .from("settings")
+      .upsert({ key: "communicationEditor", value: { value: backup.communicationEditor } }, { onConflict: "key" });
+    orThrow(commEditorError);
   }
 
   await saveState(supabase, backup);

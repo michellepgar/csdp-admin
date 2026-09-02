@@ -170,7 +170,11 @@ export async function restoreBackup(formData: FormData) {
     typeof (parsed as AppState).checklistProgress !== "object" ||
     (parsed as AppState).checklistProgress === null ||
     !Object.values((parsed as AppState).schoolData || {}).every(
-      (sd) => (sd.tasks || []).every(isValidTaskRow) && (sd.emailTracker || []).every(isValidEmailTrackerRow)
+      (sd) =>
+        !!sd &&
+        typeof sd === "object" &&
+        (sd.tasks || []).every(isValidTaskRow) &&
+        (sd.emailTracker || []).every(isValidEmailTrackerRow)
     )
   ) {
     return;

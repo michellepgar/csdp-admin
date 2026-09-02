@@ -77,7 +77,10 @@ with check (auth.uid() is not null and is_team_member());
 -- permanently empty (this happened for real during Phase 1's rollout —
 -- see git history around supabase/phase1_fix_restore_lockout.sql).
 -- Doing both steps inside one security definer function sidesteps that
--- empty-table window entirely.
+-- empty-table window entirely. The `where true` on each delete is
+-- required too — every Supabase project has pg-safeupdate enabled by
+-- default, which blocks any DELETE with no WHERE clause at all, even
+-- inside a security definer function.
 create or replace function restore_vas_and_schools(new_vas jsonb, new_schools jsonb)
 returns void
 language plpgsql
@@ -85,7 +88,7 @@ security definer
 set search_path = public
 as $$
 begin
-  delete from vas;
+  delete from vas where true;
   insert into vas (id, name, email, admin, role, color)
   select
     v->>'id',
@@ -96,7 +99,7 @@ begin
     v->>'color'
   from jsonb_array_elements(new_vas) as v;
 
-  delete from schools;
+  delete from schools where true;
   insert into schools (id, name)
   select s->>'id', s->>'name'
   from jsonb_array_elements(new_schools) as s;

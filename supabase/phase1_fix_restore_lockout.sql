@@ -18,7 +18,12 @@ security definer
 set search_path = public
 as $$
 begin
-  delete from vas;
+  -- `where true` on each delete is required: every Supabase project has
+  -- pg-safeupdate enabled by default, which blocks any DELETE with no
+  -- WHERE clause at all, even inside a security definer function (a
+  -- second real incident hit during Phase 1's rollout — see
+  -- supabase/phase1_fix_restore_where_clause.sql).
+  delete from vas where true;
   insert into vas (id, name, email, admin, role, color)
   select
     v->>'id',
@@ -29,7 +34,7 @@ begin
     v->>'color'
   from jsonb_array_elements(new_vas) as v;
 
-  delete from schools;
+  delete from schools where true;
   insert into schools (id, name)
   select s->>'id', s->>'name'
   from jsonb_array_elements(new_schools) as s;

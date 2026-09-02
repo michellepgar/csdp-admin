@@ -52,7 +52,7 @@ function TaskRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
-      <span className="font-mono text-sm font-bold italic">{task.fileName}</span>
+      <span className="text-sm font-bold">{task.fileName}</span>
 
       {needsCount && (
         <AutoSubmitForm action={setTaskCount} className="flex items-center gap-1">
@@ -221,7 +221,7 @@ export function TasksCard({
           <select name="category" className="rounded-md border px-2 py-1.5 text-sm">
             {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
-          <Input name="fileName" placeholder="File name, e.g. Q3-enrollment-report.xlsx" required className="max-w-md flex-1 font-mono" />
+          <Input name="fileName" placeholder="File name, e.g. Q3-enrollment-report.xlsx" required className="max-w-md flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>
 

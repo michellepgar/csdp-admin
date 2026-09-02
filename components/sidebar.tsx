@@ -162,14 +162,8 @@ export function Sidebar({
           <CheckSquare className="h-4 w-4" />
           Approvals
         </Link>
-        {isAdmin && (
-          <Link href="/team" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-            <Users className="h-4 w-4" />
-            Team
-          </Link>
-        )}
 
-        <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Team</div>
+        <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>
         <Link href="/notes" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <Megaphone className="h-4 w-4" />
           General Notes/Announcements
@@ -202,6 +196,10 @@ export function Sidebar({
         {isAdmin && (
           <>
             <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Admin</div>
+            <Link href="/team" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+              <Users className="h-4 w-4" />
+              Team
+            </Link>
             <Link
               href="/admin-settings"
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"

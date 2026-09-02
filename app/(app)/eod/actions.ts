@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, computeEodTotalHours, type AppState } from "@/lib/app-state";
+import { findVaByEmail, computeEodTotalHours } from "@/lib/app-state";
 
 async function requireUserAndState() {
   const supabase = await createClient();
@@ -18,22 +18,15 @@ async function requireUserAndState() {
   const me = findVaByEmail(state, user.email);
   if (!me) throw new Error("Not on the team list");
 
-  return { supabase, state, me };
+  return { supabase, me };
 }
 
-async function saveState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  state: AppState
-) {
-  const { error } = await supabase
-    .from("app_state")
-    .update({ data: state, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addEodReport(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireUserAndState();
   const date = (formData.get("date") as string) || "";
   if (!date) return;
   const timeIn = (formData.get("timeIn") as string) || "";
@@ -43,19 +36,17 @@ export async function addEodReport(formData: FormData) {
   const tasksRaw = (formData.get("tasks") as string) || "";
   const tasks = tasksRaw.split("\n").map((s) => s.trim()).filter(Boolean);
 
-  state.eodReports = state.eodReports || [];
-  state.eodReports.push({
+  const { error } = await supabase.from("eod_reports").insert({
     id: crypto.randomUUID(),
     author: me.name,
     date,
-    timeIn,
-    timeOut,
-    breakStart,
-    breakEnd,
-    totalHours: computeEodTotalHours(timeIn, timeOut, breakStart, breakEnd),
+    time_in: timeIn || null,
+    break_start: breakStart || null,
+    break_end: breakEnd || null,
+    time_out: timeOut || null,
+    total_hours: computeEodTotalHours(timeIn, timeOut, breakStart, breakEnd) || null,
     tasks,
-    createdAt: new Date().toISOString(),
   });
-  await saveState(supabase, state);
+  orThrow(error);
   revalidatePath("/eod");
 }

@@ -1,6 +1,17 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { AppState, Va, School, Task, EmailTrackerItem, ChecklistTemplateItem, TaskCategory } from "@/lib/app-state";
+import type {
+  AppState,
+  Va,
+  School,
+  Task,
+  EmailTrackerItem,
+  ChecklistTemplateItem,
+  TaskCategory,
+  Suggestion,
+  GeneralNote,
+  PrivateNote,
+} from "@/lib/app-state";
 
 type VaRow = {
   id: string;
@@ -64,6 +75,64 @@ function mapEmailTrackerRow(r: EmailTrackerRow): EmailTrackerItem {
   };
 }
 
+type SuggestionRow = {
+  id: string;
+  text: string;
+  author: string;
+  status: string;
+  created_at: string;
+};
+
+function mapSuggestionRow(r: SuggestionRow): Suggestion {
+  return {
+    id: r.id,
+    text: r.text,
+    author: r.author,
+    status: r.status as Suggestion["status"],
+    createdAt: r.created_at,
+  };
+}
+
+type GeneralNoteRow = {
+  id: string;
+  text: string;
+  author: string;
+  urgency: string | null;
+  ack_by: string[];
+  created_at: string;
+};
+
+function mapGeneralNoteRow(r: GeneralNoteRow): GeneralNote {
+  return {
+    id: r.id,
+    text: r.text,
+    author: r.author,
+    urgency: (r.urgency as "Urgent" | "" | null) ?? undefined,
+    ackBy: r.ack_by,
+    createdAt: r.created_at,
+  };
+}
+
+type PrivateNoteRow = {
+  id: string;
+  text: string;
+  author: string;
+  shared_with: string[];
+  ack_by: string[];
+  created_at: string;
+};
+
+function mapPrivateNoteRow(r: PrivateNoteRow): PrivateNote {
+  return {
+    id: r.id,
+    text: r.text,
+    author: r.author,
+    sharedWith: r.shared_with,
+    ackBy: r.ack_by,
+    createdAt: r.created_at,
+  };
+}
+
 /* Kept in its own file, separate from lib/app-state.ts's types/constants
    — this imports @/lib/supabase/server (next/headers), which is
    server-only. lib/app-state.ts is imported by client components too
@@ -77,14 +146,15 @@ function mapEmailTrackerRow(r: EmailTrackerRow): EmailTrackerItem {
    request/render pass, not across a Server Action call and the page
    re-render that follows it — those are genuinely separate requests.
 
-   vas/schools (Phase 1) and tasks/email tracker items/checklist
-   template & progress/task categories (Phase 2) are read from their
-   own tables — see docs/superpowers/specs/2026-09-02-relational-backend-design.md.
+   vas/schools (Phase 1), tasks/email tracker items/checklist template
+   & progress/task categories (Phase 2), and suggestions/general notes/
+   private notes (Phase 3) are read from their own tables — see
+   docs/superpowers/specs/2026-09-02-relational-backend-design.md.
    Everything else (schoolData's vaAssigned/notes, communicationEditor,
-   suggestions, etc.) still comes from the app_state blob until its own
-   phase migrates it. Whatever values happen to still be sitting in the
-   blob for already-migrated fields are ignored entirely — they're
-   stale leftovers, not read here on purpose. */
+   emailTemplates, contactGroups, etc.) still comes from the app_state
+   blob until its own phase migrates it. Whatever values happen to
+   still be sitting in the blob for already-migrated fields are ignored
+   entirely — they're stale leftovers, not read here on purpose. */
 export const fetchAppState = cache(async (): Promise<AppState | null> => {
   const supabase = await createClient();
 
@@ -97,6 +167,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     checklistProgressResult,
     tasksResult,
     emailTrackerResult,
+    suggestionsResult,
+    generalNotesResult,
+    privateNotesResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).single(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
@@ -106,6 +179,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("checklist_progress").select("school_id, template_item_id, status"),
     supabase.from("tasks").select("id, school_id, category, file_name, count, status, va_assigned, created_at").order("created_at"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
+    supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
+    supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at").order("created_at"),
+    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -116,12 +192,18 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (checklistProgressResult.error) return null;
   if (tasksResult.error) return null;
   if (emailTrackerResult.error) return null;
+  if (suggestionsResult.error) return null;
+  if (generalNotesResult.error) return null;
+  if (privateNotesResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
   state.schools = (schoolsResult.data || []) as School[];
   state.taskCategories = (taskCategoriesResult.data || []) as TaskCategory[];
   state.checklistTemplate = (checklistTemplateResult.data || []) as ChecklistTemplateItem[];
+  state.suggestions = (suggestionsResult.data || []).map((r) => mapSuggestionRow(r as SuggestionRow));
+  state.generalNotes = (generalNotesResult.data || []).map((r) => mapGeneralNoteRow(r as GeneralNoteRow));
+  state.privateNotes = (privateNotesResult.data || []).map((r) => mapPrivateNoteRow(r as PrivateNoteRow));
 
   state.checklistProgress = {};
   for (const row of checklistProgressResult.data || []) {

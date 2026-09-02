@@ -7,7 +7,6 @@ import {
   findVaByEmail,
   isAdmin,
   canDeleteGeneralNote,
-  type AppState,
 } from "@/lib/app-state";
 
 async function requireUserAndState() {
@@ -26,32 +25,24 @@ async function requireUserAndState() {
   return { supabase, state, me };
 }
 
-async function saveState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  state: AppState
-) {
-  const { error } = await supabase
-    .from("app_state")
-    .update({ data: state, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addGeneralNote(formData: FormData) {
-  const { supabase, state, me } = await requireUserAndState();
+  const { supabase, me } = await requireUserAndState();
   const text = ((formData.get("text") as string) || "").trim();
   if (!text) return;
   const urgency = formData.get("urgent") ? "Urgent" : "";
-  state.generalNotes = state.generalNotes || [];
-  state.generalNotes.push({
+
+  const { error } = await supabase.from("general_notes").insert({
     id: crypto.randomUUID(),
     text,
     author: me.name,
-    urgency,
-    ackBy: [],
-    createdAt: new Date().toISOString(),
+    urgency: urgency || null,
+    ack_by: [],
   });
-  await saveState(supabase, state);
+  orThrow(error);
   revalidatePath("/notes");
 }
 
@@ -60,9 +51,14 @@ export async function ackGeneralNote(formData: FormData) {
   const id = formData.get("id") as string;
   const note = (state.generalNotes || []).find((n) => n.id === id);
   if (!note) return;
-  note.ackBy = note.ackBy || [];
-  if (!note.ackBy.includes(me.name)) note.ackBy.push(me.name);
-  await saveState(supabase, state);
+  const ackBy = note.ackBy || [];
+  if (ackBy.includes(me.name)) return;
+
+  const { error } = await supabase
+    .from("general_notes")
+    .update({ ack_by: [...ackBy, me.name] })
+    .eq("id", id);
+  orThrow(error);
   revalidatePath("/notes");
 }
 
@@ -71,7 +67,8 @@ export async function removeGeneralNote(formData: FormData) {
   const id = formData.get("id") as string;
   const note = (state.generalNotes || []).find((n) => n.id === id);
   if (!note || !canDeleteGeneralNote(state, note, me.name, isAdmin(me))) return;
-  state.generalNotes = (state.generalNotes || []).filter((n) => n.id !== id);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("general_notes").delete().eq("id", id);
+  orThrow(error);
   revalidatePath("/notes");
 }

@@ -15,6 +15,7 @@ import type {
   ContactGroup,
   ContactRow,
   NurseLeader,
+  EodReport,
 } from "@/lib/app-state";
 
 type VaRow = {
@@ -188,6 +189,34 @@ function mapContactRowDbRow(r: ContactRowDbRow): ContactRow {
   };
 }
 
+type EodReportRow = {
+  id: string;
+  author: string;
+  date: string;
+  time_in: string | null;
+  break_start: string | null;
+  break_end: string | null;
+  time_out: string | null;
+  total_hours: string | null;
+  tasks: string[];
+  created_at: string;
+};
+
+function mapEodReportRow(r: EodReportRow): EodReport {
+  return {
+    id: r.id,
+    author: r.author,
+    date: r.date,
+    timeIn: r.time_in ?? undefined,
+    breakStart: r.break_start ?? undefined,
+    breakEnd: r.break_end ?? undefined,
+    timeOut: r.time_out ?? undefined,
+    totalHours: r.total_hours ?? undefined,
+    tasks: r.tasks,
+    createdAt: r.created_at,
+  };
+}
+
 /* Kept in its own file, separate from lib/app-state.ts's types/constants
    — this imports @/lib/supabase/server (next/headers), which is
    server-only. lib/app-state.ts is imported by client components too
@@ -229,6 +258,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     contactGroupsResult,
     contactRowsResult,
     settingsResult,
+    eodReportsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).single(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
@@ -245,6 +275,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("contact_groups").select("id, name").order("sort_order"),
     supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),
     supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
+    supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -262,6 +293,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (contactGroupsResult.error) return null;
   if (contactRowsResult.error) return null;
   if (settingsResult.error) return null;
+  if (eodReportsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -318,6 +350,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   state.nurseLeader = nurseLeaderValue || { name: "", email: "" };
   const communicationEditorValue = settingsByKey.get("communicationEditor") as { value?: string } | undefined;
   state.communicationEditor = communicationEditorValue?.value || undefined;
+
+  state.eodReports = (eodReportsResult.data || []).map((r) => mapEodReportRow(r as EodReportRow));
 
   return state;
 });

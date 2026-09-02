@@ -37,36 +37,33 @@ alter table schools enable row level security;
 grant select, insert, update, delete on vas to authenticated;
 grant select, insert, update, delete on schools to authenticated;
 
+-- A table's RLS policy can't query that same table for its own check —
+-- Postgres refuses this outright ("infinite recursion detected in
+-- policy for relation 'vas'", error 42P17), even through an alias,
+-- because checking a candidate row would itself re-trigger the same
+-- policy. security definer bypasses vas's RLS for just this one
+-- internal lookup, breaking that loop. (Found the hard way during
+-- Phase 1's rollout — see git history around
+-- supabase/phase1_fix_rls_recursion.sql for the incident.)
+create or replace function is_team_member()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from vas
+    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  );
+$$;
+
 create policy "team members can access vas"
 on vas for all
-using (
-  auth.uid() is not null
-  and exists (
-    select 1 from vas v2
-    where lower(v2.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
-)
-with check (
-  auth.uid() is not null
-  and exists (
-    select 1 from vas v2
-    where lower(v2.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
-);
+using (auth.uid() is not null and is_team_member())
+with check (auth.uid() is not null and is_team_member());
 
 create policy "team members can access schools"
 on schools for all
-using (
-  auth.uid() is not null
-  and exists (
-    select 1 from vas
-    where lower(vas.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
-)
-with check (
-  auth.uid() is not null
-  and exists (
-    select 1 from vas
-    where lower(vas.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
-);
+using (auth.uid() is not null and is_team_member())
+with check (auth.uid() is not null and is_team_member());

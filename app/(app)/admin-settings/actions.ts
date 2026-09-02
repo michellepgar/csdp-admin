@@ -489,6 +489,12 @@ export async function restoreBackup(formData: FormData) {
       time_out: r.timeOut || null,
       total_hours: r.totalHours || null,
       tasks: r.tasks || [],
+      // Preserve the report's real historical timestamp -- omitting
+      // this would let the eod_reports.created_at default (now()) take
+      // over, stamping every restored report with the moment of the
+      // restore instead of when it was actually submitted, and
+      // corrupting the chronological order fetchAppState() relies on.
+      created_at: r.createdAt,
     }));
     const { error: insEodError } = await supabase.from("eod_reports").insert(eodRows);
     orThrow(insEodError);

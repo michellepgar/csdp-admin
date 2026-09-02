@@ -32,7 +32,11 @@ export function ChecklistCard({
   const doneCount = template.filter((t) => progress[t.id]?.status === "Done").length;
 
   return (
-    <div className={`rounded-md border ${hidden ? "w-fit" : "min-w-0 flex-1 basis-0"}`}>
+    // Sized to its own content either way (not a fixed 50/50 split
+    // with Tasks) -- a checklist with a handful of short items
+    // shouldn't claim half the row's width. Tasks (flex-1 on its own
+    // wrapper in schools/[id]/page.tsx) takes whatever this leaves.
+    <div className={`w-fit max-w-full rounded-md border ${hidden ? "" : "sm:max-w-sm"}`}>
       <div className="flex items-center justify-between gap-2 border-b bg-header-background p-3">
         <h2 className="font-semibold whitespace-nowrap">
           Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{doneCount}/{template.length}</span>}

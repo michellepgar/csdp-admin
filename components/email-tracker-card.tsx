@@ -3,7 +3,7 @@
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
-import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { EMAIL_STATUS_OPTIONS, type EmailTrackerItem } from "@/lib/app-state";
 
@@ -61,16 +61,18 @@ export function EmailTrackerCard({
           <div key={e.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
             <span className="text-sm">{e.description}</span>
             <div className="flex flex-none items-center gap-2">
-              <StatusBadge tone={EMAIL_STATUS_TONE[e.status] ?? "neutral"}>{e.status || "—"}</StatusBadge>
               <AutoSubmitForm action={setEmailStatus}>
                 <input type="hidden" name="schoolId" value={schoolId} />
                 <input type="hidden" name="itemId" value={e.id} />
+                {/* The dropdown itself carries the status color (was
+                    previously paired with a separate read-only
+                    StatusBadge showing the same value again). */}
                 <select
                   key={e.status}
                   name="status"
                   defaultValue={e.status}
                   disabled={!canEdit}
-                  className="rounded-md border px-2 py-1 text-xs"
+                  className={`rounded-md border px-2 py-1 text-xs font-medium ${TONE_CLASSES[EMAIL_STATUS_TONE[e.status] ?? "neutral"]}`}
                 >
                   {EMAIL_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
-import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { StatusBadge, TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,11 +72,19 @@ function SignAndStatus({
         )}
       </div>
 
-      <StatusBadge tone={TASK_STATUS_TONE[status] ?? "neutral"}>{status || "—"}</StatusBadge>
       <AutoSubmitForm action={setStatusAction}>
         <input type="hidden" name="schoolId" value={schoolId} />
         <input type="hidden" name="taskId" value={taskId} />
-        <select key={status} name="status" defaultValue={status} disabled={!canEdit} className="rounded-md border px-2 py-1 text-xs">
+        {/* The dropdown itself carries the status color now (was
+            previously paired with a separate read-only StatusBadge
+            showing the same value again right next to it). */}
+        <select
+          key={status}
+          name="status"
+          defaultValue={status}
+          disabled={!canEdit}
+          className={`rounded-md border px-2 py-1 text-xs font-medium ${TONE_CLASSES[TASK_STATUS_TONE[status] ?? "neutral"]}`}
+        >
           {TASK_STATUS_OPTIONS.map((s) => (
             <option key={s || "none"} value={s}>{s || "—"}</option>
           ))}

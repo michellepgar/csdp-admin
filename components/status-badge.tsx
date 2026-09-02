@@ -1,6 +1,9 @@
 export type StatusTone = "neutral" | "success" | "warning" | "danger" | "paused";
 
-const TONE_CLASSES: Record<StatusTone, string> = {
+// Exported so a status <select> itself can be colored directly (e.g.
+// tasks-card.tsx, email-tracker-card.tsx) instead of pairing it with a
+// separate read-only StatusBadge showing the same value twice.
+export const TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "bg-status-neutral text-status-neutral-foreground",
   success: "bg-status-success text-status-success-foreground",
   warning: "bg-status-warning text-status-warning-foreground",

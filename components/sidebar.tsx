@@ -31,6 +31,7 @@ export function Sidebar({
   vas,
   schoolVaAssigned,
   addSchool,
+  groupNames,
   onCollapse,
 }: {
   currentName: string;
@@ -44,6 +45,11 @@ export function Sidebar({
      down here). */
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
+  /* Deduplicated union of existing Contacts + Distribution List group
+     names, computed once in app/(app)/layout.tsx. Picking one in the
+     add-school form below adds the school to that same-named group on
+     both pages (see addSchool in app/(app)/layout-actions.ts). */
+  groupNames: string[];
   onCollapse: () => void;
 }) {
   const [search, setSearch] = useState("");
@@ -124,12 +130,24 @@ export function Sidebar({
           )}
         </div>
         {addingSchool ? (
-          <form action={addSchool} onSubmit={() => setAddingSchool(false)} className="mx-2 mt-1 flex items-center gap-1">
+          <form
+            action={addSchool}
+            onSubmit={() => setAddingSchool(false)}
+            className="mx-2 mt-1 space-y-1 rounded-md border p-2"
+          >
             <Input name="name" placeholder="School name" required autoFocus className="h-8 text-sm" />
-            <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>
-              Cancel
-            </Button>
+            <select name="groupName" defaultValue="" className="w-full rounded-md border px-2 py-1.5 text-sm">
+              <option value="">No group (add later)</option>
+              {groupNames.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+            <div className="flex items-center gap-1">
+              <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>
+                Cancel
+              </Button>
+            </div>
           </form>
         ) : (
           <button

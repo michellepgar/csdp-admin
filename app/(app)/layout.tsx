@@ -30,6 +30,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (va) schoolVaAssigned[schoolId] = va;
   }
 
+  const groupNames = Array.from(
+    new Set([
+      ...(state.contactGroups || []).map((g) => g.name),
+      ...(state.distributionGroups || []).map((g) => g.name),
+    ])
+  ).sort((a, b) => a.localeCompare(b));
+
   return (
     <SidebarShell
       currentName={me.name}
@@ -38,6 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       vas={state.vas}
       schoolVaAssigned={schoolVaAssigned}
       addSchool={addSchool}
+      groupNames={groupNames}
       initialCollapsed={sidebarCollapsed}
     >
       {children}

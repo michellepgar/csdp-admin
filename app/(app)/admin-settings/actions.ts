@@ -11,6 +11,8 @@ import {
   type School,
   type TaskCategory,
   type ChecklistTemplateItem,
+  type Task,
+  type EmailTrackerItem,
 } from "@/lib/app-state";
 
 async function requireAdminAndState() {
@@ -88,6 +90,32 @@ function isValidChecklistTemplateRow(t: unknown): t is ChecklistTemplateItem {
   );
 }
 
+function isValidTaskRow(t: unknown): t is Task {
+  return (
+    !!t &&
+    typeof t === "object" &&
+    typeof (t as Task).id === "string" &&
+    (t as Task).id.length > 0 &&
+    typeof (t as Task).category === "string" &&
+    typeof (t as Task).fileName === "string" &&
+    (t as Task).fileName.length > 0 &&
+    typeof (t as Task).status === "string" &&
+    Array.isArray((t as Task).vaAssigned)
+  );
+}
+
+function isValidEmailTrackerRow(e: unknown): e is EmailTrackerItem {
+  return (
+    !!e &&
+    typeof e === "object" &&
+    typeof (e as EmailTrackerItem).id === "string" &&
+    (e as EmailTrackerItem).id.length > 0 &&
+    typeof (e as EmailTrackerItem).description === "string" &&
+    typeof (e as EmailTrackerItem).status === "string" &&
+    typeof (e as EmailTrackerItem).addedBy === "string"
+  );
+}
+
 export async function restoreBackup(formData: FormData) {
   const { supabase } = await requireAdminAndState();
   const confirm = (formData.get("confirm") as string) || "";
@@ -109,10 +137,19 @@ export async function restoreBackup(formData: FormData) {
      categories/checklist template now do too (Phase 2), so a malformed
      file must be rejected upfront rather than partway through, or it
      can leave a table wiped with nothing valid to put back (this
-     happened for real during Phase 1's rollout). schoolData's
-     tasks/emailTracker and checklistProgress are allowed to be empty
-     -- a school legitimately having zero tasks is normal, unlike vas
-     or schools ever legitimately being empty. */
+     happened for real during Phase 1's rollout). The same "reject
+     upfront, not partway through" principle also covers schoolData and
+     checklistProgress: both are non-optional fields on AppState, so
+     they must be present and be plain objects, and every task/email
+     item nested inside schoolData must have the right shape --
+     otherwise a corrupted file could sail through validation and wipe
+     tasks/email_tracker_items/checklist_progress with nothing to
+     restore, or make an insert fail with a NOT NULL violation after
+     the delete already ran. schoolData's tasks/emailTracker arrays and
+     checklistProgress are allowed to be empty -- a school legitimately
+     having zero tasks is normal, unlike vas or schools ever
+     legitimately being empty. Only presence and row shape are checked
+     here, not non-emptiness. */
   if (
     !parsed ||
     typeof parsed !== "object" ||
@@ -127,7 +164,14 @@ export async function restoreBackup(formData: FormData) {
     !(parsed as AppState).taskCategories!.every(isValidTaskCategoryRow) ||
     !Array.isArray((parsed as AppState).checklistTemplate) ||
     (parsed as AppState).checklistTemplate.length === 0 ||
-    !(parsed as AppState).checklistTemplate.every(isValidChecklistTemplateRow)
+    !(parsed as AppState).checklistTemplate.every(isValidChecklistTemplateRow) ||
+    typeof (parsed as AppState).schoolData !== "object" ||
+    (parsed as AppState).schoolData === null ||
+    typeof (parsed as AppState).checklistProgress !== "object" ||
+    (parsed as AppState).checklistProgress === null ||
+    !Object.values((parsed as AppState).schoolData || {}).every(
+      (sd) => (sd.tasks || []).every(isValidTaskRow) && (sd.emailTracker || []).every(isValidEmailTrackerRow)
+    )
   ) {
     return;
   }

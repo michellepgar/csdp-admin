@@ -168,7 +168,7 @@ export function DistributionList({
         const totalForms = group.rows.reduce((sum, r) => sum + distributionRowTotalForms(r), 0);
         return (
           <div key={group.id} className="rounded-md border">
-            <div className="flex items-center justify-between gap-2 border-b p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
               {editingGroupName === group.id ? (
                 <form
                   action={renameDistributionGroup}

@@ -141,15 +141,22 @@ export async function restoreBackup(formData: FormData) {
 }
 
 export async function resetAllTasks(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
+  const { supabase } = await requireAdminAndState();
   const confirm = (formData.get("confirm") as string) || "";
   if (confirm !== "RESET") return;
 
-  Object.values(state.schoolData || {}).forEach((sd) => {
-    sd.tasks = [];
-  });
-  state.checklistProgress = {};
+  /* Tasks/Checklist Progress now live in their own tables (Phase 2 of
+     the relational backend migration) -- this used to just clear
+     sd.tasks/checklistProgress on the in-memory blob object. Neither
+     of these deletes empties a table that gates a security policy
+     (unlike vas in Phase 1's restore), so plain client calls are safe
+     here -- no security definer function needed. The explicit filter
+     on each delete is still required: every Supabase project blocks a
+     bare DELETE with no WHERE at all. */
+  const { error: delTasksError } = await supabase.from("tasks").delete().neq("id", "");
+  orThrow(delTasksError);
+  const { error: delProgressError } = await supabase.from("checklist_progress").delete().neq("school_id", "");
+  orThrow(delProgressError);
 
-  await saveState(supabase, state);
   revalidatePath("/", "layout");
 }

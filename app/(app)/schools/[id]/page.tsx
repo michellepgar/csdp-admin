@@ -24,8 +24,11 @@ import {
   addSchoolContact,
   updateSchoolContact,
   removeSchoolContact,
+  removeSchool,
+  removeSchoolAndContacts,
 } from "./actions";
 import { SchoolContactsList } from "@/components/school-contacts-list";
+import { RemoveSchoolControl } from "@/components/remove-school-control";
 
 export default async function SchoolPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: schoolId } = await params;
@@ -68,6 +71,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             VA assigned: <span className="font-medium text-foreground">{sd.vaAssigned || "Unassigned"}</span>
           </p>
         </div>
+        <RemoveSchoolControl
+          schoolId={schoolId}
+          schoolName={school.name}
+          removeSchool={removeSchool}
+          removeSchoolAndContacts={removeSchoolAndContacts}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import {
@@ -292,6 +293,45 @@ export async function removeEmailItem(formData: FormData) {
   const { error } = await supabase.from("email_tracker_items").delete().eq("id", itemId);
   orThrow(error);
   revalidateSchool(schoolId);
+}
+
+/* ---------- Remove school ---------- */
+
+/* Deletes the school row only. Cascades (via "on delete cascade" FKs)
+   remove its tasks, checklist progress, email tracker items, and
+   school_contacts automatically. Contacts (contact_rows) and
+   Distribution List (distribution_rows) are matched by school NAME,
+   not a foreign key, so they're untouched here on purpose -- use
+   removeSchoolAndContacts instead to also clear those. */
+export async function removeSchool(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+
+  const { error } = await supabase.from("schools").delete().eq("id", schoolId);
+  orThrow(error);
+
+  revalidatePath("/", "layout");
+  redirect("/overview");
+}
+
+/* Same as removeSchool, but also deletes this school's row on the
+   Contacts page and Distribution List (matched by name, captured
+   before the school itself is deleted). */
+export async function removeSchoolAndContacts(formData: FormData) {
+  const { supabase, state } = await requireUserAndState();
+  const schoolId = formData.get("schoolId") as string;
+  const school = state.schools.find((s) => s.id === schoolId);
+
+  const { error } = await supabase.from("schools").delete().eq("id", schoolId);
+  orThrow(error);
+
+  if (school) {
+    await supabase.from("contact_rows").delete().eq("school", school.name);
+    await supabase.from("distribution_rows").delete().eq("school", school.name);
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/overview");
 }
 
 /* ---------- School Contacts (position + email, editable anytime) ---------- */

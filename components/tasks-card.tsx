@@ -131,7 +131,7 @@ function TaskRow({
   const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(task.category);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-3 px-1 py-1.5">
       {/* Count comes first (fixed width, so it lines up row to row),
           then the file name gets whatever space is left and wraps
           rather than truncating -- file names run long sometimes.
@@ -343,7 +343,9 @@ export function TasksCard({
               ) : items.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No files yet in this category.</p>
               ) : (
-                items.map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)
+                <div className="divide-y rounded-md border">
+                  {items.map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)}
+                </div>
               )}
             </div>
           );
@@ -352,7 +354,9 @@ export function TasksCard({
         {tasks.some((t) => !catNames.includes(t.category)) && (
           <div className="space-y-2">
             <div className="text-sm font-medium">Other</div>
-            {tasks.filter((t) => !catNames.includes(t.category)).map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)}
+            <div className="divide-y rounded-md border">
+              {tasks.filter((t) => !catNames.includes(t.category)).map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)}
+            </div>
           </div>
         )}
       </div>

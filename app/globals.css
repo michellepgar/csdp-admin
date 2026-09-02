@@ -155,8 +155,14 @@
      heading — no other use of either tag exists (verified by
      grepping app/ and components/). Keep it that way: an h1/h2 added
      for pure document-outline/SEO purposes elsewhere would silently
-     pick up the brand accent color too. */
-  h1, h2 {
+     pick up the brand accent color too. h1 additionally stays pinned
+     to the top of the scrolling <main> while the rest of the page
+     scrolls beneath it — z-10/bg-background so scrolled content
+     doesn't show through underneath it. */
+  h1 {
+    @apply text-primary sticky top-0 z-10 bg-background;
+  }
+  h2 {
     @apply text-primary;
   }
 }

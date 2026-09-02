@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, DISTRIBUTION_CLASSROOM_TYPES, DISTRIBUTION_LANGUAGES } from "@/lib/app-state";
+import { syncContactRowEmail } from "@/lib/sync-contact-row";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -89,59 +90,103 @@ export async function addSchool(formData: FormData) {
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
 
-  orThrow((await supabase.from("schools").insert({ id: crypto.randomUUID(), name })).error);
+  const website = ((formData.get("website") as string) || "").trim();
+  const hours = ((formData.get("hours") as string) || "").trim();
+
+  const schoolId = crypto.randomUUID();
+  orThrow(
+    (
+      await supabase.from("schools").insert({
+        id: schoolId,
+        name,
+        website: website || null,
+        hours: hours || null,
+      })
+    ).error
+  );
 
   const groupName = ((formData.get("groupName") as string) || "").trim();
-  if (!groupName) {
-    revalidatePath("/", "layout");
-    return;
+  if (groupName) {
+    // Contacts: find-or-create the group, then add a blank row.
+    // sort_order here mirrors addContactRow's own existing convention
+    // in app/(app)/contacts/actions.ts -- a GLOBAL max across all
+    // contact_rows, not scoped per group.
+    const contactGroupId = await findOrCreateGroupByName(supabase, "contact_groups", groupName);
+    const { data: maxContactRow } = await supabase
+      .from("contact_rows")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    orThrow(
+      (
+        await supabase.from("contact_rows").insert({
+          id: crypto.randomUUID(),
+          group_id: contactGroupId,
+          school: name,
+          sort_order: (maxContactRow?.sort_order ?? -1) + 1,
+        })
+      ).error
+    );
+
+    // Distribution List: find-or-create the group, then add a blank
+    // row. sort_order here mirrors addDistributionRow's own existing
+    // convention in app/(app)/distribution-list/actions.ts -- scoped to
+    // the target group.
+    const distributionGroupId = await findOrCreateGroupByName(supabase, "distribution_groups", groupName);
+    const { data: maxDistributionRow } = await supabase
+      .from("distribution_rows")
+      .select("sort_order")
+      .eq("group_id", distributionGroupId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    orThrow(
+      (
+        await supabase.from("distribution_rows").insert({
+          id: crypto.randomUUID(),
+          group_id: distributionGroupId,
+          school: name,
+          breakdown: emptyBreakdown(),
+          sort_order: (maxDistributionRow?.sort_order ?? -1) + 1,
+        })
+      ).error
+    );
   }
 
-  // Contacts: find-or-create the group, then add a blank row.
-  // sort_order here mirrors addContactRow's own existing convention
-  // in app/(app)/contacts/actions.ts -- a GLOBAL max across all
-  // contact_rows, not scoped per group.
-  const contactGroupId = await findOrCreateGroupByName(supabase, "contact_groups", groupName);
-  const { data: maxContactRow } = await supabase
-    .from("contact_rows")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  orThrow(
-    (
-      await supabase.from("contact_rows").insert({
-        id: crypto.randomUUID(),
-        group_id: contactGroupId,
-        school: name,
-        sort_order: (maxContactRow?.sort_order ?? -1) + 1,
-      })
-    ).error
-  );
+  // Contact people: each becomes a school_contacts row; the affected
+  // positions' matching contact_rows email columns are synced
+  // afterward (a no-op for any position with no contact_rows entry to
+  // write into -- see syncContactRowEmail's own doc comment).
+  const contactsJson = (formData.get("contacts") as string) || "[]";
+  let contacts: { position: string; email: string }[] = [];
+  try {
+    const parsed = JSON.parse(contactsJson);
+    if (Array.isArray(parsed)) contacts = parsed;
+  } catch {
+    contacts = [];
+  }
 
-  // Distribution List: find-or-create the group, then add a blank
-  // row. sort_order here mirrors addDistributionRow's own existing
-  // convention in app/(app)/distribution-list/actions.ts -- scoped to
-  // the target group.
-  const distributionGroupId = await findOrCreateGroupByName(supabase, "distribution_groups", groupName);
-  const { data: maxDistributionRow } = await supabase
-    .from("distribution_rows")
-    .select("sort_order")
-    .eq("group_id", distributionGroupId)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  orThrow(
-    (
-      await supabase.from("distribution_rows").insert({
-        id: crypto.randomUUID(),
-        group_id: distributionGroupId,
-        school: name,
-        breakdown: emptyBreakdown(),
-        sort_order: (maxDistributionRow?.sort_order ?? -1) + 1,
-      })
-    ).error
-  );
+  const positionsUsed = new Set<string>();
+  for (const c of contacts) {
+    if (!c || typeof c.position !== "string" || typeof c.email !== "string") continue;
+    const email = c.email.trim();
+    if (!email) continue;
+    orThrow(
+      (
+        await supabase.from("school_contacts").insert({
+          id: crypto.randomUUID(),
+          school_id: schoolId,
+          position: c.position,
+          email,
+        })
+      ).error
+    );
+    positionsUsed.add(c.position);
+  }
+  for (const position of positionsUsed) {
+    await syncContactRowEmail(supabase, schoolId, name, position);
+  }
 
   revalidatePath("/", "layout");
 }

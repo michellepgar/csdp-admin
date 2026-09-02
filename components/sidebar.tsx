@@ -13,7 +13,7 @@ export function Sidebar({
 }) {
   return (
     <aside className="flex w-64 flex-none flex-col border-r bg-background">
-      <div className="flex items-center justify-between gap-2 border-b p-4">
+      <div className="flex items-center justify-between gap-2 border-b p-4 pl-12">
         <div>
           <div className="text-lg font-bold text-primary">CSDP Tracker</div>
           <div className="mt-1 text-sm text-muted-foreground">{currentName}</div>

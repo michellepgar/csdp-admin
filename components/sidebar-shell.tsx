@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const COOKIE_NAME = "sidebar-collapsed";
 
@@ -31,20 +32,22 @@ export function SidebarShell({
   function toggle() {
     const next = !collapsed;
     setCollapsed(next);
-    document.cookie = `${COOKIE_NAME}=${next ? "1" : "0"}; path=/; max-age=31536000`;
+    document.cookie = `${COOKIE_NAME}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
   }
 
   return (
     <div className="flex min-h-screen">
       {!collapsed && sidebar}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={toggle}
         aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
-        className="fixed top-4 left-4 z-20 flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="fixed top-4 left-4 z-20 border bg-background"
       >
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-      </button>
+      </Button>
       <main className="flex-1 overflow-y-auto p-8">{children}</main>
     </div>
   );

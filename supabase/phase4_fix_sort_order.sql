@@ -22,8 +22,8 @@ alter table contact_rows add column sort_order integer;
 update task_categories t
 set sort_order = sub.idx
 from (
-  select (c->>'id') as id, (ordinality - 1) as idx
-  from app_state, jsonb_array_elements(coalesce(data->'taskCategories', '[]'::jsonb)) with ordinality as c
+  select (c.elem->>'id') as id, (c.idx - 1) as idx
+  from app_state, jsonb_array_elements(coalesce(data->'taskCategories', '[]'::jsonb)) with ordinality as c(elem, idx)
   where id = 1
 ) sub
 where t.id = sub.id;
@@ -31,8 +31,8 @@ where t.id = sub.id;
 update checklist_template t
 set sort_order = sub.idx
 from (
-  select (c->>'id') as id, (ordinality - 1) as idx
-  from app_state, jsonb_array_elements(coalesce(data->'checklistTemplate', '[]'::jsonb)) with ordinality as c
+  select (c.elem->>'id') as id, (c.idx - 1) as idx
+  from app_state, jsonb_array_elements(coalesce(data->'checklistTemplate', '[]'::jsonb)) with ordinality as c(elem, idx)
   where id = 1
 ) sub
 where t.id = sub.id;
@@ -40,8 +40,8 @@ where t.id = sub.id;
 update email_templates t
 set sort_order = sub.idx
 from (
-  select (c->>'id') as id, (ordinality - 1) as idx
-  from app_state, jsonb_array_elements(coalesce(data->'emailTemplates', '[]'::jsonb)) with ordinality as c
+  select (c.elem->>'id') as id, (c.idx - 1) as idx
+  from app_state, jsonb_array_elements(coalesce(data->'emailTemplates', '[]'::jsonb)) with ordinality as c(elem, idx)
   where id = 1
 ) sub
 where t.id = sub.id;
@@ -49,8 +49,8 @@ where t.id = sub.id;
 update contact_groups t
 set sort_order = sub.idx
 from (
-  select (g->>'id') as id, (ordinality - 1) as idx
-  from app_state, jsonb_array_elements(coalesce(data->'contactGroups', '[]'::jsonb)) with ordinality as g
+  select (g.elem->>'id') as id, (g.idx - 1) as idx
+  from app_state, jsonb_array_elements(coalesce(data->'contactGroups', '[]'::jsonb)) with ordinality as g(elem, idx)
   where id = 1
 ) sub
 where t.id = sub.id;
@@ -58,10 +58,10 @@ where t.id = sub.id;
 update contact_rows t
 set sort_order = sub.idx
 from (
-  select (r->>'id') as id, (ordinality - 1) as idx
+  select (r.elem->>'id') as id, (r.idx - 1) as idx
   from app_state,
     jsonb_array_elements(coalesce(data->'contactGroups', '[]'::jsonb)) as g,
-    jsonb_array_elements(coalesce(g->'rows', '[]'::jsonb)) with ordinality as r
+    jsonb_array_elements(coalesce(g->'rows', '[]'::jsonb)) with ordinality as r(elem, idx)
   where id = 1
 ) sub
 where t.id = sub.id;

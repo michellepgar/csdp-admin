@@ -4,6 +4,7 @@ import type {
   AppState,
   Va,
   School,
+  SchoolContact,
   Task,
   EmailTrackerItem,
   ChecklistTemplateItem,
@@ -22,6 +23,12 @@ import type {
   Issue,
   AccessRequest,
 } from "@/lib/app-state";
+
+type SchoolRow = { id: string; name: string; website: string | null; hours: string | null };
+
+function mapSchoolRow(r: SchoolRow): School {
+  return { id: r.id, name: r.name, website: r.website ?? undefined, hours: r.hours ?? undefined };
+}
 
 type VaRow = {
   id: string;
@@ -303,6 +310,12 @@ function mapIssueRow(r: IssueRow): Issue {
   };
 }
 
+type SchoolContactRow = { id: string; school_id: string; position: string; email: string; created_at: string };
+
+function mapSchoolContactRow(r: SchoolContactRow): SchoolContact {
+  return { id: r.id, position: r.position, email: r.email, createdAt: r.created_at };
+}
+
 type AccessRequestRow = {
   id: string;
   record_kind: string;
@@ -379,10 +392,11 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     eodReportsResult,
     issuesResult,
     accessRequestsResult,
+    schoolContactsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).single(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
-    supabase.from("schools").select("id, name").order("name"),
+    supabase.from("schools").select("id, name, website, hours").order("name"),
     supabase.from("task_categories").select("id, name").order("sort_order"),
     supabase.from("checklist_template").select("id, description").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status"),
@@ -400,6 +414,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
     supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by").order("created_at"),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
+    supabase.from("school_contacts").select("id, school_id, position, email, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -422,10 +437,11 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (eodReportsResult.error) return null;
   if (issuesResult.error) return null;
   if (accessRequestsResult.error) return null;
+  if (schoolContactsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
-  state.schools = (schoolsResult.data || []) as School[];
+  state.schools = (schoolsResult.data || []).map((r) => mapSchoolRow(r as SchoolRow));
   state.taskCategories = (taskCategoriesResult.data || []) as TaskCategory[];
   state.checklistTemplate = (checklistTemplateResult.data || []) as ChecklistTemplateItem[];
   state.suggestions = (suggestionsResult.data || []).map((r) => mapSuggestionRow(r as SuggestionRow));
@@ -493,6 +509,12 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
 
   state.issues = (issuesResult.data || []).map((r) => mapIssueRow(r as unknown as IssueRow));
   state.accessRequests = (accessRequestsResult.data || []).map((r) => mapAccessRequestRow(r as AccessRequestRow));
+
+  state.schoolContacts = {};
+  for (const r of (schoolContactsResult.data || []) as SchoolContactRow[]) {
+    if (!state.schoolContacts[r.school_id]) state.schoolContacts[r.school_id] = [];
+    state.schoolContacts[r.school_id].push(mapSchoolContactRow(r));
+  }
 
   return state;
 });

@@ -48,7 +48,7 @@ export function SidebarShell({
       >
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
       </Button>
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      <main className={`flex-1 overflow-y-auto p-8 ${collapsed ? "pt-12 pl-12" : ""}`}>{children}</main>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ClipboardCheck, PanelRightClose } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
@@ -31,32 +32,47 @@ export function ChecklistCard({
   const [hidden, setHidden] = useState(false);
   const doneCount = template.filter((t) => progress[t.id]?.status === "Done").length;
 
+  /* Same collapse pattern as the sidebar (components/sidebar-shell.tsx):
+     hidden means the whole panel disappears, replaced by a single small
+     icon button to bring it back -- docked to the right (ml-auto) since
+     this panel sits on the right side of the Tasks/Checklist row,
+     mirroring how the sidebar's own collapsed button sits on the left. */
+  if (hidden) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => setHidden(false)}
+        aria-label="Show Yearly Checklist"
+        className="ml-auto border bg-background"
+      >
+        <ClipboardCheck className="h-4 w-4" />
+      </Button>
+    );
+  }
+
   return (
-    // Sized to its own content either way (not a fixed 50/50 split
-    // with Tasks) -- a checklist with a handful of short items
-    // shouldn't claim half the row's width. Tasks (flex-1 on its own
-    // wrapper in schools/[id]/page.tsx) takes whatever this leaves.
-    // ml-auto docks it to the row's right edge explicitly, including
-    // when hidden/collapsed to just its header, rather than relying on
-    // Tasks' own flex-1 growth to push it there.
-    <div className={`ml-auto w-fit max-w-full rounded-md border ${hidden ? "" : "sm:max-w-sm"}`}>
+    // Sized to its own content (not a fixed 50/50 split with Tasks) --
+    // a checklist with a handful of short items shouldn't claim half
+    // the row's width. Tasks (flex-1 on its own wrapper in
+    // schools/[id]/page.tsx) takes whatever this leaves. ml-auto docks
+    // it to the row's right edge explicitly.
+    <div className="ml-auto w-fit max-w-full rounded-md border sm:max-w-sm">
       <div className="flex items-center justify-between gap-2 border-b bg-header-background p-3">
         <h2 className="font-semibold whitespace-nowrap">
           Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{doneCount}/{template.length}</span>}
         </h2>
         <div className="flex items-center gap-2">
-          {!hidden && (
-            <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
-              {editorOpen ? "Close editor" : "Edit template"}
-            </Button>
-          )}
-          <Button type="button" variant="outline" size="sm" onClick={() => setHidden((h) => !h)}>
-            {hidden ? "Show" : "Hide"}
+          <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
+            {editorOpen ? "Close editor" : "Edit template"}
+          </Button>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHidden(true)} aria-label="Hide Yearly Checklist">
+            <PanelRightClose className="h-4 w-4" />
           </Button>
         </div>
       </div>
-      {!hidden && (
-        <div className="space-y-3 p-3">
+      <div className="space-y-3 p-3">
           {editorOpen && (
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-xs text-muted-foreground">Editing this list changes the checklist for every school.</p>
@@ -98,7 +114,6 @@ export function ChecklistCard({
             );
           })}
         </div>
-      )}
     </div>
   );
 }

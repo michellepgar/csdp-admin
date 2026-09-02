@@ -37,7 +37,7 @@ export function DeleteOrRequestControl({
       <form action={removeAction}>
         <input type="hidden" name="schoolId" value={schoolId} />
         <input type="hidden" name={idFieldName} value={targetId} />
-        <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+        <SubmitButton pendingLabel="…" variant="ghost" size="xs">✕</SubmitButton>
       </form>
     );
   }
@@ -54,7 +54,7 @@ export function DeleteOrRequestControl({
         <input type="hidden" name="targetId" value={targetId} />
         <input type="hidden" name="label" value={label} />
         <input name="reason" placeholder="Reason for removing this" required className="w-40 rounded-md border px-2 py-1 text-xs" />
-        <SubmitButton pendingLabel="…" size="sm">Send</SubmitButton>
+        <SubmitButton pendingLabel="…" size="xs">Send</SubmitButton>
         <button type="button" onClick={() => setRequesting(false)} className="text-xs text-muted-foreground underline">Cancel</button>
       </form>
     );

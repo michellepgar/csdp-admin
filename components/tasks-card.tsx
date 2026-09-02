@@ -60,14 +60,14 @@ function SignAndStatus({
             <input type="hidden" name="taskId" value={taskId} />
             <input type="hidden" name="vaName" value={name} />
             <SignatureChip name={name} color={vaColorByName(vas, name)} small />
-            <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+            <SubmitButton pendingLabel="…" variant="ghost" size="xs">✕</SubmitButton>
           </form>
         ))}
         {!iSigned && (
           <form action={signAction}>
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="taskId" value={taskId} />
-            <SubmitButton pendingLabel="…" variant="outline" size="sm">+ Sign</SubmitButton>
+            <SubmitButton pendingLabel="…" variant="outline" size="xs">+ Sign</SubmitButton>
           </form>
         )}
       </div>
@@ -83,7 +83,7 @@ function SignAndStatus({
           name="status"
           defaultValue={status}
           disabled={!canEdit}
-          className={`rounded-md border px-2 py-1 text-xs font-medium ${TONE_CLASSES[TASK_STATUS_TONE[status] ?? "neutral"]}`}
+          className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[TASK_STATUS_TONE[status] ?? "neutral"]}`}
         >
           {TASK_STATUS_OPTIONS.map((s) => (
             <option key={s || "none"} value={s}>{s || "—"}</option>
@@ -131,7 +131,7 @@ function TaskRow({
   const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(task.category);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-1 py-1.5">
+    <div className="flex flex-wrap items-center gap-3 px-1 py-1">
       {/* Count comes first (fixed width, so it lines up row to row),
           then the file name gets whatever space is left and wraps
           rather than truncating -- file names run long sometimes.

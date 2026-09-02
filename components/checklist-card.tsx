@@ -36,7 +36,10 @@ export function ChecklistCard({
     // with Tasks) -- a checklist with a handful of short items
     // shouldn't claim half the row's width. Tasks (flex-1 on its own
     // wrapper in schools/[id]/page.tsx) takes whatever this leaves.
-    <div className={`w-fit max-w-full rounded-md border ${hidden ? "" : "sm:max-w-sm"}`}>
+    // ml-auto docks it to the row's right edge explicitly, including
+    // when hidden/collapsed to just its header, rather than relying on
+    // Tasks' own flex-1 growth to push it there.
+    <div className={`ml-auto w-fit max-w-full rounded-md border ${hidden ? "" : "sm:max-w-sm"}`}>
       <div className="flex items-center justify-between gap-2 border-b bg-header-background p-3">
         <h2 className="font-semibold whitespace-nowrap">
           Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{doneCount}/{template.length}</span>}

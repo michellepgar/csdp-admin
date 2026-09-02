@@ -52,7 +52,7 @@ function TaskRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
-      <span className="font-mono text-sm">{task.fileName}</span>
+      <span className="font-mono text-sm font-bold italic">{task.fileName}</span>
 
       {needsCount && (
         <AutoSubmitForm action={setTaskCount} className="flex items-center gap-1">
@@ -183,7 +183,7 @@ export function TasksCard({
 
   return (
     <div className="rounded-md border">
-      <div className="flex items-center justify-between border-b p-3">
+      <div className="flex items-center justify-between border-b bg-header-background p-3">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold">
             Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}

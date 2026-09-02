@@ -43,7 +43,7 @@ export function EmailTrackerCard({
 
   return (
     <div className="rounded-md border">
-      <div className="flex items-center gap-2 border-b p-3">
+      <div className="flex items-center gap-2 border-b bg-header-background p-3">
         <h2 className="font-semibold">
           Email Tracker {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}
         </h2>

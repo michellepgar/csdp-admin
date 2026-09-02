@@ -170,17 +170,21 @@
      grepping app/ and components/). Keep it that way: an h1/h2 added
      for pure document-outline/SEO purposes elsewhere would silently
      pick up the brand accent color too. Both get a visibly-colored
-     chip background (--header-background, a pale wash of --primary's
-     hue, not the plain page background -- that read as "no color at
-     all" against a white page) sized to the text itself
-     (inline-block + padding), not a full-width bar. h1 additionally
-     stays pinned to the top of the page while the rest of it scrolls
-     beneath -- z-10 plus the opaque chip background so scrolled
-     content doesn't show through underneath it. */
+     background (--header-background, a pale wash of --primary's hue,
+     not the plain page background -- that read as "no color at all"
+     against a white page), block-level so it spans the full row it
+     sits in rather than just hugging the text. Where a heading shares
+     its row with other controls (a button, badges) and so can't
+     stretch itself full-width as a flex item, the row's own container
+     div carries this same bg-header-background class too -- see e.g.
+     tasks-card.tsx, email-tracker-card.tsx. h1 additionally stays
+     pinned to the top of the page while the rest of it scrolls
+     beneath -- z-10 plus the opaque background so scrolled content
+     doesn't show through underneath it. */
   h1 {
-    @apply text-primary sticky top-0 z-10 inline-block rounded-md bg-header-background px-3 py-1;
+    @apply text-primary sticky top-0 z-10 block bg-header-background px-3 py-1.5;
   }
   h2 {
-    @apply text-primary inline-block rounded-md bg-header-background px-2 py-0.5;
+    @apply text-primary block bg-header-background px-2 py-1;
   }
 }

@@ -65,9 +65,23 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold">{school.name}</h1>
+      {/* Sticky/background live on this row div, not on h1 itself --
+          position:sticky only has "room" to stick for as long as its
+          own immediate parent's box hasn't scrolled past the stick
+          point. h1's immediate parent here is this row, which (unlike
+          a plain <h1> sitting directly in the space-y-6 column on
+          every other page) is short -- just the title/subtitle line --
+          so if h1 carried its own sticky+bg (from the global h1 rule)
+          it would stick for a few dozen pixels and then scroll away
+          with this tiny row, never actually staying visible. Making
+          the row itself the sticky element gives it the full page's
+          scroll range to stick within, since the row's parent is the
+          tall space-y-6 column. h1 cancels the global rule's own
+          sticky/background (static + bg-transparent + no padding) so
+          the two don't stack. */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-md bg-header-background px-3 py-1.5">
+        <div className="min-w-0 flex-1">
+          <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             VA assigned: <span className="font-medium text-foreground">{sd.vaAssigned || "Unassigned"}</span>
           </p>
@@ -122,7 +136,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
       />
 
       <div className="rounded-md border">
-        <div className="flex items-center justify-between border-b p-3">
+        <div className="flex items-center justify-between border-b bg-header-background p-3">
           <h2 className="font-semibold">Contact Info</h2>
           <Link href="/contacts" className="text-sm text-primary underline underline-offset-2">
             Edit on Contacts page

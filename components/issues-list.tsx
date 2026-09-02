@@ -162,7 +162,7 @@ export function RecordUpdateTable({
               <td className="px-2 py-2">{issue.dob}</td>
               <td className="px-2 py-2">{issue.insuranceNumber}</td>
               <td className="px-2 py-2">{issue.schoolYear}</td>
-              <td className="px-2 py-2 font-mono">{issue.fileName}</td>
+              <td className="px-2 py-2 font-mono font-bold italic">{issue.fileName}</td>
               <td className="px-2 py-2">{issue.pageNumber}</td>
               <td className="px-2 py-2">{issue.correctingCategory}</td>
               <td className="px-2 py-2">{issue.correctInfo}</td>

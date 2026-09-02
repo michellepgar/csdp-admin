@@ -63,7 +63,7 @@ export function SuggestionsList({
         const list = sorted.filter((s) => s.status === status);
         return (
           <section key={status} className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-md bg-header-background px-2 py-1">
               <h2 className="text-lg font-semibold">{status}</h2>
               <StatusBadge tone={STATUS_TONE[status]}>{list.length}</StatusBadge>
             </div>

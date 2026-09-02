@@ -11,8 +11,8 @@ function fmtDateTime(iso?: string) {
   return new Date(iso).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-const STATUS_LABEL: Record<string, string> = { pending: "Pending", declined: "Declined", fulfilled: "Done" };
-const STATUS_TONE: Record<string, StatusTone> = { pending: "neutral", declined: "danger", fulfilled: "success" };
+const STATUS_LABEL: Record<AccessRequest["status"], string> = { pending: "Pending", declined: "Declined", fulfilled: "Done" };
+const STATUS_TONE: Record<AccessRequest["status"], StatusTone> = { pending: "neutral", declined: "danger", fulfilled: "success" };
 
 function RequestRow({ state, req, showApproveDecline }: { state: AppState; req: AccessRequest; showApproveDecline: boolean }) {
   const school = state.schools.find((s) => s.id === req.schoolId);

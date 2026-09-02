@@ -87,7 +87,7 @@ export function ChecklistCard({
                 <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"}>
                   {done ? "✓" : " "}
                 </SubmitButton>
-                <span className="text-sm">{item.description}</span>
+                <span className="min-w-0 flex-1 text-sm">{item.description}</span>
                 {done && entry?.checkedBy && (
                   <SignatureChip name={entry.checkedBy} color={vaColorByName(vas, entry.checkedBy)} small />
                 )}

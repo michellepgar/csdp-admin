@@ -132,11 +132,11 @@ function TaskRow({
 
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-md border p-3">
-      {/* Fixed-width filename column (wraps rather than shrinks) so
-          Count and everything after it lines up at the same x
-          regardless of how long a given file name is. */}
-      <span className="w-64 shrink-0 text-sm font-bold">{task.fileName}</span>
-
+      {/* Count comes first (fixed width, so it lines up row to row),
+          then the file name gets whatever space is left and wraps
+          rather than truncating -- file names run long sometimes.
+          Sign/status is pushed to the far right (ml-auto) regardless
+          of how much room the name actually takes. */}
       <div className="flex w-24 shrink-0 items-center gap-1">
         {needsCount && (
           <AutoSubmitForm action={setTaskCount} className="flex items-center gap-1">
@@ -156,48 +156,52 @@ function TaskRow({
         )}
       </div>
 
-      <SignAndStatus
-        schoolId={schoolId}
-        taskId={task.id}
-        vas={vas}
-        vaAssigned={task.vaAssigned}
-        status={task.status}
-        currentUserName={currentUserName}
-        canEdit={canEdit}
-        signAction={signTask}
-        removeVaAction={removeVaFromTask}
-        setStatusAction={setTaskStatus}
-      />
+      <span className="min-w-40 flex-1 text-sm font-bold break-words">{task.fileName}</span>
 
-      {hasComms && (
-        <div className="flex flex-wrap items-center gap-2 border-l pl-4">
-          <span className="text-sm font-medium text-muted-foreground">Communications</span>
-          <SignAndStatus
-            schoolId={schoolId}
-            taskId={task.id}
-            vas={vas}
-            vaAssigned={task.commsVaAssigned || []}
-            status={task.commsStatus || ""}
-            currentUserName={currentUserName}
-            canEdit={canEdit}
-            signAction={signComms}
-            removeVaAction={removeVaFromComms}
-            setStatusAction={setCommsStatus}
-          />
-        </div>
-      )}
+      <div className="ml-auto flex flex-wrap items-center gap-4">
+        <SignAndStatus
+          schoolId={schoolId}
+          taskId={task.id}
+          vas={vas}
+          vaAssigned={task.vaAssigned}
+          status={task.status}
+          currentUserName={currentUserName}
+          canEdit={canEdit}
+          signAction={signTask}
+          removeVaAction={removeVaFromTask}
+          setStatusAction={setTaskStatus}
+        />
 
-      <DeleteOrRequestControl
-        canDelete={canEdit}
-        hasPendingRequest={hasPendingRemovalRequest}
-        recordKind="task"
-        idFieldName="taskId"
-        schoolId={schoolId}
-        targetId={task.id}
-        label={`task "${task.fileName}"`}
-        removeAction={removeTask}
-        requestAction={requestRemoval}
-      />
+        {hasComms && (
+          <div className="flex flex-wrap items-center gap-2 border-l pl-4">
+            <span className="text-sm font-medium text-muted-foreground">Communications</span>
+            <SignAndStatus
+              schoolId={schoolId}
+              taskId={task.id}
+              vas={vas}
+              vaAssigned={task.commsVaAssigned || []}
+              status={task.commsStatus || ""}
+              currentUserName={currentUserName}
+              canEdit={canEdit}
+              signAction={signComms}
+              removeVaAction={removeVaFromComms}
+              setStatusAction={setCommsStatus}
+            />
+          </div>
+        )}
+
+        <DeleteOrRequestControl
+          canDelete={canEdit}
+          hasPendingRequest={hasPendingRemovalRequest}
+          recordKind="task"
+          idFieldName="taskId"
+          schoolId={schoolId}
+          targetId={task.id}
+          label={`task "${task.fileName}"`}
+          removeAction={removeTask}
+          requestAction={requestRemoval}
+        />
+      </div>
     </div>
   );
 }
@@ -322,8 +326,8 @@ export function TasksCard({
           return (
             <div key={c.id} className={`space-y-2 ${isFollowUp && noRecheck ? "opacity-40" : ""}`}>
               <div className="flex items-center gap-2 text-sm font-medium">
-                <span>{c.name}</span>
                 {total !== null && items.length > 0 && <span className="text-xs text-muted-foreground">Total: {total}</span>}
+                <span>{c.name}</span>
                 {isFollowUp && (
                   <form action={setNoRecheck} className="ml-auto">
                     <input type="hidden" name="schoolId" value={schoolId} />

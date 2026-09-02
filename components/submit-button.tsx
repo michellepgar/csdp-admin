@@ -19,6 +19,7 @@ export function SubmitButton({
   disabled,
   title,
   formAction,
+  onClick,
 }: {
   children: React.ReactNode;
   pendingLabel: React.ReactNode;
@@ -34,12 +35,17 @@ export function SubmitButton({
      "Remove" button inside a nested form actually submits the outer
      form's action instead of its own. */
   formAction?: (formData: FormData) => void;
+  /* Lets a caller intercept the click before submission -- e.g.
+     ConfirmDeleteButton uses this to call preventDefault() when the
+     user declines a confirmation prompt. */
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }) {
   const { pending } = useFormStatus();
   return (
     <Button
       type="submit"
       formAction={formAction}
+      onClick={onClick}
       disabled={pending || disabled}
       variant={variant}
       size={size}

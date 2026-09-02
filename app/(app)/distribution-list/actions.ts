@@ -7,7 +7,6 @@ import {
   findVaByEmail,
   DISTRIBUTION_CLASSROOM_TYPES,
   DISTRIBUTION_LANGUAGES,
-  type AppState,
 } from "@/lib/app-state";
 
 async function requireUserAndState() {
@@ -23,47 +22,11 @@ async function requireUserAndState() {
   const me = findVaByEmail(state, user.email);
   if (!me) throw new Error("Not on the team list");
 
-  return { supabase, state };
+  return { supabase };
 }
 
-async function saveState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  state: AppState
-) {
-  const { error } = await supabase
-    .from("app_state")
-    .update({ data: state, updated_at: new Date().toISOString() })
-    .eq("id", 1);
+function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
-}
-
-export async function addDistributionGroup(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
-  const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
-  state.distributionGroups = state.distributionGroups || [];
-  state.distributionGroups.push({ id: crypto.randomUUID(), name, rows: [] });
-  await saveState(supabase, state);
-  revalidatePath("/distribution-list");
-}
-
-export async function renameDistributionGroup(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
-  const id = formData.get("id") as string;
-  const name = ((formData.get("name") as string) || "").trim();
-  const group = (state.distributionGroups || []).find((g) => g.id === id);
-  if (!group || !name) return;
-  group.name = name;
-  await saveState(supabase, state);
-  revalidatePath("/distribution-list");
-}
-
-export async function removeDistributionGroup(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
-  const id = formData.get("id") as string;
-  state.distributionGroups = (state.distributionGroups || []).filter((g) => g.id !== id);
-  await saveState(supabase, state);
-  revalidatePath("/distribution-list");
 }
 
 function emptyBreakdown(): Record<string, Record<string, string>> {
@@ -75,49 +38,102 @@ function emptyBreakdown(): Record<string, Record<string, string>> {
   return out;
 }
 
+export async function addDistributionGroup(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+
+  const { data: maxRow } = await supabase
+    .from("distribution_groups")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase
+    .from("distribution_groups")
+    .insert({ id: crypto.randomUUID(), name, sort_order: nextSortOrder });
+  orThrow(error);
+  revalidatePath("/distribution-list");
+}
+
+export async function renameDistributionGroup(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const id = formData.get("id") as string;
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+
+  const { error } = await supabase.from("distribution_groups").update({ name }).eq("id", id);
+  orThrow(error);
+  revalidatePath("/distribution-list");
+}
+
+export async function removeDistributionGroup(formData: FormData) {
+  const { supabase } = await requireUserAndState();
+  const id = formData.get("id") as string;
+
+  const { error } = await supabase.from("distribution_groups").delete().eq("id", id);
+  orThrow(error);
+  revalidatePath("/distribution-list");
+}
+
 export async function addDistributionRow(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
+  const { supabase } = await requireUserAndState();
   const groupId = formData.get("group") as string;
   const school = ((formData.get("school") as string) || "").trim();
-  const group = (state.distributionGroups || []).find((g) => g.id === groupId);
-  if (!group || !school) return;
-  group.rows.push({ id: crypto.randomUUID(), school, breakdown: emptyBreakdown() });
-  await saveState(supabase, state);
+  if (!groupId || !school) return;
+
+  const { data: maxRow } = await supabase
+    .from("distribution_rows")
+    .select("sort_order")
+    .eq("group_id", groupId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase.from("distribution_rows").insert({
+    id: crypto.randomUUID(),
+    group_id: groupId,
+    school,
+    breakdown: emptyBreakdown(),
+    sort_order: nextSortOrder,
+  });
+  orThrow(error);
   revalidatePath("/distribution-list");
 }
 
 export async function updateDistributionRow(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
-  const groupId = formData.get("groupId") as string;
+  const { supabase } = await requireUserAndState();
   const rowId = formData.get("rowId") as string;
-  const group = (state.distributionGroups || []).find((g) => g.id === groupId);
-  if (!group) return;
-  const row = group.rows.find((r) => r.id === rowId);
-  if (!row) return;
 
-  row.enrolled = (formData.get("enrolled") as string) || "";
-  row.contactPerson = (formData.get("contactPerson") as string) || "";
-  row.remarks = (formData.get("remarks") as string) || "";
-  row.breakdown = row.breakdown || emptyBreakdown();
+  const breakdown: Record<string, Record<string, string>> = emptyBreakdown();
   for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
-    row.breakdown[c.key] = row.breakdown[c.key] || {};
     for (const l of DISTRIBUTION_LANGUAGES) {
       const v = formData.get(`cell_${c.key}_${l.key}`);
-      if (v !== null) row.breakdown[c.key][l.key] = v as string;
+      if (v !== null) breakdown[c.key][l.key] = v as string;
     }
   }
 
-  await saveState(supabase, state);
+  const { error } = await supabase
+    .from("distribution_rows")
+    .update({
+      enrolled: (formData.get("enrolled") as string) || "",
+      contact_person: (formData.get("contactPerson") as string) || "",
+      remarks: (formData.get("remarks") as string) || "",
+      breakdown,
+    })
+    .eq("id", rowId);
+  orThrow(error);
   revalidatePath("/distribution-list");
 }
 
 export async function removeDistributionRow(formData: FormData) {
-  const { supabase, state } = await requireUserAndState();
-  const groupId = formData.get("groupId") as string;
+  const { supabase } = await requireUserAndState();
   const rowId = formData.get("rowId") as string;
-  const group = (state.distributionGroups || []).find((g) => g.id === groupId);
-  if (!group) return;
-  group.rows = group.rows.filter((r) => r.id !== rowId);
-  await saveState(supabase, state);
+
+  const { error } = await supabase.from("distribution_rows").delete().eq("id", rowId);
+  orThrow(error);
   revalidatePath("/distribution-list");
 }

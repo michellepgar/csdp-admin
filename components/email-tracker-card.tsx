@@ -3,8 +3,17 @@
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { EMAIL_STATUS_OPTIONS, type EmailTrackerItem } from "@/lib/app-state";
+
+/* Mirrors TASK_STATUS_TONE in tasks-card.tsx: same three-color scheme
+   (warning/paused/success) applied to the equivalent email statuses. */
+const EMAIL_STATUS_TONE: Record<string, StatusTone> = {
+  "Needs My Response": "warning",
+  "Waiting on Them": "paused",
+  Done: "success",
+};
 
 export function EmailTrackerCard({
   schoolId,
@@ -28,13 +37,19 @@ export function EmailTrackerCard({
   const openCount = items.filter((e) => e.status !== "Done").length;
   const sorted = [...items].reverse();
   const pendingSet = new Set(pendingRemovalRequestIds);
+  const needsResponseCount = items.filter((e) => e.status === "Needs My Response").length;
+  const waitingCount = items.filter((e) => e.status === "Waiting on Them").length;
+  const doneCount = items.filter((e) => e.status === "Done").length;
 
   return (
     <div className="rounded-md border">
-      <div className="border-b p-3">
+      <div className="flex items-center gap-2 border-b p-3">
         <h2 className="font-semibold">
           Email Tracker {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}
         </h2>
+        <StatusBadge tone="warning">{needsResponseCount}</StatusBadge>
+        <StatusBadge tone="paused">{waitingCount}</StatusBadge>
+        <StatusBadge tone="success">{doneCount}</StatusBadge>
       </div>
       <div className="space-y-3 p-3">
         {canEdit ? (
@@ -55,6 +70,7 @@ export function EmailTrackerCard({
           <div key={e.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
             <span className="text-sm">{e.description}</span>
             <div className="flex flex-none items-center gap-2">
+              <StatusBadge tone={EMAIL_STATUS_TONE[e.status] ?? "neutral"}>{e.status || "—"}</StatusBadge>
               <AutoSubmitForm action={setEmailStatus}>
                 <input type="hidden" name="schoolId" value={schoolId} />
                 <input type="hidden" name="itemId" value={e.id} />

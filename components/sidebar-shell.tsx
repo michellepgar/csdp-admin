@@ -42,7 +42,7 @@ export function SidebarShell({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen">
       {!collapsed && (
         <Sidebar
           currentName={currentName}
@@ -66,7 +66,7 @@ export function SidebarShell({
           <PanelLeftOpen className="h-4 w-4" />
         </Button>
       )}
-      <main className={`flex-1 overflow-y-auto p-8 ${collapsed ? "pt-12 pl-12" : ""}`}>{children}</main>
+      <main className={`min-h-0 flex-1 overflow-y-auto p-8 ${collapsed ? "pt-12 pl-12" : ""}`}>{children}</main>
     </div>
   );
 }

@@ -163,22 +163,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               })}
             </dl>
           )}
-
-          <div>
-            <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Contact People</div>
-            {(state.schoolContacts?.[schoolId] || []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No contact people added yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {(state.schoolContacts?.[schoolId] || []).map((c) => (
-                  <div key={c.id} className="flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-sm">
-                    <span>{c.position} — {c.email}</span>
-                    <CopyButton value={c.email} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

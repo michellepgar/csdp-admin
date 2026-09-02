@@ -14,7 +14,6 @@ import {
   updateOtherContact,
   removeOtherContact,
 } from "./actions";
-import { addSchoolContact, updateSchoolContact, removeSchoolContact } from "../schools/[id]/actions";
 
 export default async function ContactsPage() {
   const user = await getCurrentUser();
@@ -33,8 +32,6 @@ export default async function ContactsPage() {
         groups={state.contactGroups || []}
         nurseLeader={state.nurseLeader || { name: "", email: "" }}
         otherContacts={state.otherContacts || []}
-        schools={state.schools}
-        schoolContacts={state.schoolContacts || {}}
         addContactGroup={addContactGroup}
         renameContactGroup={renameContactGroup}
         removeContactGroup={removeContactGroup}
@@ -44,9 +41,6 @@ export default async function ContactsPage() {
         addOtherContact={addOtherContact}
         updateOtherContact={updateOtherContact}
         removeOtherContact={removeOtherContact}
-        addSchoolContact={addSchoolContact}
-        updateSchoolContact={updateSchoolContact}
-        removeSchoolContact={removeSchoolContact}
       />
     </div>
   );

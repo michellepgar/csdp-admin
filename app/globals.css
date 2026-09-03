@@ -125,16 +125,12 @@
      individual record's row, most subtle) -- both stay colored (not a
      near-white neutral like --muted) and keep enough lightness gap
      from --primary for text sitting on top to stay legible.
-     --header-background briefly equaled --primary exactly (matching a
-     reference app's bright page-title bar) -- Michelle then pointed at
-     dark mode's own --title-background (the darker, more muted teal
-     already used for h2 section headers like "Other Contacts") and
-     asked for THAT to be the header color instead. Deliberately the
-     same value in both themes (not a wash of light mode's much paler
-     --title-background, which would make white h1 text illegible) --
-     same reasoning as before for why this is a fixed accent, not a
-     per-theme wash. */
-  --header-background: oklch(0.245 0.085 211.53);
+     --header-background here (light mode) stays the bright teal that
+     matches --primary -- Michelle confirmed light mode was already
+     right and only wanted dark mode's page-title bar changed (see
+     .dark's own --header-background below, now a separate darker,
+     muted value instead of matching this one). */
+  --header-background: oklch(0.715 0.143 215.221);
   --title-background: oklch(0.9 0.045 223.128);
   --record-background: oklch(0.985 0.01 223.128);
 }
@@ -182,6 +178,11 @@
   --status-neutral-foreground: oklch(0.869 0.022 252.894);
   --status-paused: oklch(0.408 0.123 38.172);
   --status-paused-foreground: oklch(0.75 0.183 55.934);
+  /* Same darker, muted teal as --title-background (the color already
+     used for h2 section headers like "Other Contacts") -- Michelle
+     asked for dark mode's own page-title bar specifically, leaving
+     light mode's own --header-background (bright teal, matching
+     --primary) untouched. */
   --header-background: oklch(0.245 0.085 211.53);
   --title-background: oklch(0.245 0.085 211.53);
   --record-background: oklch(0.15 0.03 211.53);

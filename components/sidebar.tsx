@@ -95,7 +95,20 @@ export function Sidebar({
         {!collapsed && (
           <div>
             <div className="text-lg font-bold">CSDP Tracker</div>
-            <div className="mt-1 text-sm text-white/80" style={myColor ? { color: myColor } : undefined}>
+            {/* A VA's own color can be pale/light enough to nearly
+                disappear against the bright light-mode teal behind it
+                (confirmed directly -- Michelle circled this exact spot
+                as unreadable) even though the same color reads fine
+                against dark mode's own much darker teal. The dark
+                pill behind the name (light mode only -- dark mode
+                already looks right, so it's cancelled back to
+                transparent there) gives every VA color a consistent
+                dark backdrop to contrast against, regardless of how
+                light their own color happens to be. */}
+            <div
+              className="mt-1 inline-block rounded px-1.5 py-0.5 text-sm text-white/80 bg-black/15 dark:bg-transparent"
+              style={myColor ? { color: myColor } : undefined}
+            >
               {currentName}
             </div>
           </div>

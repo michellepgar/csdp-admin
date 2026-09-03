@@ -25,7 +25,21 @@ export function RemoveSchoolControl({
 
   if (!confirming) {
     return (
-      <Button type="button" variant="destructive" size="sm" onClick={() => setConfirming(true)}>
+      // bg-background + border (light mode only -- dark mode's own
+      // dark:bg-destructive/20 from the variant itself already reads
+      // fine, confirmed directly) -- this button sits on the school
+      // page's bright light-mode teal header, where the destructive
+      // variant's own barely-there bg-destructive/10 all but
+      // disappeared into it (Michelle circled this exact spot as
+      // unreadable). An opaque pill behind the text gives it a
+      // consistent, readable backdrop regardless of the header color.
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        onClick={() => setConfirming(true)}
+        className="border border-destructive/40 bg-background shadow-sm"
+      >
         Remove school
       </Button>
     );

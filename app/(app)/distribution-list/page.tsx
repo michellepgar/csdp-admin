@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import { DistributionList } from "@/components/distribution-list";
 import {
   addDistributionGroup,
@@ -24,17 +25,19 @@ export default async function DistributionListPage() {
   if (!me) redirect("/not-on-team");
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader title="Distribution List" />
-      <DistributionList
-        groups={state.distributionGroups || []}
-        addDistributionGroup={addDistributionGroup}
-        renameDistributionGroup={renameDistributionGroup}
-        removeDistributionGroup={removeDistributionGroup}
-        addDistributionRow={addDistributionRow}
-        updateDistributionRow={updateDistributionRow}
-        removeDistributionRow={removeDistributionRow}
-      />
+      <PageBody>
+        <DistributionList
+          groups={state.distributionGroups || []}
+          addDistributionGroup={addDistributionGroup}
+          renameDistributionGroup={renameDistributionGroup}
+          removeDistributionGroup={removeDistributionGroup}
+          addDistributionRow={addDistributionRow}
+          updateDistributionRow={updateDistributionRow}
+          removeDistributionRow={removeDistributionRow}
+        />
+      </PageBody>
     </div>
   );
 }

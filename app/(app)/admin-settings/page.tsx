@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import { DownloadBackupButton } from "@/components/download-backup-button";
 import { SubmitButton } from "@/components/submit-button";
 import { restoreBackup, resetAllTasks } from "./actions";
@@ -18,9 +19,9 @@ export default async function AdminSettingsPage() {
   if (!me || !isAdmin(me)) redirect("/overview");
 
   return (
-    <div className="space-y-8">
+    <div>
       <PageHeader title="Backup & School Year" />
-
+      <PageBody gap={8}>
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-lg font-semibold">Backup &amp; Restore</h2>
         <p className="text-sm text-muted-foreground">
@@ -70,6 +71,7 @@ export default async function AdminSettingsPage() {
           <SubmitButton pendingLabel="Resetting…" variant="destructive">Reset all tasks</SubmitButton>
         </form>
       </section>
+      </PageBody>
     </div>
   );
 }

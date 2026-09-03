@@ -30,6 +30,7 @@ import {
   removeSchoolAndContacts,
 } from "./actions";
 import { RemoveSchoolControl } from "@/components/remove-school-control";
+import { PageBody } from "@/components/page-body";
 import { CopyButton } from "@/components/copy-button";
 
 /* A website saved as "www.school.edu" or "school.edu" (no protocol) is
@@ -68,26 +69,25 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
     .find((r) => r.school.trim().toLowerCase() === school.name.trim().toLowerCase());
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Sticky/background live on this row div, not on h1 itself --
           position:sticky only has "room" to stick for as long as its
           own immediate parent's box hasn't scrolled past the stick
-          point. h1's immediate parent here is this row, which (unlike
-          a plain <h1> sitting directly in the space-y-6 column on
-          every other page) is short -- just the title/subtitle line --
-          so if h1 carried its own sticky+bg (from the global h1 rule)
-          it would stick for a few dozen pixels and then scroll away
-          with this tiny row, never actually staying visible. Making
-          the row itself the sticky element gives it the full page's
-          scroll range to stick within, since the row's parent is the
-          tall space-y-6 column. h1 cancels the global rule's own
-          sticky/background (static + bg-transparent + no padding) so
-          the two don't stack. The negative-margin/padding pairs cancel
-          <main>'s own left/right padding (components/sidebar-shell.tsx)
-          and re-add the same amount as this bar's own padding, so the
-          color spans truly edge to edge instead of floating as an
-          inset box with a visible gap around it. */}
-      <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-2 bg-header-background px-4 py-3 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+          point. h1's immediate parent here is this row, which is
+          short -- just the title/subtitle line -- so if h1 carried
+          its own sticky+bg (from the global h1 rule) it would stick
+          for a few dozen pixels and then scroll away with this tiny
+          row, never actually staying visible. Making the row itself
+          the sticky element gives it the full page's scroll range to
+          stick within. h1 cancels the global rule's own sticky/
+          background (static + bg-transparent + no padding) so the two
+          don't stack. Spans <main>'s full width naturally since <main>
+          now carries no padding of its own
+          (components/sidebar-shell.tsx). pl-12 (see PageHeader's own
+          comment) reserves room for the floating "show sidebar"
+          button so it doesn't sit on top of the title's first letter
+          when collapsed/closed. */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-header-background py-3 pr-4 pl-12 sm:pr-6 md:pr-8">
         <div className="min-w-0 flex-1">
           <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -104,6 +104,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
+      <PageBody>
       {/* flex, not grid -- Yearly Checklist can collapse to just its
           header (its own "Hide" button) and shrink to that header's
           width instead of always taking a fixed half-width column;
@@ -250,6 +251,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           )}
         </div>
       </div>
+      </PageBody>
     </div>
   );
 }

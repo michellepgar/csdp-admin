@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, visiblePrivateNotes } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import { PrivateNotesList } from "@/components/private-notes-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addPrivateNote, sharePrivateNote, unsharePrivateNote, ackPrivateNote, removePrivateNote } from "./actions";
@@ -20,29 +21,30 @@ export default async function PrivateNotesPage() {
   const mine = visiblePrivateNotes(state, me.name);
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader title="Private Notes" />
+      <PageBody>
+        <form action={addPrivateNote} className="space-y-2 max-w-lg">
+          <textarea
+            name="text"
+            placeholder="Add a private note…"
+            required
+            rows={3}
+            className="w-full rounded-md border px-3 py-2 text-sm"
+          />
+          <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
+        </form>
 
-      <form action={addPrivateNote} className="space-y-2 max-w-lg">
-        <textarea
-          name="text"
-          placeholder="Add a private note…"
-          required
-          rows={3}
-          className="w-full rounded-md border px-3 py-2 text-sm"
+        <PrivateNotesList
+          notes={mine}
+          currentUserName={me.name}
+          shareableVas={state.vas.map((v) => v.name)}
+          ackPrivateNote={ackPrivateNote}
+          sharePrivateNote={sharePrivateNote}
+          unsharePrivateNote={unsharePrivateNote}
+          removePrivateNote={removePrivateNote}
         />
-        <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
-      </form>
-
-      <PrivateNotesList
-        notes={mine}
-        currentUserName={me.name}
-        shareableVas={state.vas.map((v) => v.name)}
-        ackPrivateNote={ackPrivateNote}
-        sharePrivateNote={sharePrivateNote}
-        unsharePrivateNote={unsharePrivateNote}
-        removePrivateNote={removePrivateNote}
-      />
+      </PageBody>
     </div>
   );
 }

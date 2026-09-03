@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import {
   AddIssueForm,
   SoftwareIssueTable,
@@ -40,32 +41,33 @@ export default async function IssuesPage() {
   const fixProps = { setIssueFixNote };
 
   return (
-    <div className="space-y-8">
+    <div>
       <PageHeader title="Issues & Concerns" />
+      <PageBody gap={8}>
+        <AddIssueForm
+          addIssue={addIssue}
+          issueCategories={state.issueCategories || []}
+          addIssueCategory={addIssueCategory}
+          removeIssueCategory={removeIssueCategory}
+          addIssueSubcategory={addIssueSubcategory}
+          removeIssueSubcategory={removeIssueSubcategory}
+        />
 
-      <AddIssueForm
-        addIssue={addIssue}
-        issueCategories={state.issueCategories || []}
-        addIssueCategory={addIssueCategory}
-        removeIssueCategory={removeIssueCategory}
-        addIssueSubcategory={addIssueSubcategory}
-        removeIssueSubcategory={removeIssueSubcategory}
-      />
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Software Issue</h2>
+          <SoftwareIssueTable issues={software} {...tableProps} setIssueNote={setIssueNote} />
+        </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Software Issue</h2>
-        <SoftwareIssueTable issues={software} {...tableProps} setIssueNote={setIssueNote} />
-      </section>
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Correction / Verification</h2>
+          <CorrectionTable issues={corrections} {...tableProps} {...fixProps} />
+        </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Correction / Verification</h2>
-        <CorrectionTable issues={corrections} {...tableProps} {...fixProps} />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Charting Questions</h2>
-        <ChartingTable issues={charting} {...tableProps} {...fixProps} />
-      </section>
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Charting Questions</h2>
+          <ChartingTable issues={charting} {...tableProps} {...fixProps} />
+        </section>
+      </PageBody>
     </div>
   );
 }

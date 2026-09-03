@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import { TemplatesList } from "@/components/templates-list";
 import { saveTemplate, removeTemplate } from "./actions";
 
@@ -17,13 +18,15 @@ export default async function TemplatesPage() {
   if (!me) redirect("/not-on-team");
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader title="Email Templates" />
-      <TemplatesList
-        templates={state.emailTemplates || []}
-        saveTemplate={saveTemplate}
-        removeTemplate={removeTemplate}
-      />
+      <PageBody>
+        <TemplatesList
+          templates={state.emailTemplates || []}
+          saveTemplate={saveTemplate}
+          removeTemplate={removeTemplate}
+        />
+      </PageBody>
     </div>
   );
 }

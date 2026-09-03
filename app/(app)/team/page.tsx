@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { SubmitButton } from "@/components/submit-button";
@@ -32,9 +33,9 @@ export default async function TeamPage() {
   const assignableVas = sortedVas.filter((v) => v.role !== "owner");
 
   return (
-    <div className="space-y-10">
+    <div>
       <PageHeader title="Team" />
-
+      <PageBody gap={10}>
       <div className="space-y-8">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">VAs</div>
 
@@ -165,6 +166,7 @@ export default async function TeamPage() {
           </div>
         </section>
       </div>
+      </PageBody>
     </div>
   );
 }

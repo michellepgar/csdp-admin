@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { checklistCompletion, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
@@ -55,24 +56,24 @@ export default async function OverviewPage() {
   const vaNamesWithProgress = Array.from(inProgressByVa.keys()).sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="space-y-6">
-      {/* Sticky row carries the sticky/background itself (h1 cancels
-          the global rule's own copy of both), same trick every other
-          page's PageHeader uses -- this page keeps its own bigger,
-          set-apart h1 size instead of using PageHeader directly since
-          Michelle asked for this one to stand out from the rest. The
-          negative-margin/padding pairs cancel <main>'s own left/right
-          padding (components/sidebar-shell.tsx) and re-add the same
-          amount as this bar's own padding, so the color spans truly
-          edge to edge instead of floating as an inset box with a gap
-          around it. */}
-      <div className="sticky top-0 z-10 -mx-4 bg-header-background px-4 py-3 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+    <div>
+      {/* Sticky, spans <main>'s full width naturally since <main> now
+          carries no padding of its own (components/sidebar-shell.tsx)
+          -- h1 cancels the global rule's own sticky/background, same
+          trick every other page's PageHeader uses. This page keeps
+          its own bigger, set-apart h1 size instead of using PageHeader
+          directly since Michelle asked for this one to stand out from
+          the rest. pl-12 (see PageHeader's own comment) reserves room
+          for the floating "show sidebar" button so it doesn't sit on
+          top of the title's first letter when collapsed/closed. */}
+      <div className="sticky top-0 z-10 bg-header-background py-3 pr-4 pl-12 sm:pr-6 md:pr-8">
         <h1 className="static flex items-center gap-2 bg-transparent px-0 py-0 text-4xl font-extrabold tracking-tight">
           <LayoutDashboard className="h-8 w-8" />
           Overview
         </h1>
       </div>
 
+      <PageBody>
       <div>
         <h2 className="mb-3 text-lg font-semibold">Currently Working On</h2>
         {vaNamesWithProgress.length === 0 ? (
@@ -201,6 +202,7 @@ export default async function OverviewPage() {
           </div>
         </div>
       </div>
+      </PageBody>
     </div>
   );
 }

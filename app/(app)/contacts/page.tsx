@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import { ContactsList } from "@/components/contacts-list";
 import {
   addContactGroup,
@@ -27,23 +28,25 @@ export default async function ContactsPage() {
   if (!me) redirect("/not-on-team");
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader title="Schools Contact Information" />
-      <ContactsList
-        groups={state.contactGroups || []}
-        schools={state.schools}
-        nurseLeader={state.nurseLeader || { name: "", email: "" }}
-        otherContacts={state.otherContacts || []}
-        addContactGroup={addContactGroup}
-        renameContactGroup={renameContactGroup}
-        removeContactGroup={removeContactGroup}
-        updateContactRow={updateContactRow}
-        removeContactRow={removeContactRow}
-        setNurseLeader={setNurseLeader}
-        addOtherContact={addOtherContact}
-        updateOtherContact={updateOtherContact}
-        removeOtherContact={removeOtherContact}
-      />
+      <PageBody>
+        <ContactsList
+          groups={state.contactGroups || []}
+          schools={state.schools}
+          nurseLeader={state.nurseLeader || { name: "", email: "" }}
+          otherContacts={state.otherContacts || []}
+          addContactGroup={addContactGroup}
+          renameContactGroup={renameContactGroup}
+          removeContactGroup={removeContactGroup}
+          updateContactRow={updateContactRow}
+          removeContactRow={removeContactRow}
+          setNurseLeader={setNurseLeader}
+          addOtherContact={addOtherContact}
+          updateOtherContact={updateOtherContact}
+          removeOtherContact={removeOtherContact}
+        />
+      </PageBody>
     </div>
   );
 }

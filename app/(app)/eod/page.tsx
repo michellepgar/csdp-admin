@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
+import { PageBody } from "@/components/page-body";
 import { EodList } from "@/components/eod-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addEodReport } from "./actions";
@@ -22,9 +23,9 @@ export default async function EodPage() {
   if (!me) redirect("/not-on-team");
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader title="EOD Reports" />
-
+      <PageBody>
       <form action={addEodReport} className="space-y-2 rounded-md border p-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
@@ -60,6 +61,7 @@ export default async function EodPage() {
       </form>
 
       <EodList reports={state.eodReports || []} vaNames={state.vas.map((v) => v.name)} />
+      </PageBody>
     </div>
   );
 }

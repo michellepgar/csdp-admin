@@ -139,17 +139,28 @@ export function SidebarShell({
       {/* No overflow-y-auto here on purpose -- see the comment on the
           sidebar wrapper above. The document itself scrolls; this is
           just a normal flex-1 block.
-          Longhand padding per side and breakpoint, not the shorthand
-          "p" / "pt" utilities, so the mobile top padding reserved for
-          the hamburger button above can't be silently overridden by a
-          same-breakpoint shorthand utility. */}
-      <main
-        className={`flex-1 pt-14 pr-4 pb-4 pl-4 sm:pt-16 sm:pr-6 sm:pb-6 sm:pl-6 md:pt-8 md:pr-8 md:pb-8 md:pl-8 ${
-          collapsed ? "md:pt-12 md:pl-12" : ""
-        }`}
-      >
-        {children}
-      </main>
+
+          No padding here at all, and min-w-0 -- both on purpose. Every
+          page's own sticky header bar needs to span main's full width
+          with no gap around it, which used to be done with a
+          negative-margin trick matching whatever padding main had at
+          each breakpoint. That's exactly the kind of thing that goes
+          quietly wrong the moment the two drift out of sync (as they
+          did here), so padding moved to a wrapper INSIDE each page
+          instead, around everything except its header -- the header
+          just naturally spans main's real width, no arithmetic
+          required. min-w-0 fixes a separate real bug this surfaced:
+          a flex item's default min-width is "auto", meaning a wide
+          enough descendant (e.g. Contacts' table, min-w-[900px])
+          could force main itself wider than its fair share of the
+          row, squeezing the sidebar -- min-w-0 lets main shrink to
+          its actual allotted space and leaves overflow-x-auto
+          wrappers deeper in the tree to handle their own overflow, as
+          intended. The floating "show sidebar" buttons below no
+          longer need reserved top padding either -- they now simply
+          float on top of the header bar, which starts at main's very
+          top edge. */}
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   );
 }

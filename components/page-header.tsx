@@ -1,19 +1,25 @@
 /* Every top-level page's title row, unified in one place: sticky so
-   it never scrolls out of view, background bleeding edge to edge
-   (flush with the sidebar and the browser's right edge -- see the
-   negative-margin/padding pairs below, which cancel <main>'s own
-   left/right padding from components/sidebar-shell.tsx and re-add the
-   same amount as this bar's own padding instead; must stay in sync
-   with <main>'s own horizontal padding if that changes). Cancels the
-   global h1 rule's own sticky/background (see app/globals.css) since
-   this row carries both itself, same trick the school page's own
-   custom title row already used before this component existed.
+   it never scrolls out of view, spanning <main>'s full width with no
+   gap around it -- <main> itself now carries no padding at all (see
+   components/sidebar-shell.tsx), so this just naturally reaches every
+   edge instead of needing a negative-margin trick to cancel padding
+   that lived elsewhere. Cancels the global h1 rule's own sticky/
+   background (see app/globals.css) since this row carries both
+   itself, same trick the school page's own custom title row already
+   used before this component existed.
 
    Used to also show the signed-in user's name in the top-right corner
-   -- Michelle asked for that, then asked for it removed again. */
+   -- Michelle asked for that, then asked for it removed again.
+
+   pl-12 (rather than matching pr-4/sm:pr-6/md:pr-8 on the left too) is
+   a fixed reserve for the floating "show sidebar" button
+   (components/sidebar-shell.tsx), which sits fixed at top-4 left-4 --
+   z-20, above this bar's z-10 -- only when the sidebar is collapsed
+   (desktop) or closed (mobile). Confirmed directly: without this, that
+   button's icon sits right on top of the title's first letter. */
 export function PageHeader({ title }: { title: string }) {
   return (
-    <div className="sticky top-0 z-10 -mx-4 bg-header-background px-4 py-3 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+    <div className="sticky top-0 z-10 bg-header-background py-3 pr-4 pl-12 sm:pr-6 md:pr-8">
       <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{title}</h1>
     </div>
   );

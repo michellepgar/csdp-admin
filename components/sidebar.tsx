@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Dropdown } from "@/components/dropdown";
 import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
+import { IconTooltip } from "@/components/icon-tooltip";
 
 export function Sidebar({
   currentName,
@@ -132,18 +133,19 @@ export function Sidebar({
             course.  Clicking a link still navigates instantly either
             way -- prefetch only removes a head start that was costing
             more than it was worth here. */}
-        <Link
-          href="/overview"
-          prefetch={false}
-          title="Overview"
-          className={cn(
-            "flex items-center rounded-md py-2.5 text-base font-bold hover:bg-muted",
-            collapsed ? "justify-center px-2" : "gap-2 px-3",
-          )}
-        >
-          <LayoutDashboard className="h-5 w-5 flex-none text-cyan-600 dark:text-cyan-400" />
-          {!collapsed && "Overview"}
-        </Link>
+        <IconTooltip label="Overview" active={collapsed}>
+          <Link
+            href="/overview"
+            prefetch={false}
+            className={cn(
+              "flex items-center rounded-md py-2.5 text-base font-bold hover:bg-muted",
+              collapsed ? "justify-center px-2" : "gap-2 px-3",
+            )}
+          >
+            <LayoutDashboard className="h-5 w-5 flex-none text-cyan-600 dark:text-cyan-400" />
+            {!collapsed && "Overview"}
+          </Link>
+        </IconTooltip>
 
         {!collapsed && (
           <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">
@@ -176,20 +178,20 @@ export function Sidebar({
               const vaName = schoolVaAssigned[s.id];
               const color = vaName ? colorByVaName.get(vaName) : undefined;
               return (
-                <Link
-                  key={s.id}
-                  href={`/schools/${s.id}`}
-                  prefetch={false}
-                  title={s.name}
-                  className={cn(
-                    "flex items-center rounded-md py-2 text-sm hover:bg-muted",
-                    collapsed ? "justify-center px-2" : "gap-2 px-3",
-                  )}
-                  style={color ? { color } : undefined}
-                >
-                  <School className="h-4 w-4 flex-none" />
-                  {!collapsed && s.name}
-                </Link>
+                <IconTooltip key={s.id} label={s.name} active={collapsed}>
+                  <Link
+                    href={`/schools/${s.id}`}
+                    prefetch={false}
+                    className={cn(
+                      "flex items-center rounded-md py-2 text-sm hover:bg-muted",
+                      collapsed ? "justify-center px-2" : "gap-2 px-3",
+                    )}
+                    style={color ? { color } : undefined}
+                  >
+                    <School className="h-4 w-4 flex-none" />
+                    {!collapsed && s.name}
+                  </Link>
+                </IconTooltip>
               );
             })
           )}
@@ -226,102 +228,112 @@ export function Sidebar({
           ))}
 
         {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">My Space</div>}
-        <Link
-          href="/private-notes"
-          prefetch={false}
-          title="Private Notes"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
-        >
-          <Lock className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
-          {!collapsed && "Private Notes"}
-        </Link>
+        <IconTooltip label="Private Notes" active={collapsed}>
+          <Link
+            href="/private-notes"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+          >
+            <Lock className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
+            {!collapsed && "Private Notes"}
+          </Link>
+        </IconTooltip>
 
         {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
-        <Link
-          href="/notes"
-          prefetch={false}
-          title="General Notes/Announcements"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-        >
-          <Megaphone className="h-4 w-4 flex-none text-amber-600 dark:text-amber-400" />
-          {!collapsed && "General Notes/Announcements"}
-        </Link>
-        <Link
-          href="/issues"
-          prefetch={false}
-          title="Issues & Concerns"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-        >
-          <AlertTriangle className="h-4 w-4 flex-none text-red-600 dark:text-red-400" />
-          {!collapsed && "Issues & Concerns"}
-        </Link>
-        <Link
-          href="/eod"
-          prefetch={false}
-          title="EOD Reports"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-        >
-          <Clock className="h-4 w-4 flex-none text-blue-600 dark:text-blue-400" />
-          {!collapsed && "EOD Reports"}
-        </Link>
-        <Link
-          href="/contacts"
-          prefetch={false}
-          title="Schools Contact Information"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-        >
-          <Contact className="h-4 w-4 flex-none text-teal-600 dark:text-teal-400" />
-          {!collapsed && "Schools Contact Information"}
-        </Link>
-        <Link
-          href="/distribution-list"
-          prefetch={false}
-          title="Distribution List"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-        >
-          <Send className="h-4 w-4 flex-none text-indigo-600 dark:text-indigo-400" />
-          {!collapsed && "Distribution List"}
-        </Link>
-        <Link
-          href="/templates"
-          prefetch={false}
-          title="Email Templates"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-        >
-          <Mail className="h-4 w-4 flex-none text-sky-600 dark:text-sky-400" />
-          {!collapsed && "Email Templates"}
-        </Link>
-        <Link
-          href="/suggestions"
-          prefetch={false}
-          title="Suggestions"
-          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-        >
-          <MessageSquarePlus className="h-4 w-4 flex-none text-fuchsia-600 dark:text-fuchsia-400" />
-          {!collapsed && "Suggestions"}
-        </Link>
+        <IconTooltip label="General Notes/Announcements" active={collapsed}>
+          <Link
+            href="/notes"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <Megaphone className="h-4 w-4 flex-none text-amber-600 dark:text-amber-400" />
+            {!collapsed && "General Notes/Announcements"}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="Issues & Concerns" active={collapsed}>
+          <Link
+            href="/issues"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <AlertTriangle className="h-4 w-4 flex-none text-red-600 dark:text-red-400" />
+            {!collapsed && "Issues & Concerns"}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="EOD Reports" active={collapsed}>
+          <Link
+            href="/eod"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <Clock className="h-4 w-4 flex-none text-blue-600 dark:text-blue-400" />
+            {!collapsed && "EOD Reports"}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="Schools Contact Information" active={collapsed}>
+          <Link
+            href="/contacts"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <Contact className="h-4 w-4 flex-none text-teal-600 dark:text-teal-400" />
+            {!collapsed && "Schools Contact Information"}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="Distribution List" active={collapsed}>
+          <Link
+            href="/distribution-list"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <Send className="h-4 w-4 flex-none text-indigo-600 dark:text-indigo-400" />
+            {!collapsed && "Distribution List"}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="Email Templates" active={collapsed}>
+          <Link
+            href="/templates"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <Mail className="h-4 w-4 flex-none text-sky-600 dark:text-sky-400" />
+            {!collapsed && "Email Templates"}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="Suggestions" active={collapsed}>
+          <Link
+            href="/suggestions"
+            prefetch={false}
+            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <MessageSquarePlus className="h-4 w-4 flex-none text-fuchsia-600 dark:text-fuchsia-400" />
+            {!collapsed && "Suggestions"}
+          </Link>
+        </IconTooltip>
 
         {isAdmin && (
           <>
             {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Admin</div>}
-            <Link
-              href="/team"
-              prefetch={false}
-              title="Team"
-              className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
-            >
-              <Users className="h-4 w-4 flex-none text-orange-600 dark:text-orange-400" />
-              {!collapsed && "Team"}
-            </Link>
-            <Link
-              href="/admin-settings"
-              prefetch={false}
-              title="Backup & School Year"
-              className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-            >
-              <DatabaseBackup className="h-4 w-4 flex-none text-rose-600 dark:text-rose-400" />
-              {!collapsed && "Backup & School Year"}
-            </Link>
+            <IconTooltip label="Team" active={collapsed}>
+              <Link
+                href="/team"
+                prefetch={false}
+                className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+              >
+                <Users className="h-4 w-4 flex-none text-orange-600 dark:text-orange-400" />
+                {!collapsed && "Team"}
+              </Link>
+            </IconTooltip>
+            <IconTooltip label="Backup & School Year" active={collapsed}>
+              <Link
+                href="/admin-settings"
+                prefetch={false}
+                className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+              >
+                <DatabaseBackup className="h-4 w-4 flex-none text-rose-600 dark:text-rose-400" />
+                {!collapsed && "Backup & School Year"}
+              </Link>
+            </IconTooltip>
           </>
         )}
       </nav>

@@ -165,6 +165,13 @@ export function ContactsList({
 
   return (
     <div className="space-y-6">
+      <form action={addContactGroup} className="flex items-center gap-2">
+        <Input name="name" placeholder="New group name" required className="max-w-xs" />
+        <SubmitButton pendingLabel="Adding…">+ Add group</SubmitButton>
+      </form>
+
+      {/* Below "+ Add group", above every school group -- Michelle
+          asked for this order specifically. */}
       <div className="rounded-md border p-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium">Nurse Leader</span>
@@ -190,11 +197,6 @@ export function ContactsList({
           )}
         </div>
       </div>
-
-      <form action={addContactGroup} className="flex items-center gap-2">
-        <Input name="name" placeholder="New group name" required className="max-w-xs" />
-        <SubmitButton pendingLabel="Adding…">+ Add group</SubmitButton>
-      </form>
 
       {groups.map((group) => (
         <div key={group.id} className="rounded-md border">

@@ -82,8 +82,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           scroll range to stick within, since the row's parent is the
           tall space-y-6 column. h1 cancels the global rule's own
           sticky/background (static + bg-transparent + no padding) so
-          the two don't stack. */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-md bg-header-background px-3 py-1.5">
+          the two don't stack. The negative-margin/padding pairs cancel
+          <main>'s own left/right padding (components/sidebar-shell.tsx)
+          and re-add the same amount as this bar's own padding, so the
+          color spans truly edge to edge instead of floating as an
+          inset box with a visible gap around it. */}
+      <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-2 bg-header-background px-4 py-3 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <div className="min-w-0 flex-1">
           <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">

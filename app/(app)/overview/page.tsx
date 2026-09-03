@@ -68,8 +68,13 @@ export default async function OverviewPage() {
           the global rule's own copy of both), same trick every other
           page's PageHeader uses -- this page keeps its own bigger,
           set-apart h1 size instead of using PageHeader directly since
-          Michelle asked for this one to stand out from the rest. */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-header-background px-3 py-1.5">
+          Michelle asked for this one to stand out from the rest. The
+          negative-margin/padding pairs cancel <main>'s own left/right
+          padding (components/sidebar-shell.tsx) and re-add the same
+          amount as this bar's own padding, so the color spans truly
+          edge to edge instead of floating as an inset box with a gap
+          around it. */}
+      <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-2 bg-header-background px-4 py-3 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <h1 className="static flex items-center gap-2 bg-transparent px-0 py-0 text-4xl font-extrabold tracking-tight">
           <LayoutDashboard className="h-8 w-8" />
           Overview

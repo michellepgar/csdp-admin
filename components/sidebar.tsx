@@ -66,7 +66,6 @@ export function Sidebar({
   const [addingSchool, setAddingSchool] = useState(false);
 
   const colorByVaName = new Map(vas.filter((v) => v.color).map((v) => [v.name, v.color as string]));
-  const myColor = colorByVaName.get(currentName);
 
   const filteredSchools = [...schools]
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -95,22 +94,15 @@ export function Sidebar({
         {!collapsed && (
           <div>
             <div className="text-lg font-bold">CSDP Tracker</div>
-            {/* A VA's own color can be pale/light enough to nearly
-                disappear against the bright light-mode teal behind it
-                (confirmed directly -- Michelle circled this exact spot
-                as unreadable) even though the same color reads fine
-                against dark mode's own much darker teal. The dark
-                pill behind the name (light mode only -- dark mode
-                already looks right, so it's cancelled back to
-                transparent there) gives every VA color a consistent
-                dark backdrop to contrast against, regardless of how
-                light their own color happens to be. */}
-            <div
-              className="mt-1 inline-block rounded px-1.5 py-0.5 text-sm text-white/80 bg-black/15 dark:bg-transparent"
-              style={myColor ? { color: myColor } : undefined}
-            >
-              {currentName}
-            </div>
+            {/* Plain white, no VA color here -- a background pill
+                behind the color-tinted name was tried first, but
+                Michelle said it still wasn't reliably readable (some
+                VA colors are just too pale against teal no matter
+                what sits behind them). This is the one spot that only
+                needs to answer "whose account is this," so it doesn't
+                need the color-coding every other name in the app
+                uses -- plain white always reads clearly here. */}
+            <div className="mt-1 text-sm text-white/80">{currentName}</div>
           </div>
         )}
         <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "gap-1")}>

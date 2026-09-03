@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -24,9 +24,16 @@ import {
    Michelle asked for a separate read-only "Show" (eye icon) alongside
    Edit (pencil) and Remove (trash), distinct from just relabeling the
    same action twice. No modal/dialog component exists anywhere in
-   this app yet, so this follows the same expand-the-row-in-place
-   convention every other list here already uses for editing, just
-   with a second, non-editable expanded form. */
+   this app yet, so this follows the same expand-in-place convention
+   every other list here already uses for editing.
+
+   Unlike those other lists, though, the compact row here never gets
+   replaced -- "detail"/"edit" render as an accordion panel in an
+   ADDITIONAL row directly below the still-visible compact one, and
+   clicking the same icon again (Show while already showing, Edit
+   while already editing) closes it back to "compact". Michelle asked
+   for this specifically: the school's own row should stay put while
+   its details/edit form drop open beneath it, not disappear. */
 type RowMode = "compact" | "detail" | "edit";
 
 function DistributedCheckbox({
@@ -51,19 +58,21 @@ function DistributedCheckbox({
 
 function RowView({
   row,
+  activeMode,
   onShowDetail,
   onEdit,
   toggleDistributionRowDistributed,
   removeDistributionRow,
 }: {
   row: DistributionRow;
+  activeMode: RowMode;
   onShowDetail: () => void;
   onEdit: () => void;
   toggleDistributionRowDistributed: (formData: FormData) => void;
   removeDistributionRow: (formData: FormData) => void;
 }) {
   return (
-    <tr className="border-b bg-record-background">
+    <tr className={`border-b bg-record-background ${activeMode !== "compact" ? "border-b-0" : ""}`}>
       <td className="px-2 py-2 align-top text-sm font-medium">{row.school}</td>
       <td className="px-2 py-2 align-top text-sm">{row.enrolled || ""}</td>
       <td className="px-2 py-2 text-center">
@@ -85,10 +94,26 @@ function RowView({
       <td className="px-2 py-2 align-top text-sm whitespace-pre-wrap">{row.remarks || ""}</td>
       <td className="px-2 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="Show details" onClick={onShowDetail}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={activeMode === "detail" ? "Hide details" : "Show details"}
+            aria-pressed={activeMode === "detail"}
+            className={activeMode === "detail" ? "text-primary" : ""}
+            onClick={onShowDetail}
+          >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="Edit" onClick={onEdit}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={activeMode === "edit" ? "Close edit" : "Edit"}
+            aria-pressed={activeMode === "edit"}
+            className={activeMode === "edit" ? "text-primary" : ""}
+            onClick={onEdit}
+          >
             <Pencil className="h-4 w-4" />
           </Button>
           <form action={removeDistributionRow}>
@@ -545,39 +570,40 @@ export function DistributionList({
                   )}
                   {group.rows.map((row) => {
                     const mode = rowModes[row.id] || "compact";
-                    if (mode === "edit") {
-                      return (
-                        <RowEdit
-                          key={row.id}
-                          groupId={group.id}
-                          groups={groups}
-                          row={row}
-                          onDone={() => setMode(row.id, "compact")}
-                          updateDistributionRow={updateDistributionRow}
-                          removeDistributionRow={removeDistributionRow}
-                        />
-                      );
-                    }
-                    if (mode === "detail") {
-                      return (
-                        <RowDetail
-                          key={row.id}
-                          row={row}
-                          onDone={() => setMode(row.id, "compact")}
-                          onEdit={() => setMode(row.id, "edit")}
-                          removeDistributionRow={removeDistributionRow}
-                        />
-                      );
-                    }
                     return (
-                      <RowView
-                        key={row.id}
-                        row={row}
-                        onShowDetail={() => setMode(row.id, "detail")}
-                        onEdit={() => setMode(row.id, "edit")}
-                        toggleDistributionRowDistributed={toggleDistributionRowDistributed}
-                        removeDistributionRow={removeDistributionRow}
-                      />
+                      <Fragment key={row.id}>
+                        {/* The compact row always stays visible now --
+                            Show/Edit drop the detail/edit panel open in
+                            an extra row directly below it (an
+                            accordion, not a replacement), and clicking
+                            the same icon again closes it. */}
+                        <RowView
+                          row={row}
+                          activeMode={mode}
+                          onShowDetail={() => setMode(row.id, mode === "detail" ? "compact" : "detail")}
+                          onEdit={() => setMode(row.id, mode === "edit" ? "compact" : "edit")}
+                          toggleDistributionRowDistributed={toggleDistributionRowDistributed}
+                          removeDistributionRow={removeDistributionRow}
+                        />
+                        {mode === "detail" && (
+                          <RowDetail
+                            row={row}
+                            onDone={() => setMode(row.id, "compact")}
+                            onEdit={() => setMode(row.id, "edit")}
+                            removeDistributionRow={removeDistributionRow}
+                          />
+                        )}
+                        {mode === "edit" && (
+                          <RowEdit
+                            groupId={group.id}
+                            groups={groups}
+                            row={row}
+                            onDone={() => setMode(row.id, "compact")}
+                            updateDistributionRow={updateDistributionRow}
+                            removeDistributionRow={removeDistributionRow}
+                          />
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

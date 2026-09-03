@@ -21,6 +21,13 @@ export interface School {
   id: string;
   name: string;
   website?: string;
+  phone?: string;
+  fax?: string;
+  /* Grade-level hours only now (e.g. "K-5 Hours: 9:00 a.m. - 3:15
+     p.m.", one per line) -- phone/fax used to just be the first two
+     lines of this same free-text block, split into their own fields
+     above so each renders as its own labeled field on the school
+     page instead of depending on line order. */
   hours?: string;
   /* Some schools don't need a second pass after Initial -- clicking
      "No Follow up" on the school page sets this so Follow up's section

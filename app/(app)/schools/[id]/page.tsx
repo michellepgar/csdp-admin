@@ -154,10 +154,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           </Link>
         </div>
         <div className="space-y-3 p-3">
-          {/* Website/hours are read-only here -- editable only from
-              the Contacts page's row edit form now (see the link
-              above), same as every other field in this card. */}
-          {(school.website || school.hours) && (
+          {/* Website/phone/fax/hours are read-only here -- editable
+              only from the Contacts page's row edit form now (see the
+              link above), same as every other field in this card. */}
+          {(school.website || school.phone || school.fax || school.hours) && (
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               {school.website && (
                 <div className="flex items-center gap-1">
@@ -173,8 +173,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                   </a>
                 </div>
               )}
+              {school.phone && (
+                <div className="flex items-center gap-1">
+                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Phone</span>
+                  <a href={`tel:${school.phone.replace(/[^0-9+]/g, "")}`} className="text-primary underline-offset-2 hover:underline">
+                    {school.phone}
+                  </a>
+                </div>
+              )}
+              {school.fax && (
+                <div className="flex items-center gap-1">
+                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Fax</span>
+                  <span>{school.fax}</span>
+                </div>
+              )}
               {school.hours && (
-                <div className="flex items-baseline gap-1">
+                <div className="flex items-baseline gap-1 sm:col-span-2">
                   <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Hours</span>
                   <span className="whitespace-pre-wrap">{school.hours}</span>
                 </div>

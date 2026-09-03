@@ -87,28 +87,36 @@ function ContactRowEdit({
               />
             </div>
             {matchedSchool && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Website</label>
-                <Input name="website" defaultValue={matchedSchool.website || ""} />
-              </div>
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Website</label>
+                  <Input name="website" defaultValue={matchedSchool.website || ""} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                  <Input name="phone" defaultValue={matchedSchool.phone || ""} placeholder="508-894-4440" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Fax</label>
+                  <Input name="fax" defaultValue={matchedSchool.fax || ""} placeholder="508-894-4466" />
+                </div>
+              </>
             )}
           </div>
           {matchedSchool && (
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">
-                Hours (phone/fax and any grade-level hours, one per line)
-              </label>
+              <label className="text-xs font-medium text-muted-foreground">Hours (grade-level hours, one per line)</label>
               <textarea
                 name="hours"
                 defaultValue={matchedSchool.hours || ""}
-                rows={5}
-                placeholder={"Phone: 508-894-4440\nFax: 508-894-4466\nK-5 Hours: 9:00 a.m. - 3:15 p.m.\nAM Pre-K Hours: 9:00 a.m. - 11:30 a.m.\nPM Pre-K Hours: 12:45 p.m. - 3:15 p.m."}
+                rows={4}
+                placeholder={"K-5 Hours: 9:00 a.m. - 3:15 p.m.\nAM Pre-K Hours: 9:00 a.m. - 11:30 a.m.\nPM Pre-K Hours: 12:45 p.m. - 3:15 p.m."}
                 className="w-full rounded-md border px-2 py-1 font-mono text-sm"
               />
             </div>
           )}
           {matchedSchool && (
-            <p className="text-xs text-muted-foreground">Website/hours only show on the school&apos;s own page, not in this table.</p>
+            <p className="text-xs text-muted-foreground">Website/phone/fax/hours only show on the school&apos;s own page, not in this table.</p>
           )}
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>

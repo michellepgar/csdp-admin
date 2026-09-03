@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, PanelLeftOpen } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import type { Va } from "@/lib/app-state";
@@ -93,11 +93,22 @@ export function SidebarShell({
           mobile Safari (and some older WebKit) handles unreliably for
           sticky positioning. Letting the document/body scroll
           normally, like a plain page, is the one case sticky is
-          reliably supported everywhere. */}
+          reliably supported everywhere.
+
+          Desktop's "collapsed" no longer removes the sidebar from
+          view (md:hidden + a floating re-open button) -- Michelle
+          asked to be able to jump between pages without re-opening
+          the full panel every time, so it now stays on screen at a
+          narrow icon-only width instead (Sidebar's own `collapsed`
+          prop controls that). Always `md:flex` here as a result;
+          there's no longer a "fully gone" desktop state that needs a
+          separate way back in. Mobile is untouched -- it's an overlay
+          that's already only on screen when explicitly opened via the
+          hamburger below, so `collapsed` doesn't apply to it at all. */}
       <div
         className={`fixed inset-y-0 left-0 z-40 transition-transform duration-200 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 md:overflow-y-auto md:transition-none ${collapsed ? "md:hidden" : "md:flex"}`}
+        } md:sticky md:top-0 md:z-auto md:flex md:h-screen md:translate-x-0 md:overflow-y-auto md:transition-none`}
       >
         <Sidebar
           currentName={currentName}
@@ -107,21 +118,9 @@ export function SidebarShell({
           schoolVaAssigned={schoolVaAssigned}
           addSchool={addSchool}
           onCollapse={handleSidebarHide}
+          collapsed={collapsed}
         />
       </div>
-
-      {collapsed && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={toggleDesktopCollapsed}
-          aria-label="Show sidebar"
-          className="fixed top-4 left-4 z-20 hidden border bg-background md:flex"
-        >
-          <PanelLeftOpen className="h-4 w-4" />
-        </Button>
-      )}
 
       {!mobileOpen && (
         <Button

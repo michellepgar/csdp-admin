@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Send,
   PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dropdown } from "@/components/dropdown";
 import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
+import { cn } from "@/lib/utils";
 
 export function Sidebar({
   currentName,
@@ -32,6 +34,7 @@ export function Sidebar({
   schoolVaAssigned,
   addSchool,
   onCollapse,
+  collapsed = false,
 }: {
   currentName: string;
   schools: { id: string; name: string }[];
@@ -45,6 +48,17 @@ export function Sidebar({
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
   onCollapse: () => void;
+  /* Icons-only mode -- Michelle asked to be able to jump between
+     pages without the full labeled panel taking up space every time.
+     Search/VA-filter/"+ Add school" all need room to type in, so
+     those (and every text label) just disappear rather than trying
+     to cram them into a 4rem-wide column; the school and nav icons
+     stay clickable, with the label available as a native title
+     tooltip on hover. Mobile ignores this entirely -- its overlay is
+     already only on-screen when explicitly opened, so there's no
+     "always visible, wastes space" problem for it to solve (see
+     components/sidebar-shell.tsx). */
+  collapsed?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [vaFilter, setVaFilter] = useState("");
@@ -55,11 +69,16 @@ export function Sidebar({
 
   const filteredSchools = [...schools]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()))
-    .filter((s) => !vaFilter || schoolVaAssigned[s.id] === vaFilter);
+    .filter((s) => !collapsed && s.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((s) => !collapsed && (!vaFilter || schoolVaAssigned[s.id] === vaFilter));
+  // Collapsed mode drops the search box/VA filter (nothing to type
+  // into), so it lists every school rather than an unreachable filter's
+  // empty result -- the two .filter() calls above short-circuit to
+  // "keep everything" once collapsed is true.
+  const visibleSchools = collapsed ? [...schools].sort((a, b) => a.name.localeCompare(b.name)) : filteredSchools;
 
   return (
-    <aside className="flex w-64 flex-none flex-col border-r bg-background">
+    <aside className={cn("flex flex-none flex-col border-r bg-background transition-[width]", collapsed ? "w-16" : "w-64")}>
       {/* bg-header-background + text-white -- Michelle asked for the
           header bar's color to reach all the way over into the
           sidebar's own top corner too, not stop at its right edge.
@@ -71,17 +90,26 @@ export function Sidebar({
           fixed height (see components/page-header.tsx's comment) so
           this corner lines up with whichever one is showing instead
           of drifting a few px off depending on font metrics. */}
-      <div className="flex h-20 items-center justify-between gap-2 bg-header-background px-4 text-white">
-        <div>
-          <div className="text-lg font-bold">CSDP Tracker</div>
-          <div className="mt-1 text-sm text-white/80" style={myColor ? { color: myColor } : undefined}>
-            {currentName}
+      <div className={cn("flex h-20 items-center bg-header-background px-4 text-white", collapsed ? "justify-center" : "justify-between gap-2")}>
+        {!collapsed && (
+          <div>
+            <div className="text-lg font-bold">CSDP Tracker</div>
+            <div className="mt-1 text-sm text-white/80" style={myColor ? { color: myColor } : undefined}>
+              {currentName}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
+        )}
+        <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "gap-1")}>
           <ThemeToggle />
-          <Button type="button" variant="ghost" size="icon-sm" onClick={onCollapse} aria-label="Hide sidebar">
-            <PanelLeftClose className="h-4 w-4" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onCollapse}
+            aria-label={collapsed ? "Show full sidebar" : "Collapse sidebar to icons"}
+            title={collapsed ? "Show full sidebar" : "Collapse to icons"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -104,35 +132,47 @@ export function Sidebar({
             course.  Clicking a link still navigates instantly either
             way -- prefetch only removes a head start that was costing
             more than it was worth here. */}
-        <Link href="/overview" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2.5 text-base font-bold hover:bg-muted">
-          <LayoutDashboard className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-          Overview
+        <Link
+          href="/overview"
+          prefetch={false}
+          title="Overview"
+          className={cn(
+            "flex items-center rounded-md py-2.5 text-base font-bold hover:bg-muted",
+            collapsed ? "justify-center px-2" : "gap-2 px-3",
+          )}
+        >
+          <LayoutDashboard className="h-5 w-5 flex-none text-cyan-600 dark:text-cyan-400" />
+          {!collapsed && "Overview"}
         </Link>
 
-        <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">
-          Schools ({schools.length})
-        </div>
-        <div className="space-y-2 px-3 py-2">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search schools…"
-            className="h-8 text-sm"
-          />
-          <Dropdown
-            name="vaFilter"
-            value={vaFilter}
-            onChange={setVaFilter}
-            placeholder="All VAs"
-            options={[{ value: "", label: "All VAs" }, ...[...vas].sort((a, b) => a.name.localeCompare(b.name)).map((v) => ({ value: v.name, label: v.name }))]}
-            className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
-          />
-        </div>
-        <div className="max-h-64 overflow-y-auto px-1">
-          {filteredSchools.length === 0 ? (
+        {!collapsed && (
+          <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">
+            Schools ({schools.length})
+          </div>
+        )}
+        {!collapsed && (
+          <div className="space-y-2 px-3 py-2">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search schools…"
+              className="h-8 text-sm"
+            />
+            <Dropdown
+              name="vaFilter"
+              value={vaFilter}
+              onChange={setVaFilter}
+              placeholder="All VAs"
+              options={[{ value: "", label: "All VAs" }, ...[...vas].sort((a, b) => a.name.localeCompare(b.name)).map((v) => ({ value: v.name, label: v.name }))]}
+              className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+            />
+          </div>
+        )}
+        <div className={cn("overflow-y-auto", collapsed ? "mt-2 max-h-80" : "max-h-64 px-1")}>
+          {visibleSchools.length === 0 ? (
             <p className="px-2 py-2 text-xs text-muted-foreground">No schools match.</p>
           ) : (
-            filteredSchools.map((s) => {
+            visibleSchools.map((s) => {
               const vaName = schoolVaAssigned[s.id];
               const color = vaName ? colorByVaName.get(vaName) : undefined;
               return (
@@ -140,96 +180,147 @@ export function Sidebar({
                   key={s.id}
                   href={`/schools/${s.id}`}
                   prefetch={false}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
+                  title={s.name}
+                  className={cn(
+                    "flex items-center rounded-md py-2 text-sm hover:bg-muted",
+                    collapsed ? "justify-center px-2" : "gap-2 px-3",
+                  )}
                   style={color ? { color } : undefined}
                 >
-                  <School className="h-4 w-4" />
-                  {s.name}
+                  <School className="h-4 w-4 flex-none" />
+                  {!collapsed && s.name}
                 </Link>
               );
             })
           )}
         </div>
-        {addingSchool ? (
-          <form
-            action={addSchool}
-            onSubmit={() => setAddingSchool(false)}
-            className="mx-2 mt-1 space-y-2 rounded-md border p-2"
-          >
-            <Input name="name" placeholder="School name" required autoFocus className="h-8 text-sm" />
-            <Dropdown
-              name="groupName"
-              placeholder="No group (add later)"
-              options={SCHOOL_GROUPS.map((g) => ({ value: g, label: g }))}
-              className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
-            />
-            <div className="flex items-center gap-1">
-              <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAddingSchool(true)}
-            className="mx-2 mt-1 w-[calc(100%-1rem)] rounded-md border border-dashed px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
-          >
-            + Add school
-          </button>
-        )}
+        {!collapsed &&
+          (addingSchool ? (
+            <form
+              action={addSchool}
+              onSubmit={() => setAddingSchool(false)}
+              className="mx-2 mt-1 space-y-2 rounded-md border p-2"
+            >
+              <Input name="name" placeholder="School name" required autoFocus className="h-8 text-sm" />
+              <Dropdown
+                name="groupName"
+                placeholder="No group (add later)"
+                options={SCHOOL_GROUPS.map((g) => ({ value: g, label: g }))}
+                className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+              />
+              <div className="flex items-center gap-1">
+                <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAddingSchool(true)}
+              className="mx-2 mt-1 w-[calc(100%-1rem)] rounded-md border border-dashed px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+            >
+              + Add school
+            </button>
+          ))}
 
-        <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">My Space</div>
-        <Link href="/private-notes" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-          Private Notes
+        {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">My Space</div>}
+        <Link
+          href="/private-notes"
+          prefetch={false}
+          title="Private Notes"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+        >
+          <Lock className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
+          {!collapsed && "Private Notes"}
         </Link>
 
-        <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>
-        <Link href="/notes" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          General Notes/Announcements
+        {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
+        <Link
+          href="/notes"
+          prefetch={false}
+          title="General Notes/Announcements"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+        >
+          <Megaphone className="h-4 w-4 flex-none text-amber-600 dark:text-amber-400" />
+          {!collapsed && "General Notes/Announcements"}
         </Link>
-        <Link href="/issues" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          Issues &amp; Concerns
+        <Link
+          href="/issues"
+          prefetch={false}
+          title="Issues & Concerns"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+        >
+          <AlertTriangle className="h-4 w-4 flex-none text-red-600 dark:text-red-400" />
+          {!collapsed && "Issues & Concerns"}
         </Link>
-        <Link href="/eod" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          EOD Reports
+        <Link
+          href="/eod"
+          prefetch={false}
+          title="EOD Reports"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+        >
+          <Clock className="h-4 w-4 flex-none text-blue-600 dark:text-blue-400" />
+          {!collapsed && "EOD Reports"}
         </Link>
-        <Link href="/contacts" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Contact className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-          Schools Contact Information
+        <Link
+          href="/contacts"
+          prefetch={false}
+          title="Schools Contact Information"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+        >
+          <Contact className="h-4 w-4 flex-none text-teal-600 dark:text-teal-400" />
+          {!collapsed && "Schools Contact Information"}
         </Link>
-        <Link href="/distribution-list" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Send className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-          Distribution List
+        <Link
+          href="/distribution-list"
+          prefetch={false}
+          title="Distribution List"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+        >
+          <Send className="h-4 w-4 flex-none text-indigo-600 dark:text-indigo-400" />
+          {!collapsed && "Distribution List"}
         </Link>
-        <Link href="/templates" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Mail className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-          Email Templates
+        <Link
+          href="/templates"
+          prefetch={false}
+          title="Email Templates"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+        >
+          <Mail className="h-4 w-4 flex-none text-sky-600 dark:text-sky-400" />
+          {!collapsed && "Email Templates"}
         </Link>
-        <Link href="/suggestions" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <MessageSquarePlus className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" />
-          Suggestions
+        <Link
+          href="/suggestions"
+          prefetch={false}
+          title="Suggestions"
+          className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+        >
+          <MessageSquarePlus className="h-4 w-4 flex-none text-fuchsia-600 dark:text-fuchsia-400" />
+          {!collapsed && "Suggestions"}
         </Link>
 
         {isAdmin && (
           <>
-            <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Admin</div>
-            <Link href="/team" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-              <Users className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              Team
+            {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Admin</div>}
+            <Link
+              href="/team"
+              prefetch={false}
+              title="Team"
+              className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+            >
+              <Users className="h-4 w-4 flex-none text-orange-600 dark:text-orange-400" />
+              {!collapsed && "Team"}
             </Link>
             <Link
               href="/admin-settings"
               prefetch={false}
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+              title="Backup & School Year"
+              className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
             >
-              <DatabaseBackup className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-              Backup &amp; School Year
+              <DatabaseBackup className="h-4 w-4 flex-none text-rose-600 dark:text-rose-400" />
+              {!collapsed && "Backup & School Year"}
             </Link>
           </>
         )}

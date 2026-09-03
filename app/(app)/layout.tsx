@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { SidebarShell } from "@/components/sidebar-shell";
@@ -9,6 +9,24 @@ import { addSchool } from "./layout-actions";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
+
+  /* Checked via the same is_team_member() every table's RLS uses,
+     BEFORE fetchAppState()'s big Promise.all runs -- every one of
+     those ~25 queries is RLS-gated on team membership, and app_state's
+     in particular uses .single(), which errors the instant RLS hides
+     its one row (as every query does for a non-member). That used to
+     make fetchAppState() return null before the findVaByEmail check
+     below ever ran, so a freshly-added-but-not-yet-synced or removed
+     test account saw the generic "Couldn't load the app" fallback
+     instead of this page's actual "you're not on the team" message
+     (see supabase/phase14_fix_app_state_rls.sql's comment for the
+     incident this was found from). Checking membership first, and
+     independently of that Promise.all, makes the two cases
+     distinguishable again: not on the team is expected and gets a
+     clear page; anything else failing is a real problem. */
+  const supabase = await createClient();
+  const { data: isMember } = await supabase.rpc("is_team_member");
+  if (!isMember) redirect("/not-on-team");
 
   const state = await fetchAppState();
   if (!state) {

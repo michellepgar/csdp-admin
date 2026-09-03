@@ -1,0 +1,19 @@
+-- phase15_grant_is_team_member_execute.sql — run once in Supabase's SQL
+-- Editor for project jqsqstjmfsqqrnoxpuvn.
+--
+-- Companion to the app.js change that now calls is_team_member() as an
+-- RPC directly from app/(app)/layout.tsx, BEFORE fetchAppState() runs
+-- its big Promise.all -- so a signed-in user who isn't in `vas` yet (or
+-- anymore) gets sent straight to the friendly "/not-on-team" page
+-- instead of fetchAppState() failing first and showing the generic
+-- "Couldn't load the app" message (see that file's comment for why
+-- that fallback was effectively unreachable until now: app_state's
+-- .single() query errors out the instant RLS hides its one row, which
+-- happens for every non-member, so the null-state branch always won
+-- the race against the not-on-team check that was meant to run after
+-- it).
+--
+-- Postgres normally grants execute on a new function to PUBLIC by
+-- default, so this may be a no-op -- but that default can be revoked,
+-- and the app should not depend on it silently staying in place.
+grant execute on function is_team_member() to authenticated;

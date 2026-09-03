@@ -427,7 +427,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     schoolContactsResult,
     otherContactsResult,
   ] = await Promise.all([
-    supabase.from("app_state").select("data").eq("id", 1).single(),
+    supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
     supabase.from("schools").select("id, name, website, hours, no_recheck").order("name"),
     supabase.from("task_categories").select("id, name").order("sort_order"),

@@ -3,7 +3,7 @@
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
-import { TONE_CLASSES, TONE_OPTION_STYLE, type StatusTone } from "@/components/status-badge";
+import { TONE_CLASSES, OPTION_STYLE, type StatusTone } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { EMAIL_STATUS_OPTIONS, type EmailTrackerItem } from "@/lib/app-state";
 
@@ -72,7 +72,7 @@ export function EmailTrackerCard({
                       className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[EMAIL_STATUS_TONE[e.status] ?? "neutral"]}`}
                     >
                       {EMAIL_STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s} style={TONE_OPTION_STYLE[EMAIL_STATUS_TONE[s] ?? "neutral"]}>{s}</option>
+                        <option key={s} value={s} style={OPTION_STYLE}>{s}</option>
                       ))}
                     </select>
                   </AutoSubmitForm>

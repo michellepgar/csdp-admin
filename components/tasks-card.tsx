@@ -5,7 +5,7 @@ import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
-import { StatusBadge, TONE_CLASSES, TONE_OPTION_STYLE, type StatusTone } from "@/components/status-badge";
+import { StatusBadge, TONE_CLASSES, OPTION_STYLE, type StatusTone } from "@/components/status-badge";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,7 +87,7 @@ function SignAndStatus({
           className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[TASK_STATUS_TONE[status] ?? "neutral"]}`}
         >
           {TASK_STATUS_OPTIONS.map((s) => (
-            <option key={s || "none"} value={s} style={TONE_OPTION_STYLE[TASK_STATUS_TONE[s] ?? "neutral"]}>{s || "—"}</option>
+            <option key={s || "none"} value={s} style={OPTION_STYLE}>{s || "—"}</option>
           ))}
         </select>
       </AutoSubmitForm>

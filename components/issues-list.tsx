@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { TONE_CLASSES, TONE_OPTION_STYLE, type StatusTone } from "@/components/status-badge";
+import { TONE_CLASSES, OPTION_STYLE, type StatusTone } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import {
   ISSUE_STATUS_OPTIONS,
@@ -202,7 +202,7 @@ function StatusSelect({ issue, setIssueStatus }: { issue: Issue; setIssueStatus:
         className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[ISSUE_STATUS_TONE[issue.status] ?? "neutral"]}`}
       >
         {ISSUE_STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s} style={TONE_OPTION_STYLE[ISSUE_STATUS_TONE[s] ?? "neutral"]}>{s}</option>
+          <option key={s} value={s} style={OPTION_STYLE}>{s}</option>
         ))}
       </select>
     </AutoSubmitForm>

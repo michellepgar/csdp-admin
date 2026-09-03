@@ -382,6 +382,26 @@ export function distributionRowLanguageTotal(row: DistributionRow, langKey: stri
   return total;
 }
 
+/* Number of Consent Packets is no longer a manually-entered field --
+   Michelle asked for it to always equal the sum of Packets + Extra
+   Packets across every classroom-type x language cell (not Loose/
+   Extra Loose, and not multiplied by packet size). A cell saved during
+   this rewrite's brief plain-number period isn't an object and has no
+   packets sub-field at all, so it contributes 0 here -- correct, since
+   there's nothing to call a "packet" for that cell. */
+export function distributionRowConsentPacketsTotal(row: DistributionRow): number {
+  let total = 0;
+  for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
+    for (const l of DISTRIBUTION_LANGUAGES) {
+      const cell = (row.breakdown[c.key] || {})[l.key];
+      if (cell && typeof cell === "object") {
+        total += (Number(cell.packets) || 0) + (Number(cell.extraPackets) || 0);
+      }
+    }
+  }
+  return total;
+}
+
 /* ---------- Issues & Concerns ----------
    Simplified from the HTML app on purpose for correction/charting:
    fixed fields per type instead of its dynamic per-type "+Field" pool

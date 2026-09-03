@@ -36,7 +36,16 @@ export function CalculatorButton({ inputRef }: { inputRef: React.RefObject<HTMLI
   const total = numbers.reduce((sum, n) => sum + n, 0);
 
   function applyTotal() {
-    if (inputRef.current) inputRef.current.value = numbers.length ? String(total) : "";
+    if (inputRef.current) {
+      inputRef.current.value = numbers.length ? String(total) : "";
+      // Setting .value directly (like this, or via a ref anywhere
+      // else in this app) never fires a native "input" event -- only
+      // real typing does. Distribution List's Number of Consent
+      // Packets total listens for exactly that event to recompute
+      // live, so it would silently miss a value applied this way
+      // without dispatching one ourselves.
+      inputRef.current.dispatchEvent(new Event("input", { bubbles: true }));
+    }
     setOpen(false);
     setText("");
   }

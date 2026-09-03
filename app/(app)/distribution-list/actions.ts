@@ -41,6 +41,21 @@ function breakdownFromForm(formData: FormData): Record<string, Record<string, Le
   return breakdown;
 }
 
+// Number of Consent Packets is derived, not entered -- see
+// distributionRowConsentPacketsTotal's comment in lib/app-state.ts for
+// why this is Packets + Extra Packets only (not Loose/Extra Loose, not
+// multiplied by packet size).
+function consentPacketsFromBreakdown(breakdown: Record<string, Record<string, LegacyDistributionCell>>): number {
+  let total = 0;
+  for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
+    for (const l of DISTRIBUTION_LANGUAGES) {
+      const cell = breakdown[c.key]?.[l.key];
+      total += (Number(cell?.packets) || 0) + (Number(cell?.extraPackets) || 0);
+    }
+  }
+  return total;
+}
+
 export async function addDistributionGroup(formData: FormData) {
   const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
@@ -112,15 +127,16 @@ export async function updateDistributionRow(formData: FormData) {
   const rowId = formData.get("rowId") as string;
   const moveToGroupId = formData.get("moveToGroupId") as string;
 
+  const breakdown = breakdownFromForm(formData);
   const updates: Record<string, unknown> = {
     enrolled: (formData.get("enrolled") as string) || "",
     classroom_regular: (formData.get("classroomRegular") as string) || "",
     classroom_launch: (formData.get("classroomLaunch") as string) || "",
     classroom_crr: (formData.get("classroomCrr") as string) || "",
-    consent_packets: (formData.get("consentPackets") as string) || "",
+    consent_packets: String(consentPacketsFromBreakdown(breakdown)),
     contact_person: (formData.get("contactPerson") as string) || "",
     remarks: (formData.get("remarks") as string) || "",
-    breakdown: breakdownFromForm(formData),
+    breakdown,
   };
   // Same "real FK, one-column update" reasoning as Contacts' own move-
   // to-group (app/(app)/contacts/actions.ts's updateContactRow).

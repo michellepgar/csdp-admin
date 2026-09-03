@@ -13,6 +13,7 @@ import {
   DISTRIBUTION_LANGUAGES,
   distributionRowTotalForms,
   distributionRowLanguageTotal,
+  distributionRowConsentPacketsTotal,
   distributionCellForms,
   distributionCellField,
   type DistributionGroup,
@@ -243,6 +244,30 @@ function RowEdit({
   removeDistributionRow: (formData: FormData) => void;
 }) {
   const totalCols = 12 + DISTRIBUTION_LANGUAGES.length;
+  const consentPacketsRef = useRef<HTMLInputElement>(null);
+
+  /* Number of Consent Packets isn't entered anymore -- Michelle asked
+     for it to always equal Packets + Extra Packets summed across
+     every classroom-type x language cell (see
+     distributionRowConsentPacketsTotal's comment in lib/app-state.ts).
+     Recomputed live, straight from the DOM (same uncontrolled-inputs
+     convention as CalcInput/CalculatorButton) whenever any packets_*
+     or extraPackets_* field changes, so it visibly updates as you
+     type -- not just after saving. The actual saved value is always
+     computed server-side from the submitted breakdown regardless
+     (app/(app)/distribution-list/actions.ts), so this display can
+     never drift from what gets saved even if a keystroke were missed
+     here. */
+  function recomputeConsentPackets(e: React.FormEvent<HTMLDivElement>) {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (!target.name.startsWith("packets_") && !target.name.startsWith("extraPackets_")) return;
+    let total = 0;
+    e.currentTarget.querySelectorAll<HTMLInputElement>('input[name^="packets_"], input[name^="extraPackets_"]').forEach((el) => {
+      total += Number(el.value) || 0;
+    });
+    if (consentPacketsRef.current) consentPacketsRef.current.value = String(total);
+  }
   return (
     <tr className="border-b bg-muted/30">
       <td colSpan={totalCols} className="p-3">
@@ -270,7 +295,15 @@ function RowEdit({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Number of Consent Packets</label>
-              <CalcInput name="consentPackets" defaultValue={row.consentPackets || ""} className="w-24 text-center" />
+              <input
+                ref={consentPacketsRef}
+                type="text"
+                readOnly
+                tabIndex={-1}
+                title="Packets + Extra Packets, totaled automatically from the grid below"
+                defaultValue={distributionRowConsentPacketsTotal(row)}
+                className="h-8 w-24 rounded-lg border border-input bg-muted px-2.5 py-1 text-center text-sm text-muted-foreground outline-none"
+              />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Contact Person</label>
@@ -305,7 +338,7 @@ function RowEdit({
               calculator button; Michelle only excluded Group/School/
               Enrolled/Contact Person, which live above, not in this
               grid. */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" onInput={recomputeConsentPackets}>
             <table className="min-w-[900px] text-sm">
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase text-muted-foreground">

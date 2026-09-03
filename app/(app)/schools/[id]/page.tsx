@@ -26,13 +26,10 @@ import {
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
-  updateSchoolDetails,
   removeSchool,
   removeSchoolAndContacts,
 } from "./actions";
 import { RemoveSchoolControl } from "@/components/remove-school-control";
-import { AutoSubmitForm } from "@/components/auto-submit-form";
-import { Input } from "@/components/ui/input";
 import { CopyButton } from "@/components/copy-button";
 
 /* A website saved as "www.school.edu" or "school.edu" (no protocol) is
@@ -157,33 +154,33 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           </Link>
         </div>
         <div className="space-y-3 p-3">
-          {/* Website/hours are the one thing still editable here --
-              everything else in this card is read-only, edited on the
-              Contacts page instead (see the link above). Label and
-              input share one row (not stacked) to keep this card
-              compact. */}
-          <AutoSubmitForm action={updateSchoolDetails} className="grid gap-2 sm:grid-cols-2">
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <div className="flex items-center gap-2">
-              <label className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Website</label>
-              <Input key={school.website || ""} name="website" defaultValue={school.website || ""} placeholder="—" className="h-7 text-sm" />
+          {/* Website/hours are read-only here -- editable only from
+              the Contacts page's row edit form now (see the link
+              above), same as every other field in this card. */}
+          {(school.website || school.hours) && (
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
               {school.website && (
-                <a
-                  href={websiteHref(school.website)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`Open ${school.website}`}
-                  className="flex-none text-muted-foreground hover:text-primary"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
+                <div className="flex items-center gap-1">
+                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Website</span>
+                  <a
+                    href={websiteHref(school.website)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-w-0 items-center gap-1 truncate text-primary underline-offset-2 hover:underline"
+                  >
+                    <span className="truncate">{school.website}</span>
+                    <ExternalLink className="h-3.5 w-3.5 flex-none" />
+                  </a>
+                </div>
+              )}
+              {school.hours && (
+                <div className="flex items-baseline gap-1">
+                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Hours</span>
+                  <span className="whitespace-pre-wrap">{school.hours}</span>
+                </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <label className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Hours</label>
-              <Input key={school.hours || ""} name="hours" defaultValue={school.hours || ""} placeholder="—" className="h-7 text-sm" />
-            </div>
-          </AutoSubmitForm>
+          )}
 
           {!contactRow ? (
             <p className="text-sm text-muted-foreground">No contact info on file for this school yet.</p>

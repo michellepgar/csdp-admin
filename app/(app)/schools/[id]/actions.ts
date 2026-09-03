@@ -331,21 +331,10 @@ export async function removeEmailItem(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
-/* ---------- School details (website/hours) ---------- */
-
-export async function updateSchoolDetails(formData: FormData) {
-  const { supabase } = await requireUserAndState();
-  const schoolId = formData.get("schoolId") as string;
-  const website = ((formData.get("website") as string) || "").trim();
-  const hours = ((formData.get("hours") as string) || "").trim();
-
-  const { error } = await supabase
-    .from("schools")
-    .update({ website: website || null, hours: hours || null })
-    .eq("id", schoolId);
-  orThrow(error);
-  revalidateSchool(schoolId);
-}
+/* Website/hours used to be editable right here (see git history) --
+   now only editable from a contact row's edit form on the Contacts
+   page (app/(app)/contacts/actions.ts's updateContactRow), which
+   updates this same `schools` table. This page only displays them. */
 
 /* ---------- Remove school ---------- */
 

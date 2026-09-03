@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
@@ -9,16 +9,21 @@ import { Dropdown } from "@/components/dropdown";
 import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact, type School } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
 
+/* Row stays visible and the edit form opens as an ADDITIONAL sibling
+   row below it (rendered by the caller) rather than replacing this
+   one -- same accordion pattern as the Distribution List's Show/Edit
+   (components/distribution-list.tsx), which Michelle asked this page
+   to match. Clicking "Edit" again while already editing this row
+   toggles it back closed instead of doing nothing, exactly like that
+   pattern's own Edit button. */
 function ContactRowView({
-  group,
   row,
-  groups,
-  onEdit,
+  isEditing,
+  onToggleEdit,
 }: {
-  group: ContactGroup;
   row: ContactGroup["rows"][number];
-  groups: ContactGroup[];
-  onEdit: () => void;
+  isEditing: boolean;
+  onToggleEdit: () => void;
 }) {
   return (
     <tr className="border-b bg-record-background">
@@ -28,7 +33,9 @@ function ContactRowView({
         </td>
       ))}
       <td className="px-2 py-2 text-right">
-        <Button type="button" variant="link" size="sm" onClick={onEdit}>Edit</Button>
+        <Button type="button" variant="link" size="sm" onClick={onToggleEdit}>
+          {isEditing ? "Close" : "Edit"}
+        </Button>
       </td>
     </tr>
   );
@@ -238,25 +245,26 @@ export function ContactsList({
                   </tr>
                 )}
                 {group.rows.map((row) => {
-                  return editingRow === row.id ? (
-                    <ContactRowEdit
-                      key={row.id}
-                      group={group}
-                      row={row}
-                      groups={groups}
-                      schools={schools}
-                      onDone={() => setEditingRow(null)}
-                      updateContactRow={updateContactRow}
-                      removeContactRow={removeContactRow}
-                    />
-                  ) : (
-                    <ContactRowView
-                      key={row.id}
-                      group={group}
-                      row={row}
-                      groups={groups}
-                      onEdit={() => setEditingRow(row.id)}
-                    />
+                  const isEditing = editingRow === row.id;
+                  return (
+                    <Fragment key={row.id}>
+                      <ContactRowView
+                        row={row}
+                        isEditing={isEditing}
+                        onToggleEdit={() => setEditingRow(isEditing ? null : row.id)}
+                      />
+                      {isEditing && (
+                        <ContactRowEdit
+                          group={group}
+                          row={row}
+                          groups={groups}
+                          schools={schools}
+                          onDone={() => setEditingRow(null)}
+                          updateContactRow={updateContactRow}
+                          removeContactRow={removeContactRow}
+                        />
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>

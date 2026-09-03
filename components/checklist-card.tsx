@@ -59,7 +59,7 @@ export function ChecklistCard({
      mirroring how the sidebar's own collapsed button sits on the left. */
   if (hidden) {
     return (
-      <HoverLabel label="Yearly Checklist" className="ml-auto">
+      <HoverLabel label="Yearly Checklist" side="left" className="ml-auto">
         <Button
           type="button"
           variant="ghost"
@@ -89,7 +89,7 @@ export function ChecklistCard({
           <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
             {editorOpen ? "Close editor" : "Edit template"}
           </Button>
-          <HoverLabel label="Yearly Checklist">
+          <HoverLabel label="Yearly Checklist" side="left">
             <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
               <ChevronRight className="h-4 w-4" />
             </Button>

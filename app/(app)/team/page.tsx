@@ -30,7 +30,10 @@ export default async function TeamPage() {
 
   const sortedVas = [...state.vas].sort((a, b) => a.name.localeCompare(b.name));
   const promotableVas = sortedVas.filter((v) => v.name !== SUPERADMIN_NAME && v.role !== "owner");
-  const assignableVas = sortedVas.filter((v) => v.role !== "owner");
+  // Every VA is assignable to a school, Michelle (role "owner") included --
+  // she does fieldwork too, there's no reason school assignment should be
+  // the one list that leaves her out.
+  const assignableVas = sortedVas;
 
   return (
     <div>
@@ -39,6 +42,11 @@ export default async function TeamPage() {
       <div className="space-y-8">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">VAs</div>
 
+        {/* Add/Remove and Login Email used to be two separate lists,
+            each repeating every VA's name on its own row -- Michelle
+            asked for them combined so a VA's name, email, and delete
+            button all live on the same row instead of scrolling
+            between two lists to find the same person twice. */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Add / Remove VAs</h2>
           <form action={addVa} className="flex gap-2 max-w-sm">
@@ -48,41 +56,32 @@ export default async function TeamPage() {
           <div className="space-y-2">
             {sortedVas.length === 0 && <p className="text-sm text-muted-foreground">No VAs added yet.</p>}
             {sortedVas.map((va) => (
-              <div key={va.id} className="flex items-center gap-2 rounded-md border p-2">
+              <div key={va.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
                 <span className="w-32 flex-none font-medium">
                   {va.name}
                   {va.role === "owner" && <span className="ml-1 text-xs text-muted-foreground">(Owner)</span>}
                 </span>
-                <form action={removeVa}>
+                <AutoSubmitForm action={updateVaField} className="flex items-center gap-2">
+                  <input type="hidden" name="id" value={va.id} />
+                  <input type="hidden" name="field" value="email" />
+                  {/* Keyed by its own current value: an uncontrolled input's
+                      defaultValue only applies once, at mount — without a key
+                      that changes when the saved value does, a later revalidate
+                      wouldn't visibly reflect it even though the save worked. */}
+                  <Input
+                    key={va.email || ""}
+                    name="value"
+                    type="email"
+                    defaultValue={va.email || ""}
+                    placeholder="Login email"
+                    className="w-56"
+                  />
+                </AutoSubmitForm>
+                <form action={removeVa} className="ml-auto">
                   <input type="hidden" name="id" value={va.id} />
                   <ConfirmDeleteButton confirmMessage={`Remove ${va.name} from the team?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                 </form>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Login Email</h2>
-          <div className="space-y-2">
-            {sortedVas.map((va) => (
-              <AutoSubmitForm key={va.id} action={updateVaField} className="flex items-center gap-2">
-                <span className="w-32 flex-none font-medium">{va.name}</span>
-                <input type="hidden" name="id" value={va.id} />
-                <input type="hidden" name="field" value="email" />
-                {/* Keyed by its own current value: an uncontrolled input's
-                    defaultValue only applies once, at mount — without a key
-                    that changes when the saved value does, a later revalidate
-                    wouldn't visibly reflect it even though the save worked. */}
-                <Input
-                  key={va.email || ""}
-                  name="value"
-                  type="email"
-                  defaultValue={va.email || ""}
-                  placeholder="name@example.com"
-                  className="max-w-xs"
-                />
-              </AutoSubmitForm>
             ))}
           </div>
         </section>

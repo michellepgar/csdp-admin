@@ -14,7 +14,17 @@ import { cn } from "@/lib/utils";
    inline-flex span and measures THAT span's own box, which hugs its
    one child tightly enough to stand in for it -- no dependency on the
    child's own ref support at all. */
-export function HoverLabel({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+export function HoverLabel({
+  label,
+  children,
+  className,
+  side = "right",
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+  side?: "left" | "right";
+}) {
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
 
@@ -30,7 +40,7 @@ export function HoverLabel({ label, children, className }: { label: string; chil
       onBlur={() => setOpen(false)}
     >
       {children}
-      <TooltipBubble label={label} rect={rect} />
+      <TooltipBubble label={label} rect={rect} side={side} />
     </span>
   );
 }

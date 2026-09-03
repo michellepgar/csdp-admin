@@ -180,94 +180,101 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             Edit on Contacts page
           </Link>
         </div>
-        <div className="space-y-3 p-3">
-          {/* Website/phone/fax/hours are read-only here -- editable
-              only from the Contacts page's row edit form now (see the
-              link above), same as every other field in this card. */}
-          {(school.website || school.phone || school.fax || school.hours) && (
-            <div className="space-y-2 text-sm">
-              {school.website && (
-                <div className="flex items-center gap-1">
-                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Website</span>
-                  <a
-                    href={websiteHref(school.website)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex min-w-0 items-center gap-1 truncate text-primary underline-offset-2 hover:underline"
-                  >
-                    <span className="truncate">{school.website}</span>
-                    <ExternalLink className="h-3.5 w-3.5 flex-none" />
-                  </a>
-                </div>
-              )}
-              {/* Phone and Fax always share one row, next to each
-                  other -- they used to just be two more items flowing
-                  through a 2-column grid alongside Website/Hours,
-                  which could split them apart depending on which
-                  fields happened to be filled in. */}
-              {(school.phone || school.fax) && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {school.phone && (
-                    <div className="flex items-center gap-1">
-                      <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Phone</span>
-                      <a href={`tel:${school.phone.replace(/[^0-9+]/g, "")}`} className="text-primary underline-offset-2 hover:underline">
-                        {school.phone}
-                      </a>
-                    </div>
-                  )}
-                  {school.fax && (
-                    <div className="flex items-center gap-1">
-                      <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Fax</span>
-                      <span>{school.fax}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              {school.hours && (
-                <div className="flex items-baseline gap-1">
-                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Hours</span>
-                  <span className="whitespace-pre-wrap">{school.hours}</span>
-                </div>
-              )}
-            </div>
-          )}
+        <div className="p-3">
+          {/* Everything here is read-only -- editable only from the
+              Contacts page's row edit form now (see the link above).
 
-          {!contactRow ? (
+              Two columns, split by kind of info: people (Principal/
+              Asst Principal/Front Desk/Nurse) on the left, the
+              school's own details (Website/Phone/Fax/Hours) on the
+              right -- Michelle asked for that split instead of the
+              two blocks just stacking top to bottom. */}
+          {!contactRow && !school.website && !school.phone && !school.fax && !school.hours ? (
             <p className="text-sm text-muted-foreground">No contact info on file for this school yet.</p>
           ) : (
-            <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Each position's name and email are kept in one grid
-                  cell together (not two separate flowing items) so
-                  they never end up split across rows/columns -- that
-                  used to happen because the grid just flowed name,
-                  email, name, email... independently, three per row,
-                  so a position's email could land in a totally
-                  different row than its name the moment the count
-                  didn't divide evenly by the column count. */}
-              {CONTACT_POSITION_GROUPS.map((g) => {
-                const name = contactRow[g.nameKey] || "";
-                const email = contactRow[g.emailKey] || "";
-                if (!name && !email) return null;
-                return (
-                  <div key={g.label} className="text-sm">
-                    <dt className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</dt>
-                    <dd className="truncate">{name || "—"}</dd>
-                    {email && (
-                      <dd className="flex min-w-0 items-center gap-1 text-muted-foreground">
-                        <span className="truncate">{email}</span>
-                        <CopyButton value={email} />
-                      </dd>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <dl className="space-y-2">
+                {/* Each position's name and email are kept in one block
+                    together (not two separate flowing items) so they
+                    never end up visually split apart. */}
+                {contactRow ? (
+                  CONTACT_POSITION_GROUPS.map((g) => {
+                    const name = contactRow[g.nameKey] || "";
+                    const email = contactRow[g.emailKey] || "";
+                    if (!name && !email) return null;
+                    return (
+                      <div key={g.label} className="text-sm">
+                        <dt className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</dt>
+                        <dd className="truncate">{name || "—"}</dd>
+                        {email && (
+                          <dd className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                            <span className="truncate">{email}</span>
+                            <CopyButton value={email} />
+                          </dd>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">No contact people on file yet.</p>
+                )}
+                {contactRow?.notes && (
+                  <div className="text-sm">
+                    <dt className="text-xs font-semibold uppercase text-muted-foreground">Notes</dt>
+                    <dd className="whitespace-pre-wrap">{contactRow.notes}</dd>
+                  </div>
+                )}
+              </dl>
+
+              <div className="space-y-2 text-sm">
+                {school.website && (
+                  <div className="flex items-center gap-1">
+                    <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Website</span>
+                    <a
+                      href={websiteHref(school.website)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 items-center gap-1 truncate text-primary underline-offset-2 hover:underline"
+                    >
+                      <span className="truncate">{school.website}</span>
+                      <ExternalLink className="h-3.5 w-3.5 flex-none" />
+                    </a>
+                  </div>
+                )}
+                {/* Phone and Fax always share one row, next to each
+                    other -- they used to just be two more items flowing
+                    through a 2-column grid alongside Website/Hours,
+                    which could split them apart depending on which
+                    fields happened to be filled in. */}
+                {(school.phone || school.fax) && (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {school.phone && (
+                      <div className="flex items-center gap-1">
+                        <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Phone</span>
+                        <a href={`tel:${school.phone.replace(/[^0-9+]/g, "")}`} className="text-primary underline-offset-2 hover:underline">
+                          {school.phone}
+                        </a>
+                      </div>
+                    )}
+                    {school.fax && (
+                      <div className="flex items-center gap-1">
+                        <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Fax</span>
+                        <span>{school.fax}</span>
+                      </div>
                     )}
                   </div>
-                );
-              })}
-              {contactRow.notes && (
-                <div className="text-sm sm:col-span-2 lg:col-span-3">
-                  <dt className="text-xs font-semibold uppercase text-muted-foreground">Notes</dt>
-                  <dd className="whitespace-pre-wrap">{contactRow.notes}</dd>
-                </div>
-              )}
-            </dl>
+                )}
+                {school.hours && (
+                  <div className="flex items-baseline gap-1">
+                    <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Hours</span>
+                    <span className="whitespace-pre-wrap">{school.hours}</span>
+                  </div>
+                )}
+                {!school.website && !school.phone && !school.fax && !school.hours && (
+                  <p className="text-sm text-muted-foreground">No website/phone/fax/hours on file yet.</p>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>

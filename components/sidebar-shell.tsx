@@ -160,30 +160,11 @@ export function SidebarShell({
           float on top of the header bar, which starts at main's very
           top edge.
 
-          The inner div exists only to key page transitions -- Michelle
-          asked for some effect when a new page opens, sliding in from
-          the sidebar's side (left) rather than rising up from below.
-          `key={pathname}` makes React unmount/remount this div on
-          every route change (even between two pages that'd otherwise
-          render structurally similar JSX), which restarts the fade/
-          slide animation from scratch each time instead of it only
-          playing once ever. The earlier "swift-out" curves (both
-          smoothing passes) accelerated hard right out of the gate
-          before decelerating -- that sudden initial burst is exactly
-          what read as a jolt/"shocked" start even with a long
-          duration. Switched to a full ease-in-out S-curve
-          (cubic-bezier(0.65,0,0.35,1)) instead, which eases gently
-          into motion AND gently out of it, plus a bit more travel
-          distance (0.75rem) so that gentle glide is actually visible
-          over the full 900ms. */}
-      <main className="min-w-0 flex-1">
-        <div
-          key={pathname}
-          className="animate-in fade-in slide-in-from-left-3 duration-900 ease-[cubic-bezier(0.65,0,0.35,1)]"
-        >
-          {children}
-        </div>
-      </main>
+          Tried a page-open fade/slide effect here for a while
+          (several rounds of tuning direction, duration, easing) --
+          Michelle ended up preferring no transition at all, so this
+          is back to plain, un-keyed content with no animation. */}
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   );
 }

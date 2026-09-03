@@ -7,6 +7,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { HoverLabel } from "@/components/hover-label";
 import { vaColorByName, type ChecklistTemplateItem, type ChecklistProgressEntry, type Va } from "@/lib/app-state";
 
 const COLLAPSED_COOKIE_NAME = "checklist-collapsed";
@@ -58,16 +59,18 @@ export function ChecklistCard({
      mirroring how the sidebar's own collapsed button sits on the left. */
   if (hidden) {
     return (
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => setHiddenAndRemember(false)}
-        aria-label="Show Yearly Checklist"
-        className="ml-auto border bg-background"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
+      <HoverLabel label="Yearly Checklist" className="ml-auto">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setHiddenAndRemember(false)}
+          aria-label="Show Yearly Checklist"
+          className="border bg-background"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      </HoverLabel>
     );
   }
 
@@ -86,9 +89,11 @@ export function ChecklistCard({
           <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
             {editorOpen ? "Close editor" : "Edit template"}
           </Button>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <HoverLabel label="Yearly Checklist">
+            <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </HoverLabel>
         </div>
       </div>
       <div className="space-y-3 p-3">

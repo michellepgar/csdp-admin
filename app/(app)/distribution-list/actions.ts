@@ -110,20 +110,23 @@ export async function addDistributionRow(formData: FormData) {
 export async function updateDistributionRow(formData: FormData) {
   const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
+  const moveToGroupId = formData.get("moveToGroupId") as string;
 
-  const { error } = await supabase
-    .from("distribution_rows")
-    .update({
-      enrolled: (formData.get("enrolled") as string) || "",
-      classroom_regular: (formData.get("classroomRegular") as string) || "",
-      classroom_launch: (formData.get("classroomLaunch") as string) || "",
-      classroom_crr: (formData.get("classroomCrr") as string) || "",
-      consent_packets: (formData.get("consentPackets") as string) || "",
-      contact_person: (formData.get("contactPerson") as string) || "",
-      remarks: (formData.get("remarks") as string) || "",
-      breakdown: breakdownFromForm(formData),
-    })
-    .eq("id", rowId);
+  const updates: Record<string, unknown> = {
+    enrolled: (formData.get("enrolled") as string) || "",
+    classroom_regular: (formData.get("classroomRegular") as string) || "",
+    classroom_launch: (formData.get("classroomLaunch") as string) || "",
+    classroom_crr: (formData.get("classroomCrr") as string) || "",
+    consent_packets: (formData.get("consentPackets") as string) || "",
+    contact_person: (formData.get("contactPerson") as string) || "",
+    remarks: (formData.get("remarks") as string) || "",
+    breakdown: breakdownFromForm(formData),
+  };
+  // Same "real FK, one-column update" reasoning as Contacts' own move-
+  // to-group (app/(app)/contacts/actions.ts's updateContactRow).
+  if (moveToGroupId) updates.group_id = moveToGroupId;
+
+  const { error } = await supabase.from("distribution_rows").update(updates).eq("id", rowId);
   orThrow(error);
   revalidatePath("/distribution-list");
 }

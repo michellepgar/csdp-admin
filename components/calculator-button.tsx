@@ -6,10 +6,11 @@ import { Calculator } from "lucide-react";
 /* A small "add these up for me" helper that sits next to a numeric
    input -- Michelle's team sometimes has several separate counts to
    combine (papers counted from different stacks/folders, say) before
-   typing one final total into a field. Click the icon, type or paste
-   the numbers (anything with digits works: one per line, +'d
-   together, comma-separated), see the running sum, then "Use total"
-   writes it straight into the paired input.
+   typing one final total into a field. Click the icon, type an
+   expression (anything with digits and + works, e.g. "10+15+20"),
+   press Enter -- like a real calculator's "=" -- and the total is
+   written straight into the paired input and the popover closes. "Use
+   total" does the same thing for a mouse-only click.
 
    Takes the input's own ref rather than a value+onChange pair so it
    drops onto any of this page's existing plain (uncontrolled) number
@@ -34,7 +35,7 @@ export function CalculatorButton({ inputRef }: { inputRef: React.RefObject<HTMLI
   const numbers = text.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? [];
   const total = numbers.reduce((sum, n) => sum + n, 0);
 
-  function useTotal() {
+  function applyTotal() {
     if (inputRef.current) inputRef.current.value = numbers.length ? String(total) : "";
     setOpen(false);
     setText("");
@@ -52,37 +53,36 @@ export function CalculatorButton({ inputRef }: { inputRef: React.RefObject<HTMLI
         <Calculator className="h-4 w-4" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 z-20 mt-1 w-56 space-y-2 rounded-md border bg-background p-2 shadow-lg">
-          <textarea
+        <div className="absolute top-full left-0 z-20 mt-1 w-52 space-y-2 rounded-md border bg-background p-2 shadow-lg">
+          <input
             autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={"Type or paste numbers,\none per line or +'d together"}
-            rows={3}
+            onKeyDown={(e) => {
+              // Enter behaves like a calculator's "=" -- compute and
+              // commit immediately, don't wait for a button click.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyTotal();
+              }
+            }}
+            placeholder="10+15+20, then Enter"
             className="w-full rounded border px-2 py-1 text-sm"
           />
           <div className="flex items-center justify-between gap-2 text-sm">
             <span>
               Total: <span className="font-semibold tabular-nums">{total}</span>
             </span>
-            <Button useTotal={useTotal} />
+            <button
+              type="button"
+              onClick={applyTotal}
+              className="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/80"
+            >
+              Use total
+            </button>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-// Tiny inline button, not the shared Button component -- this popover
-// is deliberately compact and this is its only control.
-function Button({ useTotal }: { useTotal: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={useTotal}
-      className="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/80"
-    >
-      Use total
-    </button>
   );
 }

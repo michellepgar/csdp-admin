@@ -229,12 +229,14 @@ const BREAKDOWN_SUBFIELDS = [
 
 function RowEdit({
   groupId,
+  groups,
   row,
   onDone,
   updateDistributionRow,
   removeDistributionRow,
 }: {
   groupId: string;
+  groups: DistributionGroup[];
   row: DistributionRow;
   onDone: () => void;
   updateDistributionRow: (formData: FormData) => void;
@@ -245,36 +247,48 @@ function RowEdit({
     <tr className="border-b bg-muted/30">
       <td colSpan={totalCols} className="p-3">
         <form action={updateDistributionRow} onSubmit={onDone} className="space-y-3">
-          <input type="hidden" name="groupId" value={groupId} />
           <input type="hidden" name="rowId" value={row.id} />
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Group</label>
+              <Dropdown
+                name="moveToGroupId"
+                defaultValue={groupId}
+                options={groups.map((g) => ({ value: g.id, label: g.name }))}
+                className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+              />
+            </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">School</label>
               <Input defaultValue={row.school} disabled />
             </div>
+            {/* w-24 -- comfortably fits the 5-digit max these two
+                fields actually get encoded with. */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Enrolled</label>
-              <Input name="enrolled" defaultValue={row.enrolled || ""} />
+              <Input name="enrolled" defaultValue={row.enrolled || ""} className="w-24" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Number of Consent Packets</label>
-              <CalcInput name="consentPackets" defaultValue={row.consentPackets || ""} className="w-full text-left" />
+              <CalcInput name="consentPackets" defaultValue={row.consentPackets || ""} className="w-24 text-center" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Contact Person</label>
               <Input name="contactPerson" defaultValue={row.contactPerson || ""} />
             </div>
+            {/* w-16 -- a classroom count is realistically 1-2 digits,
+                same width as the breakdown grid's own inputs below. */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Regular Classrooms</label>
-              <CalcInput name="classroomRegular" defaultValue={row.classroomRegular || ""} className="w-full text-left" />
+              <CalcInput name="classroomRegular" defaultValue={row.classroomRegular || ""} />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Launch Classrooms</label>
-              <CalcInput name="classroomLaunch" defaultValue={row.classroomLaunch || ""} className="w-full text-left" />
+              <CalcInput name="classroomLaunch" defaultValue={row.classroomLaunch || ""} />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">CRR Classrooms</label>
-              <CalcInput name="classroomCrr" defaultValue={row.classroomCrr || ""} className="w-full text-left" />
+              <CalcInput name="classroomCrr" defaultValue={row.classroomCrr || ""} />
             </div>
             <div className="space-y-1 md:col-span-4">
               <label className="text-xs font-medium text-muted-foreground">Remarks</label>
@@ -483,6 +497,7 @@ export function DistributionList({
                         <RowEdit
                           key={row.id}
                           groupId={group.id}
+                          groups={groups}
                           row={row}
                           onDone={() => setMode(row.id, "compact")}
                           updateDistributionRow={updateDistributionRow}

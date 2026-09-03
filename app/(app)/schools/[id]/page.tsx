@@ -184,47 +184,49 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           {/* Everything here is read-only -- editable only from the
               Contacts page's row edit form now (see the link above).
 
-              Two columns, split by kind of info: people (Principal/
-              Asst Principal/Front Desk/Nurse) on the left, the
-              school's own details (Website/Phone/Fax/Hours) on the
-              right -- Michelle asked for that split instead of the
-              two blocks just stacking top to bottom. */}
+              Three columns: Principal/Asst Principal, Front Desk/
+              Nurse, then the school's own details (Website/Phone/
+              Fax/Hours) -- Michelle asked for this split (previously
+              two columns, before that one stacked block). */}
           {!contactRow && !school.website && !school.phone && !school.fax && !school.hours ? (
             <p className="text-sm text-muted-foreground">No contact info on file for this school yet.</p>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2">
-              <dl className="space-y-2">
-                {/* Each position's name and email are kept in one block
-                    together (not two separate flowing items) so they
-                    never end up visually split apart. */}
-                {contactRow ? (
-                  CONTACT_POSITION_GROUPS.map((g) => {
-                    const name = contactRow[g.nameKey] || "";
-                    const email = contactRow[g.emailKey] || "";
-                    if (!name && !email) return null;
-                    return (
-                      <div key={g.label} className="text-sm">
-                        <dt className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</dt>
-                        <dd className="truncate">{name || "—"}</dd>
-                        {email && (
-                          <dd className="flex min-w-0 items-center gap-1 text-muted-foreground">
-                            <span className="truncate">{email}</span>
-                            <CopyButton value={email} />
-                          </dd>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-muted-foreground">No contact people on file yet.</p>
-                )}
-                {contactRow?.notes && (
-                  <div className="text-sm">
-                    <dt className="text-xs font-semibold uppercase text-muted-foreground">Notes</dt>
-                    <dd className="whitespace-pre-wrap">{contactRow.notes}</dd>
-                  </div>
-                )}
-              </dl>
+            <div className="grid gap-6 sm:grid-cols-3">
+              {/* CONTACT_POSITION_GROUPS is Principal, Asst Principal,
+                  Front Desk, Nurse in that order -- split into its
+                  first/second half for these two columns rather than
+                  hardcoding each position separately. */}
+              {[CONTACT_POSITION_GROUPS.slice(0, 2), CONTACT_POSITION_GROUPS.slice(2, 4)].map((groups, i) => (
+                <dl key={i} className="space-y-2">
+                  {contactRow ? (
+                    groups.map((g) => {
+                      const name = contactRow[g.nameKey] || "";
+                      const email = contactRow[g.emailKey] || "";
+                      if (!name && !email) return null;
+                      return (
+                        <div key={g.label} className="text-sm">
+                          <dt className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</dt>
+                          <dd className="truncate">{name || "—"}</dd>
+                          {email && (
+                            <dd className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                              <span className="truncate">{email}</span>
+                              <CopyButton value={email} />
+                            </dd>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : i === 0 ? (
+                    <p className="text-sm text-muted-foreground">No contact people on file yet.</p>
+                  ) : null}
+                  {i === 1 && contactRow?.notes && (
+                    <div className="text-sm">
+                      <dt className="text-xs font-semibold uppercase text-muted-foreground">Notes</dt>
+                      <dd className="whitespace-pre-wrap">{contactRow.notes}</dd>
+                    </div>
+                  )}
+                </dl>
+              ))}
 
               <div className="space-y-2 text-sm">
                 {school.website && (

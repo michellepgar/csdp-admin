@@ -88,8 +88,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           (components/sidebar-shell.tsx). pl-12 (see PageHeader's own
           comment) reserves room for the floating "show sidebar"
           button so it doesn't sit on top of the title's first letter
-          when collapsed/closed. */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-header-background py-3 pr-4 pl-12 sm:pr-6 md:pr-8">
+          when collapsed/closed. h-20, not padding-driven, so this
+          lines up with the sidebar's own top corner and every other
+          page's header regardless of this one's extra subtitle line
+          (see PageHeader's own comment for the full reasoning). */}
+      <div className="sticky top-0 z-10 flex h-20 flex-wrap items-center justify-between gap-2 bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
         <div className="min-w-0 flex-1">
           <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
           {/* text-white/80 (not text-muted-foreground) -- this sits on

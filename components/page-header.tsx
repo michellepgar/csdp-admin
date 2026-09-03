@@ -16,10 +16,20 @@
    (components/sidebar-shell.tsx), which sits fixed at top-4 left-4 --
    z-20, above this bar's z-10 -- only when the sidebar is collapsed
    (desktop) or closed (mobile). Confirmed directly: without this, that
-   button's icon sits right on top of the title's first letter. */
+   button's icon sits right on top of the title's first letter.
+
+   h-20 (fixed, not padding-driven) -- Michelle pointed out this
+   header and the sidebar's own top corner (components/sidebar.tsx)
+   didn't line up; different content (a subtitle on the school page,
+   none here) plus padding-based sizing meant each block's actual
+   height depended on its own font metrics instead of a shared value.
+   Every header block in the app (this one, Overview's, the school
+   page's) now uses this same fixed height with its content vertically
+   centered inside it, so the sidebar corner lines up with whichever
+   page header is showing regardless of page. */
 export function PageHeader({ title }: { title: string }) {
   return (
-    <div className="sticky top-0 z-10 bg-header-background py-3 pr-4 pl-12 sm:pr-6 md:pr-8">
+    <div className="sticky top-0 z-10 flex h-20 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
       <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{title}</h1>
     </div>
   );

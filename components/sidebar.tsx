@@ -66,8 +66,12 @@ export function Sidebar({
           text-white on the row itself (not just the logo) so the
           theme-toggle/collapse icons inherit a color that actually
           contrasts, same reasoning as h1's own white text against
-          this background elsewhere. */}
-      <div className="flex items-center justify-between gap-2 bg-header-background p-4 text-white">
+          this background elsewhere. h-20 (not p-4, which sized this
+          block to its own content) matches every page header's own
+          fixed height (see components/page-header.tsx's comment) so
+          this corner lines up with whichever one is showing instead
+          of drifting a few px off depending on font metrics. */}
+      <div className="flex h-20 items-center justify-between gap-2 bg-header-background px-4 text-white">
         <div>
           <div className="text-lg font-bold">CSDP Tracker</div>
           <div className="mt-1 text-sm text-white/80" style={myColor ? { color: myColor } : undefined}>

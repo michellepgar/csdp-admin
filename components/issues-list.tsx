@@ -11,10 +11,8 @@ import { Input } from "@/components/ui/input";
 import {
   ISSUE_STATUS_OPTIONS,
   ISSUE_TYPE_LABELS,
-  CORRECTION_CATEGORIES,
   CORRECTION_KINDS,
   canDeleteIssue,
-  fmtDob,
   type Issue,
   type IssueType,
   type IssueCategory,
@@ -101,24 +99,6 @@ export function AddIssueForm({
             <Input name="note" placeholder="Note (optional)" className="max-w-xs" />
           </div>
         )}
-
-      {type === "record_update" && (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Input name="studentName" placeholder="Student Name" />
-          <Input name="dob" type="date" placeholder="Date of Birth" />
-          <Input name="insuranceNumber" placeholder="Insurance #" />
-          <Input name="schoolYear" placeholder="School Year" />
-          <Input name="fileName" placeholder="File Name" required />
-          <Input name="pageNumber" placeholder="Page #" />
-          <Dropdown
-            name="correctingCategory"
-            placeholder="Correcting…"
-            options={CORRECTION_CATEGORIES.map((c) => ({ value: c, label: c }))}
-            className="rounded-md border px-2 py-1.5 text-left text-sm"
-          />
-          <Input name="correctInfo" placeholder="Correct Info" />
-        </div>
-      )}
 
       {type === "correction" && (
         <div className="space-y-2">
@@ -303,48 +283,6 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
               <td className="px-2 py-1"><NoteField issue={issue} setIssueNote={setIssueNote} /></td>
               <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
               <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-              <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-export function RecordUpdateTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue }: TableProps) {
-  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No record update entries.</p>;
-  return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full min-w-[900px] text-sm">
-        <thead>
-          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-1">Student</th>
-            <th className="px-2 py-1">DOB</th>
-            <th className="px-2 py-1">Insurance #</th>
-            <th className="px-2 py-1">School Year</th>
-            <th className="px-2 py-1">File</th>
-            <th className="px-2 py-1">Page</th>
-            <th className="px-2 py-1">Correcting</th>
-            <th className="px-2 py-1">Correct Info</th>
-            <th className="px-2 py-1">Reported By</th>
-            <th className="px-2 py-1">Status</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {[...issues].reverse().map((issue) => (
-            <tr key={issue.id} className="border-b bg-record-background align-top">
-              <td className="px-2 py-1">{issue.studentName}</td>
-              <td className="px-2 py-1 whitespace-nowrap">{fmtDob(issue.dob)}</td>
-              <td className="px-2 py-1">{issue.insuranceNumber}</td>
-              <td className="px-2 py-1">{issue.schoolYear}</td>
-              <td className="px-2 py-1 font-bold">{issue.fileName}</td>
-              <td className="px-2 py-1">{issue.pageNumber}</td>
-              <td className="px-2 py-1">{issue.correctingCategory}</td>
-              <td className="px-2 py-1">{issue.correctInfo}</td>
-              <td className="px-2 py-1">{issue.reportedBy}</td>
               <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
               <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>

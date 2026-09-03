@@ -36,21 +36,6 @@ export async function addIssue(formData: FormData) {
       remarks: (formData.get("note") as string) || "",
     });
     orThrow(error);
-  } else if (type === "record_update") {
-    const fileName = ((formData.get("fileName") as string) || "").trim();
-    if (!fileName) return;
-    const { error } = await supabase.from("issues").insert({
-      ...baseIssueRow(me, "record_update"),
-      student_name: (formData.get("studentName") as string) || "",
-      dob: (formData.get("dob") as string) || "",
-      insurance_number: (formData.get("insuranceNumber") as string) || "",
-      school_year: (formData.get("schoolYear") as string) || "",
-      file_name: fileName,
-      page_number: (formData.get("pageNumber") as string) || "",
-      correcting_category: (formData.get("correctingCategory") as string) || "",
-      correct_info: (formData.get("correctInfo") as string) || "",
-    });
-    orThrow(error);
   } else if (type === "correction") {
     const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
     if (!studentRecordLink) return;

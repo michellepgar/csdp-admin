@@ -5,7 +5,6 @@ import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import {
   AddIssueForm,
   SoftwareIssueTable,
-  RecordUpdateTable,
   CorrectionTable,
   ChartingTable,
 } from "@/components/issues-list";
@@ -33,7 +32,6 @@ export default async function IssuesPage() {
 
   const issues = state.issues || [];
   const software = issues.filter((i) => i.type === "software_issue");
-  const recordUpdates = issues.filter((i) => i.type === "record_update");
   const corrections = issues.filter((i) => i.type === "correction");
   const charting = issues.filter((i) => i.type === "charting");
 
@@ -56,11 +54,6 @@ export default async function IssuesPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Software Issue</h2>
         <SoftwareIssueTable issues={software} {...tableProps} setIssueNote={setIssueNote} />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Record Update</h2>
-        <RecordUpdateTable issues={recordUpdates} {...tableProps} />
       </section>
 
       <section className="space-y-3">

@@ -364,15 +364,22 @@ export function distributionRowLanguageTotal(row: DistributionRow, langKey: stri
 }
 
 /* ---------- Issues & Concerns ----------
-   Simplified from the HTML app on purpose for record_update/correction/
-   charting: fixed fields per type instead of its dynamic per-type
-   "+Field" pool system. Software Issue's category/subcategory editor
-   was simplified away too at first (a flat text category) but brought
-   back as a real manageable Category -> Subcategory list, same pattern
-   as Task Categories/Checklist template elsewhere in the app. One
-   shared Issue shape covers all four types; each type only ever reads/
-   writes the fields relevant to it. */
-export type IssueType = "software_issue" | "record_update" | "correction" | "charting";
+   Simplified from the HTML app on purpose for correction/charting:
+   fixed fields per type instead of its dynamic per-type "+Field" pool
+   system. Software Issue's category/subcategory editor was simplified
+   away too at first (a flat text category) but brought back as a real
+   manageable Category -> Subcategory list, same pattern as Task
+   Categories/Checklist template elsewhere in the app. One shared
+   Issue shape covers all three remaining types; each type only ever
+   reads/writes the fields relevant to it.
+
+   A fourth type, "record_update", existed here too until Michelle
+   asked to remove it entirely (including its existing records --
+   see supabase/phase17_remove_record_update.sql). Its fields
+   (studentName/dob/insuranceNumber/schoolYear/fileName/pageNumber/
+   correctingCategory/correctInfo below, and the matching `issues`
+   table columns) are left in place, just permanently unused now. */
+export type IssueType = "software_issue" | "correction" | "charting";
 
 export interface IssueSubcategory {
   id: string;
@@ -387,7 +394,6 @@ export interface IssueCategory {
 
 export const ISSUE_TYPE_LABELS: Record<IssueType, string> = {
   software_issue: "Software Issue",
-  record_update: "Record Update",
   correction: "Correction/Verification",
   charting: "Charting Question",
 };
@@ -407,7 +413,7 @@ export interface Issue {
   category?: string;
   subcategory?: string;
   remarks?: string; // "Note" in the UI
-  // Record update
+  // Record update -- unused now (removed type, see IssueType's comment)
   studentName?: string;
   dob?: string;
   insuranceNumber?: string;
@@ -436,21 +442,6 @@ export interface Issue {
 export function canDeleteIssue(issue: Issue, currentName: string, currentIsAdmin: boolean): boolean {
   if (currentIsAdmin) return true;
   return issue.reportedBy === currentName;
-}
-
-const MONTH_ABBREV = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/* Record Update's Date of Birth field, formatted Mmm-dd-yyyy (e.g.
-   "Jan-05-2024") for display -- stored/submitted as a plain ISO
-   yyyy-mm-dd string from the native date input either way. */
-export function fmtDob(iso?: string): string {
-  if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length !== 3) return iso;
-  const mi = parseInt(parts[1], 10) - 1;
-  if (mi < 0 || mi > 11 || isNaN(mi)) return iso;
-  const day = parts[2].padStart(2, "0");
-  return `${MONTH_ABBREV[mi]}-${day}-${parts[0]}`;
 }
 
 /* ---------- EOD Reports: pure date/time helpers, same logic as the

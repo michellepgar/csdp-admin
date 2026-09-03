@@ -41,7 +41,7 @@ export default async function IssuesPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Issues & Concerns" userName={me.name} />
+      <PageHeader title="Issues & Concerns" />
 
       <AddIssueForm
         addIssue={addIssue}

@@ -19,7 +19,7 @@ export default async function SuggestionsPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Suggestions" userName={me.name} />
+      <PageHeader title="Suggestions" />
 
       <form action={addSuggestion} className="flex gap-2 max-w-lg">
         <input

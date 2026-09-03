@@ -25,7 +25,7 @@ export default async function DistributionListPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Distribution List" userName={me.name} />
+      <PageHeader title="Distribution List" />
       <DistributionList
         groups={state.distributionGroups || []}
         addDistributionGroup={addDistributionGroup}

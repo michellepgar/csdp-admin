@@ -23,7 +23,7 @@ export default async function EodPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="EOD Reports" userName={me.name} />
+      <PageHeader title="EOD Reports" />
 
       <form action={addEodReport} className="space-y-2 rounded-md border p-3">
         <div className="flex flex-wrap items-end gap-3">

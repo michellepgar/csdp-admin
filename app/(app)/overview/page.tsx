@@ -1,9 +1,7 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
-import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, checklistCompletion, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { checklistCompletion, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
@@ -24,14 +22,8 @@ function progressTone(pct: number): keyof typeof PROGRESS_BAR_CLASSES {
 }
 
 export default async function OverviewPage() {
-  const user = await getCurrentUser();
-  if (!user || !user.email) redirect("/login");
-
   const state = await fetchAppState();
   if (!state) return <p className="text-muted-foreground">Couldn&apos;t load the app — try reloading.</p>;
-
-  const me = findVaByEmail(state, user.email);
-  if (!me) redirect("/not-on-team");
 
   const schoolsNeedingEmailAttention = state.schools
     .filter((school) => (state.schoolData[school.id]?.emailTracker || []).some((e) => e.status !== "Done"))
@@ -74,12 +66,11 @@ export default async function OverviewPage() {
           amount as this bar's own padding, so the color spans truly
           edge to edge instead of floating as an inset box with a gap
           around it. */}
-      <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-2 bg-header-background px-4 py-3 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+      <div className="sticky top-0 z-10 -mx-4 bg-header-background px-4 py-3 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <h1 className="static flex items-center gap-2 bg-transparent px-0 py-0 text-4xl font-extrabold tracking-tight">
           <LayoutDashboard className="h-8 w-8" />
           Overview
         </h1>
-        <span className="text-sm font-medium text-muted-foreground">{me.name}</span>
       </div>
 
       <div>

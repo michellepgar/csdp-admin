@@ -19,7 +19,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Backup & School Year" userName={me.name} />
+      <PageHeader title="Backup & School Year" />
 
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-lg font-semibold">Backup &amp; Restore</h2>

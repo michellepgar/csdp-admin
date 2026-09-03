@@ -95,7 +95,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           </p>
         </div>
         <div className="flex flex-none items-center gap-3">
-          <span className="text-sm font-medium text-muted-foreground">{me.name}</span>
           <RemoveSchoolControl
             schoolId={schoolId}
             schoolName={school.name}

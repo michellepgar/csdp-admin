@@ -33,7 +33,7 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-10">
-      <PageHeader title="Team" userName={me.name} />
+      <PageHeader title="Team" />
 
       <div className="space-y-8">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">VAs</div>

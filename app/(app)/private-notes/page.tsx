@@ -21,7 +21,7 @@ export default async function PrivateNotesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Private Notes" userName={me.name} />
+      <PageHeader title="Private Notes" />
 
       <form action={addPrivateNote} className="space-y-2 max-w-lg">
         <textarea

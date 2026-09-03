@@ -28,7 +28,7 @@ export default async function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Schools Contact Information" userName={me.name} />
+      <PageHeader title="Schools Contact Information" />
       <ContactsList
         groups={state.contactGroups || []}
         schools={state.schools}

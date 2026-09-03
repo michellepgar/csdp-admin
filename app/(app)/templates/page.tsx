@@ -18,7 +18,7 @@ export default async function TemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Email Templates" userName={me.name} />
+      <PageHeader title="Email Templates" />
       <TemplatesList
         templates={state.emailTemplates || []}
         saveTemplate={saveTemplate}

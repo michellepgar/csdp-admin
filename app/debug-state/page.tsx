@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 
-/* Temporary diagnostic page -- not linked from the sidebar, and gated
-   by the same login check as everything else. Runs the exact queries
-   added for Phase 13 (plus a couple of earlier ones as a sanity check)
-   directly, one at a time, so a failure shows its real Postgres/
-   PostgREST error message instead of the generic "Couldn't load the
-   app" fallback fetchAppState()'s callers show when ANY of its ~25
-   parallel queries errors. Delete this page once the real issue is
-   found and fixed. */
+/* Temporary diagnostic page -- outside the (app) route group on
+   purpose: app/(app)/layout.tsx calls fetchAppState() itself and shows
+   "Couldn't load the app" for EVERY page under it (this one included)
+   if that fails, before any child page body runs -- so a copy of this
+   living inside (app) could never actually show anything useful.
+   Still gated by the same login check as everything else. Runs the
+   exact queries added across recent phases one at a time, so a
+   failure shows its real Postgres/PostgREST error message instead of
+   fetchAppState()'s generic null-on-any-of-~25-queries-failing.
+   Delete this page once the real issue is found and fixed. */
 export default async function DebugStatePage() {
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
@@ -40,10 +42,10 @@ export default async function DebugStatePage() {
   }
 
   return (
-    <div className="space-y-2 p-4 font-mono text-sm">
-      <h1 className="text-lg font-bold">Debug: state.ts query checks</h1>
+    <div style={{ padding: "1rem", fontFamily: "monospace", fontSize: "14px" }}>
+      <h1 style={{ fontWeight: "bold", fontSize: "18px", marginBottom: "8px" }}>Debug: state.ts query checks</h1>
       {results.map((r) => (
-        <div key={r.label} className={r.ok ? "text-green-700" : "text-red-700"}>
+        <div key={r.label} style={{ color: r.ok ? "green" : "red", marginBottom: "4px" }}>
           <strong>{r.label}:</strong> {r.detail}
         </div>
       ))}

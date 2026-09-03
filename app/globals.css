@@ -62,6 +62,15 @@
 }
 
 :root {
+  /* Without this, browsers theme native form control chrome (a
+     <select>'s own dropdown POPUP list, checkboxes, date pickers,
+     scrollbars) as light by default regardless of the page's own dark
+     styling -- our custom text colors on a status <select> still
+     inherit into its <option> list, but the popup's BACKGROUND stays
+     native light, so light-on-dark text became light-on-light (nearly
+     invisible) the moment the dropdown was actually opened in dark
+     mode. This is the fix for that, not a cosmetic property. */
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.208 0.042 265.755);
   --card: oklch(1 0 0);
@@ -118,6 +127,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.208 0.042 265.755);

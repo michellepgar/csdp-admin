@@ -90,7 +90,7 @@ export default async function OverviewPage() {
                   <ul className="space-y-1.5">
                     {inProgressByVa.get(vaName)!.map((t, i) => (
                       <li key={i} className="text-sm">
-                        <Link href={`/schools/${t.schoolId}`} className="font-medium underline-offset-2 hover:underline">
+                        <Link href={`/schools/${t.schoolId}`} className="font-bold underline-offset-2 hover:underline">
                           {t.fileName}
                         </Link>
                         <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>

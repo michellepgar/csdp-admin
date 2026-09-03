@@ -7,6 +7,7 @@ import { findVaByEmail, isAdmin, canEditSchoolRecords, CONTACT_POSITION_GROUPS }
 import { ChecklistCard } from "@/components/checklist-card";
 import { TasksCard } from "@/components/tasks-card";
 import { EmailTrackerCard } from "@/components/email-tracker-card";
+import { EmailNotesCard } from "@/components/email-notes-card";
 import {
   toggleChecklistItem,
   addChecklistTemplateItem,
@@ -26,6 +27,7 @@ import {
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
+  setSchoolEmailNotes,
   removeSchool,
   removeSchoolAndContacts,
 } from "./actions";
@@ -148,14 +150,21 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         />
       </div>
 
-      <EmailTrackerCard
-        schoolId={schoolId}
-        items={sd.emailTracker || []}
-        canEdit={canEdit}
-        addEmailItem={addEmailItem}
-        setEmailStatus={setEmailStatus}
-        removeEmailItem={removeEmailItem}
-      />
+      {/* flex, matching the Tasks/Checklist row above -- Michelle
+          asked for Email Notes right beside Email Tracker. */}
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="min-w-0 flex-1 basis-0">
+          <EmailTrackerCard
+            schoolId={schoolId}
+            items={sd.emailTracker || []}
+            canEdit={canEdit}
+            addEmailItem={addEmailItem}
+            setEmailStatus={setEmailStatus}
+            removeEmailItem={removeEmailItem}
+          />
+        </div>
+        <EmailNotesCard schoolId={schoolId} emailNotes={school.emailNotes} setSchoolEmailNotes={setSchoolEmailNotes} />
+      </div>
 
       <div className="rounded-md border">
         <div className="flex items-center justify-between border-b bg-title-background p-3">

@@ -29,6 +29,10 @@ export interface School {
      above so each renders as its own labeled field on the school
      page instead of depending on line order. */
   hours?: string;
+  /* One free-text note per school about its email situation, shown
+     next to Email Tracker on the school page -- anyone on the team
+     can edit it, no history kept (unlike, say, Issues & Concerns). */
+  emailNotes?: string;
   /* Some schools don't need a second pass after Initial -- clicking
      "No Follow up" on the school page sets this so Follow up's section
      shows as disabled/grayed-out there, instead of tracking files that

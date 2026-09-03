@@ -224,4 +224,27 @@
   h2 {
     @apply text-primary block bg-title-background px-2 py-1;
   }
+
+  /* Native checkboxes/radios (Distributed, Urgent, the Correction
+     form's Name/DOB/Insurance/Other, etc.) otherwise render in the
+     browser's default blue/gray, unrelated to this app's own accent
+     -- accent-color re-themes the native checkmark/fill without
+     needing a custom-built control. cursor: pointer isn't a given
+     either; some browsers only add it to the <label> wrapping a
+     checkbox, not the checkbox itself. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+
+  /* One rule instead of touching every list component -- every
+     record row across the whole app (Tasks, Issues, Contacts,
+     Distribution List, EOD, Suggestions, etc.) already shares this
+     one utility class, so this alone makes every one of them
+     visibly respond to hover, hinting there's something fillable/
+     clickable in the row before the cursor ever reaches it. */
+  .bg-record-background:hover {
+    background-color: color-mix(in oklch, var(--record-background), var(--foreground) 6%);
+  }
 }

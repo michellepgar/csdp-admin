@@ -303,6 +303,16 @@ export async function removeEmailItem(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
+export async function setSchoolEmailNotes(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const schoolId = formData.get("schoolId") as string;
+  const emailNotes = (formData.get("emailNotes") as string) || "";
+
+  const { error } = await supabase.from("schools").update({ email_notes: emailNotes || null }).eq("id", schoolId);
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
 /* Website/hours used to be editable right here (see git history) --
    now only editable from a contact row's edit form on the Contacts
    page (app/(app)/contacts/actions.ts's updateContactRow), which

@@ -158,7 +158,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               only from the Contacts page's row edit form now (see the
               link above), same as every other field in this card. */}
           {(school.website || school.phone || school.fax || school.hours) && (
-            <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <div className="space-y-2 text-sm">
               {school.website && (
                 <div className="flex items-center gap-1">
                   <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Website</span>
@@ -173,22 +173,31 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                   </a>
                 </div>
               )}
-              {school.phone && (
-                <div className="flex items-center gap-1">
-                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Phone</span>
-                  <a href={`tel:${school.phone.replace(/[^0-9+]/g, "")}`} className="text-primary underline-offset-2 hover:underline">
-                    {school.phone}
-                  </a>
-                </div>
-              )}
-              {school.fax && (
-                <div className="flex items-center gap-1">
-                  <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Fax</span>
-                  <span>{school.fax}</span>
+              {/* Phone and Fax always share one row, next to each
+                  other -- they used to just be two more items flowing
+                  through a 2-column grid alongside Website/Hours,
+                  which could split them apart depending on which
+                  fields happened to be filled in. */}
+              {(school.phone || school.fax) && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {school.phone && (
+                    <div className="flex items-center gap-1">
+                      <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Phone</span>
+                      <a href={`tel:${school.phone.replace(/[^0-9+]/g, "")}`} className="text-primary underline-offset-2 hover:underline">
+                        {school.phone}
+                      </a>
+                    </div>
+                  )}
+                  {school.fax && (
+                    <div className="flex items-center gap-1">
+                      <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Fax</span>
+                      <span>{school.fax}</span>
+                    </div>
+                  )}
                 </div>
               )}
               {school.hours && (
-                <div className="flex items-baseline gap-1 sm:col-span-2">
+                <div className="flex items-baseline gap-1">
                   <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Hours</span>
                   <span className="whitespace-pre-wrap">{school.hours}</span>
                 </div>

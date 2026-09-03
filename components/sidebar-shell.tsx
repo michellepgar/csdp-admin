@@ -167,16 +167,19 @@ export function SidebarShell({
           every route change (even between two pages that'd otherwise
           render structurally similar JSX), which restarts the fade/
           slide animation from scratch each time instead of it only
-          playing once ever. Longer still (700ms) with an even gentler
-          curve than the first smoothing pass -- cubic-bezier(0.16,1,
-          0.3,1), a "swift-out" shape that eases off very gradually
-          near the end instead of settling abruptly -- and a shorter
-          slide distance (0.5rem, down from 0.75rem) so the extra
-          duration reads as unhurried rather than slow. */}
+          playing once ever. The earlier "swift-out" curves (both
+          smoothing passes) accelerated hard right out of the gate
+          before decelerating -- that sudden initial burst is exactly
+          what read as a jolt/"shocked" start even with a long
+          duration. Switched to a full ease-in-out S-curve
+          (cubic-bezier(0.65,0,0.35,1)) instead, which eases gently
+          into motion AND gently out of it, plus a bit more travel
+          distance (0.75rem) so that gentle glide is actually visible
+          over the full 900ms. */}
       <main className="min-w-0 flex-1">
         <div
           key={pathname}
-          className="animate-in fade-in slide-in-from-left-2 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          className="animate-in fade-in slide-in-from-left-3 duration-900 ease-[cubic-bezier(0.65,0,0.35,1)]"
         >
           {children}
         </div>

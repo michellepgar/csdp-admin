@@ -13,8 +13,7 @@ import {
   addIssue,
   setIssueStatus,
   removeIssue,
-  signIssueFix,
-  removeIssueFixSignature,
+  setIssueFixNote,
 } from "./actions";
 
 export default async function IssuesPage() {
@@ -34,7 +33,7 @@ export default async function IssuesPage() {
   const charting = issues.filter((i) => i.type === "charting");
 
   const tableProps = { currentUserName: me.name, currentIsAdmin: isAdmin(me), setIssueStatus, removeIssue };
-  const fixProps = { signIssueFix, removeIssueFixSignature };
+  const fixProps = { setIssueFixNote };
 
   return (
     <div className="space-y-8">

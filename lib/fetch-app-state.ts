@@ -303,6 +303,7 @@ type IssueRow = {
   other_correction_detail: string | null;
   question: string | null;
   fixed_by: string[];
+  fix_note: string | null;
 };
 
 function mapIssueRow(r: IssueRow): Issue {
@@ -332,6 +333,7 @@ function mapIssueRow(r: IssueRow): Issue {
     otherCorrectionDetail: r.other_correction_detail ?? undefined,
     question: r.question ?? undefined,
     fixedBy: r.fixed_by,
+    fixNote: r.fix_note ?? undefined,
   };
 }
 
@@ -438,7 +440,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("distribution_rows").select("id, group_id, school, enrolled, contact_person, remarks, breakdown").order("sort_order"),
     supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
     supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
-    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by").order("created_at"),
+    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note").order("created_at"),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),

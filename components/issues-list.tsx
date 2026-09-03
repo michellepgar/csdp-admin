@@ -121,40 +121,21 @@ function StatusSelect({ issue, setIssueStatus }: { issue: Issue; setIssueStatus:
   );
 }
 
-function FixSignatures({
-  issue,
-  currentUserName,
-  currentIsAdmin,
-  signIssueFix,
-  removeIssueFixSignature,
-}: {
-  issue: Issue;
-  currentUserName: string;
-  currentIsAdmin: boolean;
-  signIssueFix: (formData: FormData) => void;
-  removeIssueFixSignature: (formData: FormData) => void;
-}) {
-  const fixedBy = issue.fixedBy || [];
-  const iSigned = fixedBy.includes(currentUserName);
+/* A free-text note about the fix, auto-saved on change -- was a list
+   of sign-off chips before. */
+function FixNote({ issue, setIssueFixNote }: { issue: Issue; setIssueFixNote: (formData: FormData) => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      {fixedBy.map((name) => (
-        <form key={name} action={removeIssueFixSignature} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
-          <input type="hidden" name="id" value={issue.id} />
-          <input type="hidden" name="name" value={name} />
-          <span>{name}</span>
-          {(name === currentUserName || currentIsAdmin) && (
-            <ConfirmDeleteButton confirmMessage={`Remove ${name}'s fix signature?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
-          )}
-        </form>
-      ))}
-      {!iSigned && (
-        <form action={signIssueFix}>
-          <input type="hidden" name="id" value={issue.id} />
-          <SubmitButton pendingLabel="…" variant="outline" size="xs">Fix</SubmitButton>
-        </form>
-      )}
-    </div>
+    <AutoSubmitForm action={setIssueFixNote}>
+      <input type="hidden" name="id" value={issue.id} />
+      <textarea
+        key={issue.fixNote || ""}
+        name="fixNote"
+        defaultValue={issue.fixNote || ""}
+        placeholder="What was done to fix this…"
+        rows={1}
+        className="w-full min-w-[160px] resize-y rounded-md border px-1.5 py-0.5 text-sm"
+      />
+    </AutoSubmitForm>
   );
 }
 
@@ -186,8 +167,7 @@ type TableProps = {
   removeIssue: (formData: FormData) => void;
 };
 type FixProps = {
-  signIssueFix: (formData: FormData) => void;
-  removeIssueFixSignature: (formData: FormData) => void;
+  setIssueFixNote: (formData: FormData) => void;
 };
 
 /* Each issue type gets its own table -- the four shapes don't share
@@ -270,7 +250,7 @@ export function RecordUpdateTable({ issues, currentUserName, currentIsAdmin, set
   );
 }
 
-export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, signIssueFix, removeIssueFixSignature }: TableProps & FixProps) {
+export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -300,7 +280,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
                 <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
                 <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
                 <td className="px-2 py-1">{needs || "—"}</td>
-                <td className="px-2 py-1"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
+                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                 <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
                 <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
@@ -314,7 +294,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
   );
 }
 
-export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, signIssueFix, removeIssueFixSignature }: TableProps & FixProps) {
+export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -335,7 +315,7 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
             <tr key={issue.id} className="border-b bg-record-background align-top">
               <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
               <td className="px-2 py-1">{issue.question}</td>
-              <td className="px-2 py-1"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
+              <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
               <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
               <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
               <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>

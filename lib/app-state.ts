@@ -383,9 +383,11 @@ export interface Issue {
   otherCorrectionDetail?: string;
   // Charting Questions
   question?: string;
-  // Correction/Charting "Fix" — multiple independent signatures, same
-  // pattern as a Task's vaAssigned, not one shared "fixed by" field.
+  // Correction/Charting "Fix" -- a free-text note about what was done,
+  // not a sign-off list. fixedBy (the old sign-off chips) is retired,
+  // kept only so old rows don't break anything reading it.
   fixedBy?: string[];
+  fixNote?: string;
 }
 
 export function canDeleteIssue(issue: Issue, currentName: string, currentIsAdmin: boolean): boolean {

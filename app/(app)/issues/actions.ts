@@ -109,33 +109,15 @@ export async function removeIssue(formData: FormData) {
   revalidatePath("/issues");
 }
 
-export async function signIssueFix(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
+/* Fix used to be a list of sign-off chips (fixed_by) -- replaced with
+   a free-text note anyone can type/update, same auto-save pattern as
+   other single-value fields (e.g. setIssueStatus above). */
+export async function setIssueFixNote(formData: FormData) {
+  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
+  const fixNote = (formData.get("fixNote") as string) || "";
 
-  const { data: issue } = await supabase.from("issues").select("fixed_by").eq("id", id).maybeSingle();
-  if (!issue) return;
-  const fixedBy: string[] = issue.fixed_by || [];
-  if (fixedBy.includes(me.name)) return;
-
-  const { error } = await supabase.from("issues").update({ fixed_by: [...fixedBy, me.name] }).eq("id", id);
-  orThrow(error);
-  revalidatePath("/issues");
-}
-
-export async function removeIssueFixSignature(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
-  const id = formData.get("id") as string;
-  const name = formData.get("name") as string;
-  if (name !== me.name && !isAdmin(me)) return;
-
-  const { data: issue } = await supabase.from("issues").select("fixed_by").eq("id", id).maybeSingle();
-  if (!issue) return;
-
-  const { error } = await supabase
-    .from("issues")
-    .update({ fixed_by: ((issue.fixed_by as string[]) || []).filter((n) => n !== name) })
-    .eq("id", id);
+  const { error } = await supabase.from("issues").update({ fix_note: fixNote }).eq("id", id);
   orThrow(error);
   revalidatePath("/issues");
 }

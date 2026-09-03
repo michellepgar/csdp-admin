@@ -237,14 +237,25 @@
     accent-color: var(--primary);
     cursor: pointer;
   }
+}
 
-  /* One rule instead of touching every list component -- every
-     record row across the whole app (Tasks, Issues, Contacts,
-     Distribution List, EOD, Suggestions, etc.) already shares this
-     one utility class, so this alone makes every one of them
-     visibly respond to hover, hinting there's something fillable/
-     clickable in the row before the cursor ever reaches it. */
-  .bg-record-background:hover {
-    background-color: color-mix(in oklch, var(--record-background), var(--foreground) 6%);
-  }
+/* Deliberately NOT inside @layer base above -- Tailwind's generated
+   utility classes (bg-record-background included) live in its own
+   "utilities" layer, which comes after "base" in cascade order, so a
+   plain utility class always wins over a same-or-higher-specificity
+   base-layer rule regardless of :hover. Confirmed directly: with this
+   inside @layer base, the hover color never actually painted. Leaving
+   it unlayered guarantees it beats every layer, base or utilities.
+
+   One rule instead of touching every list component -- every record
+   row across the whole app (Tasks, Issues, Contacts, Distribution
+   List, EOD, Suggestions, etc.) already shares this one utility
+   class, so this alone makes every one of them visibly respond to
+   hover. Tints toward --primary (this app's own accent hue) rather
+   than a neutral gray, so the highlight reads as "this app's own
+   color", not a generic hover -- checked in both themes: 8% is enough
+   to see against both a near-white (light) and near-black (dark)
+   --record-background without shifting text contrast in either. */
+.bg-record-background:hover {
+  background-color: color-mix(in oklch, var(--record-background), var(--primary) 8%);
 }

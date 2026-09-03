@@ -76,8 +76,11 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2">
-        <Link href="/overview" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <LayoutDashboard className="h-4 w-4" />
+        {/* Bigger and bolder than every other nav link on purpose -- this
+            is the home/dashboard link, Michelle asked for it to stand
+            out from the rest of the list below it. */}
+        <Link href="/overview" className="flex items-center gap-2 rounded-md px-3 py-2.5 text-base font-bold hover:bg-muted">
+          <LayoutDashboard className="h-5 w-5" />
           Overview
         </Link>
 

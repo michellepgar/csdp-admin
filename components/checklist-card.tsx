@@ -89,11 +89,13 @@ export function ChecklistCard({
           <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
             {editorOpen ? "Close editor" : "Edit template"}
           </Button>
-          <HoverLabel label="Yearly Checklist" side="left">
-            <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </HoverLabel>
+          {/* No hover label here (unlike the collapsed Show button
+              below) -- the panel's own "Yearly Checklist" title sits
+              right next to this button already, so a tooltip repeating
+              the same text would be redundant while it's open. */}
+          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
       <div className="space-y-3 p-3">

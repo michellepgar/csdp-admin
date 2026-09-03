@@ -36,9 +36,56 @@ export default async function OverviewPage() {
     .map((type) => ({ type, label: ISSUE_TYPE_LABELS[type], count: openIssues.filter((i) => i.type === type).length }))
     .filter((t) => t.count > 0);
 
+  /* Who's actively signed onto what right now -- every "In Progress"
+     task, grouped by each VA it's assigned to (a task can have more
+     than one VA signed on, so it can appear under more than one name
+     here). Only VAs with at least one such task show up; an idle VA
+     just doesn't get a row. */
+  const inProgressByVa = new Map<string, { schoolId: string; schoolName: string; category: string; fileName: string }[]>();
+  for (const school of state.schools) {
+    for (const task of state.schoolData[school.id]?.tasks || []) {
+      if (task.status !== "In Progress") continue;
+      for (const vaName of task.vaAssigned) {
+        if (!inProgressByVa.has(vaName)) inProgressByVa.set(vaName, []);
+        inProgressByVa.get(vaName)!.push({ schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName });
+      }
+    }
+  }
+  const vaNamesWithProgress = Array.from(inProgressByVa.keys()).sort((a, b) => a.localeCompare(b));
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Overview</h1>
+
+      <div>
+        <h2 className="mb-3 text-lg font-semibold">Currently Working On</h2>
+        {vaNamesWithProgress.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No one has anything marked &quot;In Progress&quot; right now.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {vaNamesWithProgress.map((vaName) => {
+              const va = state.vas.find((v) => v.name === vaName);
+              return (
+                <div key={vaName} className="rounded-md border bg-record-background p-3">
+                  <div className="mb-2 text-sm font-semibold" style={va?.color ? { color: va.color } : undefined}>
+                    {vaName}
+                  </div>
+                  <ul className="space-y-1.5">
+                    {inProgressByVa.get(vaName)!.map((t, i) => (
+                      <li key={i} className="text-sm">
+                        <Link href={`/schools/${t.schoolId}`} className="font-medium underline-offset-2 hover:underline">
+                          {t.fileName}
+                        </Link>
+                        <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left: alerts -- what needs attention right now. */}

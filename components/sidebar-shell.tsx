@@ -161,13 +161,15 @@ export function SidebarShell({
           top edge.
 
           The inner div exists only to key page transitions -- Michelle
-          asked for some effect when a new page opens. `key={pathname}`
-          makes React unmount/remount this div on every route change
-          (even between two pages that'd otherwise render structurally
-          similar JSX), which restarts the fade/rise animation from
-          scratch each time instead of it only playing once ever. */}
+          asked for some effect when a new page opens, sliding in from
+          the sidebar's side (left) rather than rising up from below.
+          `key={pathname}` makes React unmount/remount this div on
+          every route change (even between two pages that'd otherwise
+          render structurally similar JSX), which restarts the fade/
+          slide animation from scratch each time instead of it only
+          playing once ever. */}
       <main className="min-w-0 flex-1">
-        <div key={pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
+        <div key={pathname} className="animate-in fade-in slide-in-from-left-4 duration-300 ease-out">
           {children}
         </div>
       </main>

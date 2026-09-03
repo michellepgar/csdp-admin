@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AutoSubmitForm } from "@/components/auto-submit-form";
-import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
+import { Dropdown } from "@/components/dropdown";
+import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import type { Suggestion } from "@/lib/app-state";
 
@@ -47,14 +47,13 @@ export function SuggestionsList({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <select
+        <Dropdown
+          name="sortField"
           value={sortField}
-          onChange={(e) => setSortField(e.target.value as "date" | "author")}
-          className="rounded-md border px-2 py-1 text-sm"
-        >
-          <option value="date">Sort by date</option>
-          <option value="author">Sort by author</option>
-        </select>
+          onChange={(v) => setSortField(v as "date" | "author")}
+          options={[{ value: "date", label: "Sort by date" }, { value: "author", label: "Sort by author" }]}
+          className="rounded-md border px-2 py-1 text-left text-sm"
+        />
         <Button type="button" variant="outline" size="sm" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>
           {sortDir === "asc" ? "↑ Ascending" : "↓ Descending"}
         </Button>
@@ -81,14 +80,14 @@ export function SuggestionsList({
                   </div>
                   <div className="flex flex-none items-center gap-2">
                     {isMichelle && (
-                      <AutoSubmitForm action={setSuggestionStatus}>
-                        <input type="hidden" name="id" value={s.id} />
-                        <select key={s.status} name="status" defaultValue={s.status} className="rounded-md border px-2 py-1 text-xs">
-                          {STATUSES.map((st) => (
-                            <option key={st} value={st}>{st}</option>
-                          ))}
-                        </select>
-                      </AutoSubmitForm>
+                      <AutoSubmitDropdown
+                        action={setSuggestionStatus}
+                        hiddenFields={{ id: s.id }}
+                        name="status"
+                        value={s.status}
+                        options={STATUSES.map((st) => ({ value: st, label: st }))}
+                        className="rounded-md border px-2 py-1 text-left text-xs"
+                      />
                     )}
                     {canDelete && (
                       <form action={removeSuggestion}>

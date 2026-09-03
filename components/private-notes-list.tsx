@@ -1,8 +1,8 @@
 "use client";
 
-import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import type { PrivateNote } from "@/lib/app-state";
 
 function formatDateTime(iso: string) {
@@ -68,15 +68,14 @@ export function PrivateNotesList({
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {isAuthor && notYetSharedWith.length > 0 && (
-                <AutoSubmitForm action={sharePrivateNote} className="flex items-center gap-1">
-                  <input type="hidden" name="id" value={n.id} />
-                  <select name="vaName" defaultValue="" className="rounded-md border px-2 py-1 text-xs">
-                    <option value="" disabled>Share with…</option>
-                    {notYetSharedWith.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </AutoSubmitForm>
+                <AutoSubmitDropdown
+                  action={sharePrivateNote}
+                  hiddenFields={{ id: n.id }}
+                  name="vaName"
+                  placeholder="Share with…"
+                  options={notYetSharedWith.map((name) => ({ value: name, label: name }))}
+                  className="rounded-md border px-2 py-1 text-left text-xs"
+                />
               )}
               {needsAck && (
                 <form action={ackPrivateNote}>

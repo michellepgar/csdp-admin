@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dropdown } from "@/components/dropdown";
 import {
   fmtEodDate,
   fmtMonthLabel,
@@ -102,15 +103,23 @@ export function EodList({ reports, vaNames }: { reports: EodReport[]; vaNames: s
       </Button>
 
       <div className="flex flex-wrap items-center gap-2">
-        <select value={filterAuthor} onChange={(e) => setFilterAuthor(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm">
-          <option value="">All team members</option>
-          {[...vaNames].sort().map((name) => <option key={name} value={name}>{name}</option>)}
-        </select>
+        <Dropdown
+          name="filterAuthor"
+          value={filterAuthor}
+          onChange={setFilterAuthor}
+          placeholder="All team members"
+          options={[{ value: "", label: "All team members" }, ...[...vaNames].sort().map((name) => ({ value: name, label: name }))]}
+          className="rounded-md border px-2 py-1.5 text-left text-sm"
+        />
         {showArchive && (
-          <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm">
-            <option value="">All months</option>
-            {months.map((ym) => <option key={ym} value={ym}>{fmtMonthLabel(ym)}</option>)}
-          </select>
+          <Dropdown
+            name="filterMonth"
+            value={filterMonth}
+            onChange={setFilterMonth}
+            placeholder="All months"
+            options={[{ value: "", label: "All months" }, ...months.map((ym) => ({ value: ym, label: fmtMonthLabel(ym) }))]}
+            className="rounded-md border px-2 py-1.5 text-left text-sm"
+          />
         )}
         <div className="flex overflow-hidden rounded-md border">
           <button type="button" onClick={() => setViewMode("notes")} className={`px-3 py-1.5 text-sm ${viewMode === "notes" ? "bg-primary text-primary-foreground" : ""}`}>Notes</button>

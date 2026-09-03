@@ -7,6 +7,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
+import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -292,9 +293,12 @@ export function TasksCard({
 
         <form action={addTask} className="flex flex-wrap gap-2">
           <input type="hidden" name="schoolId" value={schoolId} />
-          <select name="category" className="rounded-md border px-2 py-1.5 text-sm">
-            {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
+          <Dropdown
+            name="category"
+            defaultValue={categories[0]?.name}
+            options={categories.map((c) => ({ value: c.name, label: c.name }))}
+            className="rounded-md border px-2 py-1.5 text-left text-sm"
+          />
           <Input name="fileName" placeholder="File name, e.g. Q3-enrollment-report.xlsx" required className="max-w-md flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>

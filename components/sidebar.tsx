@@ -21,6 +21,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dropdown } from "@/components/dropdown";
 import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
 
 export function Sidebar({
@@ -90,16 +91,14 @@ export function Sidebar({
             placeholder="Search schools…"
             className="h-8 text-sm"
           />
-          <select
+          <Dropdown
+            name="vaFilter"
             value={vaFilter}
-            onChange={(e) => setVaFilter(e.target.value)}
-            className="w-full rounded-md border px-2 py-1.5 text-sm"
-          >
-            <option value="">All VAs</option>
-            {[...vas].sort((a, b) => a.name.localeCompare(b.name)).map((v) => (
-              <option key={v.id} value={v.name}>{v.name}</option>
-            ))}
-          </select>
+            onChange={setVaFilter}
+            placeholder="All VAs"
+            options={[{ value: "", label: "All VAs" }, ...[...vas].sort((a, b) => a.name.localeCompare(b.name)).map((v) => ({ value: v.name, label: v.name }))]}
+            className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+          />
         </div>
         <div className="max-h-64 overflow-y-auto px-1">
           {filteredSchools.length === 0 ? (
@@ -129,12 +128,12 @@ export function Sidebar({
             className="mx-2 mt-1 space-y-2 rounded-md border p-2"
           >
             <Input name="name" placeholder="School name" required autoFocus className="h-8 text-sm" />
-            <select name="groupName" defaultValue="" className="w-full rounded-md border px-2 py-1.5 text-sm">
-              <option value="">No group (add later)</option>
-              {SCHOOL_GROUPS.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
+            <Dropdown
+              name="groupName"
+              placeholder="No group (add later)"
+              options={SCHOOL_GROUPS.map((g) => ({ value: g, label: g }))}
+              className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+            />
             <div className="flex items-center gap-1">
               <SubmitButton pendingLabel="…" size="sm">Add</SubmitButton>
               <Button type="button" variant="ghost" size="sm" onClick={() => setAddingSchool(false)}>

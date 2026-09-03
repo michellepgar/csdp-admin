@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dropdown } from "@/components/dropdown";
 import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
 
@@ -67,11 +68,12 @@ function ContactRowEdit({
             ))}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Move to group</label>
-              <select name="moveToGroupId" defaultValue={group.id} className="w-full rounded-md border px-2 py-1.5 text-sm">
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
+              <Dropdown
+                name="moveToGroupId"
+                defaultValue={group.id}
+                options={groups.map((g) => ({ value: g.id, label: g.name }))}
+                className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">

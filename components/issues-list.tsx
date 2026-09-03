@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
+import { Dropdown } from "@/components/dropdown";
 import { Input } from "@/components/ui/input";
 import {
   ISSUE_STATUS_OPTIONS,
@@ -64,16 +65,13 @@ export function AddIssueForm({
     <div className="space-y-2">
       <form action={addIssue} className="space-y-2 rounded-md border p-3">
         <div className="flex items-center justify-between gap-2">
-          <select
+          <Dropdown
             name="type"
             value={type}
-            onChange={(e) => setType(e.target.value as IssueType)}
-            className="rounded-md border px-2 py-1.5 text-sm font-medium"
-          >
-            {(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((t) => (
-              <option key={t} value={t}>{ISSUE_TYPE_LABELS[t]}</option>
-            ))}
-          </select>
+            onChange={(v) => setType(v as IssueType)}
+            options={(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((t) => ({ value: t, label: ISSUE_TYPE_LABELS[t] }))}
+            className="rounded-md border px-2 py-1.5 text-left text-sm font-medium"
+          />
           {type === "software_issue" && (
             <button type="button" onClick={() => setEditorOpen((o) => !o)} className="text-sm text-primary underline underline-offset-2">
               {editorOpen ? "Close category editor" : "Edit categories"}
@@ -83,25 +81,22 @@ export function AddIssueForm({
 
         {type === "software_issue" && (
           <div className="flex flex-wrap gap-2">
-            <select
+            <Dropdown
               name="category"
               value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              className="rounded-md border px-2 py-1.5 text-sm"
-            >
-              <option value="">Category…</option>
-              {issueCategories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select>
-            <select
+              onChange={setCategoryName}
+              placeholder="Category…"
+              options={issueCategories.map((c) => ({ value: c.name, label: c.name }))}
+              className="rounded-md border px-2 py-1.5 text-left text-sm"
+            />
+            <Dropdown
               key={categoryName}
               name="subcategory"
-              defaultValue=""
+              placeholder="Subcategory…"
               disabled={!selectedCategory || selectedCategory.subcategories.length === 0}
-              className="rounded-md border px-2 py-1.5 text-sm"
-            >
-              <option value="">Subcategory…</option>
-              {(selectedCategory?.subcategories || []).map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
-            </select>
+              options={(selectedCategory?.subcategories || []).map((s) => ({ value: s.name, label: s.name }))}
+              className="rounded-md border px-2 py-1.5 text-left text-sm"
+            />
             <Input name="description" placeholder="What's the issue?" required className="max-w-md flex-1" />
             <Input name="note" placeholder="Note (optional)" className="max-w-xs" />
           </div>
@@ -115,10 +110,12 @@ export function AddIssueForm({
           <Input name="schoolYear" placeholder="School Year" />
           <Input name="fileName" placeholder="File Name" required />
           <Input name="pageNumber" placeholder="Page #" />
-          <select name="correctingCategory" defaultValue="" className="rounded-md border px-2 py-1.5 text-sm">
-            <option value="" disabled>Correcting…</option>
-            {CORRECTION_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <Dropdown
+            name="correctingCategory"
+            placeholder="Correcting…"
+            options={CORRECTION_CATEGORIES.map((c) => ({ value: c, label: c }))}
+            className="rounded-md border px-2 py-1.5 text-left text-sm"
+          />
           <Input name="correctInfo" placeholder="Correct Info" />
         </div>
       )}
@@ -126,9 +123,12 @@ export function AddIssueForm({
       {type === "correction" && (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <select name="correctionKind" defaultValue="Correction" className="rounded-md border px-2 py-1.5 text-sm">
-              {CORRECTION_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-            </select>
+            <Dropdown
+              name="correctionKind"
+              defaultValue="Correction"
+              options={CORRECTION_KINDS.map((k) => ({ value: k, label: k }))}
+              className="rounded-md border px-2 py-1.5 text-left text-sm"
+            />
             <Input name="studentRecordLink" placeholder="Link to student record" required className="max-w-md flex-1" />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">

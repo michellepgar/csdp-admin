@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
+import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Input } from "@/components/ui/input";
@@ -130,18 +131,13 @@ export default async function TeamPage() {
           {sortedVas.length === 0 ? (
             <p className="text-sm text-muted-foreground">No VAs added yet.</p>
           ) : (
-            <AutoSubmitForm action={setCommunicationEditor}>
-              <select
-                key={state.communicationEditor || ""}
-                name="name"
-                defaultValue={state.communicationEditor || ""}
-                className="rounded-md border px-3 py-2 text-sm"
-              >
-                {sortedVas.map((va) => (
-                  <option key={va.id} value={va.name}>{va.name}</option>
-                ))}
-              </select>
-            </AutoSubmitForm>
+            <AutoSubmitDropdown
+              action={setCommunicationEditor}
+              name="name"
+              defaultValue={state.communicationEditor || ""}
+              options={sortedVas.map((va) => ({ value: va.name, label: va.name }))}
+              className="rounded-md border px-3 py-2 text-left text-sm"
+            />
           )}
         </section>
 
@@ -151,21 +147,18 @@ export default async function TeamPage() {
             {[...state.schools].sort((a, b) => a.name.localeCompare(b.name)).map((school) => {
               const sd = state.schoolData[school.id];
               return (
-                <AutoSubmitForm key={school.id} action={setSchoolAssignment} className="flex items-center justify-between gap-2 rounded-md border p-2">
+                <div key={school.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
                   <span className="font-medium">{school.name}</span>
-                  <input type="hidden" name="schoolId" value={school.id} />
-                  <select
-                    key={sd?.vaAssigned || ""}
+                  <AutoSubmitDropdown
+                    action={setSchoolAssignment}
+                    hiddenFields={{ schoolId: school.id }}
                     name="vaName"
                     defaultValue={sd?.vaAssigned || ""}
-                    className="rounded-md border px-3 py-1.5 text-sm"
-                  >
-                    <option value="">Unassigned</option>
-                    {assignableVas.map((va) => (
-                      <option key={va.id} value={va.name}>{va.name}</option>
-                    ))}
-                  </select>
-                </AutoSubmitForm>
+                    placeholder="Unassigned"
+                    options={[{ value: "", label: "Unassigned" }, ...assignableVas.map((va) => ({ value: va.name, label: va.name }))]}
+                    className="rounded-md border px-3 py-1.5 text-left text-sm"
+                  />
+                </div>
               );
             })}
           </div>

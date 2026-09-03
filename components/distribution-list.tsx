@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -150,12 +151,13 @@ export function DistributionList({
   return (
     <div className="space-y-6">
       <form action={addDistributionRow} className="flex flex-wrap items-center gap-2 rounded-md border p-3">
-        <select name="group" required defaultValue="" className="rounded-md border px-2 py-1.5 text-sm">
-          <option value="" disabled>Choose group…</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
-          ))}
-        </select>
+        <Dropdown
+          name="group"
+          required
+          placeholder="Choose group…"
+          options={groups.map((g) => ({ value: g.id, label: g.name }))}
+          className="rounded-md border px-2 py-1.5 text-left text-sm"
+        />
         <Input name="school" placeholder="School name" required className="max-w-xs" />
         <SubmitButton pendingLabel="Adding…">+ Add school</SubmitButton>
       </form>

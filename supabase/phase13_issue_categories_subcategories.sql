@@ -16,6 +16,13 @@ create policy "team members can access issue_categories"
 on issue_categories for all
 using (auth.uid() is not null and is_team_member())
 with check (auth.uid() is not null and is_team_member());
+-- A table's RLS policy alone isn't enough -- Postgres checks the
+-- role's base table grant first, and a fresh table has none for
+-- "authenticated" by default. Every other table in this app grants
+-- this same way (see e.g. phase2/phase9); missed it the first time
+-- around here, which is the actual cause of "permission denied for
+-- table issue_categories" (42501).
+grant select, insert, update, delete on issue_categories to authenticated;
 
 create table if not exists issue_subcategories (
   id text primary key,
@@ -29,6 +36,7 @@ create policy "team members can access issue_subcategories"
 on issue_subcategories for all
 using (auth.uid() is not null and is_team_member())
 with check (auth.uid() is not null and is_team_member());
+grant select, insert, update, delete on issue_subcategories to authenticated;
 
 -- The issue itself just stores the chosen subcategory name as plain
 -- text (same convention "category" already uses, and the same

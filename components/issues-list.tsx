@@ -4,7 +4,8 @@ import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { TONE_CLASSES, OPTION_STYLE, type StatusTone } from "@/components/status-badge";
+import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
+import { StatusSelect } from "@/components/status-select";
 import { Input } from "@/components/ui/input";
 import {
   ISSUE_STATUS_OPTIONS,
@@ -189,23 +190,16 @@ export function AddIssueForm({
   );
 }
 
-function StatusSelect({ issue, setIssueStatus }: { issue: Issue; setIssueStatus: (formData: FormData) => void }) {
+function StatusSelectField({ issue, setIssueStatus }: { issue: Issue; setIssueStatus: (formData: FormData) => void }) {
   return (
-    <AutoSubmitForm action={setIssueStatus}>
-      <input type="hidden" name="id" value={issue.id} />
-      {/* The dropdown itself carries the status color -- not paired
-          with a separate read-only badge showing the same value again. */}
-      <select
-        key={issue.status}
-        name="status"
-        defaultValue={issue.status}
-        className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[ISSUE_STATUS_TONE[issue.status] ?? "neutral"]}`}
-      >
-        {ISSUE_STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s} style={OPTION_STYLE}>{s}</option>
-        ))}
-      </select>
-    </AutoSubmitForm>
+    <StatusSelect
+      action={setIssueStatus}
+      hiddenFields={{ id: issue.id }}
+      value={issue.status}
+      options={ISSUE_STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+      toneClassName={TONE_CLASSES[ISSUE_STATUS_TONE[issue.status] ?? "neutral"]}
+      optionToneClassName={(v) => TONE_CLASSES[ISSUE_STATUS_TONE[v] ?? "neutral"]}
+    />
   );
 }
 
@@ -309,7 +303,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
               <td className="px-2 py-1"><NoteField issue={issue} setIssueNote={setIssueNote} /></td>
               <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
               <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
               <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}
@@ -351,7 +345,7 @@ export function RecordUpdateTable({ issues, currentUserName, currentIsAdmin, set
               <td className="px-2 py-1">{issue.correctingCategory}</td>
               <td className="px-2 py-1">{issue.correctInfo}</td>
               <td className="px-2 py-1">{issue.reportedBy}</td>
-              <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
               <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}
@@ -394,7 +388,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
                 <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                 <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-                <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+                <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
                 <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>
             );
@@ -429,7 +423,7 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
               <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
               <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
               <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
               <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}

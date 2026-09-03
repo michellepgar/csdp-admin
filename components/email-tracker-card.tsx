@@ -1,9 +1,9 @@
 "use client";
 
-import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
-import { TONE_CLASSES, OPTION_STYLE, type StatusTone } from "@/components/status-badge";
+import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
+import { StatusSelect } from "@/components/status-select";
 import { Input } from "@/components/ui/input";
 import { EMAIL_STATUS_OPTIONS, type EmailTrackerItem } from "@/lib/app-state";
 
@@ -58,24 +58,15 @@ export function EmailTrackerCard({
               <div key={e.id} className="flex items-center justify-between gap-2 bg-record-background px-2 py-1">
                 <span className="min-w-0 flex-1 text-sm">{e.description}</span>
                 <div className="flex flex-none items-center gap-2">
-                  <AutoSubmitForm action={setEmailStatus}>
-                    <input type="hidden" name="schoolId" value={schoolId} />
-                    <input type="hidden" name="itemId" value={e.id} />
-                    {/* The dropdown itself carries the status color (was
-                        previously paired with a separate read-only
-                        StatusBadge showing the same value again). */}
-                    <select
-                      key={e.status}
-                      name="status"
-                      defaultValue={e.status}
-                      disabled={!canEdit}
-                      className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[EMAIL_STATUS_TONE[e.status] ?? "neutral"]}`}
-                    >
-                      {EMAIL_STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s} style={OPTION_STYLE}>{s}</option>
-                      ))}
-                    </select>
-                  </AutoSubmitForm>
+                  <StatusSelect
+                    action={setEmailStatus}
+                    hiddenFields={{ schoolId, itemId: e.id }}
+                    value={e.status}
+                    options={EMAIL_STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+                    toneClassName={TONE_CLASSES[EMAIL_STATUS_TONE[e.status] ?? "neutral"]}
+                    optionToneClassName={(v) => TONE_CLASSES[EMAIL_STATUS_TONE[v] ?? "neutral"]}
+                    disabled={!canEdit}
+                  />
                   <DeleteOrRequestControl
                     canDelete={canEdit}
                     idFieldName="itemId"

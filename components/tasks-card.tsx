@@ -5,7 +5,8 @@ import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
-import { StatusBadge, TONE_CLASSES, OPTION_STYLE, type StatusTone } from "@/components/status-badge";
+import { StatusBadge, TONE_CLASSES, type StatusTone } from "@/components/status-badge";
+import { StatusSelect } from "@/components/status-select";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,24 +74,15 @@ function SignAndStatus({
         )}
       </div>
 
-      <AutoSubmitForm action={setStatusAction}>
-        <input type="hidden" name="schoolId" value={schoolId} />
-        <input type="hidden" name="taskId" value={taskId} />
-        {/* The dropdown itself carries the status color now (was
-            previously paired with a separate read-only StatusBadge
-            showing the same value again right next to it). */}
-        <select
-          key={status}
-          name="status"
-          defaultValue={status}
-          disabled={!canEdit}
-          className={`rounded-md border px-1.5 py-0.5 text-xs font-medium ${TONE_CLASSES[TASK_STATUS_TONE[status] ?? "neutral"]}`}
-        >
-          {TASK_STATUS_OPTIONS.map((s) => (
-            <option key={s || "none"} value={s} style={OPTION_STYLE}>{s || "—"}</option>
-          ))}
-        </select>
-      </AutoSubmitForm>
+      <StatusSelect
+        action={setStatusAction}
+        hiddenFields={{ schoolId, taskId }}
+        value={status}
+        options={TASK_STATUS_OPTIONS.map((s) => ({ value: s, label: s || "—" }))}
+        toneClassName={TONE_CLASSES[TASK_STATUS_TONE[status] ?? "neutral"]}
+        optionToneClassName={(v) => TONE_CLASSES[TASK_STATUS_TONE[v] ?? "neutral"]}
+        disabled={!canEdit}
+      />
     </div>
   );
 }

@@ -11,25 +11,6 @@ export const TONE_CLASSES: Record<StatusTone, string> = {
   paused: "bg-status-paused text-status-paused-foreground",
 };
 
-// For a status <select>'s individual <option> elements. Browsers are
-// notoriously inconsistent about an <option> actually inheriting
-// `color`/`background-color` from its parent <select> once the
-// browser's own native dark popup styling (color-scheme: dark) is
-// active -- per-status-colored options (an earlier attempt at this)
-// still came out unreadable in practice. Plain and uniform is the
-// reliable fix instead: every option explicitly dark-background/
-// white-text in dark mode, explicitly white-background/dark-text in
-// light mode, via the theme's own --background/--foreground tokens
-// (which the browser re-resolves live as the theme changes, since
-// these are CSS custom properties, not literal colors) -- so the
-// popup list is always readable, even though it means the options no
-// longer show each status's own color the way the closed select box
-// still does.
-export const OPTION_STYLE: React.CSSProperties = {
-  backgroundColor: "var(--background)",
-  color: "var(--foreground)",
-};
-
 // A colored pill for a status or severity value (e.g. "Pending",
 // "Resolved", "Working On It"). `tone` picks which semantic color
 // token pair to use — see the four status/foreground CSS custom

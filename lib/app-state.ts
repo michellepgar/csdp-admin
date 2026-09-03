@@ -334,6 +334,17 @@ export interface DistributionRow {
   id: string;
   school: string;
   enrolled?: string;
+  /* Plain yes/no -- have this school's packets gone out this year?
+     No other effect; not derived from anything else here. */
+  distributed?: boolean;
+  /* A plain classroom COUNT per type -- e.g. "this school has 17
+     Regular classrooms" -- unrelated to breakdown's classroom-type x
+     language FORMS grid below despite sharing the same three type
+     names (Regular/Launch/CRR). */
+  classroomRegular?: string;
+  classroomLaunch?: string;
+  classroomCrr?: string;
+  consentPackets?: string;
   contactPerson?: string;
   remarks?: string;
   breakdown: Record<string, Record<string, DistributionCell>>;

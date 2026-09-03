@@ -242,6 +242,11 @@ type DistributionRowDbRow = {
   group_id: string;
   school: string;
   enrolled: string | null;
+  distributed: boolean | null;
+  classroom_regular: string | null;
+  classroom_launch: string | null;
+  classroom_crr: string | null;
+  consent_packets: string | null;
   contact_person: string | null;
   remarks: string | null;
   breakdown: Record<string, Record<string, DistributionCell>>;
@@ -252,6 +257,11 @@ function mapDistributionRowDbRow(r: DistributionRowDbRow): DistributionRow {
     id: r.id,
     school: r.school,
     enrolled: r.enrolled ?? undefined,
+    distributed: r.distributed ?? false,
+    classroomRegular: r.classroom_regular ?? undefined,
+    classroomLaunch: r.classroom_launch ?? undefined,
+    classroomCrr: r.classroom_crr ?? undefined,
+    consentPackets: r.consent_packets ?? undefined,
     contactPerson: r.contact_person ?? undefined,
     remarks: r.remarks ?? undefined,
     breakdown: r.breakdown,
@@ -450,7 +460,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("contact_groups").select("id, name").order("sort_order"),
     supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),
     supabase.from("distribution_groups").select("id, name").order("sort_order"),
-    supabase.from("distribution_rows").select("id, group_id, school, enrolled, contact_person, remarks, breakdown").order("sort_order"),
+    supabase.from("distribution_rows").select("id, group_id, school, enrolled, distributed, classroom_regular, classroom_launch, classroom_crr, consent_packets, contact_person, remarks, breakdown").order("sort_order"),
     supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
     supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
     supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, subcategory, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note").order("created_at"),

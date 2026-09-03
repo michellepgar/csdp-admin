@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Dropdown } from "@/components/dropdown";
@@ -17,31 +18,172 @@ import {
   type DistributionRow,
 } from "@/lib/app-state";
 
+/* Three view states per row instead of the usual view/edit toggle --
+   Michelle asked for a separate read-only "Show" (eye icon) alongside
+   Edit (pencil) and Remove (trash), distinct from just relabeling the
+   same action twice. No modal/dialog component exists anywhere in
+   this app yet, so this follows the same expand-the-row-in-place
+   convention every other list here already uses for editing, just
+   with a second, non-editable expanded form. */
+type RowMode = "compact" | "detail" | "edit";
+
+function DistributedCheckbox({
+  rowId,
+  distributed,
+  toggleDistributionRowDistributed,
+}: {
+  rowId: string;
+  distributed: boolean;
+  toggleDistributionRowDistributed: (formData: FormData) => void;
+}) {
+  return (
+    <form action={toggleDistributionRowDistributed}>
+      <input type="hidden" name="rowId" value={rowId} />
+      <input type="hidden" name="distributed" value={String(!distributed)} />
+      <button type="submit" aria-label={distributed ? "Mark as not distributed" : "Mark as distributed"}>
+        <input type="checkbox" checked={distributed} readOnly className="pointer-events-none h-4 w-4" />
+      </button>
+    </form>
+  );
+}
+
 function RowView({
   row,
+  onShowDetail,
   onEdit,
+  toggleDistributionRowDistributed,
+  removeDistributionRow,
 }: {
   row: DistributionRow;
+  onShowDetail: () => void;
   onEdit: () => void;
+  toggleDistributionRowDistributed: (formData: FormData) => void;
+  removeDistributionRow: (formData: FormData) => void;
 }) {
   return (
     <tr className="border-b bg-record-background">
       <td className="px-2 py-2 align-top text-sm font-medium">{row.school}</td>
       <td className="px-2 py-2 align-top text-sm">{row.enrolled || ""}</td>
-      <td className="px-2 py-2 align-top text-sm">{row.contactPerson || ""}</td>
-      {DISTRIBUTION_CLASSROOM_TYPES.map((c) =>
-        DISTRIBUTION_LANGUAGES.map((l) => (
-          <td key={`${c.key}_${l.key}`} className="px-2 py-2 text-center text-sm tabular-nums">
-            {distributionCellForms((row.breakdown[c.key] || {})[l.key]) || ""}
-          </td>
-        ))
-      )}
+      <td className="px-2 py-2 text-center">
+        <DistributedCheckbox rowId={row.id} distributed={!!row.distributed} toggleDistributionRowDistributed={toggleDistributionRowDistributed} />
+      </td>
+      <td className="px-2 py-2 text-center text-sm tabular-nums">{row.classroomRegular || ""}</td>
+      <td className="px-2 py-2 text-center text-sm tabular-nums">{row.classroomLaunch || ""}</td>
+      <td className="px-2 py-2 text-center text-sm tabular-nums">{row.classroomCrr || ""}</td>
+      <td className="px-2 py-2 text-center text-sm tabular-nums">{row.consentPackets || ""}</td>
+      {DISTRIBUTION_LANGUAGES.map((l) => (
+        <td key={l.key} className="px-2 py-2 text-center text-sm tabular-nums">
+          {distributionRowLanguageTotal(row, l.key) || ""}
+        </td>
+      ))}
       <td className="px-2 py-2 text-center text-sm font-semibold tabular-nums">
         {distributionRowTotalForms(row)}
       </td>
+      <td className="px-2 py-2 align-top text-sm">{row.contactPerson || ""}</td>
       <td className="px-2 py-2 align-top text-sm whitespace-pre-wrap">{row.remarks || ""}</td>
       <td className="px-2 py-2 text-right">
-        <Button type="button" variant="link" size="sm" onClick={onEdit}>Edit</Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button type="button" variant="ghost" size="icon-sm" aria-label="Show details" onClick={onShowDetail}>
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label="Edit" onClick={onEdit}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <form action={removeDistributionRow}>
+            <input type="hidden" name="rowId" value={row.id} />
+            <ConfirmDeleteButton
+              confirmMessage={`Remove ${row.school} from the Distribution List?`}
+              pendingLabel="…"
+              variant="ghost"
+              size="icon-sm"
+              title="Remove"
+            >
+              <Trash2 className="h-4 w-4" />
+            </ConfirmDeleteButton>
+          </form>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/* Read-only -- everything RowView shows plus the full classroom-type x
+   language forms breakdown that the compact row only ever shows as
+   three language TOTALS. */
+function RowDetail({
+  row,
+  onDone,
+  onEdit,
+  removeDistributionRow,
+}: {
+  row: DistributionRow;
+  onDone: () => void;
+  onEdit: () => void;
+  removeDistributionRow: (formData: FormData) => void;
+}) {
+  const totalCols = 12 + DISTRIBUTION_LANGUAGES.length;
+  return (
+    <tr className="border-b bg-muted/30">
+      <td colSpan={totalCols} className="p-3">
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
+            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">School</dt><dd>{row.school}</dd></div>
+            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Enrolled</dt><dd>{row.enrolled || "—"}</dd></div>
+            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Distributed</dt><dd>{row.distributed ? "Yes" : "No"}</dd></div>
+            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Number of Consent Packets</dt><dd>{row.consentPackets || "—"}</dd></div>
+            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Contact Person</dt><dd>{row.contactPerson || "—"}</dd></div>
+            <div className="md:col-span-3"><dt className="text-xs font-semibold uppercase text-muted-foreground">Remarks</dt><dd className="whitespace-pre-wrap">{row.remarks || "—"}</dd></div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-[600px] text-sm">
+              <thead>
+                <tr className="text-left text-xs font-semibold uppercase text-muted-foreground">
+                  <th className="px-2 py-1">Number of Classrooms</th>
+                  {DISTRIBUTION_LANGUAGES.map((l) => (
+                    <th key={l.key} className="px-2 py-1 text-center">{l.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {DISTRIBUTION_CLASSROOM_TYPES.map((c) => (
+                  <tr key={c.key} className="border-t">
+                    <td className="px-2 py-1 font-medium">
+                      {c.label}
+                      {c.key === "regular" && row.classroomRegular ? ` (${row.classroomRegular} classrooms)` : ""}
+                      {c.key === "launch" && row.classroomLaunch ? ` (${row.classroomLaunch} classrooms)` : ""}
+                      {c.key === "crr" && row.classroomCrr ? ` (${row.classroomCrr} classrooms)` : ""}
+                    </td>
+                    {DISTRIBUTION_LANGUAGES.map((l) => (
+                      <td key={l.key} className="px-2 py-1 text-center tabular-nums">
+                        {distributionCellForms((row.breakdown[c.key] || {})[l.key]) || ""}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                <tr className="border-t font-semibold">
+                  <td className="px-2 py-1">Total forms distributed</td>
+                  {DISTRIBUTION_LANGUAGES.map((l) => (
+                    <td key={l.key} className="px-2 py-1 text-center tabular-nums">
+                      {distributionRowLanguageTotal(row, l.key)}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onEdit}>Edit</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={onDone}>Close</Button>
+            <form action={removeDistributionRow} className="ml-auto">
+              <input type="hidden" name="rowId" value={row.id} />
+              <ConfirmDeleteButton confirmMessage={`Remove ${row.school} from the Distribution List?`} pendingLabel="…" variant="ghost" size="sm">
+                <Trash2 className="h-4 w-4" />
+              </ConfirmDeleteButton>
+            </form>
+          </div>
+        </div>
       </td>
     </tr>
   );
@@ -60,10 +202,10 @@ function RowEdit({
   updateDistributionRow: (formData: FormData) => void;
   removeDistributionRow: (formData: FormData) => void;
 }) {
-  const totalCols = 3 + DISTRIBUTION_CLASSROOM_TYPES.length * DISTRIBUTION_LANGUAGES.length + 2;
+  const totalCols = 12 + DISTRIBUTION_LANGUAGES.length;
   return (
     <tr className="border-b bg-muted/30">
-      <td colSpan={totalCols + 1} className="p-3">
+      <td colSpan={totalCols} className="p-3">
         <form action={updateDistributionRow} onSubmit={onDone} className="space-y-3">
           <input type="hidden" name="groupId" value={groupId} />
           <input type="hidden" name="rowId" value={row.id} />
@@ -77,8 +219,24 @@ function RowEdit({
               <Input name="enrolled" defaultValue={row.enrolled || ""} />
             </div>
             <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Number of Consent Packets</label>
+              <Input name="consentPackets" defaultValue={row.consentPackets || ""} inputMode="numeric" />
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Contact Person</label>
               <Input name="contactPerson" defaultValue={row.contactPerson || ""} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Regular Classrooms</label>
+              <Input name="classroomRegular" defaultValue={row.classroomRegular || ""} inputMode="numeric" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Launch Classrooms</label>
+              <Input name="classroomLaunch" defaultValue={row.classroomLaunch || ""} inputMode="numeric" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">CRR Classrooms</label>
+              <Input name="classroomCrr" defaultValue={row.classroomCrr || ""} inputMode="numeric" />
             </div>
             <div className="space-y-1 md:col-span-4">
               <label className="text-xs font-medium text-muted-foreground">Remarks</label>
@@ -90,7 +248,7 @@ function RowEdit({
             <table className="min-w-[600px] text-sm">
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase text-muted-foreground">
-                  <th className="px-2 py-1"></th>
+                  <th className="px-2 py-1">Forms distributed, by language</th>
                   {DISTRIBUTION_LANGUAGES.map((l) => (
                     <th key={l.key} className="px-2 py-1 text-center">{l.label}</th>
                   ))}
@@ -118,9 +276,12 @@ function RowEdit({
 
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
-            <ConfirmDeleteButton confirmMessage={`Remove ${row.school} from the Distribution List?`} pendingLabel="…" variant="ghost" formAction={removeDistributionRow}>
-              Remove
-            </ConfirmDeleteButton>
+            <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
+            <div className="ml-auto">
+              <ConfirmDeleteButton confirmMessage={`Remove ${row.school} from the Distribution List?`} pendingLabel="…" variant="ghost" formAction={removeDistributionRow}>
+                <Trash2 className="h-4 w-4" />
+              </ConfirmDeleteButton>
+            </div>
           </div>
         </form>
       </td>
@@ -135,6 +296,7 @@ export function DistributionList({
   removeDistributionGroup,
   addDistributionRow,
   updateDistributionRow,
+  toggleDistributionRowDistributed,
   removeDistributionRow,
 }: {
   groups: DistributionGroup[];
@@ -143,10 +305,15 @@ export function DistributionList({
   removeDistributionGroup: (formData: FormData) => void;
   addDistributionRow: (formData: FormData) => void;
   updateDistributionRow: (formData: FormData) => void;
+  toggleDistributionRowDistributed: (formData: FormData) => void;
   removeDistributionRow: (formData: FormData) => void;
 }) {
-  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [rowModes, setRowModes] = useState<Record<string, RowMode>>({});
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+
+  function setMode(rowId: string, mode: RowMode) {
+    setRowModes((prev) => ({ ...prev, [rowId]: mode }));
+  }
 
   return (
     <div className="space-y-6">
@@ -195,51 +362,81 @@ export function DistributionList({
               </form>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1300px]">
                 <thead>
                   <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-                    <th className="px-2 py-2">School</th>
-                    <th className="px-2 py-2">Enrolled</th>
-                    <th className="px-2 py-2">Contact Person</th>
-                    {DISTRIBUTION_CLASSROOM_TYPES.map((c) =>
-                      DISTRIBUTION_LANGUAGES.map((l) => (
-                        <th key={`${c.key}_${l.key}`} className="px-2 py-2 text-center">
-                          {c.label}
-                          <br />
-                          {l.label}
-                        </th>
-                      ))
-                    )}
-                    <th className="px-2 py-2 text-center">Total</th>
-                    <th className="px-2 py-2">Remarks</th>
-                    <th />
+                    <th className="px-2 py-2" rowSpan={2}>School</th>
+                    <th className="px-2 py-2" rowSpan={2}>Enrolled</th>
+                    <th className="px-2 py-2 text-center" rowSpan={2}>Distributed</th>
+                    <th className="border-l px-2 py-2 text-center" colSpan={DISTRIBUTION_CLASSROOM_TYPES.length}>Number of Classrooms</th>
+                    <th className="border-l px-2 py-2 text-center" rowSpan={2}>
+                      Number of
+                      <br />
+                      Consent Packets
+                    </th>
+                    <th className="border-l px-2 py-2 text-center" colSpan={DISTRIBUTION_LANGUAGES.length}>Languages</th>
+                    <th className="border-l px-2 py-2 text-center" rowSpan={2}>
+                      Total Number of
+                      <br />
+                      Forms Distributed
+                    </th>
+                    <th className="px-2 py-2" rowSpan={2}>Contact Person</th>
+                    <th className="px-2 py-2" rowSpan={2}>Remarks</th>
+                    <th rowSpan={2} />
+                  </tr>
+                  <tr className="border-b bg-title-background text-center text-xs font-semibold uppercase text-muted-foreground">
+                    {DISTRIBUTION_CLASSROOM_TYPES.map((c, i) => (
+                      <th key={c.key} className={`px-2 py-1 ${i === 0 ? "border-l" : ""}`}>{c.label.replace(" Classroom", "").replace(" Classes", "")}</th>
+                    ))}
+                    {DISTRIBUTION_LANGUAGES.map((l, i) => (
+                      <th key={l.key} className={`px-2 py-1 ${i === 0 ? "border-l" : ""}`}>{l.label}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {group.rows.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={3 + DISTRIBUTION_CLASSROOM_TYPES.length * DISTRIBUTION_LANGUAGES.length + 3}
-                        className="px-2 py-4 text-center text-sm text-muted-foreground"
-                      >
+                      <td colSpan={12 + DISTRIBUTION_LANGUAGES.length} className="px-2 py-4 text-center text-sm text-muted-foreground">
                         No schools in this group yet.
                       </td>
                     </tr>
                   )}
-                  {group.rows.map((row) =>
-                    editingRow === row.id ? (
-                      <RowEdit
+                  {group.rows.map((row) => {
+                    const mode = rowModes[row.id] || "compact";
+                    if (mode === "edit") {
+                      return (
+                        <RowEdit
+                          key={row.id}
+                          groupId={group.id}
+                          row={row}
+                          onDone={() => setMode(row.id, "compact")}
+                          updateDistributionRow={updateDistributionRow}
+                          removeDistributionRow={removeDistributionRow}
+                        />
+                      );
+                    }
+                    if (mode === "detail") {
+                      return (
+                        <RowDetail
+                          key={row.id}
+                          row={row}
+                          onDone={() => setMode(row.id, "compact")}
+                          onEdit={() => setMode(row.id, "edit")}
+                          removeDistributionRow={removeDistributionRow}
+                        />
+                      );
+                    }
+                    return (
+                      <RowView
                         key={row.id}
-                        groupId={group.id}
                         row={row}
-                        onDone={() => setEditingRow(null)}
-                        updateDistributionRow={updateDistributionRow}
+                        onShowDetail={() => setMode(row.id, "detail")}
+                        onEdit={() => setMode(row.id, "edit")}
+                        toggleDistributionRowDistributed={toggleDistributionRowDistributed}
                         removeDistributionRow={removeDistributionRow}
                       />
-                    ) : (
-                      <RowView key={row.id} row={row} onEdit={() => setEditingRow(row.id)} />
-                    )
-                  )}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

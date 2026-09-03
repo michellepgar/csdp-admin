@@ -102,11 +102,28 @@ export async function updateDistributionRow(formData: FormData) {
     .from("distribution_rows")
     .update({
       enrolled: (formData.get("enrolled") as string) || "",
+      classroom_regular: (formData.get("classroomRegular") as string) || "",
+      classroom_launch: (formData.get("classroomLaunch") as string) || "",
+      classroom_crr: (formData.get("classroomCrr") as string) || "",
+      consent_packets: (formData.get("consentPackets") as string) || "",
       contact_person: (formData.get("contactPerson") as string) || "",
       remarks: (formData.get("remarks") as string) || "",
       breakdown,
     })
     .eq("id", rowId);
+  orThrow(error);
+  revalidatePath("/distribution-list");
+}
+
+// Instant toggle from the compact row's checkbox -- doesn't touch any
+// other field, unlike updateDistributionRow above which expects the
+// whole breakdown grid every time.
+export async function toggleDistributionRowDistributed(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const rowId = formData.get("rowId") as string;
+  const distributed = formData.get("distributed") === "true";
+
+  const { error } = await supabase.from("distribution_rows").update({ distributed }).eq("id", rowId);
   orThrow(error);
   revalidatePath("/distribution-list");
 }

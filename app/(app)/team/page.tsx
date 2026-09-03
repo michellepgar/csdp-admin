@@ -28,7 +28,6 @@ export default async function TeamPage() {
   if (!me || !isAdmin(me)) redirect("/overview");
 
   const sortedVas = [...state.vas].sort((a, b) => a.name.localeCompare(b.name));
-  const promotableVas = sortedVas.filter((v) => v.name !== SUPERADMIN_NAME && v.role !== "owner");
   // Every VA is assignable to a school, Michelle (role "owner") included --
   // she does fieldwork too, there's no reason school assignment should be
   // the one list that leaves her out.
@@ -119,25 +118,44 @@ export default async function TeamPage() {
             <form> can't wrap a run of table cells without the browser
             silently relocating it out of the table during parsing
             (HTML's table "foster parenting" rule), which would break
-            exactly this "both checkboxes save as one row" behavior. */}
+            exactly this "both checkboxes save as one row" behavior.
+
+            Michelle now shows up in this list too (she used to be
+            excluded entirely) so her access is visible here like
+            everyone else's -- but her Admin box renders `disabled`
+            (a plain visual "this is permanent", can't be unchecked by
+            clicking it) with a hidden input carrying the real "on"
+            value, since a disabled checkbox is left out of form
+            submissions entirely. updateVaAccess also re-asserts this
+            server-side (see app/(app)/team/actions.ts) so a crafted
+            request bypassing this UI still can't remove it either. */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Access</h2>
           <div className="space-y-2">
-            {promotableVas.length === 0 && <p className="text-sm text-muted-foreground">No other VAs yet.</p>}
-            {promotableVas.map((va) => (
-              <AutoSubmitForm key={va.id} action={updateVaAccess} className="flex items-center gap-4 rounded-md border p-2">
-                <input type="hidden" name="id" value={va.id} />
-                <span className="w-32 flex-none font-medium">{va.name}</span>
-                <label className="flex items-center gap-1.5 text-sm">
-                  <input key={String(!!va.admin)} type="checkbox" name="admin" defaultChecked={!!va.admin} />
-                  Admin
-                </label>
-                <label className="flex items-center gap-1.5 text-sm">
-                  <input key={String(!!va.communicationAccess)} type="checkbox" name="communicationAccess" defaultChecked={!!va.communicationAccess} />
-                  Communication
-                </label>
-              </AutoSubmitForm>
-            ))}
+            {sortedVas.map((va) => {
+              const isSuperadmin = va.name === SUPERADMIN_NAME;
+              return (
+                <AutoSubmitForm key={va.id} action={updateVaAccess} className="flex items-center gap-4 rounded-md border p-2">
+                  <input type="hidden" name="id" value={va.id} />
+                  <span className="w-32 flex-none font-medium">{va.name}</span>
+                  <label className="flex items-center gap-1.5 text-sm">
+                    {isSuperadmin && <input type="hidden" name="admin" value="on" />}
+                    <input
+                      key={String(!!va.admin)}
+                      type="checkbox"
+                      name={isSuperadmin ? undefined : "admin"}
+                      defaultChecked={isSuperadmin || !!va.admin}
+                      disabled={isSuperadmin}
+                    />
+                    Admin
+                  </label>
+                  <label className="flex items-center gap-1.5 text-sm">
+                    <input key={String(!!va.communicationAccess)} type="checkbox" name="communicationAccess" defaultChecked={!!va.communicationAccess} />
+                    Communication
+                  </label>
+                </AutoSubmitForm>
+              );
+            })}
           </div>
         </section>
 

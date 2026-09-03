@@ -19,7 +19,7 @@ export default function NotOnTeamPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Your email isn&apos;t on the team list yet. Ask Michelle to add it on the Team page, then try again.
+            Your email isn&apos;t on the team list yet. Contact admin to add it on the Team page, then try again.
           </p>
           <Button className="w-full" onClick={signOut}>Sign out</Button>
         </CardContent>

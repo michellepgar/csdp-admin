@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, isAdmin, type AppState } from "@/lib/app-state";
+import { findVaByEmail, isAdmin, SUPERADMIN_NAME, type AppState } from "@/lib/app-state";
 
 async function requireAdminAndState() {
   const supabase = await createClient();
@@ -98,13 +98,20 @@ export async function setCommunicationEditor(formData: FormData) {
 // present in FormData at all, so its absence (not a "false" value) is
 // what means "off" here.
 export async function updateVaAccess(formData: FormData) {
-  const { supabase } = await requireAdminAndState();
+  const { supabase, state } = await requireAdminAndState();
   const id = formData.get("id") as string;
+  const va = state.vas.find((v) => v.id === id);
+
+  // Michelle's Admin box renders disabled+locked on the page itself, but
+  // that's just UI -- re-asserted here too so a request that skips the
+  // page entirely (a replayed/crafted form submission) still can't strip
+  // her admin access. Same rule as isAdmin()'s own name check.
+  const admin = va?.name === SUPERADMIN_NAME ? true : formData.get("admin") === "on";
 
   const { error } = await supabase
     .from("vas")
     .update({
-      admin: formData.get("admin") === "on",
+      admin,
       communication_access: formData.get("communicationAccess") === "on",
     })
     .eq("id", id);

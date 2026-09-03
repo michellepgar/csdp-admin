@@ -147,33 +147,36 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             Edit on Contacts page
           </Link>
         </div>
-        <div className="space-y-4 p-3">
+        <div className="space-y-3 p-3">
           {/* Website/hours are the one thing still editable here --
               everything else in this card is read-only, edited on the
-              Contacts page instead (see the link above). */}
-          <AutoSubmitForm action={updateSchoolDetails} className="grid gap-3 sm:grid-cols-2">
+              Contacts page instead (see the link above). Label and
+              input share one row (not stacked) to keep this card
+              compact. */}
+          <AutoSubmitForm action={updateSchoolDetails} className="grid gap-2 sm:grid-cols-2">
             <input type="hidden" name="schoolId" value={schoolId} />
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Website</label>
-              <Input key={school.website || ""} name="website" defaultValue={school.website || ""} placeholder="—" className="h-8 text-sm" />
+            <div className="flex items-center gap-2">
+              <label className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Website</label>
+              <Input key={school.website || ""} name="website" defaultValue={school.website || ""} placeholder="—" className="h-7 text-sm" />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Hours</label>
-              <Input key={school.hours || ""} name="hours" defaultValue={school.hours || ""} placeholder="—" className="h-8 text-sm" />
+            <div className="flex items-center gap-2">
+              <label className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Hours</label>
+              <Input key={school.hours || ""} name="hours" defaultValue={school.hours || ""} placeholder="—" className="h-7 text-sm" />
             </div>
           </AutoSubmitForm>
 
           {!contactRow ? (
             <p className="text-sm text-muted-foreground">No contact info on file for this school yet.</p>
           ) : (
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
               {CONTACT_FIELDS.filter((f) => f.key !== "school").map((f) => {
                 const value = contactRow[f.key] || "";
                 const isEmail = f.key.toLowerCase().includes("email");
+                const isNotes = f.key === "notes";
                 return (
-                  <div key={f.key}>
-                    <dt className="text-xs font-semibold uppercase text-muted-foreground">{f.label}</dt>
-                    <dd className="flex items-center gap-1 whitespace-pre-wrap text-sm">
+                  <div key={f.key} className={`flex items-baseline gap-1 text-sm ${isNotes ? "sm:col-span-2 lg:col-span-3" : ""}`}>
+                    <dt className="flex-none text-xs font-semibold uppercase text-muted-foreground">{f.label}:</dt>
+                    <dd className={`flex min-w-0 items-center gap-1 ${isNotes ? "whitespace-pre-wrap" : "truncate"}`}>
                       {value || "—"}
                       {isEmail && value && <CopyButton value={value} />}
                     </dd>

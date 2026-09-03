@@ -144,14 +144,14 @@ function FixSignatures({
           <input type="hidden" name="name" value={name} />
           <span>{name}</span>
           {(name === currentUserName || currentIsAdmin) && (
-            <ConfirmDeleteButton confirmMessage={`Remove ${name}'s fix signature?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
+            <ConfirmDeleteButton confirmMessage={`Remove ${name}'s fix signature?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
           )}
         </form>
       ))}
       {!iSigned && (
         <form action={signIssueFix}>
           <input type="hidden" name="id" value={issue.id} />
-          <SubmitButton pendingLabel="…" variant="outline" size="sm">Fix</SubmitButton>
+          <SubmitButton pendingLabel="…" variant="outline" size="xs">Fix</SubmitButton>
         </form>
       )}
     </div>
@@ -173,7 +173,7 @@ function DeleteIssueButton({
   return (
     <form action={removeIssue}>
       <input type="hidden" name="id" value={issue.id} />
-      <ConfirmDeleteButton confirmMessage="Remove this issue?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
+      <ConfirmDeleteButton confirmMessage="Remove this issue?" pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
     </form>
   );
 }
@@ -203,23 +203,23 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
       <table className="w-full min-w-[700px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-2">Category</th>
-            <th className="px-2 py-2">Description</th>
-            <th className="px-2 py-2">Reported By</th>
-            <th className="px-2 py-2">Date</th>
-            <th className="px-2 py-2">Status</th>
+            <th className="px-2 py-1">Category</th>
+            <th className="px-2 py-1">Description</th>
+            <th className="px-2 py-1">Reported By</th>
+            <th className="px-2 py-1">Date</th>
+            <th className="px-2 py-1">Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {[...issues].reverse().map((issue) => (
             <tr key={issue.id} className="border-b bg-record-background align-top">
-              <td className="px-2 py-2 whitespace-nowrap">{issue.category || "—"}</td>
-              <td className="px-2 py-2">{issue.description}</td>
-              <td className="px-2 py-2 whitespace-nowrap">{issue.reportedBy}</td>
-              <td className="px-2 py-2 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
-              <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+              <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
+              <td className="px-2 py-1">{issue.description}</td>
+              <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+              <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+              <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}
         </tbody>
@@ -235,33 +235,33 @@ export function RecordUpdateTable({ issues, currentUserName, currentIsAdmin, set
       <table className="w-full min-w-[900px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-2">Student</th>
-            <th className="px-2 py-2">DOB</th>
-            <th className="px-2 py-2">Insurance #</th>
-            <th className="px-2 py-2">School Year</th>
-            <th className="px-2 py-2">File</th>
-            <th className="px-2 py-2">Page</th>
-            <th className="px-2 py-2">Correcting</th>
-            <th className="px-2 py-2">Correct Info</th>
-            <th className="px-2 py-2">Reported By</th>
-            <th className="px-2 py-2">Status</th>
+            <th className="px-2 py-1">Student</th>
+            <th className="px-2 py-1">DOB</th>
+            <th className="px-2 py-1">Insurance #</th>
+            <th className="px-2 py-1">School Year</th>
+            <th className="px-2 py-1">File</th>
+            <th className="px-2 py-1">Page</th>
+            <th className="px-2 py-1">Correcting</th>
+            <th className="px-2 py-1">Correct Info</th>
+            <th className="px-2 py-1">Reported By</th>
+            <th className="px-2 py-1">Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {[...issues].reverse().map((issue) => (
             <tr key={issue.id} className="border-b bg-record-background align-top">
-              <td className="px-2 py-2">{issue.studentName}</td>
-              <td className="px-2 py-2 whitespace-nowrap">{fmtDob(issue.dob)}</td>
-              <td className="px-2 py-2">{issue.insuranceNumber}</td>
-              <td className="px-2 py-2">{issue.schoolYear}</td>
-              <td className="px-2 py-2 font-bold">{issue.fileName}</td>
-              <td className="px-2 py-2">{issue.pageNumber}</td>
-              <td className="px-2 py-2">{issue.correctingCategory}</td>
-              <td className="px-2 py-2">{issue.correctInfo}</td>
-              <td className="px-2 py-2">{issue.reportedBy}</td>
-              <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
-              <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+              <td className="px-2 py-1">{issue.studentName}</td>
+              <td className="px-2 py-1 whitespace-nowrap">{fmtDob(issue.dob)}</td>
+              <td className="px-2 py-1">{issue.insuranceNumber}</td>
+              <td className="px-2 py-1">{issue.schoolYear}</td>
+              <td className="px-2 py-1 font-bold">{issue.fileName}</td>
+              <td className="px-2 py-1">{issue.pageNumber}</td>
+              <td className="px-2 py-1">{issue.correctingCategory}</td>
+              <td className="px-2 py-1">{issue.correctInfo}</td>
+              <td className="px-2 py-1">{issue.reportedBy}</td>
+              <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}
         </tbody>
@@ -277,13 +277,13 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
       <table className="w-full min-w-[900px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-2">Kind</th>
-            <th className="px-2 py-2">Student Record</th>
-            <th className="px-2 py-2">Needs</th>
-            <th className="px-2 py-2">Fix</th>
-            <th className="px-2 py-2">Reported By</th>
-            <th className="px-2 py-2">Date</th>
-            <th className="px-2 py-2">Status</th>
+            <th className="px-2 py-1">Kind</th>
+            <th className="px-2 py-1">Student Record</th>
+            <th className="px-2 py-1">Needs</th>
+            <th className="px-2 py-1">Fix</th>
+            <th className="px-2 py-1">Reported By</th>
+            <th className="px-2 py-1">Date</th>
+            <th className="px-2 py-1">Status</th>
             <th />
           </tr>
         </thead>
@@ -297,14 +297,14 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
             ].filter(Boolean).join(", ");
             return (
               <tr key={issue.id} className="border-b bg-record-background align-top">
-                <td className="px-2 py-2 whitespace-nowrap">{issue.correctionKind}</td>
-                <td className="px-2 py-2"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
-                <td className="px-2 py-2">{needs || "—"}</td>
-                <td className="px-2 py-2"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
-                <td className="px-2 py-2 whitespace-nowrap">{issue.reportedBy}</td>
-                <td className="px-2 py-2 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-                <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
-                <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+                <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
+                <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+                <td className="px-2 py-1">{needs || "—"}</td>
+                <td className="px-2 py-1"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
+                <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+                <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+                <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+                <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>
             );
           })}
@@ -321,25 +321,25 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
       <table className="w-full min-w-[900px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-2">Student Record</th>
-            <th className="px-2 py-2">Question</th>
-            <th className="px-2 py-2">Fix</th>
-            <th className="px-2 py-2">Reported By</th>
-            <th className="px-2 py-2">Date</th>
-            <th className="px-2 py-2">Status</th>
+            <th className="px-2 py-1">Student Record</th>
+            <th className="px-2 py-1">Question</th>
+            <th className="px-2 py-1">Fix</th>
+            <th className="px-2 py-1">Reported By</th>
+            <th className="px-2 py-1">Date</th>
+            <th className="px-2 py-1">Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {[...issues].reverse().map((issue) => (
             <tr key={issue.id} className="border-b bg-record-background align-top">
-              <td className="px-2 py-2"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
-              <td className="px-2 py-2">{issue.question}</td>
-              <td className="px-2 py-2"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
-              <td className="px-2 py-2 whitespace-nowrap">{issue.reportedBy}</td>
-              <td className="px-2 py-2 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
-              <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+              <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+              <td className="px-2 py-1">{issue.question}</td>
+              <td className="px-2 py-1"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
+              <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+              <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+              <td className="px-2 py-1"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}
         </tbody>

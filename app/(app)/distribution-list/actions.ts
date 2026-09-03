@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   DISTRIBUTION_CLASSROOM_TYPES,
   DISTRIBUTION_LANGUAGES,
+  type LegacyDistributionCell,
 } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 
@@ -18,6 +19,26 @@ function emptyBreakdown(): Record<string, Record<string, string>> {
     for (const l of DISTRIBUTION_LANGUAGES) out[c.key][l.key] = "";
   }
   return out;
+}
+
+// Full packets/packetSize/loose/extraPackets/extraLoose breakdown per
+// classroom-type x language cell, read from RowEdit's grid of inputs
+// (named e.g. "packets_regular_engSpn").
+function breakdownFromForm(formData: FormData): Record<string, Record<string, LegacyDistributionCell>> {
+  const breakdown: Record<string, Record<string, LegacyDistributionCell>> = {};
+  for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
+    breakdown[c.key] = {};
+    for (const l of DISTRIBUTION_LANGUAGES) {
+      breakdown[c.key][l.key] = {
+        packets: (formData.get(`packets_${c.key}_${l.key}`) as string) || "",
+        packetSize: (formData.get(`packetSize_${c.key}_${l.key}`) as string) || "25",
+        loose: (formData.get(`loose_${c.key}_${l.key}`) as string) || "",
+        extraPackets: (formData.get(`extraPackets_${c.key}_${l.key}`) as string) || "",
+        extraLoose: (formData.get(`extraLoose_${c.key}_${l.key}`) as string) || "",
+      };
+    }
+  }
+  return breakdown;
 }
 
 export async function addDistributionGroup(formData: FormData) {
@@ -90,14 +111,6 @@ export async function updateDistributionRow(formData: FormData) {
   const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
 
-  const breakdown: Record<string, Record<string, string>> = emptyBreakdown();
-  for (const c of DISTRIBUTION_CLASSROOM_TYPES) {
-    for (const l of DISTRIBUTION_LANGUAGES) {
-      const v = formData.get(`cell_${c.key}_${l.key}`);
-      if (v !== null) breakdown[c.key][l.key] = v as string;
-    }
-  }
-
   const { error } = await supabase
     .from("distribution_rows")
     .update({
@@ -108,7 +121,7 @@ export async function updateDistributionRow(formData: FormData) {
       consent_packets: (formData.get("consentPackets") as string) || "",
       contact_person: (formData.get("contactPerson") as string) || "",
       remarks: (formData.get("remarks") as string) || "",
-      breakdown,
+      breakdown: breakdownFromForm(formData),
     })
     .eq("id", rowId);
   orThrow(error);

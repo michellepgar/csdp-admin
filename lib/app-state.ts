@@ -291,12 +291,12 @@ export const DISTRIBUTION_LANGUAGES = [
   { key: "hc", label: "HC" },
 ];
 
-// A cell is normally a plain "forms" string/number in this simplified
-// version. Data carried over from the original HTML app stores each cell
-// as an object instead ({ packets, packetSize, loose, extraPackets,
-// extraLoose }, with automatic packet-size math) — read those too so
-// existing production data doesn't crash the page, and surface them as
-// a single computed forms count.
+// A cell holds the original HTML app's full packets/packetSize/loose/
+// extraPackets/extraLoose breakdown (Michelle asked for that back, see
+// git history) with automatic packet-size math. A brief period of this
+// rewrite stored a single plain "forms" number per cell instead --
+// still read here (as a DistributionCell union member) so that data
+// doesn't crash the page or silently vanish.
 export interface LegacyDistributionCell {
   packets?: string;
   packetSize?: string;
@@ -320,14 +320,22 @@ export function distributionCellForms(cell: DistributionCell): number {
   return packets * packetSize + loose;
 }
 
-// Display value for an editable cell input: legacy object cells show
-// their computed forms count (editing one replaces the packet breakdown
-// with a plain number going forward — a deliberate simplification).
-export function distributionCellDisplay(cell: DistributionCell): string {
-  if (cell === undefined || cell === null) return "";
-  if (!isLegacyDistributionCell(cell)) return String(cell);
-  const forms = distributionCellForms(cell);
-  return forms ? String(forms) : "";
+/* Reads one sub-field of a cell's breakdown for the edit form's
+   individual inputs. A cell saved during the brief plain-number period
+   isn't an object at all -- there's no way to know which of the 4
+   sub-fields those forms should have come from, so it's surfaced as
+   Loose Forms (the only sub-field with no multiplication involved,
+   keeping the computed total exactly what it already was) with
+   everything else starting blank, rather than guessed into Packets. */
+export function distributionCellField(cell: DistributionCell, field: keyof LegacyDistributionCell): string {
+  if (isLegacyDistributionCell(cell)) {
+    const v = cell[field];
+    if (v !== undefined && v !== "") return String(v);
+    return field === "packetSize" ? "25" : "";
+  }
+  if (field === "packetSize") return "25";
+  if (field === "loose") return cell !== undefined && cell !== null && cell !== "" ? String(cell) : "";
+  return "";
 }
 
 export interface DistributionRow {

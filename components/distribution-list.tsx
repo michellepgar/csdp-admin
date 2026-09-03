@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { CalculatorButton } from "@/components/calculator-button";
 import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import {
   distributionRowTotalForms,
   distributionRowLanguageTotal,
   distributionCellForms,
-  distributionCellDisplay,
+  distributionCellField,
   type DistributionGroup,
   type DistributionRow,
 } from "@/lib/app-state";
@@ -189,6 +190,43 @@ function RowDetail({
   );
 }
 
+/* One numeric input + its calculator helper, sharing a ref so
+   CalculatorButton can write straight into the input's DOM value. Used
+   for every numeric field in RowEdit except the ones Michelle
+   specifically excluded (Group, School, Enrolled, Contact Person).
+
+   A plain <input>, not the styled Input component -- confirmed
+   directly that a ref passed to Input never reaches the real DOM node
+   (Base UI's primitive doesn't forward it the way this needed),
+   Same workaround Dropdown's own hidden input already uses for the
+   same reason. Classes copied from Input's own so this still looks
+   identical to every other field in this form. */
+function CalcInput({ name, defaultValue, className }: { name: string; defaultValue: string; className?: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        ref={ref}
+        name={name}
+        defaultValue={defaultValue}
+        inputMode="numeric"
+        className={
+          "h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 " +
+          (className ?? "w-16 text-center")
+        }
+      />
+      <CalculatorButton inputRef={ref} />
+    </div>
+  );
+}
+
+const BREAKDOWN_SUBFIELDS = [
+  { key: "packets" as const, label: "Packets" },
+  { key: "loose" as const, label: "Loose Forms" },
+  { key: "extraPackets" as const, label: "Extra Packets" },
+  { key: "extraLoose" as const, label: "Extra Loose" },
+];
+
 function RowEdit({
   groupId,
   row,
@@ -220,7 +258,7 @@ function RowEdit({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Number of Consent Packets</label>
-              <Input name="consentPackets" defaultValue={row.consentPackets || ""} inputMode="numeric" />
+              <CalcInput name="consentPackets" defaultValue={row.consentPackets || ""} className="w-full text-left" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Contact Person</label>
@@ -228,15 +266,15 @@ function RowEdit({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Regular Classrooms</label>
-              <Input name="classroomRegular" defaultValue={row.classroomRegular || ""} inputMode="numeric" />
+              <CalcInput name="classroomRegular" defaultValue={row.classroomRegular || ""} className="w-full text-left" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Launch Classrooms</label>
-              <Input name="classroomLaunch" defaultValue={row.classroomLaunch || ""} inputMode="numeric" />
+              <CalcInput name="classroomLaunch" defaultValue={row.classroomLaunch || ""} className="w-full text-left" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">CRR Classrooms</label>
-              <Input name="classroomCrr" defaultValue={row.classroomCrr || ""} inputMode="numeric" />
+              <CalcInput name="classroomCrr" defaultValue={row.classroomCrr || ""} className="w-full text-left" />
             </div>
             <div className="space-y-1 md:col-span-4">
               <label className="text-xs font-medium text-muted-foreground">Remarks</label>
@@ -244,32 +282,69 @@ function RowEdit({
             </div>
           </div>
 
+          {/* Packets/packet size/Loose/Extra Packets/Extra Loose per
+              classroom type x language, same shape the original HTML
+              app used (and automatically totals the same way -- see
+              distributionCellForms) -- restored per Michelle's
+              request, having been simplified to one plain number per
+              cell earlier in this rewrite. Every field here gets a
+              calculator button; Michelle only excluded Group/School/
+              Enrolled/Contact Person, which live above, not in this
+              grid. */}
           <div className="overflow-x-auto">
-            <table className="min-w-[600px] text-sm">
+            <table className="min-w-[900px] text-sm">
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase text-muted-foreground">
-                  <th className="px-2 py-1">Forms distributed, by language</th>
-                  {DISTRIBUTION_LANGUAGES.map((l) => (
-                    <th key={l.key} className="px-2 py-1 text-center">{l.label}</th>
+                  <th className="px-2 py-1">Classroom Type</th>
+                  <th className="px-2 py-1">Language</th>
+                  <th className="px-2 py-1">
+                    Packets
+                    <br />
+                    <span className="font-normal normal-case">(size editable)</span>
+                  </th>
+                  {BREAKDOWN_SUBFIELDS.slice(1).map((f) => (
+                    <th key={f.key} className="px-2 py-1">{f.label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {DISTRIBUTION_CLASSROOM_TYPES.map((c) => (
-                  <tr key={c.key}>
-                    <td className="px-2 py-1 text-sm font-medium">{c.label}</td>
-                    {DISTRIBUTION_LANGUAGES.map((l) => (
-                      <td key={l.key} className="px-2 py-1">
-                        <Input
-                          name={`cell_${c.key}_${l.key}`}
-                          defaultValue={distributionCellDisplay((row.breakdown[c.key] || {})[l.key])}
-                          className="w-20 text-center"
-                          inputMode="numeric"
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                {DISTRIBUTION_CLASSROOM_TYPES.flatMap((c) =>
+                  DISTRIBUTION_LANGUAGES.map((l, i) => {
+                    const cell = (row.breakdown[c.key] || {})[l.key];
+                    return (
+                      <tr key={`${c.key}_${l.key}`} className={i === 0 ? "border-t" : ""}>
+                        {i === 0 && (
+                          <td rowSpan={DISTRIBUTION_LANGUAGES.length} className="px-2 py-1 align-top text-sm font-medium">
+                            {c.label}
+                          </td>
+                        )}
+                        <td className="px-2 py-1">{l.label}</td>
+                        <td className="px-2 py-1">
+                          <div className="flex items-center gap-1">
+                            <CalcInput
+                              name={`packets_${c.key}_${l.key}`}
+                              defaultValue={distributionCellField(cell, "packets")}
+                            />
+                            <span className="text-xs text-muted-foreground">×</span>
+                            <CalcInput
+                              name={`packetSize_${c.key}_${l.key}`}
+                              defaultValue={distributionCellField(cell, "packetSize")}
+                              className="w-14 text-center"
+                            />
+                          </div>
+                        </td>
+                        {(["loose", "extraPackets", "extraLoose"] as const).map((field) => (
+                          <td key={field} className="px-2 py-1">
+                            <CalcInput
+                              name={`${field}_${c.key}_${l.key}`}
+                              defaultValue={distributionCellField(cell, field)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

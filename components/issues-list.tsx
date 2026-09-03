@@ -158,117 +158,188 @@ function FixSignatures({
   );
 }
 
-/* What shows in the Details column depends on the issue's type -- the
-   four issue shapes don't share fields, so this is the one place that
-   branches on type rather than having four separate table components. */
-function IssueDetails({ issue }: { issue: Issue }) {
-  if (issue.type === "software_issue") {
-    return (
-      <>
-        {issue.category && <span className="mr-2 rounded-full bg-muted px-2 py-0.5 text-xs">{issue.category}</span>}
-        {issue.description}
-      </>
-    );
-  }
-  if (issue.type === "record_update") {
-    return (
-      <div className="space-y-0.5">
-        <div><span className="font-bold">{issue.fileName}</span>{issue.pageNumber ? ` (p. ${issue.pageNumber})` : ""}</div>
-        <div className="text-xs text-muted-foreground">
-          {issue.studentName && <>Student: {issue.studentName} · </>}
-          {issue.dob && <>DOB: {fmtDob(issue.dob)} · </>}
-          {issue.insuranceNumber && <>Insurance #: {issue.insuranceNumber} · </>}
-          {issue.schoolYear && <>SY: {issue.schoolYear} · </>}
-          {issue.correctingCategory && <>Correcting {issue.correctingCategory}{issue.correctInfo ? ` → ${issue.correctInfo}` : ""}</>}
-        </div>
-      </div>
-    );
-  }
-  if (issue.type === "correction") {
-    const needs = [
-      issue.needsNameCorrection && "Name",
-      issue.needsDobCorrection && "DOB",
-      issue.needsInsuranceCorrection && "Insurance",
-      issue.needsOtherCorrection && (issue.otherCorrectionDetail || "Other"),
-    ].filter(Boolean).join(", ");
-    return (
-      <div className="space-y-0.5">
-        <div>
-          <span className="mr-2 rounded-full bg-muted px-2 py-0.5 text-xs">{issue.correctionKind}</span>
-          <a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a>
-        </div>
-        <div className="text-xs text-muted-foreground">Needs: {needs || "—"}</div>
-      </div>
-    );
-  }
-  // charting
+function DeleteIssueButton({
+  issue,
+  currentUserName,
+  currentIsAdmin,
+  removeIssue,
+}: {
+  issue: Issue;
+  currentUserName: string;
+  currentIsAdmin: boolean;
+  removeIssue: (formData: FormData) => void;
+}) {
+  if (!canDeleteIssue(issue, currentUserName, currentIsAdmin)) return null;
   return (
-    <div className="space-y-0.5">
-      <a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a>
-      <div className="text-xs text-muted-foreground">{issue.question}</div>
-    </div>
+    <form action={removeIssue}>
+      <input type="hidden" name="id" value={issue.id} />
+      <ConfirmDeleteButton confirmMessage="Remove this issue?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
+    </form>
   );
 }
 
-/* One table for every issue type, newest first -- was four separate
-   per-type list/table components before. */
-export function IssuesTable({
-  issues,
-  currentUserName,
-  currentIsAdmin,
-  setIssueStatus,
-  removeIssue,
-  signIssueFix,
-  removeIssueFixSignature,
-}: {
+type TableProps = {
   issues: Issue[];
   currentUserName: string;
   currentIsAdmin: boolean;
   setIssueStatus: (formData: FormData) => void;
   removeIssue: (formData: FormData) => void;
+};
+type FixProps = {
   signIssueFix: (formData: FormData) => void;
   removeIssueFixSignature: (formData: FormData) => void;
-}) {
-  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No issues or concerns reported yet.</p>;
+};
 
-  const sorted = [...issues].reverse();
-  const needsFix = (t: IssueType) => t === "correction" || t === "charting";
+/* Each issue type gets its own table -- the four shapes don't share
+   fields, so a single shared table either loses type-specific columns
+   or crams them into one generic "Details" cell. Separate tables keep
+   every field visible, at the cost of repeating the Reported By/Date/
+   Status/delete columns four times. */
 
+export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue }: TableProps) {
+  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full min-w-[900px] text-sm">
+      <table className="w-full min-w-[700px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-2">Type</th>
-            <th className="px-2 py-2">Details</th>
+            <th className="px-2 py-2">Category</th>
+            <th className="px-2 py-2">Description</th>
             <th className="px-2 py-2">Reported By</th>
             <th className="px-2 py-2">Date</th>
-            <th className="px-2 py-2">Fix</th>
             <th className="px-2 py-2">Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
-          {sorted.map((issue) => (
+          {[...issues].reverse().map((issue) => (
             <tr key={issue.id} className="border-b bg-record-background align-top">
-              <td className="px-2 py-2 whitespace-nowrap">{ISSUE_TYPE_LABELS[issue.type]}</td>
-              <td className="px-2 py-2"><IssueDetails issue={issue} /></td>
+              <td className="px-2 py-2 whitespace-nowrap">{issue.category || "—"}</td>
+              <td className="px-2 py-2">{issue.description}</td>
               <td className="px-2 py-2 whitespace-nowrap">{issue.reportedBy}</td>
               <td className="px-2 py-2 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-2">
-                {needsFix(issue.type) ? (
-                  <FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} />
-                ) : "—"}
-              </td>
               <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
-              <td className="px-2 py-2">
-                {canDeleteIssue(issue, currentUserName, currentIsAdmin) && (
-                  <form action={removeIssue}>
-                    <input type="hidden" name="id" value={issue.id} />
-                    <ConfirmDeleteButton confirmMessage="Remove this issue?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
-                  </form>
-                )}
-              </td>
+              <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function RecordUpdateTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue }: TableProps) {
+  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No record update entries.</p>;
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <table className="w-full min-w-[900px] text-sm">
+        <thead>
+          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+            <th className="px-2 py-2">Student</th>
+            <th className="px-2 py-2">DOB</th>
+            <th className="px-2 py-2">Insurance #</th>
+            <th className="px-2 py-2">School Year</th>
+            <th className="px-2 py-2">File</th>
+            <th className="px-2 py-2">Page</th>
+            <th className="px-2 py-2">Correcting</th>
+            <th className="px-2 py-2">Correct Info</th>
+            <th className="px-2 py-2">Reported By</th>
+            <th className="px-2 py-2">Status</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {[...issues].reverse().map((issue) => (
+            <tr key={issue.id} className="border-b bg-record-background align-top">
+              <td className="px-2 py-2">{issue.studentName}</td>
+              <td className="px-2 py-2 whitespace-nowrap">{fmtDob(issue.dob)}</td>
+              <td className="px-2 py-2">{issue.insuranceNumber}</td>
+              <td className="px-2 py-2">{issue.schoolYear}</td>
+              <td className="px-2 py-2 font-bold">{issue.fileName}</td>
+              <td className="px-2 py-2">{issue.pageNumber}</td>
+              <td className="px-2 py-2">{issue.correctingCategory}</td>
+              <td className="px-2 py-2">{issue.correctInfo}</td>
+              <td className="px-2 py-2">{issue.reportedBy}</td>
+              <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, signIssueFix, removeIssueFixSignature }: TableProps & FixProps) {
+  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <table className="w-full min-w-[900px] text-sm">
+        <thead>
+          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+            <th className="px-2 py-2">Kind</th>
+            <th className="px-2 py-2">Student Record</th>
+            <th className="px-2 py-2">Needs</th>
+            <th className="px-2 py-2">Fix</th>
+            <th className="px-2 py-2">Reported By</th>
+            <th className="px-2 py-2">Date</th>
+            <th className="px-2 py-2">Status</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {[...issues].reverse().map((issue) => {
+            const needs = [
+              issue.needsNameCorrection && "Name",
+              issue.needsDobCorrection && "DOB",
+              issue.needsInsuranceCorrection && "Insurance",
+              issue.needsOtherCorrection && (issue.otherCorrectionDetail || "Other"),
+            ].filter(Boolean).join(", ");
+            return (
+              <tr key={issue.id} className="border-b bg-record-background align-top">
+                <td className="px-2 py-2 whitespace-nowrap">{issue.correctionKind}</td>
+                <td className="px-2 py-2"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+                <td className="px-2 py-2">{needs || "—"}</td>
+                <td className="px-2 py-2"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
+                <td className="px-2 py-2 whitespace-nowrap">{issue.reportedBy}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+                <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+                <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, signIssueFix, removeIssueFixSignature }: TableProps & FixProps) {
+  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <table className="w-full min-w-[900px] text-sm">
+        <thead>
+          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+            <th className="px-2 py-2">Student Record</th>
+            <th className="px-2 py-2">Question</th>
+            <th className="px-2 py-2">Fix</th>
+            <th className="px-2 py-2">Reported By</th>
+            <th className="px-2 py-2">Date</th>
+            <th className="px-2 py-2">Status</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {[...issues].reverse().map((issue) => (
+            <tr key={issue.id} className="border-b bg-record-background align-top">
+              <td className="px-2 py-2"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+              <td className="px-2 py-2">{issue.question}</td>
+              <td className="px-2 py-2"><FixSignatures issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} signIssueFix={signIssueFix} removeIssueFixSignature={removeIssueFixSignature} /></td>
+              <td className="px-2 py-2 whitespace-nowrap">{issue.reportedBy}</td>
+              <td className="px-2 py-2 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+              <td className="px-2 py-2"><StatusSelect issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-2"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}
         </tbody>

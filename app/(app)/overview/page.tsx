@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { checklistCompletion, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,7 +56,13 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Overview</h1>
+      {/* Bigger and set apart from every other page's plain text-2xl
+          h1 on purpose -- this is the dashboard/landing page, Michelle
+          asked for it to stand out from the rest. */}
+      <h1 className="flex items-center gap-2 py-3 text-4xl font-extrabold tracking-tight">
+        <LayoutDashboard className="h-8 w-8" />
+        Overview
+      </h1>
 
       <div>
         <h2 className="mb-3 text-lg font-semibold">Currently Working On</h2>

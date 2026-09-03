@@ -30,6 +30,7 @@ export default async function ContactsPage() {
       <h1 className="text-2xl font-bold">Schools Contact Information</h1>
       <ContactsList
         groups={state.contactGroups || []}
+        schools={state.schools}
         nurseLeader={state.nurseLeader || { name: "", email: "" }}
         otherContacts={state.otherContacts || []}
         addContactGroup={addContactGroup}

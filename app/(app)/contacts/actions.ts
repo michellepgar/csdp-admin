@@ -81,6 +81,28 @@ export async function updateContactRow(formData: FormData) {
 
   const { error } = await supabase.from("contact_rows").update(updates).eq("id", rowId);
   orThrow(error);
+
+  /* Website/hours live on `schools`, not `contact_rows` -- editable
+     from here too (this row's edit form is where Michelle asked for
+     them), but only actually shown on the school's own page, never as
+     a column in this page's table. schoolId is only present when
+     components/contacts-list.tsx found a school whose name matches
+     this row's `school` text (same name-matching this app already
+     relies on elsewhere, e.g. the school page finding its own
+     contact_rows entry) -- a row with no match just doesn't submit it,
+     and nothing here is touched. */
+  const schoolId = formData.get("schoolId") as string | null;
+  if (schoolId) {
+    const website = ((formData.get("website") as string) || "").trim();
+    const hours = ((formData.get("hours") as string) || "").trim();
+    const { error: schoolError } = await supabase
+      .from("schools")
+      .update({ website: website || null, hours: hours || null })
+      .eq("id", schoolId);
+    orThrow(schoolError);
+    revalidatePath(`/schools/${schoolId}`);
+  }
+
   revalidatePath("/contacts");
 }
 

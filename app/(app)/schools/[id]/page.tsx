@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import Link from "next/link";
@@ -65,6 +66,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
     const p = state.checklistProgress[`${schoolId}:${item.id}`];
     if (p) checklistProgressForSchool[item.id] = p;
   }
+
+  const checklistCollapsed = (await cookies()).get("checklist-collapsed")?.value === "1";
 
   const contactRow = (state.contactGroups || [])
     .flatMap((g) => g.rows)
@@ -147,6 +150,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           template={state.checklistTemplate || []}
           progress={checklistProgressForSchool}
           vas={state.vas}
+          initialHidden={checklistCollapsed}
           toggleChecklistItem={toggleChecklistItem}
           addChecklistTemplateItem={addChecklistTemplateItem}
           removeChecklistTemplateItem={removeChecklistTemplateItem}

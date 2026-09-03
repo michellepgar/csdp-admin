@@ -9,11 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { vaColorByName, type ChecklistTemplateItem, type ChecklistProgressEntry, type Va } from "@/lib/app-state";
 
+const COLLAPSED_COOKIE_NAME = "checklist-collapsed";
+
 export function ChecklistCard({
   schoolId,
   template,
   progress,
   vas,
+  initialHidden,
   toggleChecklistItem,
   addChecklistTemplateItem,
   removeChecklistTemplateItem,
@@ -25,13 +28,28 @@ export function ChecklistCard({
      now do so, not just the assigned VA. */
   progress: Record<string, ChecklistProgressEntry>;
   vas: Va[];
+  /* Read server-side from the checklist-collapsed cookie by the
+     caller (app/(app)/schools/[id]/page.tsx) and handed in as the
+     starting value -- same reasoning as the sidebar's own
+     initialCollapsed prop (components/sidebar-shell.tsx): seeding
+     useState from a prop that already reflects the cookie avoids a
+     flash of the wrong (expanded) state on first paint that a
+     client-only localStorage read would cause. This is one shared
+     preference, not scoped per school, matching how the sidebar's own
+     collapse is a single app-wide setting rather than per-page. */
+  initialHidden: boolean;
   toggleChecklistItem: (formData: FormData) => void;
   addChecklistTemplateItem: (formData: FormData) => void;
   removeChecklistTemplateItem: (formData: FormData) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(initialHidden);
   const doneCount = template.filter((t) => progress[t.id]?.status === "Done").length;
+
+  function setHiddenAndRemember(next: boolean) {
+    setHidden(next);
+    document.cookie = `${COLLAPSED_COOKIE_NAME}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
+  }
 
   /* Same collapse pattern as the sidebar (components/sidebar-shell.tsx):
      hidden means the whole panel disappears, replaced by a single small
@@ -44,7 +62,7 @@ export function ChecklistCard({
         type="button"
         variant="ghost"
         size="icon-sm"
-        onClick={() => setHidden(false)}
+        onClick={() => setHiddenAndRemember(false)}
         aria-label="Show Yearly Checklist"
         className="ml-auto border bg-background"
       >
@@ -68,7 +86,7 @@ export function ChecklistCard({
           <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
             {editorOpen ? "Close editor" : "Edit template"}
           </Button>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHidden(true)} aria-label="Hide Yearly Checklist">
+          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

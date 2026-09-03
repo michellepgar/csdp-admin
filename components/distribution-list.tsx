@@ -565,17 +565,27 @@ export function DistributionList({
                     );
                   })}
                 </tbody>
+                {group.rows.length > 0 && (
+                  // Sits directly under the Languages columns (not a
+                  // separate line below the whole table) -- 7 columns
+                  // come before Languages (School/Enrolled/Distributed/
+                  // the 3 classroom columns/Consent Packets), 4 after
+                  // (Total Forms/Contact Person/Remarks/the icon
+                  // column), matching the header's own column count.
+                  <tfoot>
+                    <tr className="border-t bg-title-background/60 text-xs font-semibold text-muted-foreground">
+                      <td colSpan={7} className="px-2 py-2 text-right">Group total</td>
+                      {DISTRIBUTION_LANGUAGES.map((l) => (
+                        <td key={l.key} className="px-2 py-2 text-center tabular-nums">
+                          {group.rows.reduce((sum, r) => sum + distributionRowLanguageTotal(r, l.key), 0)}
+                        </td>
+                      ))}
+                      <td colSpan={4} />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
-            {group.rows.length > 0 && (
-              <div className="flex flex-wrap gap-3 border-t p-3 text-xs text-muted-foreground">
-                {DISTRIBUTION_LANGUAGES.map((l) => (
-                  <span key={l.key}>
-                    {l.label}: {group.rows.reduce((sum, r) => sum + distributionRowLanguageTotal(r, l.key), 0)}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         );
       })}

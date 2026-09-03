@@ -22,6 +22,7 @@ import type {
   NurseLeader,
   EodReport,
   Issue,
+  IssueCategory,
   AccessRequest,
 } from "@/lib/app-state";
 
@@ -285,6 +286,7 @@ type IssueRow = {
   created_at: string;
   description: string | null;
   category: string | null;
+  subcategory: string | null;
   remarks: string | null;
   student_name: string | null;
   dob: string | null;
@@ -315,6 +317,7 @@ function mapIssueRow(r: IssueRow): Issue {
     createdAt: r.created_at,
     description: r.description ?? undefined,
     category: r.category ?? undefined,
+    subcategory: r.subcategory ?? undefined,
     remarks: r.remarks ?? undefined,
     studentName: r.student_name ?? undefined,
     dob: r.dob ?? undefined,
@@ -418,6 +421,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     settingsResult,
     eodReportsResult,
     issuesResult,
+    issueCategoriesResult,
+    issueSubcategoriesResult,
     accessRequestsResult,
     schoolContactsResult,
     otherContactsResult,
@@ -440,7 +445,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("distribution_rows").select("id, group_id, school, enrolled, contact_person, remarks, breakdown").order("sort_order"),
     supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
     supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
-    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note").order("created_at"),
+    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, subcategory, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note").order("created_at"),
+    supabase.from("issue_categories").select("id, name").order("sort_order"),
+    supabase.from("issue_subcategories").select("id, category_id, name").order("sort_order"),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
@@ -465,6 +472,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (settingsResult.error) return null;
   if (eodReportsResult.error) return null;
   if (issuesResult.error) return null;
+  if (issueCategoriesResult.error) return null;
+  if (issueSubcategoriesResult.error) return null;
   if (accessRequestsResult.error) return null;
   if (schoolContactsResult.error) return null;
   if (otherContactsResult.error) return null;
@@ -543,6 +552,16 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   state.eodReports = (eodReportsResult.data || []).map((r) => mapEodReportRow(r as EodReportRow));
 
   state.issues = (issuesResult.data || []).map((r) => mapIssueRow(r as unknown as IssueRow));
+
+  state.issueCategories = (issueCategoriesResult.data || []).map(
+    (c): IssueCategory => ({
+      id: c.id,
+      name: c.name,
+      subcategories: (issueSubcategoriesResult.data || [])
+        .filter((s) => s.category_id === c.id)
+        .map((s) => ({ id: s.id, name: s.name })),
+    })
+  );
   state.accessRequests = (accessRequestsResult.data || []).map((r) => mapAccessRequestRow(r as AccessRequestRow));
 
   state.schoolContacts = {};

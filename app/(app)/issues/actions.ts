@@ -32,7 +32,8 @@ export async function addIssue(formData: FormData) {
       ...baseIssueRow(me, "software_issue"),
       description,
       category: (formData.get("category") as string) || "",
-      remarks: "",
+      subcategory: (formData.get("subcategory") as string) || "",
+      remarks: (formData.get("note") as string) || "",
     });
     orThrow(error);
   } else if (type === "record_update") {
@@ -118,6 +119,83 @@ export async function setIssueFixNote(formData: FormData) {
   const fixNote = (formData.get("fixNote") as string) || "";
 
   const { error } = await supabase.from("issues").update({ fix_note: fixNote }).eq("id", id);
+  orThrow(error);
+  revalidatePath("/issues");
+}
+
+/* Software Issue's own Note (issues.remarks), editable after the fact
+   the same way -- not to be confused with Correction/Charting's Fix
+   note above (a different column, different meaning). */
+export async function setIssueNote(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const id = formData.get("id") as string;
+  const note = (formData.get("note") as string) || "";
+
+  const { error } = await supabase.from("issues").update({ remarks: note }).eq("id", id);
+  orThrow(error);
+  revalidatePath("/issues");
+}
+
+/* ---------- Software Issue Category -> Subcategory list ----------
+   Same pattern as Task Categories/Checklist template: a shared,
+   editable list (not per-school), sort_order backed. */
+
+export async function addIssueCategory(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+
+  const { data: maxRow } = await supabase
+    .from("issue_categories")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase
+    .from("issue_categories")
+    .insert({ id: crypto.randomUUID(), name, sort_order: nextSortOrder });
+  orThrow(error);
+  revalidatePath("/issues");
+}
+
+export async function removeIssueCategory(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const id = formData.get("id") as string;
+
+  const { error } = await supabase.from("issue_categories").delete().eq("id", id);
+  orThrow(error);
+  revalidatePath("/issues");
+}
+
+export async function addIssueSubcategory(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const categoryId = formData.get("categoryId") as string;
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name || !categoryId) return;
+
+  const { data: maxRow } = await supabase
+    .from("issue_subcategories")
+    .select("sort_order")
+    .eq("category_id", categoryId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase
+    .from("issue_subcategories")
+    .insert({ id: crypto.randomUUID(), category_id: categoryId, name, sort_order: nextSortOrder });
+  orThrow(error);
+  revalidatePath("/issues");
+}
+
+export async function removeIssueSubcategory(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const id = formData.get("id") as string;
+
+  const { error } = await supabase.from("issue_subcategories").delete().eq("id", id);
   orThrow(error);
   revalidatePath("/issues");
 }

@@ -14,6 +14,11 @@ import {
   setIssueStatus,
   removeIssue,
   setIssueFixNote,
+  setIssueNote,
+  addIssueCategory,
+  removeIssueCategory,
+  addIssueSubcategory,
+  removeIssueSubcategory,
 } from "./actions";
 
 export default async function IssuesPage() {
@@ -39,11 +44,18 @@ export default async function IssuesPage() {
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">Issues &amp; Concerns</h1>
 
-      <AddIssueForm addIssue={addIssue} />
+      <AddIssueForm
+        addIssue={addIssue}
+        issueCategories={state.issueCategories || []}
+        addIssueCategory={addIssueCategory}
+        removeIssueCategory={removeIssueCategory}
+        addIssueSubcategory={addIssueSubcategory}
+        removeIssueSubcategory={removeIssueSubcategory}
+      />
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Software Issue</h2>
-        <SoftwareIssueTable issues={software} {...tableProps} />
+        <SoftwareIssueTable issues={software} {...tableProps} setIssueNote={setIssueNote} />
       </section>
 
       <section className="space-y-3">

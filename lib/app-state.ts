@@ -242,6 +242,7 @@ export interface AppState {
   taskCategories?: TaskCategory[];
   accessRequests?: AccessRequest[];
   issues?: Issue[];
+  issueCategories?: IssueCategory[];
   distributionGroups?: DistributionGroup[];
 }
 
@@ -336,12 +337,26 @@ export function distributionRowLanguageTotal(row: DistributionRow, langKey: stri
 }
 
 /* ---------- Issues & Concerns ----------
-   Simplified from the HTML app on purpose: fixed fields per type instead
-   of its dynamic per-type "+Field" pool system, and a flat category
-   (just a text value) for Software Issue instead of its nested
-   category/subcategory editor. One shared shape covers all four types;
-   each type only ever reads/writes the fields relevant to it. */
+   Simplified from the HTML app on purpose for record_update/correction/
+   charting: fixed fields per type instead of its dynamic per-type
+   "+Field" pool system. Software Issue's category/subcategory editor
+   was simplified away too at first (a flat text category) but brought
+   back as a real manageable Category -> Subcategory list, same pattern
+   as Task Categories/Checklist template elsewhere in the app. One
+   shared Issue shape covers all four types; each type only ever reads/
+   writes the fields relevant to it. */
 export type IssueType = "software_issue" | "record_update" | "correction" | "charting";
+
+export interface IssueSubcategory {
+  id: string;
+  name: string;
+}
+
+export interface IssueCategory {
+  id: string;
+  name: string;
+  subcategories: IssueSubcategory[];
+}
 
 export const ISSUE_TYPE_LABELS: Record<IssueType, string> = {
   software_issue: "Software Issue",
@@ -363,7 +378,8 @@ export interface Issue {
   // Software issue
   description?: string;
   category?: string;
-  remarks?: string;
+  subcategory?: string;
+  remarks?: string; // "Note" in the UI
   // Record update
   studentName?: string;
   dob?: string;

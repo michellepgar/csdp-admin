@@ -137,43 +137,59 @@ function RowDetail({
             <div className="md:col-span-3"><dt className="text-xs font-semibold uppercase text-muted-foreground">Remarks</dt><dd className="whitespace-pre-wrap">{row.remarks || "—"}</dd></div>
           </div>
 
+          {/* Full Packets/Loose/Extra Packets/Extra Loose breakdown,
+              read-only -- same fields RowEdit's grid edits, Michelle
+              asked for Show to actually reveal them instead of just
+              the computed forms total per cell. */}
           <div className="overflow-x-auto">
-            <table className="min-w-[600px] text-sm">
+            <table className="min-w-[820px] text-sm">
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase text-muted-foreground">
-                  <th className="px-2 py-1">Number of Classrooms</th>
-                  {DISTRIBUTION_LANGUAGES.map((l) => (
-                    <th key={l.key} className="px-2 py-1 text-center">{l.label}</th>
-                  ))}
+                  <th className="px-2 py-1">Classroom Type</th>
+                  <th className="px-2 py-1">Language</th>
+                  <th className="px-2 py-1 text-center">Packets</th>
+                  <th className="px-2 py-1 text-center">Packet Size</th>
+                  <th className="px-2 py-1 text-center">Loose Forms</th>
+                  <th className="px-2 py-1 text-center">Extra Packets</th>
+                  <th className="px-2 py-1 text-center">Extra Loose</th>
+                  <th className="px-2 py-1 text-center">Forms Total</th>
                 </tr>
               </thead>
               <tbody>
-                {DISTRIBUTION_CLASSROOM_TYPES.map((c) => (
-                  <tr key={c.key} className="border-t">
-                    <td className="px-2 py-1 font-medium">
-                      {c.label}
-                      {c.key === "regular" && row.classroomRegular ? ` (${row.classroomRegular} classrooms)` : ""}
-                      {c.key === "launch" && row.classroomLaunch ? ` (${row.classroomLaunch} classrooms)` : ""}
-                      {c.key === "crr" && row.classroomCrr ? ` (${row.classroomCrr} classrooms)` : ""}
-                    </td>
-                    {DISTRIBUTION_LANGUAGES.map((l) => (
-                      <td key={l.key} className="px-2 py-1 text-center tabular-nums">
-                        {distributionCellForms((row.breakdown[c.key] || {})[l.key]) || ""}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                <tr className="border-t font-semibold">
-                  <td className="px-2 py-1">Total forms distributed</td>
-                  {DISTRIBUTION_LANGUAGES.map((l) => (
-                    <td key={l.key} className="px-2 py-1 text-center tabular-nums">
-                      {distributionRowLanguageTotal(row, l.key)}
-                    </td>
-                  ))}
-                </tr>
+                {DISTRIBUTION_CLASSROOM_TYPES.flatMap((c) =>
+                  DISTRIBUTION_LANGUAGES.map((l, i) => {
+                    const cell = (row.breakdown[c.key] || {})[l.key];
+                    const classroomCount =
+                      c.key === "regular" ? row.classroomRegular : c.key === "launch" ? row.classroomLaunch : row.classroomCrr;
+                    return (
+                      <tr key={`${c.key}_${l.key}`} className={i === 0 ? "border-t" : ""}>
+                        {i === 0 && (
+                          <td rowSpan={DISTRIBUTION_LANGUAGES.length} className="px-2 py-1 align-top font-medium">
+                            {c.label}
+                            {classroomCount ? ` (${classroomCount} classrooms)` : ""}
+                          </td>
+                        )}
+                        <td className="px-2 py-1">{l.label}</td>
+                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "packets") || "—"}</td>
+                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "packetSize")}</td>
+                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "loose") || "—"}</td>
+                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "extraPackets") || "—"}</td>
+                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "extraLoose") || "—"}</td>
+                        <td className="px-2 py-1 text-center font-semibold tabular-nums">{distributionCellForms(cell)}</td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
+          <p className="flex flex-wrap gap-3 text-xs font-semibold text-muted-foreground">
+            <span>Total forms distributed:</span>
+            {DISTRIBUTION_LANGUAGES.map((l) => (
+              <span key={l.key}>{l.label}: {distributionRowLanguageTotal(row, l.key)}</span>
+            ))}
+            <span>All: {distributionRowTotalForms(row)}</span>
+          </p>
 
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={onEdit}>Edit</Button>

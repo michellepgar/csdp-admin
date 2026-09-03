@@ -79,7 +79,21 @@ export function Sidebar({
         {/* Bigger and bolder than every other nav link on purpose -- this
             is the home/dashboard link, Michelle asked for it to stand
             out from the rest of the list below it. */}
-        <Link href="/overview" className="flex items-center gap-2 rounded-md px-3 py-2.5 text-base font-bold hover:bg-muted">
+        {/* prefetch={false} on every nav link below: Next.js prefetches
+            every Link visible in the viewport by default, and this
+            sidebar shows all ~11 of them at once on every single page
+            load -- each one is a fully dynamic, auth-gated page that
+            still has to run its own real backend fetch to prefetch
+            anything useful, so that default was quietly firing off ~11
+            extra full page loads in the background on every navigation,
+            competing with the actual page for the browser's connection
+            pool. Confirmed directly in the Network tab: every sidebar
+            link showing its own `?_rsc=` fetch, most matching times
+            similar to what a real navigation is trying to run its
+            course.  Clicking a link still navigates instantly either
+            way -- prefetch only removes a head start that was costing
+            more than it was worth here. */}
+        <Link href="/overview" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2.5 text-base font-bold hover:bg-muted">
           <LayoutDashboard className="h-5 w-5" />
           Overview
         </Link>
@@ -114,6 +128,7 @@ export function Sidebar({
                 <Link
                   key={s.id}
                   href={`/schools/${s.id}`}
+                  prefetch={false}
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
                   style={color ? { color } : undefined}
                 >
@@ -155,37 +170,37 @@ export function Sidebar({
         )}
 
         <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">My Space</div>
-        <Link href="/private-notes" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/private-notes" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <Lock className="h-4 w-4" />
           Private Notes
         </Link>
 
         <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>
-        <Link href="/notes" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/notes" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <Megaphone className="h-4 w-4" />
           General Notes/Announcements
         </Link>
-        <Link href="/issues" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/issues" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <AlertTriangle className="h-4 w-4" />
           Issues &amp; Concerns
         </Link>
-        <Link href="/eod" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/eod" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <Clock className="h-4 w-4" />
           EOD Reports
         </Link>
-        <Link href="/contacts" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/contacts" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <Contact className="h-4 w-4" />
           Schools Contact Information
         </Link>
-        <Link href="/distribution-list" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/distribution-list" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <Send className="h-4 w-4" />
           Distribution List
         </Link>
-        <Link href="/templates" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/templates" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <Mail className="h-4 w-4" />
           Email Templates
         </Link>
-        <Link href="/suggestions" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+        <Link href="/suggestions" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
           <MessageSquarePlus className="h-4 w-4" />
           Suggestions
         </Link>
@@ -193,12 +208,13 @@ export function Sidebar({
         {isAdmin && (
           <>
             <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Admin</div>
-            <Link href="/team" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+            <Link href="/team" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
               <Users className="h-4 w-4" />
               Team
             </Link>
             <Link
               href="/admin-settings"
+              prefetch={false}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
             >
               <ShieldAlert className="h-4 w-4" />

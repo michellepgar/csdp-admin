@@ -178,6 +178,19 @@ export interface NurseLeader {
   email: string;
 }
 
+/* Same nine contact fields as CONTACT_FIELDS below, but paired up by
+   position (name + its email) for UI that needs to keep each pair
+   together -- see app/(app)/schools/[id]/page.tsx's Contact Info card
+   for why that matters. CONTACT_FIELDS itself stays flat because the
+   Contacts page's table renders one column per field, where pairing
+   doesn't apply. */
+export const CONTACT_POSITION_GROUPS: { nameKey: keyof ContactRow; emailKey: keyof ContactRow; label: string }[] = [
+  { nameKey: "principal", emailKey: "principalEmail", label: "Principal" },
+  { nameKey: "asstPrincipal", emailKey: "asstPrincipalEmail", label: "Asst Principal" },
+  { nameKey: "frontDesk", emailKey: "frontDeskEmail", label: "Front Desk" },
+  { nameKey: "nurseName", emailKey: "nurseEmail", label: "Nurse" },
+];
+
 export const CONTACT_FIELDS: { key: keyof ContactRow; label: string }[] = [
   { key: "school", label: "School" },
   { key: "principal", label: "Principal" },

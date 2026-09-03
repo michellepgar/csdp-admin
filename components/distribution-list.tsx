@@ -340,10 +340,14 @@ function RowEdit({
                               defaultValue={distributionCellField(cell, "packets")}
                             />
                             <span className="text-xs text-muted-foreground">×</span>
-                            <CalcInput
+                            {/* No calculator here -- packet size is a
+                                single multiplier (usually just 25),
+                                not a list of numbers to add up. */}
+                            <Input
                               name={`packetSize_${c.key}_${l.key}`}
                               defaultValue={distributionCellField(cell, "packetSize")}
                               className="w-14 text-center"
+                              inputMode="numeric"
                             />
                           </div>
                         </td>

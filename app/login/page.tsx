@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,28 +15,78 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [canResend, setCanResend] = useState(false);
+  const [resent, setResent] = useState(false);
+
+  /* Supabase redirects a confirmation/reset link straight back here
+     with the outcome in the URL's hash fragment (not a normal query
+     param) -- an expired/already-used link lands as
+     #error=access_denied&error_code=otp_expired&error_description=...
+     with no page of ours in between to show something friendlier.
+     Turn that into a plain message + a way to actually recover
+     (request a new link) instead of leaving a raw error hash in the
+     address bar. */
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || !hash.includes("error=")) return;
+    const params = new URLSearchParams(hash.slice(1));
+    const code = params.get("error_code");
+    const description = params.get("error_description");
+    if (code === "otp_expired") {
+      setError("That link expired before it was clicked. Enter your email below and request a new one.");
+      setCanResend(true);
+    } else if (description) {
+      setError(description.replace(/\+/g, " "));
+    }
+    // Clear the hash so refreshing/sharing the URL doesn't repeat this.
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setCanResend(false);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); return; }
+    if (error) {
+      setError(error.message);
+      if (error.message.toLowerCase().includes("email not confirmed")) setCanResend(true);
+      return;
+    }
     window.location.href = "/overview";
   }
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setCanResend(false);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) { setError(error.message); return; }
+    if (error) {
+      setError(error.message);
+      if (error.message.toLowerCase().includes("already registered")) {
+        setCanResend(true);
+        setError("An account already exists for this email but isn't confirmed yet. Request a new confirmation link below.");
+      }
+      return;
+    }
     if (!data.session) {
       setMode("signin");
       setMessage("Account created — check your email to confirm it, then sign in here.");
       return;
     }
     window.location.href = "/overview";
+  }
+
+  async function handleResendConfirmation() {
+    setError(null);
+    setResent(false);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error) { setError(error.message); return; }
+    setCanResend(false);
+    setResent(true);
+    setMessage("Confirmation email sent — check your inbox (and spam folder), then click it right away before it expires.");
   }
 
   async function handleForgotPassword(e: React.FormEvent) {
@@ -85,6 +135,11 @@ export default function LoginPage() {
               <Button type="submit" className="w-full">
                 {mode === "signup" ? "Create account" : "Sign in"}
               </Button>
+              {canResend && (
+                <Button type="button" variant="outline" className="w-full" onClick={handleResendConfirmation}>
+                  Resend confirmation email
+                </Button>
+              )}
               {mode === "signin" && (
                 <Button type="button" variant="link" className="w-full" onClick={() => setMode("forgot")}>
                   Forgot your password?

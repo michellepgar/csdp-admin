@@ -134,9 +134,13 @@ function RowView({
   );
 }
 
-/* Read-only -- everything RowView shows plus the full classroom-type x
-   language forms breakdown that the compact row only ever shows as
-   three language TOTALS. */
+/* Read-only -- just the full classroom-type x language Packets/Loose/
+   Extra breakdown that the compact row only ever shows as three
+   language TOTALS. Everything else (School/Enrolled/Distributed/
+   Consent Packets/Contact Person/Remarks, and the per-language/grand
+   totals) used to repeat here too, but Michelle pointed out all of it
+   is already visible on the compact row right above -- this is only
+   for the one thing that ISN'T. */
 function RowDetail({
   row,
   onDone,
@@ -153,19 +157,6 @@ function RowDetail({
     <tr className="border-b bg-muted/30">
       <td colSpan={totalCols} className="p-3">
         <div className="space-y-3 text-sm">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-4">
-            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">School</dt><dd>{row.school}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Enrolled</dt><dd>{row.enrolled || "—"}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Distributed</dt><dd>{row.distributed ? "Yes" : "No"}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Number of Consent Packets</dt><dd>{row.consentPackets || "—"}</dd></div>
-            <div><dt className="text-xs font-semibold uppercase text-muted-foreground">Contact Person</dt><dd>{row.contactPerson || "—"}</dd></div>
-            <div className="md:col-span-3"><dt className="text-xs font-semibold uppercase text-muted-foreground">Remarks</dt><dd className="whitespace-pre-wrap">{row.remarks || "—"}</dd></div>
-          </div>
-
-          {/* Full Packets/Loose/Extra Packets/Extra Loose breakdown,
-              read-only -- same fields RowEdit's grid edits, Michelle
-              asked for Show to actually reveal them instead of just
-              the computed forms total per cell. */}
           <div className="overflow-x-auto">
             <table className="min-w-[820px] text-sm">
               <thead>
@@ -208,13 +199,6 @@ function RowDetail({
               </tbody>
             </table>
           </div>
-          <p className="flex flex-wrap gap-3 text-xs font-semibold text-muted-foreground">
-            <span>Total forms distributed:</span>
-            {DISTRIBUTION_LANGUAGES.map((l) => (
-              <span key={l.key}>{l.label}: {distributionRowLanguageTotal(row, l.key)}</span>
-            ))}
-            <span>All: {distributionRowTotalForms(row)}</span>
-          </p>
 
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={onEdit}>Edit</Button>

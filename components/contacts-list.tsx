@@ -135,7 +135,6 @@ export function ContactsList({
   schools,
   nurseLeader,
   otherContacts,
-  addContactGroup,
   renameContactGroup,
   removeContactGroup,
   updateContactRow,
@@ -149,7 +148,6 @@ export function ContactsList({
   schools: School[];
   nurseLeader: NurseLeader;
   otherContacts: OtherContact[];
-  addContactGroup: (formData: FormData) => void;
   renameContactGroup: (formData: FormData) => void;
   removeContactGroup: (formData: FormData) => void;
   updateContactRow: (formData: FormData) => void;
@@ -165,13 +163,12 @@ export function ContactsList({
 
   return (
     <div className="space-y-6">
-      <form action={addContactGroup} className="flex items-center gap-2">
-        <Input name="name" placeholder="New group name" required className="max-w-xs" />
-        <SubmitButton pendingLabel="Adding…">+ Add group</SubmitButton>
-      </form>
-
-      {/* Below "+ Add group", above every school group -- Michelle
-          asked for this order specifically. */}
+      {/* No manual "+ Add group" here anymore -- Michelle asked for it
+          gone since a group is already created automatically the
+          moment a school is added with that group picked (see
+          createSchool/findOrCreateGroupByName in
+          app/(app)/layout-actions.ts), so a separate manual path was
+          redundant. */}
       <div className="rounded-md border p-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium">Nurse Leader</span>

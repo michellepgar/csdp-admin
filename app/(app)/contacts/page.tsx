@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { ContactsList } from "@/components/contacts-list";
 import {
-  addContactGroup,
   renameContactGroup,
   removeContactGroup,
   updateContactRow,
@@ -36,7 +35,6 @@ export default async function ContactsPage() {
           schools={state.schools}
           nurseLeader={state.nurseLeader || { name: "", email: "" }}
           otherContacts={state.otherContacts || []}
-          addContactGroup={addContactGroup}
           renameContactGroup={renameContactGroup}
           removeContactGroup={removeContactGroup}
           updateContactRow={updateContactRow}

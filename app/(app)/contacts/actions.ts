@@ -24,25 +24,12 @@ const CONTACT_FIELD_TO_COLUMN: Record<keyof ContactRow, string> = {
   notes: "notes",
 };
 
-export async function addContactGroup(formData: FormData) {
-  const { supabase } = await requireTeamMember();
-  const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
-
-  const { data: maxRow } = await supabase
-    .from("contact_groups")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
-
-  const { error } = await supabase
-    .from("contact_groups")
-    .insert({ id: crypto.randomUUID(), name, sort_order: nextSortOrder });
-  orThrow(error);
-  revalidatePath("/contacts");
-}
+/* No manual "add group" action here anymore -- a group is created
+   automatically the moment a school is added with that group picked
+   (see createSchool/findOrCreateGroupByName in
+   app/(app)/layout-actions.ts), so a separate manual path was
+   removed as redundant per Michelle's request. renameContactGroup/
+   removeContactGroup below still apply to whatever groups exist. */
 
 export async function renameContactGroup(formData: FormData) {
   const { supabase } = await requireTeamMember();

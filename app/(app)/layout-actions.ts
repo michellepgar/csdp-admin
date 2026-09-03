@@ -124,10 +124,13 @@ async function createSchool(
 }
 
 /* Any signed-in team member can add a school (not admin-only),
-   matching addContactGroup/addDistributionGroup elsewhere in this
-   app. Contacts/Distribution List rows are added automatically when a
-   group is picked; contact-person details, website, and hours are
-   filled in later, anytime, on the school's own page. */
+   matching addDistributionGroup elsewhere in this app. Contacts/
+   Distribution List rows (and their group, if it doesn't already
+   exist) are created automatically when a group is picked here --
+   the only way a Contacts group gets created at all now, since its
+   own manual "+ Add group" was removed as redundant. Contact-person
+   details, website, and hours are filled in later, anytime, on the
+   school's own page. */
 export async function addSchool(formData: FormData) {
   const { supabase } = await requireTeamMember();
 

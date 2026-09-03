@@ -60,10 +60,17 @@ export function Sidebar({
 
   return (
     <aside className="flex w-64 flex-none flex-col border-r bg-background">
-      <div className="flex items-center justify-between gap-2 border-b p-4">
+      {/* bg-header-background + text-white -- Michelle asked for the
+          header bar's color to reach all the way over into the
+          sidebar's own top corner too, not stop at its right edge.
+          text-white on the row itself (not just the logo) so the
+          theme-toggle/collapse icons inherit a color that actually
+          contrasts, same reasoning as h1's own white text against
+          this background elsewhere. */}
+      <div className="flex items-center justify-between gap-2 bg-header-background p-4 text-white">
         <div>
-          <div className="text-lg font-bold text-primary">CSDP Tracker</div>
-          <div className="mt-1 text-sm text-muted-foreground" style={myColor ? { color: myColor } : undefined}>
+          <div className="text-lg font-bold">CSDP Tracker</div>
+          <div className="mt-1 text-sm text-white/80" style={myColor ? { color: myColor } : undefined}>
             {currentName}
           </div>
         </div>

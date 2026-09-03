@@ -55,7 +55,7 @@ export function IconTooltip({
             <div
               role="tooltip"
               style={{ top: rect.top + rect.height / 2, left: rect.right + 10 }}
-              className="animate-in fade-in-0 zoom-in-95 slide-in-from-left-1 pointer-events-none fixed z-50 -translate-y-1/2 rounded-md border bg-popover px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-popover-foreground shadow-lg duration-150"
+              className="animate-in fade-in-0 zoom-in-95 slide-in-from-left-1 pointer-events-none fixed z-50 -translate-y-1/2 rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-primary-foreground shadow-lg duration-150"
             >
               {label}
             </div>,

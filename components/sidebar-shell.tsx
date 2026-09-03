@@ -158,8 +158,19 @@ export function SidebarShell({
           intended. The floating "show sidebar" buttons below no
           longer need reserved top padding either -- they now simply
           float on top of the header bar, which starts at main's very
-          top edge. */}
-      <main className="min-w-0 flex-1">{children}</main>
+          top edge.
+
+          The inner div exists only to key page transitions -- Michelle
+          asked for some effect when a new page opens. `key={pathname}`
+          makes React unmount/remount this div on every route change
+          (even between two pages that'd otherwise render structurally
+          similar JSX), which restarts the fade/rise animation from
+          scratch each time instead of it only playing once ever. */}
+      <main className="min-w-0 flex-1">
+        <div key={pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

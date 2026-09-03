@@ -90,8 +90,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-header-background py-3 pr-4 pl-12 sm:pr-6 md:pr-8">
         <div className="min-w-0 flex-1">
           <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            VA assigned: <span className="font-medium text-foreground">{sd.vaAssigned || "Unassigned"}</span>
+          {/* text-white/80 (not text-muted-foreground) -- this sits on
+              the same bold teal bg-header-background as the white h1
+              text above it, where a soft gray reads as barely-visible
+              instead of intentionally de-emphasized. */}
+          <p className="mt-1 text-sm text-white/80">
+            VA assigned: <span className="font-medium text-white">{sd.vaAssigned || "Unassigned"}</span>
           </p>
         </div>
         <div className="flex flex-none items-center gap-3">

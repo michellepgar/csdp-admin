@@ -32,7 +32,12 @@ export function RemoveSchoolControl({
   }
 
   return (
-    <form action={removeSchool} className="flex flex-col items-end gap-2 rounded-md border p-2 text-sm">
+    // bg-background (not transparent) -- this panel sits on the
+    // school page's bg-header-background title row, which is now a
+    // bold teal (see app/globals.css); without its own opaque
+    // background, this panel's own muted-foreground text would render
+    // directly on that teal instead of a neutral surface.
+    <form action={removeSchool} className="flex flex-col items-end gap-2 rounded-md border bg-background p-2 text-sm">
       <input type="hidden" name="schoolId" value={schoolId} />
       <p className="text-right text-xs text-muted-foreground">
         Also remove {schoolName}&apos;s entries on Contacts and Distribution List?

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact } from "@/lib/app-state";
@@ -19,7 +20,7 @@ function ContactRowView({
   onEdit: () => void;
 }) {
   return (
-    <tr className="border-b">
+    <tr className="border-b bg-record-background">
       {CONTACT_FIELDS.map((f) => (
         <td key={f.key} className="px-2 py-2 align-top text-sm whitespace-pre-wrap">
           {row[f.key] || ""}
@@ -75,9 +76,9 @@ function ContactRowEdit({
           </div>
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
-            <SubmitButton pendingLabel="…" variant="ghost" formAction={removeContactRow}>
+            <ConfirmDeleteButton confirmMessage={`Remove ${row.school || "this row"} from Schools Contact Information?`} pendingLabel="…" variant="ghost" formAction={removeContactRow}>
               Remove
-            </SubmitButton>
+            </ConfirmDeleteButton>
           </div>
         </form>
       </td>
@@ -170,13 +171,13 @@ export function ContactsList({
             )}
             <form action={removeContactGroup}>
               <input type="hidden" name="id" value={group.id} />
-              <SubmitButton pendingLabel="…" variant="ghost" size="sm">Remove group</SubmitButton>
+              <ConfirmDeleteButton confirmMessage={`Remove the "${group.name}" group and all its schools from Contacts?`} pendingLabel="…" variant="ghost" size="sm">Remove group</ConfirmDeleteButton>
             </form>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
               <thead>
-                <tr className="border-b bg-muted/50 text-left text-xs font-semibold uppercase text-muted-foreground">
+                <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
                   {CONTACT_FIELDS.map((f) => (
                     <th key={f.key} className="px-2 py-2">{f.label}</th>
                   ))}

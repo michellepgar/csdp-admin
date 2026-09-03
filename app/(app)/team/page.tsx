@@ -4,6 +4,7 @@ import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Input } from "@/components/ui/input";
 import {
   addVa,
@@ -51,7 +52,7 @@ export default async function TeamPage() {
                 </span>
                 <form action={removeVa}>
                   <input type="hidden" name="id" value={va.id} />
-                  <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+                  <ConfirmDeleteButton confirmMessage={`Remove ${va.name} from the team?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                 </form>
               </div>
             ))}

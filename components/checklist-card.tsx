@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +60,7 @@ export function ChecklistCard({
     // schools/[id]/page.tsx) takes whatever this leaves. ml-auto docks
     // it to the row's right edge explicitly.
     <div className="ml-auto w-fit max-w-full rounded-md border sm:max-w-xs">
-      <div className="flex items-center justify-between gap-2 border-b bg-header-background p-3">
+      <div className="flex items-center justify-between gap-2 border-b bg-title-background p-3">
         <h2 className="font-semibold whitespace-nowrap">
           Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{doneCount}/{template.length}</span>}
         </h2>
@@ -81,7 +82,7 @@ export function ChecklistCard({
                   <span>{item.description}</span>
                   <form action={removeChecklistTemplateItem}>
                     <input type="hidden" name="id" value={item.id} />
-                    <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+                    <ConfirmDeleteButton confirmMessage={`Remove "${item.description}" from the checklist for every school?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                   </form>
                 </div>
               ))}
@@ -100,7 +101,7 @@ export function ChecklistCard({
             const entry = progress[item.id];
             const done = entry?.status === "Done";
             return (
-              <form key={item.id} action={toggleChecklistItem} className="flex items-center gap-2">
+              <form key={item.id} action={toggleChecklistItem} className="flex items-center gap-2 rounded-md bg-record-background px-2 py-1">
                 <input type="hidden" name="schoolId" value={schoolId} />
                 <input type="hidden" name="itemId" value={item.id} />
                 <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"}>

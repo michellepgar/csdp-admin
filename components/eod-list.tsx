@@ -37,7 +37,7 @@ function TableView({ list }: { list: EodReport[] }) {
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full min-w-[800px] text-sm">
         <thead>
-          <tr className="border-b bg-muted/50 text-left text-xs font-semibold uppercase text-muted-foreground">
+          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
             <th className="px-2 py-2">VA</th>
             <th className="px-2 py-2">Date</th>
             <th className="px-2 py-2">In</th>
@@ -53,7 +53,7 @@ function TableView({ list }: { list: EodReport[] }) {
             <tr><td colSpan={8} className="px-2 py-4 text-center text-muted-foreground">No EOD reports yet.</td></tr>
           )}
           {list.map((e) => (
-            <tr key={e.id} className="border-b">
+            <tr key={e.id} className="border-b bg-record-background">
               <td className="px-2 py-2">{e.author || "Unnamed"}</td>
               <td className="px-2 py-2">{fmtEodDate(e.date)}</td>
               <td className="px-2 py-2">{fmtTime12(e.timeIn)}</td>

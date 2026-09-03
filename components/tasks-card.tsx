@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { DeleteOrRequestControl } from "@/components/delete-or-request-control";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { SignatureChip } from "@/components/signature-chip";
@@ -60,7 +61,7 @@ function SignAndStatus({
             <input type="hidden" name="taskId" value={taskId} />
             <input type="hidden" name="vaName" value={name} />
             <SignatureChip name={name} color={vaColorByName(vas, name)} small />
-            <SubmitButton pendingLabel="…" variant="ghost" size="xs">✕</SubmitButton>
+            <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
           </form>
         ))}
         {!iSigned && (
@@ -100,13 +101,11 @@ function TaskRow({
   vas,
   canEdit,
   currentUserName,
-  hasPendingRemovalRequest,
   setTaskStatus,
   setTaskCount,
   signTask,
   removeVaFromTask,
   removeTask,
-  requestRemoval,
   setCommsStatus,
   signComms,
   removeVaFromComms,
@@ -116,13 +115,11 @@ function TaskRow({
   vas: Va[];
   canEdit: boolean;
   currentUserName: string;
-  hasPendingRemovalRequest: boolean;
   setTaskStatus: (formData: FormData) => void;
   setTaskCount: (formData: FormData) => void;
   signTask: (formData: FormData) => void;
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
-  requestRemoval: (formData: FormData) => void;
   setCommsStatus: (formData: FormData) => void;
   signComms: (formData: FormData) => void;
   removeVaFromComms: (formData: FormData) => void;
@@ -131,7 +128,7 @@ function TaskRow({
   const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(task.category);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-1 py-1">
+    <div className="flex flex-wrap items-center gap-3 bg-record-background px-1 py-1">
       {/* Count comes first (fixed width, so it lines up row to row),
           then the file name gets whatever space is left and wraps
           rather than truncating -- file names run long sometimes.
@@ -192,14 +189,11 @@ function TaskRow({
 
         <DeleteOrRequestControl
           canDelete={canEdit}
-          hasPendingRequest={hasPendingRemovalRequest}
-          recordKind="task"
           idFieldName="taskId"
           schoolId={schoolId}
           targetId={task.id}
           label={`task "${task.fileName}"`}
           removeAction={removeTask}
-          requestAction={requestRemoval}
         />
       </div>
     </div>
@@ -213,7 +207,6 @@ export function TasksCard({
   vas,
   canEdit,
   currentUserName,
-  pendingRemovalRequestIds,
   noRecheck,
   addTask,
   setTaskStatus,
@@ -221,7 +214,6 @@ export function TasksCard({
   signTask,
   removeVaFromTask,
   removeTask,
-  requestRemoval,
   addTaskCategory,
   removeTaskCategory,
   setCommsStatus,
@@ -235,7 +227,6 @@ export function TasksCard({
   vas: Va[];
   canEdit: boolean;
   currentUserName: string;
-  pendingRemovalRequestIds: string[];
   noRecheck: boolean;
   addTask: (formData: FormData) => void;
   setTaskStatus: (formData: FormData) => void;
@@ -243,7 +234,6 @@ export function TasksCard({
   signTask: (formData: FormData) => void;
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
-  requestRemoval: (formData: FormData) => void;
   addTaskCategory: (formData: FormData) => void;
   removeTaskCategory: (formData: FormData) => void;
   setCommsStatus: (formData: FormData) => void;
@@ -254,7 +244,6 @@ export function TasksCard({
   const [editorOpen, setEditorOpen] = useState(false);
   const catNames = categories.map((c) => c.name);
   const openCount = tasks.filter((t) => t.status !== "Completed").length;
-  const pendingSet = new Set(pendingRemovalRequestIds);
   const inProgressCount = tasks.filter((t) => t.status === "In Progress").length;
   const pausedCount = tasks.filter((t) => t.status === "Paused").length;
   const completedCount = tasks.filter((t) => t.status === "Completed").length;
@@ -269,7 +258,6 @@ export function TasksCard({
     signTask,
     removeVaFromTask,
     removeTask,
-    requestRemoval,
     setCommsStatus,
     signComms,
     removeVaFromComms,
@@ -277,7 +265,7 @@ export function TasksCard({
 
   return (
     <div className="rounded-md border">
-      <div className="flex items-center justify-between border-b bg-header-background p-3">
+      <div className="flex items-center justify-between border-b bg-title-background p-3">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold">
             Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}
@@ -299,7 +287,7 @@ export function TasksCard({
                 <span>{c.name}</span>
                 <form action={removeTaskCategory}>
                   <input type="hidden" name="id" value={c.id} />
-                  <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+                  <ConfirmDeleteButton confirmMessage={`Remove the "${c.name}" category? Existing files keep this category name.`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                 </form>
               </div>
             ))}
@@ -344,7 +332,7 @@ export function TasksCard({
                 <p className="text-xs text-muted-foreground">No files yet in this category.</p>
               ) : (
                 <div className="divide-y rounded-md border">
-                  {items.map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)}
+                  {items.map((t) => <TaskRow key={t.id} task={t} {...rowProps} />)}
                 </div>
               )}
             </div>
@@ -355,7 +343,7 @@ export function TasksCard({
           <div className="space-y-2">
             <div className="text-sm font-medium">Other</div>
             <div className="divide-y rounded-md border">
-              {tasks.filter((t) => !catNames.includes(t.category)).map((t) => <TaskRow key={t.id} task={t} hasPendingRemovalRequest={pendingSet.has(t.id)} {...rowProps} />)}
+              {tasks.filter((t) => !catNames.includes(t.category)).map((t) => <TaskRow key={t.id} task={t} {...rowProps} />)}
             </div>
           </div>
         )}

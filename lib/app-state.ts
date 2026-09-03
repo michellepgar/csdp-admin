@@ -343,6 +343,13 @@ export function distributionRowLanguageTotal(row: DistributionRow, langKey: stri
    each type only ever reads/writes the fields relevant to it. */
 export type IssueType = "software_issue" | "record_update" | "correction" | "charting";
 
+export const ISSUE_TYPE_LABELS: Record<IssueType, string> = {
+  software_issue: "Software Issue",
+  record_update: "Record Update",
+  correction: "Correction/Verification",
+  charting: "Charting Question",
+};
+
 export const ISSUE_STATUS_OPTIONS = ["Pending", "Resolved"];
 export const CORRECTION_CATEGORIES = ["Name", "Date of Birth", "Insurance Number", "Grade", "School Year", "Other"];
 export const CORRECTION_KINDS = ["Correction", "Verification"];
@@ -384,6 +391,21 @@ export interface Issue {
 export function canDeleteIssue(issue: Issue, currentName: string, currentIsAdmin: boolean): boolean {
   if (currentIsAdmin) return true;
   return issue.reportedBy === currentName;
+}
+
+const MONTH_ABBREV = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/* Record Update's Date of Birth field, formatted Mmm-dd-yyyy (e.g.
+   "Jan-05-2024") for display -- stored/submitted as a plain ISO
+   yyyy-mm-dd string from the native date input either way. */
+export function fmtDob(iso?: string): string {
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  const mi = parseInt(parts[1], 10) - 1;
+  if (mi < 0 || mi > 11 || isNaN(mi)) return iso;
+  const day = parts[2].padStart(2, "0");
+  return `${MONTH_ABBREV[mi]}-${day}-${parts[0]}`;
 }
 
 /* ---------- EOD Reports: pure date/time helpers, same logic as the

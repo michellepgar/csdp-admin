@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,7 +24,7 @@ function RowView({
   onEdit: () => void;
 }) {
   return (
-    <tr className="border-b">
+    <tr className="border-b bg-record-background">
       <td className="px-2 py-2 align-top text-sm font-medium">{row.school}</td>
       <td className="px-2 py-2 align-top text-sm">{row.enrolled || ""}</td>
       <td className="px-2 py-2 align-top text-sm">{row.contactPerson || ""}</td>
@@ -116,9 +117,9 @@ function RowEdit({
 
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
-            <SubmitButton pendingLabel="…" variant="ghost" formAction={removeDistributionRow}>
+            <ConfirmDeleteButton confirmMessage={`Remove ${row.school} from the Distribution List?`} pendingLabel="…" variant="ghost" formAction={removeDistributionRow}>
               Remove
-            </SubmitButton>
+            </ConfirmDeleteButton>
           </div>
         </form>
       </td>
@@ -188,13 +189,13 @@ export function DistributionList({
               )}
               <form action={removeDistributionGroup}>
                 <input type="hidden" name="id" value={group.id} />
-                <SubmitButton pendingLabel="…" variant="ghost" size="sm">Remove group</SubmitButton>
+                <ConfirmDeleteButton confirmMessage={`Remove the "${group.name}" group and all its schools from the Distribution List?`} pendingLabel="…" variant="ghost" size="sm">Remove group</ConfirmDeleteButton>
               </form>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
                 <thead>
-                  <tr className="border-b bg-muted/50 text-left text-xs font-semibold uppercase text-muted-foreground">
+                  <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
                     <th className="px-2 py-2">School</th>
                     <th className="px-2 py-2">Enrolled</th>
                     <th className="px-2 py-2">Contact Person</th>

@@ -50,6 +50,8 @@
   --color-status-paused: var(--status-paused);
   --color-status-paused-foreground: var(--status-paused-foreground);
   --color-header-background: var(--header-background);
+  --color-title-background: var(--title-background);
+  --color-record-background: var(--record-background);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -102,12 +104,17 @@
   --status-neutral-foreground: oklch(0.372 0.044 257.287);
   --status-paused: oklch(0.954 0.038 75.164);
   --status-paused-foreground: oklch(0.553 0.195 38.402);
-  /* A pale wash of --primary's own hue -- deliberately colored (not a
-     near-white neutral like --muted) so a header's background is
-     visibly distinct from the plain page background behind it, with
-     enough lightness gap from --primary for the header text to stay
-     legible sitting on top of it. */
-  --header-background: oklch(0.95 0.03 223.128);
+  /* A three-step wash of --primary's own hue, each step a little
+     further from the plain page background than the last -- so the
+     three levels read as a clear hierarchy (page header, most
+     prominent > section title, medium > an individual record's row,
+     most subtle) rather than three unrelated colors. All three stay
+     colored (not a near-white neutral like --muted) and keep enough
+     lightness gap from --primary for text sitting on top to stay
+     legible. */
+  --header-background: oklch(0.85 0.06 223.128);
+  --title-background: oklch(0.9 0.045 223.128);
+  --record-background: oklch(0.965 0.02 223.128);
 }
 
 .dark {
@@ -152,7 +159,9 @@
   --status-neutral-foreground: oklch(0.869 0.022 252.894);
   --status-paused: oklch(0.408 0.123 38.172);
   --status-paused-foreground: oklch(0.75 0.183 55.934);
-  --header-background: oklch(0.279 0.08 211.53);
+  --header-background: oklch(0.32 0.1 211.53);
+  --title-background: oklch(0.245 0.085 211.53);
+  --record-background: oklch(0.17 0.05 211.53);
 }
 
 @layer base {
@@ -170,21 +179,23 @@
      grepping app/ and components/). Keep it that way: an h1/h2 added
      for pure document-outline/SEO purposes elsewhere would silently
      pick up the brand accent color too. Both get a visibly-colored
-     background (--header-background, a pale wash of --primary's hue,
-     not the plain page background -- that read as "no color at all"
-     against a white page), block-level so it spans the full row it
-     sits in rather than just hugging the text. Where a heading shares
-     its row with other controls (a button, badges) and so can't
-     stretch itself full-width as a flex item, the row's own container
-     div carries this same bg-header-background class too -- see e.g.
-     tasks-card.tsx, email-tracker-card.tsx. h1 additionally stays
-     pinned to the top of the page while the rest of it scrolls
-     beneath -- z-10 plus the opaque background so scrolled content
-     doesn't show through underneath it. */
+     background, block-level so it spans the full row it sits in
+     rather than just hugging the text -- h1 uses --header-background
+     (the most prominent of the three record/title/header levels, see
+     the tokens above) and h2 the medium --title-background, so a page
+     title reads as a clear step above a section heading. Where a
+     heading shares its row with other controls (a button, badges) and
+     so can't stretch itself full-width as a flex item, the row's own
+     container div carries the matching bg-header-background/
+     bg-title-background class too -- see e.g. tasks-card.tsx,
+     email-tracker-card.tsx. h1 additionally stays pinned to the top of
+     the page while the rest of it scrolls beneath -- z-10 plus the
+     opaque background so scrolled content doesn't show through
+     underneath it. */
   h1 {
     @apply text-primary sticky top-0 z-10 block bg-header-background px-3 py-1.5;
   }
   h2 {
-    @apply text-primary block bg-header-background px-2 py-1;
+    @apply text-primary block bg-title-background px-2 py-1;
   }
 }

@@ -19,27 +19,22 @@ export function EmailTrackerCard({
   schoolId,
   items,
   canEdit,
-  pendingRemovalRequestIds,
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
-  requestRemoval,
 }: {
   schoolId: string;
   items: EmailTrackerItem[];
   canEdit: boolean;
-  pendingRemovalRequestIds: string[];
   addEmailItem: (formData: FormData) => void;
   setEmailStatus: (formData: FormData) => void;
   removeEmailItem: (formData: FormData) => void;
-  requestRemoval: (formData: FormData) => void;
 }) {
   const sorted = [...items].reverse();
-  const pendingSet = new Set(pendingRemovalRequestIds);
 
   return (
     <div id="email-tracker" className="scroll-mt-20 rounded-md border">
-      <div className="flex items-center gap-2 border-b bg-header-background p-3">
+      <div className="flex items-center gap-2 border-b bg-title-background p-3">
         <h2 className="font-semibold">Email Tracker</h2>
       </div>
       <div className="space-y-3 p-3">
@@ -60,7 +55,7 @@ export function EmailTrackerCard({
         {sorted.length > 0 && (
           <div className="divide-y rounded-md border">
             {sorted.map((e) => (
-              <div key={e.id} className="flex items-center justify-between gap-2 px-2 py-1">
+              <div key={e.id} className="flex items-center justify-between gap-2 bg-record-background px-2 py-1">
                 <span className="min-w-0 flex-1 text-sm">{e.description}</span>
                 <div className="flex flex-none items-center gap-2">
                   <AutoSubmitForm action={setEmailStatus}>
@@ -81,14 +76,11 @@ export function EmailTrackerCard({
                   </AutoSubmitForm>
                   <DeleteOrRequestControl
                     canDelete={canEdit}
-                    hasPendingRequest={pendingSet.has(e.id)}
-                    recordKind="email-item"
                     idFieldName="itemId"
                     schoolId={schoolId}
                     targetId={e.id}
                     label={`email "${e.description}"`}
                     removeAction={removeEmailItem}
-                    requestAction={requestRemoval}
                   />
                 </div>
               </div>

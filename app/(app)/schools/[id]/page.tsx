@@ -25,7 +25,6 @@ import {
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
-  requestRemoval,
   updateSchoolDetails,
   removeSchool,
   removeSchoolAndContacts,
@@ -61,10 +60,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
   const contactRow = (state.contactGroups || [])
     .flatMap((g) => g.rows)
     .find((r) => r.school.trim().toLowerCase() === school.name.trim().toLowerCase());
-
-  const myPendingRequestTargetIds = (state.accessRequests || [])
-    .filter((r) => r.schoolId === schoolId && r.requestedBy === me.name && r.status === "pending")
-    .map((r) => r.targetId);
 
   return (
     <div className="space-y-6">
@@ -110,7 +105,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             vas={state.vas}
             canEdit={canEdit}
             currentUserName={me.name}
-            pendingRemovalRequestIds={myPendingRequestTargetIds}
             noRecheck={!!school.noRecheck}
             addTask={addTask}
             setTaskStatus={setTaskStatus}
@@ -118,7 +112,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             signTask={signTask}
             removeVaFromTask={removeVaFromTask}
             removeTask={removeTask}
-            requestRemoval={requestRemoval}
             addTaskCategory={addTaskCategory}
             removeTaskCategory={removeTaskCategory}
             setCommsStatus={setCommsStatus}
@@ -142,15 +135,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         schoolId={schoolId}
         items={sd.emailTracker || []}
         canEdit={canEdit}
-        pendingRemovalRequestIds={myPendingRequestTargetIds}
         addEmailItem={addEmailItem}
         setEmailStatus={setEmailStatus}
         removeEmailItem={removeEmailItem}
-        requestRemoval={requestRemoval}
       />
 
       <div className="rounded-md border">
-        <div className="flex items-center justify-between border-b bg-header-background p-3">
+        <div className="flex items-center justify-between border-b bg-title-background p-3">
           <h2 className="font-semibold">Contact Info</h2>
           <Link href="/contacts" className="text-sm text-primary underline underline-offset-2">
             Edit on Contacts page

@@ -1,6 +1,7 @@
 "use client";
 
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import type { GeneralNote } from "@/lib/app-state";
 
 /* A note's id paired with whether the current viewer is allowed to
@@ -44,7 +45,7 @@ export function GeneralNotesList({
         return (
           <div
             key={n.id}
-            className={`rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : ""}`}
+            className={`rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : "bg-record-background"}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -69,7 +70,7 @@ export function GeneralNotesList({
                 {deletableIds.has(n.id) && (
                   <form action={removeGeneralNote}>
                     <input type="hidden" name="id" value={n.id} />
-                    <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+                    <ConfirmDeleteButton confirmMessage="Remove this note?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                   </form>
                 )}
               </div>

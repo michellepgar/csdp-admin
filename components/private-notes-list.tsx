@@ -2,6 +2,7 @@
 
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import type { PrivateNote } from "@/lib/app-state";
 
 function formatDateTime(iso: string) {
@@ -42,7 +43,7 @@ export function PrivateNotesList({
         const notYetSharedWith = shareableVas.filter((name) => name !== n.author && !sharedWith.includes(name));
 
         return (
-          <div key={n.id} className="rounded-md border p-3">
+          <div key={n.id} className="rounded-md border bg-record-background p-3">
             <p className="text-sm whitespace-pre-wrap">{n.text}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {n.author} · {formatDateTime(n.createdAt)}
@@ -59,7 +60,7 @@ export function PrivateNotesList({
                       {name}
                       {ackBy.includes(name) ? " ✓" : ""}
                     </span>
-                    <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+                    <ConfirmDeleteButton confirmMessage={`Stop sharing this note with ${name}?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                   </form>
                 ))}
               </div>
@@ -86,7 +87,7 @@ export function PrivateNotesList({
               {(isAuthor || isSharedWithMe) && (
                 <form action={removePrivateNote}>
                   <input type="hidden" name="id" value={n.id} />
-                  <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+                  <ConfirmDeleteButton confirmMessage="Remove this note?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                 </form>
               )}
             </div>

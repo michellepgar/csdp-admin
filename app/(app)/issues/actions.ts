@@ -17,74 +17,69 @@ function baseIssueRow(me: { name: string }, type: Issue["type"]) {
   };
 }
 
-export async function addSoftwareIssue(formData: FormData) {
+/* One Add Issue form covers all four types now -- the fields shown
+   depend on the "type" the reporter picked, but they all submit here.
+   Each branch keeps exactly the same required-field/insert shape the
+   old per-type action had. */
+export async function addIssue(formData: FormData) {
   const { supabase, me } = await requireTeamMember();
-  const description = ((formData.get("description") as string) || "").trim();
-  if (!description) return;
+  const type = (formData.get("type") as string) || "";
 
-  const { error } = await supabase.from("issues").insert({
-    ...baseIssueRow(me, "software_issue"),
-    description,
-    category: (formData.get("category") as string) || "",
-    remarks: "",
-  });
-  orThrow(error);
-  revalidatePath("/issues");
-}
+  if (type === "software_issue") {
+    const description = ((formData.get("description") as string) || "").trim();
+    if (!description) return;
+    const { error } = await supabase.from("issues").insert({
+      ...baseIssueRow(me, "software_issue"),
+      description,
+      category: (formData.get("category") as string) || "",
+      remarks: "",
+    });
+    orThrow(error);
+  } else if (type === "record_update") {
+    const fileName = ((formData.get("fileName") as string) || "").trim();
+    if (!fileName) return;
+    const { error } = await supabase.from("issues").insert({
+      ...baseIssueRow(me, "record_update"),
+      student_name: (formData.get("studentName") as string) || "",
+      dob: (formData.get("dob") as string) || "",
+      insurance_number: (formData.get("insuranceNumber") as string) || "",
+      school_year: (formData.get("schoolYear") as string) || "",
+      file_name: fileName,
+      page_number: (formData.get("pageNumber") as string) || "",
+      correcting_category: (formData.get("correctingCategory") as string) || "",
+      correct_info: (formData.get("correctInfo") as string) || "",
+    });
+    orThrow(error);
+  } else if (type === "correction") {
+    const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
+    if (!studentRecordLink) return;
+    const { error } = await supabase.from("issues").insert({
+      ...baseIssueRow(me, "correction"),
+      correction_kind: (formData.get("correctionKind") as string) || "Correction",
+      student_record_link: studentRecordLink,
+      needs_name_correction: !!formData.get("needsNameCorrection"),
+      needs_dob_correction: !!formData.get("needsDobCorrection"),
+      needs_insurance_correction: !!formData.get("needsInsuranceCorrection"),
+      needs_other_correction: !!formData.get("needsOtherCorrection"),
+      other_correction_detail: (formData.get("otherCorrectionDetail") as string) || "",
+      fixed_by: [],
+    });
+    orThrow(error);
+  } else if (type === "charting") {
+    const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
+    const question = ((formData.get("question") as string) || "").trim();
+    if (!studentRecordLink || !question) return;
+    const { error } = await supabase.from("issues").insert({
+      ...baseIssueRow(me, "charting"),
+      student_record_link: studentRecordLink,
+      question,
+      fixed_by: [],
+    });
+    orThrow(error);
+  } else {
+    return;
+  }
 
-export async function addRecordUpdate(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
-  const fileName = ((formData.get("fileName") as string) || "").trim();
-  if (!fileName) return;
-
-  const { error } = await supabase.from("issues").insert({
-    ...baseIssueRow(me, "record_update"),
-    student_name: (formData.get("studentName") as string) || "",
-    dob: (formData.get("dob") as string) || "",
-    insurance_number: (formData.get("insuranceNumber") as string) || "",
-    school_year: (formData.get("schoolYear") as string) || "",
-    file_name: fileName,
-    page_number: (formData.get("pageNumber") as string) || "",
-    correcting_category: (formData.get("correctingCategory") as string) || "",
-    correct_info: (formData.get("correctInfo") as string) || "",
-  });
-  orThrow(error);
-  revalidatePath("/issues");
-}
-
-export async function addCorrection(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
-  const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
-  if (!studentRecordLink) return;
-
-  const { error } = await supabase.from("issues").insert({
-    ...baseIssueRow(me, "correction"),
-    correction_kind: (formData.get("correctionKind") as string) || "Correction",
-    student_record_link: studentRecordLink,
-    needs_name_correction: !!formData.get("needsNameCorrection"),
-    needs_dob_correction: !!formData.get("needsDobCorrection"),
-    needs_insurance_correction: !!formData.get("needsInsuranceCorrection"),
-    needs_other_correction: !!formData.get("needsOtherCorrection"),
-    other_correction_detail: (formData.get("otherCorrectionDetail") as string) || "",
-    fixed_by: [],
-  });
-  orThrow(error);
-  revalidatePath("/issues");
-}
-
-export async function addCharting(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
-  const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
-  const question = ((formData.get("question") as string) || "").trim();
-  if (!studentRecordLink || !question) return;
-
-  const { error } = await supabase.from("issues").insert({
-    ...baseIssueRow(me, "charting"),
-    student_record_link: studentRecordLink,
-    question,
-    fixed_by: [],
-  });
-  orThrow(error);
   revalidatePath("/issues");
 }
 

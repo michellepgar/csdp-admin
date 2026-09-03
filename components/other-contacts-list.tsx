@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { OtherContact } from "@/lib/app-state";
 
 function OtherContactView({ contact, onEdit }: { contact: OtherContact; onEdit: () => void }) {
   return (
-    <tr className="border-b">
+    <tr className="border-b bg-record-background">
       <td className="px-2 py-2 text-sm">{contact.name}</td>
       <td className="px-2 py-2 text-sm">{contact.organization || ""}</td>
       <td className="px-2 py-2 text-sm">{contact.email || ""}</td>
@@ -61,9 +62,9 @@ function OtherContactEdit({
           </div>
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
-            <SubmitButton pendingLabel="…" variant="ghost" formAction={removeOtherContact}>
+            <ConfirmDeleteButton confirmMessage={`Remove ${contact.name}?`} pendingLabel="…" variant="ghost" formAction={removeOtherContact}>
               Remove
-            </SubmitButton>
+            </ConfirmDeleteButton>
           </div>
         </form>
       </td>
@@ -105,7 +106,7 @@ export function OtherContactsList({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>
-              <tr className="border-b bg-muted/50 text-left text-xs font-semibold uppercase text-muted-foreground">
+              <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
                 <th className="px-2 py-2">Name</th>
                 <th className="px-2 py-2">Organization</th>
                 <th className="px-2 py-2">Email</th>

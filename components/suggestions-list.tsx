@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import type { Suggestion } from "@/lib/app-state";
@@ -63,7 +64,7 @@ export function SuggestionsList({
         const list = sorted.filter((s) => s.status === status);
         return (
           <section key={status} className="space-y-2">
-            <div className="flex items-center gap-2 rounded-md bg-header-background px-2 py-1">
+            <div className="flex items-center gap-2 rounded-md bg-title-background px-2 py-1">
               <h2 className="text-lg font-semibold">{status}</h2>
               <StatusBadge tone={STATUS_TONE[status]}>{list.length}</StatusBadge>
             </div>
@@ -71,7 +72,7 @@ export function SuggestionsList({
             {list.map((s) => {
               const canDelete = s.author === currentUserName || !teamNames.includes(s.author);
               return (
-                <div key={s.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                <div key={s.id} className="flex items-start justify-between gap-3 rounded-md border bg-record-background p-3">
                   <div>
                     <p className="text-sm">{s.text}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -92,7 +93,7 @@ export function SuggestionsList({
                     {canDelete && (
                       <form action={removeSuggestion}>
                         <input type="hidden" name="id" value={s.id} />
-                        <SubmitButton pendingLabel="…" variant="ghost" size="sm">✕</SubmitButton>
+                        <ConfirmDeleteButton confirmMessage="Remove this suggestion?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
                       </form>
                     )}
                   </div>

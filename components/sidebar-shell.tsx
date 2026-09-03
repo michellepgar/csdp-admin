@@ -167,9 +167,16 @@ export function SidebarShell({
           every route change (even between two pages that'd otherwise
           render structurally similar JSX), which restarts the fade/
           slide animation from scratch each time instead of it only
-          playing once ever. */}
+          playing once ever. A longer duration (500ms) with a
+          decelerate-then-settle curve (an "ease-out-quint" shape, not
+          Tailwind's built-in ease-out, which cuts off more abruptly)
+          reads as smoother than the original snappier 300ms version --
+          confirmed directly by comparing both mid-animation. */}
       <main className="min-w-0 flex-1">
-        <div key={pathname} className="animate-in fade-in slide-in-from-left-4 duration-300 ease-out">
+        <div
+          key={pathname}
+          className="animate-in fade-in slide-in-from-left-3 duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        >
           {children}
         </div>
       </main>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import { DownloadBackupButton } from "@/components/download-backup-button";
 import { SubmitButton } from "@/components/submit-button";
 import { restoreBackup, resetAllTasks } from "./actions";
@@ -18,7 +19,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Backup &amp; School Year</h1>
+      <PageHeader title="Backup & School Year" userName={me.name} />
 
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-lg font-semibold">Backup &amp; Restore</h2>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin, canDeleteGeneralNote } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import { GeneralNotesList } from "@/components/general-notes-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addGeneralNote, ackGeneralNote, removeGeneralNote } from "./actions";
@@ -22,7 +23,7 @@ export default async function NotesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">General Notes/Announcements</h1>
+      <PageHeader title="General Notes/Announcements" userName={me.name} />
 
       <form action={addGeneralNote} className="space-y-2 max-w-lg">
         <textarea

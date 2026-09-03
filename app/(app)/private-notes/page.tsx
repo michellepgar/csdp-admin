@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, visiblePrivateNotes } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import { PrivateNotesList } from "@/components/private-notes-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addPrivateNote, sharePrivateNote, unsharePrivateNote, ackPrivateNote, removePrivateNote } from "./actions";
@@ -20,7 +21,7 @@ export default async function PrivateNotesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Private Notes</h1>
+      <PageHeader title="Private Notes" userName={me.name} />
 
       <form action={addPrivateNote} className="space-y-2 max-w-lg">
         <textarea

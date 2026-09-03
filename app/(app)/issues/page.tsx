@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import {
   AddIssueForm,
   SoftwareIssueTable,
@@ -40,7 +41,7 @@ export default async function IssuesPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Issues &amp; Concerns</h1>
+      <PageHeader title="Issues & Concerns" userName={me.name} />
 
       <AddIssueForm
         addIssue={addIssue}

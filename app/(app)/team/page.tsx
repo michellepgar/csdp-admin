@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin, SUPERADMIN_NAME } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { SubmitButton } from "@/components/submit-button";
@@ -32,7 +33,7 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl font-bold">Team</h1>
+      <PageHeader title="Team" userName={me.name} />
 
       <div className="space-y-8">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">VAs</div>

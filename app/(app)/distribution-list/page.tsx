@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import { DistributionList } from "@/components/distribution-list";
 import {
   addDistributionGroup,
@@ -24,7 +25,7 @@ export default async function DistributionListPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Distribution List</h1>
+      <PageHeader title="Distribution List" userName={me.name} />
       <DistributionList
         groups={state.distributionGroups || []}
         addDistributionGroup={addDistributionGroup}

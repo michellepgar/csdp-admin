@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import { EodList } from "@/components/eod-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addEodReport } from "./actions";
@@ -22,7 +23,7 @@ export default async function EodPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">EOD Reports</h1>
+      <PageHeader title="EOD Reports" userName={me.name} />
 
       <form action={addEodReport} className="space-y-2 rounded-md border p-3">
         <div className="flex flex-wrap items-end gap-3">

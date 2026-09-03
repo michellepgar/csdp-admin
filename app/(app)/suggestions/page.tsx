@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, SUPERADMIN_NAME } from "@/lib/app-state";
+import { PageHeader } from "@/components/page-header";
 import { SuggestionsList } from "@/components/suggestions-list";
 import { SubmitButton } from "@/components/submit-button";
 import { addSuggestion, setSuggestionStatus, removeSuggestion } from "./actions";
@@ -18,7 +19,7 @@ export default async function SuggestionsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Suggestions</h1>
+      <PageHeader title="Suggestions" userName={me.name} />
 
       <form action={addSuggestion} className="flex gap-2 max-w-lg">
         <input

@@ -90,12 +90,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             VA assigned: <span className="font-medium text-foreground">{sd.vaAssigned || "Unassigned"}</span>
           </p>
         </div>
-        <RemoveSchoolControl
-          schoolId={schoolId}
-          schoolName={school.name}
-          removeSchool={removeSchool}
-          removeSchoolAndContacts={removeSchoolAndContacts}
-        />
+        <div className="flex flex-none items-center gap-3">
+          <span className="text-sm font-medium text-muted-foreground">{me.name}</span>
+          <RemoveSchoolControl
+            schoolId={schoolId}
+            schoolName={school.name}
+            removeSchool={removeSchool}
+            removeSchoolAndContacts={removeSchoolAndContacts}
+          />
+        </div>
       </div>
 
       {/* flex, not grid -- Yearly Checklist can collapse to just its

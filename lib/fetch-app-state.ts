@@ -46,6 +46,7 @@ type VaRow = {
   name: string;
   email: string | null;
   admin: boolean | null;
+  communication_access: boolean | null;
   role: string | null;
   color: string | null;
 };
@@ -56,6 +57,7 @@ function mapVaRow(r: VaRow): Va {
     name: r.name,
     email: r.email ?? undefined,
     admin: r.admin ?? undefined,
+    communicationAccess: r.communication_access ?? undefined,
     role: r.role ?? undefined,
     color: r.color ?? undefined,
   };
@@ -447,7 +449,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     otherContactsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
-    supabase.from("vas").select("id, name, email, admin, role, color").order("name"),
+    supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
     supabase.from("schools").select("id, name, website, phone, fax, hours, email_notes, no_recheck").order("name"),
     supabase.from("task_categories").select("id, name").order("sort_order"),
     supabase.from("checklist_template").select("id, description").order("sort_order"),

@@ -75,17 +75,13 @@ export async function updateVaField(formData: FormData) {
   revalidatePath("/team");
 }
 
-export async function toggleVaAdmin(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
-  const id = formData.get("id") as string;
-  const va = state.vas.find((v) => v.id === id);
-  if (!va) return;
-
-  const { error } = await supabase.from("vas").update({ admin: !va.admin }).eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/team");
-}
-
+// Replaced by updateVaAccess below (phase20) -- Admin Access and
+// Communication Access used to be two separate controls (a checkbox list,
+// and a single settings-table value naming one VA at a time); they're now
+// two checkboxes in one unified table, saved together by one form. Left
+// unused rather than deleted since admin-settings' JSON backup/restore
+// still round-trips the old `communicationEditor` field for backups taken
+// before this changed.
 export async function setCommunicationEditor(formData: FormData) {
   const { supabase } = await requireAdminAndState();
   const name = (formData.get("name") as string) || "";
@@ -93,6 +89,25 @@ export async function setCommunicationEditor(formData: FormData) {
   const { error } = await supabase
     .from("settings")
     .upsert({ key: "communicationEditor", value: { value: name } }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/team");
+}
+
+// Single form covers both columns per VA (AutoSubmitForm submits the
+// whole form on any field's change) -- an unchecked checkbox simply isn't
+// present in FormData at all, so its absence (not a "false" value) is
+// what means "off" here.
+export async function updateVaAccess(formData: FormData) {
+  const { supabase } = await requireAdminAndState();
+  const id = formData.get("id") as string;
+
+  const { error } = await supabase
+    .from("vas")
+    .update({
+      admin: formData.get("admin") === "on",
+      communication_access: formData.get("communicationAccess") === "on",
+    })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/team");
 }

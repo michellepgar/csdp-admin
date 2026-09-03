@@ -13,8 +13,7 @@ import {
   addVa,
   removeVa,
   updateVaField,
-  toggleVaAdmin,
-  setCommunicationEditor,
+  updateVaAccess,
   setSchoolAssignment,
 } from "./actions";
 
@@ -110,36 +109,36 @@ export default async function TeamPage() {
       <div className="space-y-8 border-t pt-8">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Admin</div>
 
+        {/* One row, one form per VA -- used to be two separate controls
+            (a checkbox list for Admin, and a single dropdown that could
+            only ever name one person for Communication) that didn't let
+            more than one person hold communication access at a time.
+            Both checkboxes now save together in one request
+            (AutoSubmitForm submits the whole row the moment either
+            changes). A plain flex list rather than a <table> -- a real
+            <form> can't wrap a run of table cells without the browser
+            silently relocating it out of the table during parsing
+            (HTML's table "foster parenting" rule), which would break
+            exactly this "both checkboxes save as one row" behavior. */}
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Admin Access</h2>
+          <h2 className="text-lg font-semibold">Access</h2>
           <div className="space-y-2">
             {promotableVas.length === 0 && <p className="text-sm text-muted-foreground">No other VAs yet.</p>}
             {promotableVas.map((va) => (
-              <AutoSubmitForm key={va.id} action={toggleVaAdmin} className="flex items-center gap-2">
-                <span className="w-32 flex-none font-medium">{va.name}</span>
+              <AutoSubmitForm key={va.id} action={updateVaAccess} className="flex items-center gap-4 rounded-md border p-2">
                 <input type="hidden" name="id" value={va.id} />
+                <span className="w-32 flex-none font-medium">{va.name}</span>
                 <label className="flex items-center gap-1.5 text-sm">
                   <input key={String(!!va.admin)} type="checkbox" name="admin" defaultChecked={!!va.admin} />
                   Admin
                 </label>
+                <label className="flex items-center gap-1.5 text-sm">
+                  <input key={String(!!va.communicationAccess)} type="checkbox" name="communicationAccess" defaultChecked={!!va.communicationAccess} />
+                  Communication
+                </label>
               </AutoSubmitForm>
             ))}
           </div>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Communication Access</h2>
-          {sortedVas.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No VAs added yet.</p>
-          ) : (
-            <AutoSubmitDropdown
-              action={setCommunicationEditor}
-              name="name"
-              defaultValue={state.communicationEditor || ""}
-              options={sortedVas.map((va) => ({ value: va.name, label: va.name }))}
-              className="rounded-md border px-3 py-2 text-left text-sm"
-            />
-          )}
         </section>
 
         <section className="space-y-3">

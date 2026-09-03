@@ -10,6 +10,7 @@ export interface Va {
   name: string;
   email?: string;
   admin?: boolean;
+  communicationAccess?: boolean;
   role?: string;
   color?: string;
 }

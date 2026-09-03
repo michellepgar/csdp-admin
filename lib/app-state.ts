@@ -92,12 +92,19 @@ export interface SchoolDataEntry {
   notes?: unknown[];
 }
 
-/* Same rule the HTML app uses for both the Yearly Checklist and Email
-   Tracker/Tasks delete permissions: the VA actually assigned to this
-   school, or an admin/owner as a safety net. */
+/* Used to restrict Tasks/Email Tracker edits to the one VA assigned to
+   a school (or an admin) -- Michelle asked to drop that restriction so
+   any signed-in team member can edit any school's records, matching
+   the Yearly Checklist (which never had this restriction: "Anyone on
+   the team can check a checklist item off"). Kept as a function
+   (rather than inlining `true` at every call site) so the rule lives
+   in exactly one place if it ever needs to change again. `sd` and
+   `currentName` are unused now but left in the signature so every
+   existing call site (components/tasks-card.tsx,
+   components/email-tracker-card.tsx, app/(app)/schools/[id]/page.tsx
+   and .../actions.ts) needs no changes. */
 export function canEditSchoolRecords(sd: SchoolDataEntry | undefined, currentName: string, currentIsAdmin: boolean): boolean {
-  if (currentIsAdmin) return true;
-  return !!(sd && sd.vaAssigned && sd.vaAssigned === currentName);
+  return true;
 }
 
 export interface Suggestion {

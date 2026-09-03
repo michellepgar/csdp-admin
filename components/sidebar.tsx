@@ -11,7 +11,7 @@ import {
   Mail,
   Contact,
   Clock,
-  ShieldAlert,
+  DatabaseBackup,
   AlertTriangle,
   Send,
   PanelLeftClose,
@@ -105,7 +105,7 @@ export function Sidebar({
             way -- prefetch only removes a head start that was costing
             more than it was worth here. */}
         <Link href="/overview" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2.5 text-base font-bold hover:bg-muted">
-          <LayoutDashboard className="h-5 w-5" />
+          <LayoutDashboard className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
           Overview
         </Link>
 
@@ -182,37 +182,37 @@ export function Sidebar({
 
         <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">My Space</div>
         <Link href="/private-notes" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Lock className="h-4 w-4" />
+          <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
           Private Notes
         </Link>
 
         <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>
         <Link href="/notes" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Megaphone className="h-4 w-4" />
+          <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           General Notes/Announcements
         </Link>
         <Link href="/issues" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <AlertTriangle className="h-4 w-4" />
+          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
           Issues &amp; Concerns
         </Link>
         <Link href="/eod" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Clock className="h-4 w-4" />
+          <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           EOD Reports
         </Link>
         <Link href="/contacts" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Contact className="h-4 w-4" />
+          <Contact className="h-4 w-4 text-teal-600 dark:text-teal-400" />
           Schools Contact Information
         </Link>
         <Link href="/distribution-list" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           Distribution List
         </Link>
         <Link href="/templates" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <Mail className="h-4 w-4" />
+          <Mail className="h-4 w-4 text-sky-600 dark:text-sky-400" />
           Email Templates
         </Link>
         <Link href="/suggestions" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-          <MessageSquarePlus className="h-4 w-4" />
+          <MessageSquarePlus className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" />
           Suggestions
         </Link>
 
@@ -220,7 +220,7 @@ export function Sidebar({
           <>
             <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Admin</div>
             <Link href="/team" prefetch={false} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               Team
             </Link>
             <Link
@@ -228,7 +228,7 @@ export function Sidebar({
               prefetch={false}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
             >
-              <ShieldAlert className="h-4 w-4" />
+              <DatabaseBackup className="h-4 w-4 text-rose-600 dark:text-rose-400" />
               Backup &amp; School Year
             </Link>
           </>

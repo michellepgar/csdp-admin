@@ -77,7 +77,11 @@
   --card-foreground: oklch(0.208 0.042 265.755);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.208 0.042 265.755);
-  --primary: oklch(0.52 0.105 223.128);
+  /* Same teal as --header-background (see the tokens further down) --
+     Michelle asked for buttons to match it too, so this is now one
+     shared brand color instead of two, picked up by every button (the
+     default variant), link, and other text-primary/bg-primary spot. */
+  --primary: oklch(0.715 0.143 215.221);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
@@ -97,7 +101,7 @@
   --radius: 0.25rem;
   --sidebar: oklch(0.984 0.003 247.858);
   --sidebar-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-primary: oklch(0.52 0.105 223.128);
+  --sidebar-primary: oklch(0.715 0.143 215.221);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.968 0.007 247.896);
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
@@ -119,12 +123,15 @@
      individual record's row, most subtle) -- both stay colored (not a
      near-white neutral like --muted) and keep enough lightness gap
      from --primary for text sitting on top to stay legible.
-     --header-background is a separate, bolder brand teal on purpose
-     (Michelle asked to match a reference app's page-title bar) --
-     same color in both themes since it's a deliberate accent, not a
-     wash of the page background; h1's own text color switches to
-     white (see the h1 rule below) since --primary's usual dark text
-     doesn't have enough contrast against it. */
+     --header-background now equals --primary exactly (Michelle asked
+     to match a reference app's page-title bar, then asked for buttons
+     to match that same color too, so it's one shared brand teal now
+     instead of two separate colors) -- same value in both themes
+     since it's a deliberate accent, not a wash of the page background;
+     h1's own text color switches to white (see the h1 rule below)
+     since --primary's OWN usual foreground pairing differs by theme
+     (dark text in dark mode) in a way that wouldn't read well as a
+     full-bleed page-title bar. */
   --header-background: oklch(0.715 0.143 215.221);
   --title-background: oklch(0.9 0.045 223.128);
   --record-background: oklch(0.985 0.01 223.128);
@@ -138,7 +145,7 @@
   --card-foreground: oklch(0.984 0.003 247.858);
   --popover: oklch(0.208 0.042 265.755);
   --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.789 0.154 211.53);
+  --primary: oklch(0.715 0.143 215.221);
   --primary-foreground: oklch(0.129 0.042 264.695);
   --secondary: oklch(0.279 0.041 260.031);
   --secondary-foreground: oklch(0.984 0.003 247.858);
@@ -149,7 +156,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.789 0.154 211.53);
+  --ring: oklch(0.715 0.143 215.221);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -157,7 +164,7 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.208 0.042 265.755);
   --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.789 0.154 211.53);
+  --sidebar-primary: oklch(0.715 0.143 215.221);
   --sidebar-primary-foreground: oklch(0.129 0.042 264.695);
   --sidebar-accent: oklch(0.279 0.041 260.031);
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);

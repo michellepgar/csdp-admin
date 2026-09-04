@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
 /* General Notes and Private Notes store their body as sanitized HTML
    (not plain text) so a note can carry bold/italic/underline, a font
@@ -9,35 +9,38 @@ import DOMPurify from "isomorphic-dompurify";
    every later render trusts the already-cleaned column instead of
    re-sanitizing (or worse, trusting) raw HTML on every page view.
 
+   sanitize-html, not isomorphic-dompurify -- that first choice broke
+   both notes pages in production entirely (a hard server error on
+   every visit, not just on save) even though it worked fine in local
+   dev. isomorphic-dompurify pulls in jsdom to fake a DOM in Node,
+   which is exactly the kind of dependency that can fail to run in a
+   serverless environment (bundling, cold-start init, or a missing
+   native piece jsdom expects) in ways that never show up locally.
+   sanitize-html does the same allowlist job with plain string
+   parsing -- no DOM, real or fake, required at all.
+
    The allowlist is deliberately narrow: only the tags/attributes the
    composer itself ever produces. <font> is the one surprise here --
    document.execCommand("foreColor"/"fontName"/"fontSize") in Chrome
    doesn't wrap a selection in a styled <span> the way you'd expect;
-   it uses the legacy <font color=.. face=.. size=..> tag instead.
-   Confirmed directly: color/font/size all silently vanished on save
-   because <font> wasn't on this list at all, so DOMPurify stripped
-   the tag (and every attribute on it) outright, keeping only the
-   plain text inside. style itself is restricted to the three
-   properties the composer's fallback (non-Chrome) path might set,
-   via ALLOWED_ATTR + a regex hook below, since DOMPurify's own
-   ALLOWED_STYLES option isn't part of its stable API. */
+   it uses the legacy <font color=.. face=.. size=..> tag instead. */
 const ALLOWED_TAGS = ["b", "strong", "i", "em", "u", "span", "font", "div", "br", "ul", "ol", "li", "input"];
-// class is only ever "note-checklist-item" in practice (the one class
-// the composer's own checklist rows carry, styled in globals.css) --
-// still allowlisted generically rather than value-checked, same trust
-// level as every other attribute here.
 const ALLOWED_ATTR = ["style", "class", "color", "face", "size", "type", "checked", "disabled"];
-const ALLOWED_STYLE_PROPS = /^(color|font-family|font-size)\s*:\s*[^;]+;?$/i;
-
-DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
-  if (data.attrName !== "style") return;
-  data.attrValue = data.attrValue
-    .split(";")
-    .map((rule) => rule.trim())
-    .filter((rule) => rule && ALLOWED_STYLE_PROPS.test(rule + ";"))
-    .join("; ");
-});
+const ALLOWED_STYLES = {
+  "*": {
+    color: [/^.*$/],
+    "font-family": [/^.*$/],
+    "font-size": [/^.*$/],
+  },
+};
 
 export function sanitizeNoteHtml(html: string): string {
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR });
+  return sanitizeHtml(html, {
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: { "*": ALLOWED_ATTR },
+    allowedStyles: ALLOWED_STYLES,
+    // input[type=checkbox] is the only void/self-closing tag this
+    // composer ever inserts.
+    selfClosing: ["br", "input"],
+  });
 }

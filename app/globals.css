@@ -71,18 +71,12 @@
      invisible) the moment the dropdown was actually opened in dark
      mode. This is the fix for that, not a cosmetic property. */
   color-scheme: light;
-  /* Off-white (not pure white) so record rows -- which sit at pure
-     white via --record-background just below -- actually stand out
-     against the page behind them, rather than blending into it at a
-     barely-there 1.5% lightness difference like before. The first
-     value here (96% lightness) turned out to still be too close to
-     white to read as a different color at all once shipped -- every
-     plain surface using this token (the sidebar, a card's own empty
-     space, the page itself) just looked like more white, confirmed
-     directly from a screenshot. 90% is a clearly visible light gray
-     instead, while still reading as "a light neutral page," not gray
-     in an unpleasant way. */
-  --background: oklch(0.9 0.006 250);
+  /* Plain white -- tried an off-white page background (twice: first
+     96% lightness, read as no different from white at all; then 90%,
+     which Michelle said was too dark/gray) so record rows would stand
+     out against it. Back to white for the page itself; only
+     --record-background just below still carries a tiny warm tint. */
+  --background: oklch(1 0 0);
   --foreground: oklch(0.208 0.042 265.755);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.208 0.042 265.755);
@@ -143,12 +137,11 @@
      muted value instead of matching this one). */
   --header-background: oklch(0.715 0.143 215.221);
   --title-background: oklch(0.9 0.045 223.128);
-  /* Pure white -- was a barely-off-white oklch(0.985...), practically
-     indistinguishable from the page background it sat on. Now that
-     --background above is genuinely off-white, this can be plain
-     white and actually read as "the record" standing on top of the
-     page rather than "the page." */
-  --record-background: oklch(1 0 0);
+  /* Back to its original barely-off-white value -- tried making this
+     pure white against an off-white page instead (see --background's
+     own comment above for why that didn't work out) and reverted both
+     together. */
+  --record-background: oklch(0.985 0.01 223.128);
 }
 
 .dark {

@@ -18,7 +18,7 @@
    (desktop) or closed (mobile). Confirmed directly: without this, that
    button's icon sits right on top of the title's first letter.
 
-   h-20 (fixed, not padding-driven) -- Michelle pointed out this
+   h-16 (fixed, not padding-driven) -- Michelle pointed out this
    header and the sidebar's own top corner (components/sidebar.tsx)
    didn't line up; different content (a subtitle on the school page,
    none here) plus padding-based sizing meant each block's actual
@@ -26,10 +26,14 @@
    Every header block in the app (this one, Overview's, the school
    page's) now uses this same fixed height with its content vertically
    centered inside it, so the sidebar corner lines up with whichever
-   page header is showing regardless of page. */
+   page header is showing regardless of page. Was h-20 originally;
+   Michelle later said that read as too much empty padding around a
+   single line of title text, so every one of these shrank to h-16
+   together (keeping them all equal, and equal to the sidebar corner,
+   is the part that actually matters here -- not the specific value). */
 export function PageHeader({ title }: { title: string }) {
   return (
-    <div className="sticky top-0 z-10 flex h-20 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
+    <div className="sticky top-0 z-10 flex h-16 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
       <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{title}</h1>
     </div>
   );

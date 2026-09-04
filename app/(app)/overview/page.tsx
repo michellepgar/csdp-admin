@@ -65,11 +65,11 @@ export default async function OverviewPage() {
           directly since Michelle asked for this one to stand out from
           the rest. pl-12 (see PageHeader's own comment) reserves room
           for the floating "show sidebar" button so it doesn't sit on
-          top of the title's first letter when collapsed/closed. h-20,
+          top of the title's first letter when collapsed/closed. h-16,
           not padding-driven, so this lines up with the sidebar's own
           top corner and every other page's header despite this one's
           bigger font (see PageHeader's own comment for why). */}
-      <div className="sticky top-0 z-10 flex h-20 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
+      <div className="sticky top-0 z-10 flex h-16 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
         <h1 className="static flex items-center gap-2 bg-transparent px-0 py-0 text-4xl font-extrabold tracking-tight">
           <LayoutDashboard className="h-8 w-8" />
           Overview

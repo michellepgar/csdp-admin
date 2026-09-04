@@ -91,11 +91,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           (components/sidebar-shell.tsx). pl-12 (see PageHeader's own
           comment) reserves room for the floating "show sidebar"
           button so it doesn't sit on top of the title's first letter
-          when collapsed/closed. h-20, not padding-driven, so this
-          lines up with the sidebar's own top corner and every other
-          page's header regardless of this one's extra subtitle line
-          (see PageHeader's own comment for the full reasoning). */}
-      <div className="sticky top-0 z-10 flex h-20 flex-wrap items-center justify-between gap-2 bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
+          when collapsed/closed. min-h-16 (not padding-driven, and not
+          a hard h-16) lines this up with the sidebar's own top corner
+          and every other page's header in the common case, but still
+          lets the row grow past that on a narrow phone screen where a
+          long school name wraps to two lines -- a hard h-16 there
+          clipped nothing (no overflow-hidden) but the wrapped second
+          line and the Remove button both rendered past the row's own
+          box and overlapped the content below it instead of pushing
+          it down, confirmed directly at a 375px viewport. */}
+      <div className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center justify-between gap-2 bg-header-background py-2 pr-4 pl-12 sm:pr-6 md:pr-8">
         <div className="min-w-0 flex-1">
           <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
           {/* text-white/80 (not text-muted-foreground) -- this sits on

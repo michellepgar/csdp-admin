@@ -26,6 +26,8 @@ import { Dropdown } from "@/components/dropdown";
 import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 import { IconTooltip } from "@/components/icon-tooltip";
+import { SignOutButton } from "@/components/sign-out-button";
+import { SchoolsFlyout } from "@/components/schools-flyout";
 
 export function Sidebar({
   currentName,
@@ -67,15 +69,13 @@ export function Sidebar({
 
   const colorByVaName = new Map(vas.filter((v) => v.color).map((v) => [v.name, v.color as string]));
 
+  // Only rendered in expanded mode now -- collapsed mode shows a
+  // single SchoolsFlyout icon instead (its own search box lives
+  // inside that flyout).
   const filteredSchools = [...schools]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .filter((s) => !collapsed && s.name.toLowerCase().includes(search.trim().toLowerCase()))
-    .filter((s) => !collapsed && (!vaFilter || schoolVaAssigned[s.id] === vaFilter));
-  // Collapsed mode drops the search box/VA filter (nothing to type
-  // into), so it lists every school rather than an unreachable filter's
-  // empty result -- the two .filter() calls above short-circuit to
-  // "keep everything" once collapsed is true.
-  const visibleSchools = collapsed ? [...schools].sort((a, b) => a.name.localeCompare(b.name)) : filteredSchools;
+    .filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((s) => !vaFilter || schoolVaAssigned[s.id] === vaFilter);
 
   return (
     <aside className={cn("flex flex-none flex-col border-r bg-background transition-[width]", collapsed ? "w-16" : "w-64")}>
@@ -85,12 +85,12 @@ export function Sidebar({
           text-white on the row itself (not just the logo) so the
           theme-toggle/collapse icons inherit a color that actually
           contrasts, same reasoning as h1's own white text against
-          this background elsewhere. h-20 (not p-4, which sized this
+          this background elsewhere. h-16 (not p-4, which sized this
           block to its own content) matches every page header's own
           fixed height (see components/page-header.tsx's comment) so
           this corner lines up with whichever one is showing instead
           of drifting a few px off depending on font metrics. */}
-      <div className={cn("flex h-20 items-center bg-header-background px-4 text-white", collapsed ? "justify-center" : "justify-between gap-2")}>
+      <div className={cn("flex h-16 items-center bg-header-background px-4 text-white", collapsed ? "justify-center" : "justify-between gap-2")}>
         {!collapsed && (
           <div>
             <div className="text-lg font-bold">CSDP Tracker</div>
@@ -175,32 +175,41 @@ export function Sidebar({
             />
           </div>
         )}
-        <div className={cn("overflow-y-auto", collapsed ? "mt-2 max-h-80" : "max-h-64 px-1")}>
-          {visibleSchools.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-muted-foreground">No schools match.</p>
-          ) : (
-            visibleSchools.map((s) => {
-              const vaName = schoolVaAssigned[s.id];
-              const color = vaName ? colorByVaName.get(vaName) : undefined;
-              return (
-                <IconTooltip key={s.id} label={s.name} active={collapsed}>
+        {collapsed ? (
+          // One icon standing in for the whole list -- with 20+
+          // schools, a wall of identical School icons (one per school,
+          // the previous approach) needed its own inner scrollbar and
+          // told you nothing until you'd already opened the sidebar
+          // back up. Hovering this one reveals the full list (with its
+          // own search box) in a flyout instead.
+          <div className="mt-2 flex justify-center">
+            <SchoolsFlyout schools={schools} colorByVaName={colorByVaName} schoolVaAssigned={schoolVaAssigned} />
+          </div>
+        ) : (
+          <div className="max-h-64 overflow-y-auto px-1">
+            {filteredSchools.length === 0 ? (
+              <p className="px-2 py-2 text-xs text-muted-foreground">No schools match.</p>
+            ) : (
+              filteredSchools.map((s) => {
+                const vaName = schoolVaAssigned[s.id];
+                const color = vaName ? colorByVaName.get(vaName) : undefined;
+                return (
                   <Link
+                    key={s.id}
                     href={`/schools/${s.id}`}
                     prefetch={false}
-                    className={cn(
-                      "flex items-center rounded-md py-2 text-sm hover:bg-muted",
-                      collapsed ? "justify-center px-2" : "gap-2 px-3",
-                    )}
+                    title={s.name}
+                    className="flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
                     style={color ? { color } : undefined}
                   >
                     <School className="h-4 w-4 flex-none" />
-                    {!collapsed && s.name}
+                    <span className="min-w-0 truncate">{s.name}</span>
                   </Link>
-                </IconTooltip>
-              );
-            })
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
+        )}
         {!collapsed &&
           (addingSchool ? (
             <form
@@ -237,10 +246,11 @@ export function Sidebar({
           <Link
             href="/private-notes"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "Private Notes" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
           >
             <Lock className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
-            {!collapsed && "Private Notes"}
+            {!collapsed && <span className="min-w-0 truncate">Private Notes</span>}
           </Link>
         </IconTooltip>
 
@@ -249,70 +259,77 @@ export function Sidebar({
           <Link
             href="/notes"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "General Notes/Announcements" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Megaphone className="h-4 w-4 flex-none text-amber-600 dark:text-amber-400" />
-            {!collapsed && "General Notes/Announcements"}
+            {!collapsed && <span className="min-w-0 truncate">General Notes/Announcements</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="Issues & Concerns" active={collapsed}>
           <Link
             href="/issues"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "Issues & Concerns" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <AlertTriangle className="h-4 w-4 flex-none text-red-600 dark:text-red-400" />
-            {!collapsed && "Issues & Concerns"}
+            {!collapsed && <span className="min-w-0 truncate">Issues & Concerns</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="EOD Reports" active={collapsed}>
           <Link
             href="/eod"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "EOD Reports" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Clock className="h-4 w-4 flex-none text-blue-600 dark:text-blue-400" />
-            {!collapsed && "EOD Reports"}
+            {!collapsed && <span className="min-w-0 truncate">EOD Reports</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="Schools Contact Information" active={collapsed}>
           <Link
             href="/contacts"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "Schools Contact Information" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Contact className="h-4 w-4 flex-none text-teal-600 dark:text-teal-400" />
-            {!collapsed && "Schools Contact Information"}
+            {!collapsed && <span className="min-w-0 truncate">Schools Contact Information</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="Distribution List" active={collapsed}>
           <Link
             href="/distribution-list"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "Distribution List" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Send className="h-4 w-4 flex-none text-indigo-600 dark:text-indigo-400" />
-            {!collapsed && "Distribution List"}
+            {!collapsed && <span className="min-w-0 truncate">Distribution List</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="Email Templates" active={collapsed}>
           <Link
             href="/templates"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "Email Templates" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Mail className="h-4 w-4 flex-none text-sky-600 dark:text-sky-400" />
-            {!collapsed && "Email Templates"}
+            {!collapsed && <span className="min-w-0 truncate">Email Templates</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="Suggestions" active={collapsed}>
           <Link
             href="/suggestions"
             prefetch={false}
-            className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            title={!collapsed ? "Suggestions" : undefined}
+            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <MessageSquarePlus className="h-4 w-4 flex-none text-fuchsia-600 dark:text-fuchsia-400" />
-            {!collapsed && "Suggestions"}
+            {!collapsed && <span className="min-w-0 truncate">Suggestions</span>}
           </Link>
         </IconTooltip>
 
@@ -323,24 +340,31 @@ export function Sidebar({
               <Link
                 href="/team"
                 prefetch={false}
-                className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+                title={!collapsed ? "Team" : undefined}
+                className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
               >
                 <Users className="h-4 w-4 flex-none text-orange-600 dark:text-orange-400" />
-                {!collapsed && "Team"}
+                {!collapsed && <span className="min-w-0 truncate">Team</span>}
               </Link>
             </IconTooltip>
             <IconTooltip label="Backup & School Year" active={collapsed}>
               <Link
                 href="/admin-settings"
                 prefetch={false}
-                className={cn("flex items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+                title={!collapsed ? "Backup & School Year" : undefined}
+                className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
               >
                 <DatabaseBackup className="h-4 w-4 flex-none text-rose-600 dark:text-rose-400" />
-                {!collapsed && "Backup & School Year"}
+                {!collapsed && <span className="min-w-0 truncate">Backup & School Year</span>}
               </Link>
             </IconTooltip>
           </>
         )}
+
+        {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Account</div>}
+        <div className={collapsed ? "mt-4" : undefined}>
+          <SignOutButton collapsed={collapsed} />
+        </div>
       </nav>
     </aside>
   );

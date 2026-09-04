@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
+import { HoverLabel } from "@/components/hover-label";
 
 /* Clicking "Remove school" doesn't delete right away -- it reveals an
    explicit choice, since removing a school has a real question
@@ -31,17 +33,20 @@ export function RemoveSchoolControl({
       // page's bright light-mode teal header, where the destructive
       // variant's own barely-there bg-destructive/10 all but
       // disappeared into it (Michelle circled this exact spot as
-      // unreadable). An opaque pill behind the text gives it a
+      // unreadable). An opaque pill behind the icon gives it a
       // consistent, readable backdrop regardless of the header color.
-      <Button
-        type="button"
-        variant="destructive"
-        size="sm"
-        onClick={() => setConfirming(true)}
-        className="border border-destructive/40 bg-background shadow-sm"
-      >
-        Remove school
-      </Button>
+      <HoverLabel label="Remove school" side="left">
+        <Button
+          type="button"
+          variant="destructive"
+          size="icon-sm"
+          onClick={() => setConfirming(true)}
+          aria-label="Remove school"
+          className="border border-destructive/40 bg-background shadow-sm"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </HoverLabel>
     );
   }
 

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { HoverLabel } from "@/components/hover-label";
 
 /* The school page is the only place a school's name can be edited --
    renaming here also rewrites its matching Contacts and Distribution
@@ -25,9 +27,11 @@ export function EditSchoolNameControl({
 
   if (!editing) {
     return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
-        Edit name
-      </Button>
+      <HoverLabel label="Edit name" side="left">
+        <Button type="button" variant="outline" size="icon-sm" onClick={() => setEditing(true)} aria-label="Edit name">
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </HoverLabel>
     );
   }
 

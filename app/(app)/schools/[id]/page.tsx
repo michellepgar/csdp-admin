@@ -95,21 +95,30 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           button so it doesn't sit on top of the title's first letter
           when collapsed/closed. min-h-16 (not padding-driven, and not
           a hard h-16) lines this up with the sidebar's own top corner
-          and every other page's header in the common case, but still
-          lets the row grow past that on a narrow phone screen where a
-          long school name wraps to two lines -- a hard h-16 there
-          clipped nothing (no overflow-hidden) but the wrapped second
-          line and the Remove button both rendered past the row's own
-          box and overlapped the content below it instead of pushing
-          it down, confirmed directly at a 375px viewport. */}
-      <div className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center justify-between gap-2 bg-header-background py-2 pr-4 pl-12 sm:pr-6 md:pr-8">
-        <div className="min-w-0 flex-1">
+          and every other page's header in the common case (no extra
+          py- here on top of that -- min-height alone already sizes
+          this to exactly 64px when its one line of content fits
+          within that, an earlier py-2 add-on was pushing it past 64px
+          even then and breaking that same alignment, confirmed
+          directly from a screenshot), but still lets the row grow
+          past that on a narrow phone screen where a long school name
+          wraps to two lines -- a hard h-16 there clipped nothing (no
+          overflow-hidden) but the wrapped second line and the button
+          row both rendered past the row's own box and overlapped the
+          content below it instead of pushing it down, confirmed
+          directly at a 375px viewport. VA assigned now sits inline
+          next to the title (was its own line below) -- one less line
+          means the common case reliably fits in that same 64px
+          instead of leaving it up to how long the school's name and
+          the VA's name each happen to be. */}
+      <div className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center justify-between gap-2 bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
           {/* text-white/80 (not text-muted-foreground) -- this sits on
               the same bold teal bg-header-background as the white h1
               text above it, where a soft gray reads as barely-visible
               instead of intentionally de-emphasized. */}
-          <p className="mt-1 text-sm text-white/80">
+          <p className="text-sm text-white/80">
             VA assigned: <span className="font-medium text-white">{sd.vaAssigned || "Unassigned"}</span>
           </p>
         </div>

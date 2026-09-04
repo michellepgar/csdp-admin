@@ -54,8 +54,7 @@ export default async function AdminSettingsPage() {
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="font-semibold">Export All Schools</h2>
         <p className="text-sm text-muted-foreground">
-          Download every school&apos;s Tasks and Yearly Checklist progress in one CSV file, instead of exporting each
-          school&apos;s own page one at a time.
+          Download every school&apos;s Tasks and Yearly Checklist progress in one CSV file.
         </p>
         <ExportAllSchoolsButton
           schools={state.schools}

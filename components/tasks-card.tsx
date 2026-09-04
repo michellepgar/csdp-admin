@@ -193,46 +193,8 @@ function TaskRow({
   );
 }
 
-// Wraps a value in double quotes and escapes any inside it, per the
-// plain CSV convention every spreadsheet app (Excel, Sheets, Numbers)
-// already reads without a special import step -- a task's file name
-// or a VA list can contain a comma, so every field needs this, not
-// just the ones that happen to have one today.
-function csvField(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-function exportTasksToCsv(schoolName: string, tasks: Task[]) {
-  const header = ["Category", "File Name", "Count", "Status", "VA Assigned", "Communications Status", "Communications VA", "Created"];
-  const rows = tasks.map((t) => [
-    t.category,
-    t.fileName,
-    t.count || "",
-    t.status,
-    t.vaAssigned.join("; "),
-    t.commsStatus || "",
-    (t.commsVaAssigned || []).join("; "),
-    new Date(t.createdAt).toLocaleDateString(),
-  ]);
-  const csv = [header, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n");
-
-  // Client-side only -- the CSV is built entirely from props already
-  // on the page, so this needs no round trip to the server. A plain
-  // <a download> triggered from a real click event is allowed by
-  // every browser (this isn't a sandboxed artifact preview, where
-  // that pattern is blocked -- it's the actual deployed app).
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${schoolName.replace(/[^a-z0-9]+/gi, "-")}-tasks.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export function TasksCard({
   schoolId,
-  schoolName,
   categories,
   tasks,
   vas,
@@ -253,7 +215,6 @@ export function TasksCard({
   setNoRecheck,
 }: {
   schoolId: string;
-  schoolName: string;
   categories: TaskCategory[];
   tasks: Task[];
   vas: Va[];
@@ -306,22 +267,9 @@ export function TasksCard({
           <StatusBadge tone="paused">{pausedCount}</StatusBadge>
           <StatusBadge tone="success">{completedCount}</StatusBadge>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            className="text-white"
-            onClick={() => exportTasksToCsv(schoolName, tasks)}
-            disabled={tasks.length === 0}
-            title={tasks.length === 0 ? "No tasks to export yet" : undefined}
-          >
-            Export
-          </Button>
-          <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
-            {editorOpen ? "Close editor" : "Edit categories"}
-          </Button>
-        </div>
+        <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
+          {editorOpen ? "Close editor" : "Edit categories"}
+        </Button>
       </div>
       <div className="space-y-3 p-3">
         {editorOpen && (

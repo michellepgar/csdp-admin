@@ -3,10 +3,11 @@
 import { Button } from "@/components/ui/button";
 import type { School, SchoolDataEntry, ChecklistTemplateItem, ChecklistProgressEntry } from "@/lib/app-state";
 
-// Same plain-CSV convention as tasks-card.tsx/checklist-card.tsx's own
-// per-school exports -- see tasks-card.tsx's csvField comment for why
-// every field gets quoted, not just the ones that happen to need it
-// today.
+// Wraps a value in double quotes and escapes any inside it, per the
+// plain CSV convention every spreadsheet app (Excel, Sheets, Numbers)
+// already reads without a special import step -- a task's file name
+// or a VA list can contain a comma, so every field needs this, not
+// just the ones that happen to have one today.
 function csvField(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
@@ -15,14 +16,14 @@ function csvRows(rows: string[][]): string {
   return rows.map((row) => row.map(csvField).join(",")).join("\r\n");
 }
 
-/* One button, one file, covering every school -- Michelle asked for
-   this instead of having to open each school's own page and use its
-   own Export (tasks-card.tsx/checklist-card.tsx) one at a time. Tasks
-   and the Yearly Checklist have different shapes (a task has a
-   category/file name/count; a checklist entry has an item/checked-by),
-   so rather than force them into one mismatched table this is two
-   stacked tables in the same CSV -- a blank line between them reads
-   fine in Excel/Sheets as "two separate ranges on one sheet," which is
+/* One button, one file, covering every school -- the only export in
+   the app (a per-school Tasks/Checklist export existed briefly but was
+   removed; this is the one Michelle kept). Tasks and the Yearly
+   Checklist have different shapes (a task has a category/file name/
+   count; a checklist entry has an item/checked-by), so rather than
+   force them into one mismatched table this is two stacked tables in
+   the same CSV -- a blank line between them reads fine in
+   Excel/Sheets as "two separate ranges on one sheet," which is
    exactly what this is. */
 export function ExportAllSchoolsButton({
   schools,

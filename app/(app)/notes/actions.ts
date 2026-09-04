@@ -3,16 +3,26 @@
 import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addGeneralNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const text = ((formData.get("text") as string) || "").trim();
   if (!text) return;
   const urgency = formData.get("urgent") ? "Urgent" : "";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.generalNotes ??= []).push({ id: `demo-${Date.now()}`, text, author: "Jane", urgency: (urgency || "") as "Urgent" | "", ackBy: [], createdAt: new Date().toISOString() });
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { error } = await supabase.from("general_notes").insert({
     id: crypto.randomUUID(),
@@ -26,8 +36,21 @@ export async function addGeneralNote(formData: FormData) {
 }
 
 export async function ackGeneralNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.generalNotes || []).find((n) => n.id === id);
+      if (note) {
+        note.ackBy ??= [];
+        if (!note.ackBy.includes("Jane")) note.ackBy.push("Jane");
+      }
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { data: note } = await supabase.from("general_notes").select("ack_by").eq("id", id).maybeSingle();
   if (!note) return;
@@ -47,8 +70,17 @@ export async function ackGeneralNote(formData: FormData) {
    admin can), reimplemented as targeted queries instead of
    fetchAppState()'s full ~19-table fetch. */
 export async function removeGeneralNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.generalNotes = (state.generalNotes || []).filter((n) => n.id !== id);
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { data: note } = await supabase.from("general_notes").select("author").eq("id", id).maybeSingle();
   if (!note) return;

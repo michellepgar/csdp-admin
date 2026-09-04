@@ -2,15 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addPrivateNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const text = ((formData.get("text") as string) || "").trim();
   if (!text) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.privateNotes ??= []).push({ id: `demo-${Date.now()}`, text, author: "Jane", sharedWith: [], ackBy: [], createdAt: new Date().toISOString() });
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { error } = await supabase.from("private_notes").insert({
     id: crypto.randomUUID(),
@@ -24,10 +34,23 @@ export async function addPrivateNote(formData: FormData) {
 }
 
 export async function sharePrivateNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
   const vaName = formData.get("vaName") as string;
   if (!vaName) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === id && n.author === "Jane");
+      if (note) {
+        note.sharedWith ??= [];
+        if (!note.sharedWith.includes(vaName)) note.sharedWith.push(vaName);
+      }
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", id).maybeSingle();
   if (!note || note.author !== me.name) return;
@@ -43,9 +66,19 @@ export async function sharePrivateNote(formData: FormData) {
 }
 
 export async function unsharePrivateNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
   const vaName = formData.get("vaName") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === id && n.author === "Jane");
+      if (note?.sharedWith) note.sharedWith = note.sharedWith.filter((n) => n !== vaName);
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", id).maybeSingle();
   if (!note || note.author !== me.name) return;
@@ -59,8 +92,21 @@ export async function unsharePrivateNote(formData: FormData) {
 }
 
 export async function ackPrivateNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === id);
+      if (note) {
+        note.ackBy ??= [];
+        if (!note.ackBy.includes("Jane")) note.ackBy.push("Jane");
+      }
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { data: note } = await supabase.from("private_notes").select("ack_by").eq("id", id).maybeSingle();
   if (!note) return;
@@ -80,8 +126,17 @@ export async function ackPrivateNote(formData: FormData) {
    can see it can clean it up), reimplemented as targeted queries
    instead of fetchAppState()'s full ~19-table fetch. */
 export async function removePrivateNote(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.privateNotes = (state.privateNotes || []).filter((n) => n.id !== id);
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { data: note } = await supabase.from("private_notes").select("author").eq("id", id).maybeSingle();
   if (!note) return;

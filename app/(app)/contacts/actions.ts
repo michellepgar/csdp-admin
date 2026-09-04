@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { CONTACT_FIELDS, type ContactRow } from "@/lib/app-state";
+import { CONTACT_FIELDS, type ContactRow, type ContactGroup } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -32,10 +33,20 @@ const CONTACT_FIELD_TO_COLUMN: Record<keyof ContactRow, string> = {
    removeContactGroup below still apply to whatever groups exist. */
 
 export async function renameContactGroup(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const group = (state.contactGroups || []).find((g) => g.id === id);
+      if (group) group.name = name;
+    });
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("contact_groups").update({ name }).eq("id", id);
   orThrow(error);
@@ -43,8 +54,17 @@ export async function renameContactGroup(formData: FormData) {
 }
 
 export async function removeContactGroup(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.contactGroups = (state.contactGroups || []).filter((g) => g.id !== id);
+    });
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("contact_groups").delete().eq("id", id);
   orThrow(error);
@@ -52,9 +72,52 @@ export async function removeContactGroup(formData: FormData) {
 }
 
 export async function updateContactRow(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
   const moveToGroupId = formData.get("moveToGroupId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      let row: ContactRow | undefined;
+      let fromGroup: ContactGroup | undefined;
+      for (const g of state.contactGroups || []) {
+        const found = g.rows.find((r) => r.id === rowId);
+        if (found) {
+          row = found;
+          fromGroup = g;
+          break;
+        }
+      }
+      if (!row) return;
+      for (const f of CONTACT_FIELDS) {
+        const v = formData.get(f.key);
+        if (v !== null) (row as ContactRow)[f.key] = v as string;
+      }
+      if (moveToGroupId && fromGroup && moveToGroupId !== fromGroup.id) {
+        const toGroup = (state.contactGroups || []).find((g) => g.id === moveToGroupId);
+        if (toGroup) {
+          fromGroup.rows = fromGroup.rows.filter((r) => r.id !== rowId);
+          toGroup.rows.push(row);
+        }
+      }
+
+      const schoolId = formData.get("schoolId") as string | null;
+      if (schoolId) {
+        const school = state.schools.find((s) => s.id === schoolId);
+        if (school) {
+          school.website = ((formData.get("website") as string) || "").trim() || undefined;
+          school.phone = ((formData.get("phone") as string) || "").trim() || undefined;
+          school.fax = ((formData.get("fax") as string) || "").trim() || undefined;
+          school.hours = ((formData.get("hours") as string) || "").trim() || undefined;
+        }
+      }
+    });
+    const schoolId = formData.get("schoolId") as string | null;
+    if (schoolId) revalidatePath(`/schools/${schoolId}`);
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const updates: Record<string, string> = {};
   for (const f of CONTACT_FIELDS) {
@@ -96,8 +159,17 @@ export async function updateContactRow(formData: FormData) {
 }
 
 export async function removeContactRow(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const g of state.contactGroups || []) g.rows = g.rows.filter((r) => r.id !== rowId);
+    });
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("contact_rows").delete().eq("id", rowId);
   orThrow(error);
@@ -105,9 +177,18 @@ export async function removeContactRow(formData: FormData) {
 }
 
 export async function setNurseLeader(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.nurseLeader = { name, email };
+    });
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase
     .from("settings")
@@ -119,13 +200,22 @@ export async function setNurseLeader(formData: FormData) {
 /* ---------- Other Contacts (not tied to any school) ---------- */
 
 export async function addOtherContact(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
   const organization = ((formData.get("organization") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
   const phone = ((formData.get("phone") as string) || "").trim();
   const notes = ((formData.get("notes") as string) || "").trim();
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.otherContacts ??= []).push({ id: `demo-${Date.now()}`, name, organization: organization || undefined, email: email || undefined, phone: phone || undefined, notes: notes || undefined });
+    });
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("other_contacts").insert({
     id: crypto.randomUUID(),
@@ -140,7 +230,6 @@ export async function addOtherContact(formData: FormData) {
 }
 
 export async function updateOtherContact(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
@@ -148,6 +237,23 @@ export async function updateOtherContact(formData: FormData) {
   const email = ((formData.get("email") as string) || "").trim();
   const phone = ((formData.get("phone") as string) || "").trim();
   const notes = ((formData.get("notes") as string) || "").trim();
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const contact = (state.otherContacts || []).find((c) => c.id === id);
+      if (contact) {
+        contact.name = name;
+        contact.organization = organization || undefined;
+        contact.email = email || undefined;
+        contact.phone = phone || undefined;
+        contact.notes = notes || undefined;
+      }
+    });
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase
     .from("other_contacts")
@@ -164,8 +270,17 @@ export async function updateOtherContact(formData: FormData) {
 }
 
 export async function removeOtherContact(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.otherContacts = (state.otherContacts || []).filter((c) => c.id !== id);
+    });
+    revalidatePath("/contacts");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("other_contacts").delete().eq("id", id);
   orThrow(error);

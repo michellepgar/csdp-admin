@@ -3,12 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { isAdmin, type Issue } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-function baseIssueRow(me: { name: string }, type: Issue["type"]) {
+function baseIssueRow(reportedBy: string, type: Issue["type"]): Issue {
+  return {
+    id: `demo-${Date.now()}`,
+    type,
+    reportedBy,
+    status: "Pending",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function baseIssueInsert(me: { name: string }, type: Issue["type"]) {
   return {
     id: crypto.randomUUID(),
     type,
@@ -22,14 +33,48 @@ function baseIssueRow(me: { name: string }, type: Issue["type"]) {
    Each branch keeps exactly the same required-field/insert shape the
    old per-type action had. */
 export async function addIssue(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const type = (formData.get("type") as string) || "";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      let issue: Issue | null = null;
+      if (type === "software_issue") {
+        const description = ((formData.get("description") as string) || "").trim();
+        if (!description) return;
+        issue = { ...baseIssueRow("Jane", "software_issue"), description, category: (formData.get("category") as string) || "", subcategory: (formData.get("subcategory") as string) || "", remarks: (formData.get("note") as string) || "" };
+      } else if (type === "correction") {
+        const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
+        if (!studentRecordLink) return;
+        issue = {
+          ...baseIssueRow("Jane", "correction"),
+          correctionKind: (formData.get("correctionKind") as string) || "Correction",
+          studentRecordLink,
+          needsNameCorrection: !!formData.get("needsNameCorrection"),
+          needsDobCorrection: !!formData.get("needsDobCorrection"),
+          needsInsuranceCorrection: !!formData.get("needsInsuranceCorrection"),
+          needsOtherCorrection: !!formData.get("needsOtherCorrection"),
+          otherCorrectionDetail: (formData.get("otherCorrectionDetail") as string) || "",
+          fixedBy: [],
+        };
+      } else if (type === "charting") {
+        const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
+        const question = ((formData.get("question") as string) || "").trim();
+        if (!studentRecordLink || !question) return;
+        issue = { ...baseIssueRow("Jane", "charting"), studentRecordLink, question, fixedBy: [] };
+      }
+      if (issue) (state.issues ??= []).push(issue);
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   if (type === "software_issue") {
     const description = ((formData.get("description") as string) || "").trim();
     if (!description) return;
     const { error } = await supabase.from("issues").insert({
-      ...baseIssueRow(me, "software_issue"),
+      ...baseIssueInsert(me, "software_issue"),
       description,
       category: (formData.get("category") as string) || "",
       subcategory: (formData.get("subcategory") as string) || "",
@@ -40,7 +85,7 @@ export async function addIssue(formData: FormData) {
     const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
     if (!studentRecordLink) return;
     const { error } = await supabase.from("issues").insert({
-      ...baseIssueRow(me, "correction"),
+      ...baseIssueInsert(me, "correction"),
       correction_kind: (formData.get("correctionKind") as string) || "Correction",
       student_record_link: studentRecordLink,
       needs_name_correction: !!formData.get("needsNameCorrection"),
@@ -56,7 +101,7 @@ export async function addIssue(formData: FormData) {
     const question = ((formData.get("question") as string) || "").trim();
     if (!studentRecordLink || !question) return;
     const { error } = await supabase.from("issues").insert({
-      ...baseIssueRow(me, "charting"),
+      ...baseIssueInsert(me, "charting"),
       student_record_link: studentRecordLink,
       question,
       fixed_by: [],
@@ -70,9 +115,19 @@ export async function addIssue(formData: FormData) {
 }
 
 export async function setIssueStatus(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const status = (formData.get("status") as string) || "";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const issue = (state.issues || []).find((i) => i.id === id);
+      if (issue) issue.status = status;
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("issues").update({ status }).eq("id", id);
   orThrow(error);
@@ -83,8 +138,17 @@ export async function setIssueStatus(formData: FormData) {
    anything; otherwise only the reporter can), reimplemented as a
    targeted query instead of fetchAppState()'s full ~19-table fetch. */
 export async function removeIssue(formData: FormData) {
-  const { supabase, me } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.issues = (state.issues || []).filter((i) => i.id !== id);
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
 
   const { data: issue } = await supabase.from("issues").select("reported_by").eq("id", id).maybeSingle();
   if (!issue) return;
@@ -99,9 +163,19 @@ export async function removeIssue(formData: FormData) {
    a free-text note anyone can type/update, same auto-save pattern as
    other single-value fields (e.g. setIssueStatus above). */
 export async function setIssueFixNote(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const fixNote = (formData.get("fixNote") as string) || "";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const issue = (state.issues || []).find((i) => i.id === id);
+      if (issue) issue.fixNote = fixNote;
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("issues").update({ fix_note: fixNote }).eq("id", id);
   orThrow(error);
@@ -112,9 +186,19 @@ export async function setIssueFixNote(formData: FormData) {
    the same way -- not to be confused with Correction/Charting's Fix
    note above (a different column, different meaning). */
 export async function setIssueNote(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const note = (formData.get("note") as string) || "";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const issue = (state.issues || []).find((i) => i.id === id);
+      if (issue) issue.remarks = note;
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("issues").update({ remarks: note }).eq("id", id);
   orThrow(error);
@@ -126,9 +210,18 @@ export async function setIssueNote(formData: FormData) {
    editable list (not per-school), sort_order backed. */
 
 export async function addIssueCategory(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.issueCategories ??= []).push({ id: `demo-${Date.now()}`, name, subcategories: [] });
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { data: maxRow } = await supabase
     .from("issue_categories")
@@ -146,8 +239,17 @@ export async function addIssueCategory(formData: FormData) {
 }
 
 export async function removeIssueCategory(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.issueCategories = (state.issueCategories || []).filter((c) => c.id !== id);
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("issue_categories").delete().eq("id", id);
   orThrow(error);
@@ -155,10 +257,20 @@ export async function removeIssueCategory(formData: FormData) {
 }
 
 export async function addIssueSubcategory(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const categoryId = formData.get("categoryId") as string;
   const name = ((formData.get("name") as string) || "").trim();
   if (!name || !categoryId) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const category = (state.issueCategories || []).find((c) => c.id === categoryId);
+      if (category) category.subcategories.push({ id: `demo-${Date.now()}`, name });
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { data: maxRow } = await supabase
     .from("issue_subcategories")
@@ -177,8 +289,17 @@ export async function addIssueSubcategory(formData: FormData) {
 }
 
 export async function removeIssueSubcategory(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const c of state.issueCategories || []) c.subcategories = c.subcategories.filter((s) => s.id !== id);
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("issue_subcategories").delete().eq("id", id);
   orThrow(error);

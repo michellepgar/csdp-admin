@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { DEMO_APP_STATE } from "@/lib/demo-app-state";
+import { getDemoState } from "@/lib/demo-session";
 import type {
   AppState,
   Va,
@@ -423,11 +423,11 @@ function mapAccessRequestRow(r: AccessRequestRow): AccessRequest {
    entirely — they're stale leftovers, not read here on purpose. */
 export const fetchAppState = cache(async (): Promise<AppState | null> => {
   // The login page's "See a demo" link sets this cookie instead of a real
-  // Supabase session -- short-circuit straight to the fake fixture rather
-  // than running the ~25-table Promise.all below against the real
-  // database at all. See lib/demo-app-state.ts's own comment.
+  // Supabase session -- short-circuit straight to the demo visitor's own
+  // cookie-backed state (lib/demo-session.ts) rather than running the
+  // ~25-table Promise.all below against the real database at all.
   const isDemo = (await cookies()).get("demo-mode")?.value === "1";
-  if (isDemo) return DEMO_APP_STATE;
+  if (isDemo) return getDemoState();
 
   const supabase = await createClient();
 

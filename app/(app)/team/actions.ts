@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isAdmin, SUPERADMIN_NAME, type AppState } from "@/lib/app-state";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
+import { DEMO_USER_EMAIL } from "@/lib/demo-app-state";
 
 /* Every action below except setSchoolAssignment used to start with a
    helper that ran fetchAppState() -- the whole app's ~25-table
@@ -43,9 +45,19 @@ async function saveLegacyState(
 }
 
 export async function addVa(formData: FormData) {
-  const { supabase } = await requireAdmin();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      if (state.vas.some((v) => v.name.toLowerCase() === name.toLowerCase())) return;
+      state.vas.push({ id: `demo-${Date.now()}`, name });
+    });
+    revalidatePath("/team");
+    return;
+  }
+
+  const { supabase } = await requireAdmin();
 
   const { error } = await supabase.from("vas").insert({ id: crypto.randomUUID(), name });
   if (error) {
@@ -59,8 +71,21 @@ export async function addVa(formData: FormData) {
 }
 
 export async function removeVa(formData: FormData) {
-  const { supabase } = await requireAdmin();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      // Removing the demo visitor's own "Jane" row would lock her out
+      // of the rest of her own demo session (the next page load's
+      // findVaByEmail() check would no longer find her) -- silently
+      // refused rather than let a demo click end the demo.
+      state.vas = state.vas.filter((v) => v.id === id ? v.email !== DEMO_USER_EMAIL : true);
+    });
+    revalidatePath("/team");
+    return;
+  }
+
+  const { supabase } = await requireAdmin();
 
   const { error } = await supabase.from("vas").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -68,12 +93,22 @@ export async function removeVa(formData: FormData) {
 }
 
 export async function updateVaField(formData: FormData) {
-  const { supabase } = await requireAdmin();
   const id = formData.get("id") as string;
   const rawField = formData.get("field") as string;
   const value = ((formData.get("value") as string) || "").trim();
   if (rawField !== "email" && rawField !== "color") return;
   const field = rawField; // narrowed to "email" | "color" by the check above
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const va = state.vas.find((v) => v.id === id);
+      if (va) va[field] = value;
+    });
+    revalidatePath("/team");
+    return;
+  }
+
+  const { supabase } = await requireAdmin();
 
   const { error } = await supabase.from("vas").update({ [field]: value }).eq("id", id);
   if (error) throw new Error(error.message);
@@ -103,8 +138,20 @@ export async function setCommunicationEditor(formData: FormData) {
 // present in FormData at all, so its absence (not a "false" value) is
 // what means "off" here.
 export async function updateVaAccess(formData: FormData) {
-  const { supabase } = await requireAdmin();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const va = state.vas.find((v) => v.id === id);
+      if (!va) return;
+      va.admin = va.name === SUPERADMIN_NAME ? true : formData.get("admin") === "on";
+      va.communicationAccess = formData.get("communicationAccess") === "on";
+    });
+    revalidatePath("/team");
+    return;
+  }
+
+  const { supabase } = await requireAdmin();
   const { data: va } = await supabase.from("vas").select("name").eq("id", id).maybeSingle();
 
   // Michelle's Admin box renders disabled+locked on the page itself, but
@@ -125,11 +172,20 @@ export async function updateVaAccess(formData: FormData) {
 }
 
 export async function setSchoolAssignment(formData: FormData) {
+  const schoolId = formData.get("schoolId") as string;
+  const vaName = (formData.get("vaName") as string) || "";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.schoolData[schoolId] ??= { vaAssigned: "" }).vaAssigned = vaName;
+    });
+    revalidatePath("/team");
+    return;
+  }
+
   const { supabase } = await requireAdmin();
   const state = await fetchAppState();
   if (!state) throw new Error("Couldn't load app state");
-  const schoolId = formData.get("schoolId") as string;
-  const vaName = (formData.get("vaName") as string) || "";
   if (!state.schoolData[schoolId]) state.schoolData[schoolId] = { vaAssigned: "" };
   state.schoolData[schoolId].vaAssigned = vaName;
   await saveLegacyState(supabase, state);

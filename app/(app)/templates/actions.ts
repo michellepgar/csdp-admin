@@ -2,19 +2,39 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function saveTemplate(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
   const category = ((formData.get("category") as string) || "").trim();
   const subject = ((formData.get("subject") as string) || "").trim();
   const body = (formData.get("body") as string) || "";
   if (!name || !subject) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      if (id === "new") {
+        (state.emailTemplates ??= []).push({ id: `demo-${Date.now()}`, name, category: category || undefined, subject, body });
+      } else {
+        const template = (state.emailTemplates || []).find((t) => t.id === id);
+        if (template) {
+          template.name = name;
+          template.category = category || undefined;
+          template.subject = subject;
+          template.body = body;
+        }
+      }
+    });
+    revalidatePath("/templates");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   if (id === "new") {
     const { data: maxRow } = await supabase
@@ -45,8 +65,17 @@ export async function saveTemplate(formData: FormData) {
 }
 
 export async function removeTemplate(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.emailTemplates = (state.emailTemplates || []).filter((t) => t.id !== id);
+    });
+    revalidatePath("/templates");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("email_templates").delete().eq("id", id);
   orThrow(error);

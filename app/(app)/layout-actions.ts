@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DISTRIBUTION_CLASSROOM_TYPES, DISTRIBUTION_LANGUAGES } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -132,11 +133,35 @@ async function createSchool(
    details, website, and hours are filled in later, anytime, on the
    school's own page. */
 export async function addSchool(formData: FormData) {
-  const { supabase } = await requireTeamMember();
-
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
   const groupName = ((formData.get("groupName") as string) || "").trim();
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const schoolId = `demo-${Date.now()}`;
+      state.schools.push({ id: schoolId, name });
+      if (groupName) {
+        let contactGroup = (state.contactGroups || []).find((g) => g.name === groupName);
+        if (!contactGroup) {
+          contactGroup = { id: `demo-${Date.now()}-cg`, name: groupName, rows: [] };
+          (state.contactGroups ??= []).push(contactGroup);
+        }
+        contactGroup.rows.push({ id: `demo-${Date.now()}-cr`, school: name });
+
+        let distGroup = (state.distributionGroups || []).find((g) => g.name === groupName);
+        if (!distGroup) {
+          distGroup = { id: `demo-${Date.now()}-dg`, name: groupName, rows: [] };
+          (state.distributionGroups ??= []).push(distGroup);
+        }
+        distGroup.rows.push({ id: `demo-${Date.now()}-dr`, school: name, breakdown: emptyBreakdown() });
+      }
+    });
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   await createSchool(supabase, name, groupName);
   revalidatePath("/", "layout");

@@ -5,8 +5,11 @@ import {
   DISTRIBUTION_CLASSROOM_TYPES,
   DISTRIBUTION_LANGUAGES,
   type LegacyDistributionCell,
+  type DistributionGroup,
+  type DistributionRow,
 } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -57,9 +60,18 @@ function consentPacketsFromBreakdown(breakdown: Record<string, Record<string, Le
 }
 
 export async function addDistributionGroup(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.distributionGroups ??= []).push({ id: `demo-${Date.now()}`, name, rows: [] });
+    });
+    revalidatePath("/distribution-list");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { data: maxRow } = await supabase
     .from("distribution_groups")
@@ -77,10 +89,20 @@ export async function addDistributionGroup(formData: FormData) {
 }
 
 export async function renameDistributionGroup(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const group = (state.distributionGroups || []).find((g) => g.id === id);
+      if (group) group.name = name;
+    });
+    revalidatePath("/distribution-list");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("distribution_groups").update({ name }).eq("id", id);
   orThrow(error);
@@ -88,8 +110,17 @@ export async function renameDistributionGroup(formData: FormData) {
 }
 
 export async function removeDistributionGroup(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.distributionGroups = (state.distributionGroups || []).filter((g) => g.id !== id);
+    });
+    revalidatePath("/distribution-list");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("distribution_groups").delete().eq("id", id);
   orThrow(error);
@@ -97,10 +128,20 @@ export async function removeDistributionGroup(formData: FormData) {
 }
 
 export async function addDistributionRow(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const groupId = formData.get("group") as string;
   const school = ((formData.get("school") as string) || "").trim();
   if (!groupId || !school) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const group = (state.distributionGroups || []).find((g) => g.id === groupId);
+      if (group) group.rows.push({ id: `demo-${Date.now()}`, school, breakdown: emptyBreakdown() });
+    });
+    revalidatePath("/distribution-list");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { data: maxRow } = await supabase
     .from("distribution_rows")
@@ -123,11 +164,45 @@ export async function addDistributionRow(formData: FormData) {
 }
 
 export async function updateDistributionRow(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
   const moveToGroupId = formData.get("moveToGroupId") as string;
-
   const breakdown = breakdownFromForm(formData);
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      let row: DistributionRow | undefined;
+      let fromGroup: DistributionGroup | undefined;
+      for (const g of state.distributionGroups || []) {
+        const found = g.rows.find((r) => r.id === rowId);
+        if (found) {
+          row = found;
+          fromGroup = g;
+          break;
+        }
+      }
+      if (!row) return;
+      row.enrolled = (formData.get("enrolled") as string) || "";
+      row.classroomRegular = (formData.get("classroomRegular") as string) || "";
+      row.classroomLaunch = (formData.get("classroomLaunch") as string) || "";
+      row.classroomCrr = (formData.get("classroomCrr") as string) || "";
+      row.consentPackets = String(consentPacketsFromBreakdown(breakdown));
+      row.contactPerson = (formData.get("contactPerson") as string) || "";
+      row.remarks = (formData.get("remarks") as string) || "";
+      row.breakdown = breakdown;
+      if (moveToGroupId && fromGroup && moveToGroupId !== fromGroup.id) {
+        const toGroup = (state.distributionGroups || []).find((g) => g.id === moveToGroupId);
+        if (toGroup) {
+          fromGroup.rows = fromGroup.rows.filter((r) => r.id !== rowId);
+          toGroup.rows.push(row);
+        }
+      }
+    });
+    revalidatePath("/distribution-list");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+
   const updates: Record<string, unknown> = {
     enrolled: (formData.get("enrolled") as string) || "",
     classroom_regular: (formData.get("classroomRegular") as string) || "",
@@ -151,9 +226,21 @@ export async function updateDistributionRow(formData: FormData) {
 // other field, unlike updateDistributionRow above which expects the
 // whole breakdown grid every time.
 export async function toggleDistributionRowDistributed(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
   const distributed = formData.get("distributed") === "true";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const g of state.distributionGroups || []) {
+        const row = g.rows.find((r) => r.id === rowId);
+        if (row) row.distributed = distributed;
+      }
+    });
+    revalidatePath("/distribution-list");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("distribution_rows").update({ distributed }).eq("id", rowId);
   orThrow(error);
@@ -161,8 +248,17 @@ export async function toggleDistributionRowDistributed(formData: FormData) {
 }
 
 export async function removeDistributionRow(formData: FormData) {
-  const { supabase } = await requireTeamMember();
   const rowId = formData.get("rowId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const g of state.distributionGroups || []) g.rows = g.rows.filter((r) => r.id !== rowId);
+    });
+    revalidatePath("/distribution-list");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("distribution_rows").delete().eq("id", rowId);
   orThrow(error);

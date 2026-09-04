@@ -4,19 +4,22 @@ import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
+import { sanitizeNoteHtml } from "@/lib/sanitize-note-html";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addGeneralNote(formData: FormData) {
-  const text = ((formData.get("text") as string) || "").trim();
-  if (!text) return;
+  const rawText = ((formData.get("text") as string) || "").trim();
+  if (!rawText) return;
+  const text = sanitizeNoteHtml(rawText);
+  const padColor = (formData.get("padColor") as string) || undefined;
   const urgency = formData.get("urgent") ? "Urgent" : "";
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      (state.generalNotes ??= []).push({ id: `demo-${Date.now()}`, text, author: "Jane", urgency: (urgency || "") as "Urgent" | "", ackBy: [], createdAt: new Date().toISOString() });
+      (state.generalNotes ??= []).push({ id: `demo-${Date.now()}`, text, padColor, author: "Jane", urgency: (urgency || "") as "Urgent" | "", ackBy: [], createdAt: new Date().toISOString() });
     });
     revalidatePath("/notes");
     return;
@@ -27,6 +30,7 @@ export async function addGeneralNote(formData: FormData) {
   const { error } = await supabase.from("general_notes").insert({
     id: crypto.randomUUID(),
     text,
+    pad_color: padColor || null,
     author: me.name,
     urgency: urgency || null,
     ack_by: [],

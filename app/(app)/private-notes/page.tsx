@@ -5,6 +5,7 @@ import { findVaByEmail, visiblePrivateNotes } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { PrivateNotesList } from "@/components/private-notes-list";
+import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { SubmitButton } from "@/components/submit-button";
 import { addPrivateNote, sharePrivateNote, unsharePrivateNote, ackPrivateNote, removePrivateNote } from "./actions";
 
@@ -24,14 +25,8 @@ export default async function PrivateNotesPage() {
     <div>
       <PageHeader title="Private Notes" />
       <PageBody>
-        <form action={addPrivateNote} className="space-y-2 max-w-lg">
-          <textarea
-            name="text"
-            placeholder="Add a private note…"
-            required
-            rows={3}
-            className="w-full rounded-md border px-3 py-2 text-sm"
-          />
+        <form action={addPrivateNote} className="max-w-lg space-y-2">
+          <StickyNoteComposer placeholder="Add a private note…" />
           <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
         </form>
 

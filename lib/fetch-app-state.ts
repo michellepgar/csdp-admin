@@ -138,12 +138,14 @@ type GeneralNoteRow = {
   urgency: string | null;
   ack_by: string[];
   created_at: string;
+  pad_color: string | null;
 };
 
 function mapGeneralNoteRow(r: GeneralNoteRow): GeneralNote {
   return {
     id: r.id,
     text: r.text,
+    padColor: r.pad_color ?? undefined,
     author: r.author,
     urgency: (r.urgency as "Urgent" | "" | null) ?? undefined,
     ackBy: r.ack_by,
@@ -158,12 +160,14 @@ type PrivateNoteRow = {
   shared_with: string[];
   ack_by: string[];
   created_at: string;
+  pad_color: string | null;
 };
 
 function mapPrivateNoteRow(r: PrivateNoteRow): PrivateNote {
   return {
     id: r.id,
     text: r.text,
+    padColor: r.pad_color ?? undefined,
     author: r.author,
     sharedWith: r.shared_with,
     ackBy: r.ack_by,
@@ -490,8 +494,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("tasks").select("id, school_id, category, file_name, count, status, va_assigned, created_at, comms_status, comms_va_assigned").order("created_at"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
-    supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at").order("created_at"),
-    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, created_at").order("created_at"),
+    supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at, pad_color").order("created_at"),
+    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, created_at, pad_color").order("created_at"),
     supabase.from("email_templates").select("id, name, category, subject, body").order("sort_order"),
     supabase.from("contact_groups").select("id, name").order("sort_order"),
     supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),

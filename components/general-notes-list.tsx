@@ -45,7 +45,8 @@ export function GeneralNotesList({
         return (
           <div
             key={n.id}
-            className={`rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : "bg-record-background"}`}
+            className={`rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : ""}`}
+            style={n.urgency !== "Urgent" && n.padColor ? { backgroundColor: n.padColor } : undefined}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -54,7 +55,10 @@ export function GeneralNotesList({
                     Urgent
                   </span>
                 )}
-                <p className="text-sm whitespace-pre-wrap">{n.text}</p>
+                {/* text is sanitized server-side (lib/sanitize-note-html.ts)
+                    before it's ever stored -- see notes/actions.ts's
+                    addGeneralNote -- so this is safe to render as-is. */}
+                <div className="text-sm [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: n.text }} />
                 <p className="mt-1 text-xs text-muted-foreground">
                   {n.author} · {formatDateTime(n.createdAt)}
                   {n.urgency === "Urgent" && ackBy.length > 0 && ` · Seen by ${ackBy.join(", ")}`}

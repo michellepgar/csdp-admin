@@ -43,8 +43,15 @@ export function PrivateNotesList({
         const notYetSharedWith = shareableVas.filter((name) => name !== n.author && !sharedWith.includes(name));
 
         return (
-          <div key={n.id} className="rounded-md border bg-record-background p-3">
-            <p className="text-sm whitespace-pre-wrap">{n.text}</p>
+          <div
+            key={n.id}
+            className={`rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
+            style={n.padColor ? { backgroundColor: n.padColor } : undefined}
+          >
+            {/* text is sanitized server-side (lib/sanitize-note-html.ts)
+                before it's ever stored -- see private-notes/actions.ts's
+                addPrivateNote -- so this is safe to render as-is. */}
+            <div className="text-sm [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: n.text }} />
             <p className="mt-1 text-xs text-muted-foreground">
               {n.author} · {formatDateTime(n.createdAt)}
             </p>

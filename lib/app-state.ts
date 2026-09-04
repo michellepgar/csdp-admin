@@ -150,9 +150,38 @@ export interface Suggestion {
   status: "Requested" | "Working On It" | "Added";
 }
 
+/* Pad colors a note can be given -- a real sticky-note pad's own
+   choices, not this app's teal palette, so this stays a fixed literal
+   list rather than a theme token. */
+export const NOTE_PAD_COLORS: { name: string; value: string }[] = [
+  { name: "White", value: "#FFFFFF" },
+  { name: "Pink", value: "#FFD6E8" },
+  { name: "Yellow", value: "#FFF3B0" },
+  { name: "Blue", value: "#CFE8FF" },
+  { name: "Green", value: "#D4F5D4" },
+];
+
+/* Font colors offered in the note composer's toolbar -- same "fixed
+   literal list" reasoning as NOTE_PAD_COLORS above. */
+export const NOTE_FONT_COLORS: { name: string; value: string }[] = [
+  { name: "Black", value: "#000000" },
+  { name: "Red", value: "#D92D20" },
+  { name: "Blue", value: "#175CD3" },
+  { name: "Pink", value: "#C0185F" },
+  { name: "Green", value: "#1B7A3D" },
+];
+
 export interface GeneralNote {
   id: string;
+  /* Sanitized HTML (bold/italic/underline, font family/size/color,
+     bullet/checklist/hyphen lists), not plain text -- see
+     components/sticky-note-composer.tsx (the editor that produces it)
+     and lib/sanitize-note-html.ts (the sanitizer every save runs
+     through before this ever reaches the database). */
   text: string;
+  /** One of NOTE_PAD_COLORS' own values, or undefined for an
+   *  older note saved before pad colors existed (renders as white). */
+  padColor?: string;
   author: string;
   urgency?: "Urgent" | "";
   ackBy?: string[];
@@ -161,7 +190,9 @@ export interface GeneralNote {
 
 export interface PrivateNote {
   id: string;
+  /** See GeneralNote's own `text` comment -- same sanitized-HTML shape. */
   text: string;
+  padColor?: string;
   author: string;
   sharedWith?: string[];
   ackBy?: string[];

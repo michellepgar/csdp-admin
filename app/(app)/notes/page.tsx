@@ -5,6 +5,7 @@ import { findVaByEmail, isAdmin, canDeleteGeneralNote } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { GeneralNotesList } from "@/components/general-notes-list";
+import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { SubmitButton } from "@/components/submit-button";
 import { addGeneralNote, ackGeneralNote, removeGeneralNote } from "./actions";
 
@@ -26,14 +27,8 @@ export default async function NotesPage() {
     <div>
       <PageHeader title="General Notes" />
       <PageBody>
-        <form action={addGeneralNote} className="space-y-2 max-w-lg">
-          <textarea
-            name="text"
-            placeholder="Add a note…"
-            required
-            rows={3}
-            className="w-full rounded-md border px-3 py-2 text-sm"
-          />
+        <form action={addGeneralNote} className="max-w-lg space-y-2">
+          <StickyNoteComposer placeholder="Add a note…" />
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-1.5 text-sm">
               <input type="checkbox" name="urgent" />

@@ -3,18 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
+import { sanitizeNoteHtml } from "@/lib/sanitize-note-html";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export async function addPrivateNote(formData: FormData) {
-  const text = ((formData.get("text") as string) || "").trim();
-  if (!text) return;
+  const rawText = ((formData.get("text") as string) || "").trim();
+  if (!rawText) return;
+  const text = sanitizeNoteHtml(rawText);
+  const padColor = (formData.get("padColor") as string) || undefined;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      (state.privateNotes ??= []).push({ id: `demo-${Date.now()}`, text, author: "Jane", sharedWith: [], ackBy: [], createdAt: new Date().toISOString() });
+      (state.privateNotes ??= []).push({ id: `demo-${Date.now()}`, text, padColor, author: "Jane", sharedWith: [], ackBy: [], createdAt: new Date().toISOString() });
     });
     revalidatePath("/private-notes");
     return;
@@ -25,6 +28,7 @@ export async function addPrivateNote(formData: FormData) {
   const { error } = await supabase.from("private_notes").insert({
     id: crypto.randomUUID(),
     text,
+    pad_color: padColor || null,
     author: me.name,
     shared_with: [],
     ack_by: [],

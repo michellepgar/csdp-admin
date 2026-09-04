@@ -26,13 +26,14 @@ export const DEMO_APP_STATE: AppState = {
   vas: [
     { id: "demo-jane", name: DEMO_USER_NAME, email: DEMO_USER_EMAIL, admin: true, color: "#0ea5e9" },
     { id: "demo-john", name: "John", email: "john@demo.csdp-tracker.local", color: "#f97316" },
+    { id: "demo-alex", name: "Alex", email: "alex@demo.csdp-tracker.local", color: "#a855f7" },
   ],
   schoolData: {
     [SCHOOL_ANGELO]: {
       vaAssigned: DEMO_USER_NAME,
       tasks: [
         { id: "t1", category: "Initial", fileName: "Q3-enrollment-report.xlsx", status: "In Progress", vaAssigned: [DEMO_USER_NAME], createdAt: new Date().toISOString() },
-        { id: "t2", category: "Encoding & Uploading (Consent & SDF)", fileName: "consent-forms-batch-1.pdf", count: "42", status: "Completed", vaAssigned: ["John"], createdAt: new Date().toISOString() },
+        { id: "t2", category: "Encoding & Uploading (Consent & SDF)", fileName: "consent-forms-batch-1.pdf", count: "42", status: "In Progress", vaAssigned: ["John"], createdAt: new Date().toISOString() },
       ],
       emailTracker: [
         { id: "e1", description: "Waiting on updated enrollment counts from front desk", status: "Waiting on Them", addedBy: DEMO_USER_NAME, createdAt: new Date().toISOString() },
@@ -41,7 +42,7 @@ export const DEMO_APP_STATE: AppState = {
     [SCHOOL_BAKER]: {
       vaAssigned: "John",
       tasks: [
-        { id: "t3", category: "Follow up", fileName: "follow-up-visit-notes.docx", status: "Paused", vaAssigned: [], createdAt: new Date().toISOString() },
+        { id: "t3", category: "Follow up", fileName: "follow-up-visit-notes.docx", status: "In Progress", vaAssigned: ["Alex"], createdAt: new Date().toISOString() },
       ],
     },
   },

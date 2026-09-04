@@ -12,8 +12,29 @@ import { vaColorByName, type ChecklistTemplateItem, type ChecklistProgressEntry,
 
 const COLLAPSED_COOKIE_NAME = "checklist-collapsed";
 
+// Same plain-CSV convention as tasks-card.tsx's own export -- see that
+// file's csvField comment for why every field gets quoted.
+function csvField(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function exportChecklistToCsv(schoolName: string, template: ChecklistTemplateItem[], progress: Record<string, ChecklistProgressEntry>) {
+  const header = ["Item", "Status", "Checked By"];
+  const rows = template.map((item) => [item.description, progress[item.id]?.status || "Not Done", progress[item.id]?.checkedBy || ""]);
+  const csv = [header, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${schoolName.replace(/[^a-z0-9]+/gi, "-")}-checklist.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function ChecklistCard({
   schoolId,
+  schoolName,
   template,
   progress,
   vas,
@@ -23,6 +44,7 @@ export function ChecklistCard({
   removeChecklistTemplateItem,
 }: {
   schoolId: string;
+  schoolName: string;
   template: ChecklistTemplateItem[];
   /* Keyed by item id (already scoped to this school by the caller) --
      status plus who last checked it off, since anyone on the team can
@@ -86,6 +108,17 @@ export function ChecklistCard({
           Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-white/70">{doneCount}/{template.length}</span>}
         </h2>
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="text-white"
+            onClick={() => exportChecklistToCsv(schoolName, template, progress)}
+            disabled={template.length === 0}
+            title={template.length === 0 ? "No checklist items to export yet" : undefined}
+          >
+            Export
+          </Button>
           <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
             {editorOpen ? "Close editor" : "Edit template"}
           </Button>

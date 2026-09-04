@@ -153,6 +153,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:basis-0">
           <TasksCard
             schoolId={schoolId}
+            schoolName={school.name}
             categories={state.taskCategories || []}
             tasks={sd.tasks || []}
             vas={state.vas}
@@ -175,6 +176,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         </div>
         <ChecklistCard
           schoolId={schoolId}
+          schoolName={school.name}
           template={state.checklistTemplate || []}
           progress={checklistProgressForSchool}
           vas={state.vas}

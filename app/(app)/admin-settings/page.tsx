@@ -5,6 +5,7 @@ import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { DownloadBackupButton } from "@/components/download-backup-button";
+import { ExportAllSchoolsButton } from "@/components/export-all-schools-button";
 import { SubmitButton } from "@/components/submit-button";
 import { restoreBackup, resetAllTasks } from "./actions";
 
@@ -48,6 +49,20 @@ export default async function AdminSettingsPage() {
             <SubmitButton pendingLabel="Restoring…" variant="destructive">Restore</SubmitButton>
           </form>
         </div>
+      </section>
+
+      <section className="space-y-3 rounded-md border p-4">
+        <h2 className="font-semibold">Export All Schools</h2>
+        <p className="text-sm text-muted-foreground">
+          Download every school&apos;s Tasks and Yearly Checklist progress in one CSV file, instead of exporting each
+          school&apos;s own page one at a time.
+        </p>
+        <ExportAllSchoolsButton
+          schools={state.schools}
+          schoolData={state.schoolData}
+          checklistTemplate={state.checklistTemplate}
+          checklistProgress={state.checklistProgress}
+        />
       </section>
 
       <section className="space-y-3 rounded-md border border-destructive/50 p-4">

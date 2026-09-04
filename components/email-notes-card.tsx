@@ -17,7 +17,7 @@ export function EmailNotesCard({
   setSchoolEmailNotes: (formData: FormData) => void;
 }) {
   return (
-    <div className="min-w-0 flex-1 basis-0 rounded-md border">
+    <div className="min-w-0 flex-1 basis-0 rounded-md border bg-card">
       <div className="flex items-center gap-2 border-b bg-title-background p-3">
         <h2 className="font-semibold">Email Notes</h2>
       </div>

@@ -257,7 +257,7 @@ export function TasksCard({
   };
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border bg-card">
       <div className="flex items-center justify-between border-b bg-title-background p-3">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold">

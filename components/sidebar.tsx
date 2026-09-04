@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   School,
@@ -66,8 +67,22 @@ export function Sidebar({
   const [search, setSearch] = useState("");
   const [vaFilter, setVaFilter] = useState("");
   const [addingSchool, setAddingSchool] = useState(false);
+  const pathname = usePathname();
 
   const colorByVaName = new Map(vas.filter((v) => v.color).map((v) => [v.name, v.color as string]));
+
+  // Every plain nav link below (not the school list or Sign out, which
+  // have their own look) shares this same "am I the current page"
+  // class, so the new selected-item highlight (--sidebar-accent, the
+  // palette's "Selected navigation item" color) shows up identically
+  // wherever the visitor actually is, without repeating the isActive
+  // check and its resulting className at each of the ~10 call sites.
+  const navLinkClass = (href: string, extra: string) =>
+    cn(
+      "flex min-w-0 items-center rounded-md py-2 text-sm font-medium",
+      pathname === href ? "bg-sidebar-accent font-semibold" : "hover:bg-muted",
+      extra,
+    );
 
   // Only rendered in expanded mode now -- collapsed mode shows a
   // single SchoolsFlyout icon instead (its own search box lives
@@ -78,7 +93,7 @@ export function Sidebar({
     .filter((s) => !vaFilter || schoolVaAssigned[s.id] === vaFilter);
 
   return (
-    <aside className={cn("flex flex-none flex-col border-r bg-background transition-[width]", collapsed ? "w-16" : "w-64")}>
+    <aside className={cn("flex flex-none flex-col border-r bg-sidebar transition-[width]", collapsed ? "w-16" : "w-64")}>
       {/* bg-header-background + text-white -- Michelle asked for the
           header bar's color to reach all the way over into the
           sidebar's own top corner too, not stop at its right edge.
@@ -143,7 +158,8 @@ export function Sidebar({
             href="/overview"
             prefetch={false}
             className={cn(
-              "flex items-center rounded-md py-2.5 text-base font-bold hover:bg-muted",
+              "flex items-center rounded-md py-2.5 text-base font-bold",
+              pathname === "/overview" ? "bg-sidebar-accent" : "hover:bg-muted",
               collapsed ? "justify-center px-2" : "gap-2 px-3",
             )}
           >
@@ -199,7 +215,10 @@ export function Sidebar({
                     href={`/schools/${s.id}`}
                     prefetch={false}
                     title={s.name}
-                    className="flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
+                    className={cn(
+                      "flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm",
+                      pathname === `/schools/${s.id}` ? "bg-sidebar-accent font-semibold" : "hover:bg-muted",
+                    )}
                     style={color ? { color } : undefined}
                   >
                     <School className="h-4 w-4 flex-none" />
@@ -247,7 +266,7 @@ export function Sidebar({
             href="/private-notes"
             prefetch={false}
             title={!collapsed ? "Private Notes" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/private-notes", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
           >
             <Lock className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
             {!collapsed && <span className="min-w-0 truncate">Private Notes</span>}
@@ -260,7 +279,7 @@ export function Sidebar({
             href="/notes"
             prefetch={false}
             title={!collapsed ? "General Notes" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/notes", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Megaphone className="h-4 w-4 flex-none text-amber-600 dark:text-amber-400" />
             {!collapsed && <span className="min-w-0 truncate">General Notes</span>}
@@ -271,7 +290,7 @@ export function Sidebar({
             href="/issues"
             prefetch={false}
             title={!collapsed ? "Issues & Concerns" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/issues", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <AlertTriangle className="h-4 w-4 flex-none text-red-600 dark:text-red-400" />
             {!collapsed && <span className="min-w-0 truncate">Issues & Concerns</span>}
@@ -282,7 +301,7 @@ export function Sidebar({
             href="/eod"
             prefetch={false}
             title={!collapsed ? "EOD Reports" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/eod", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Clock className="h-4 w-4 flex-none text-blue-600 dark:text-blue-400" />
             {!collapsed && <span className="min-w-0 truncate">EOD Reports</span>}
@@ -293,7 +312,7 @@ export function Sidebar({
             href="/contacts"
             prefetch={false}
             title={!collapsed ? "Schools Contact Information" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/contacts", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Contact className="h-4 w-4 flex-none text-teal-600 dark:text-teal-400" />
             {!collapsed && <span className="min-w-0 truncate">Schools Contact Information</span>}
@@ -304,7 +323,7 @@ export function Sidebar({
             href="/distribution-list"
             prefetch={false}
             title={!collapsed ? "Distribution List" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/distribution-list", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Send className="h-4 w-4 flex-none text-indigo-600 dark:text-indigo-400" />
             {!collapsed && <span className="min-w-0 truncate">Distribution List</span>}
@@ -315,7 +334,7 @@ export function Sidebar({
             href="/templates"
             prefetch={false}
             title={!collapsed ? "Email Templates" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/templates", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Mail className="h-4 w-4 flex-none text-sky-600 dark:text-sky-400" />
             {!collapsed && <span className="min-w-0 truncate">Email Templates</span>}
@@ -326,7 +345,7 @@ export function Sidebar({
             href="/suggestions"
             prefetch={false}
             title={!collapsed ? "Suggestions" : undefined}
-            className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/suggestions", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <MessageSquarePlus className="h-4 w-4 flex-none text-fuchsia-600 dark:text-fuchsia-400" />
             {!collapsed && <span className="min-w-0 truncate">Suggestions</span>}
@@ -341,7 +360,7 @@ export function Sidebar({
                 href="/team"
                 prefetch={false}
                 title={!collapsed ? "Team" : undefined}
-                className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+                className={navLinkClass("/team", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
               >
                 <Users className="h-4 w-4 flex-none text-orange-600 dark:text-orange-400" />
                 {!collapsed && <span className="min-w-0 truncate">Team</span>}
@@ -352,7 +371,7 @@ export function Sidebar({
                 href="/admin-settings"
                 prefetch={false}
                 title={!collapsed ? "Backup & School Year" : undefined}
-                className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+                className={navLinkClass("/admin-settings", collapsed ? "justify-center px-2" : "gap-2 px-3")}
               >
                 <DatabaseBackup className="h-4 w-4 flex-none text-rose-600 dark:text-rose-400" />
                 {!collapsed && <span className="min-w-0 truncate">Backup & School Year</span>}

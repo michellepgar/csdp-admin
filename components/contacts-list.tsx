@@ -176,7 +176,7 @@ export function ContactsList({
           createSchool/findOrCreateGroupByName in
           app/(app)/layout-actions.ts), so a separate manual path was
           redundant. */}
-      <div className="rounded-md border p-3">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium">Nurse Leader</span>
           {editingLeader ? (
@@ -203,7 +203,7 @@ export function ContactsList({
       </div>
 
       {groups.map((group) => (
-        <div key={group.id} className="rounded-md border">
+        <div key={group.id} className="rounded-md border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
             {editingGroupName === group.id ? (
               <form

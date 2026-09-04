@@ -71,77 +71,72 @@
      invisible) the moment the dropdown was actually opened in dark
      mode. This is the fix for that, not a cosmetic property. */
   color-scheme: light;
-  /* Plain white -- tried an off-white page background (twice: first
-     96% lightness, read as no different from white at all; then 90%,
-     which Michelle said was too dark/gray) so record rows would stand
-     out against it. Back to white for the page itself; only
-     --record-background just below still carries a tiny warm tint. */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.208 0.042 265.755);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.208 0.042 265.755);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.208 0.042 265.755);
-  /* A bright teal Michelle asked for on every button (the default
-     variant), link, and other text-primary/bg-primary spot -- this
-     used to also be --header-background's own color (see the tokens
-     further down), until she asked for the page-title bar to switch
-     to a darker, more muted teal instead. The two are independent
-     again now; this one is unchanged. */
-  --primary: oklch(0.715 0.143 215.221);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  /* A full palette Michelle handed over directly (exact hex values,
+     not a direction to iterate on) -- light mode only, dark mode
+     untouched. Kept as plain hex rather than converted to oklch like
+     the rest of this file's values: color-mix() and every consumer
+     below works identically either way, and hex here means these
+     exact values are traceable back to her own spec, not a lossy
+     conversion of it. Header (#08B6CF) stays the strongest color;
+     everything else is deliberately softer than it. */
+  --background: #F3F8FA;
+  --foreground: #173B4D;
+  --card: #FFFFFF;
+  --card-foreground: #173B4D;
+  --popover: #FFFFFF;
+  --popover-foreground: #173B4D;
+  --primary: #079DB7;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EAF8FA;
+  --secondary-foreground: #173B4D;
+  --muted: #EAF8FA;
+  --muted-foreground: #173B4D;
+  --accent: #EAF8FA;
+  --accent-foreground: #173B4D;
   --destructive: oklch(0.637 0.237 25.331);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.715 0.143 215.221);
+  --border: #C7DFE5;
+  --input: #C7DFE5;
+  --ring: #079DB7;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.25rem;
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-primary: oklch(0.715 0.143 215.221);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.715 0.143 215.221);
+  /* Wired into the actual sidebar (components/sidebar.tsx uses
+     bg-sidebar, not bg-background) so it reads as its own distinct
+     surface between the header and the page -- previously defined
+     here but unused by that component, so the sidebar was silently
+     just riding along on --background instead. --sidebar-accent is
+     the selected nav item's own highlight (also a new addition --
+     the sidebar had no "you are here" state before this). */
+  --sidebar: #EAF8FA;
+  --sidebar-foreground: #173B4D;
+  --sidebar-primary: #079DB7;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #D5F1F5;
+  --sidebar-accent-foreground: #173B4D;
+  --sidebar-border: #C7DFE5;
+  --sidebar-ring: #079DB7;
   --status-success: oklch(0.95 0.052 163.051);
   --status-success-foreground: oklch(0.508 0.118 165.612);
-  --status-warning: oklch(0.962 0.059 95.617);
-  --status-warning-foreground: oklch(0.555 0.163 48.998);
+  /* The one accent color in the new palette without an exact
+     matching pale-background counterpart specified -- computed as a
+     light tint of the same accent (color-mix, not a hand-picked
+     value) rather than guessing an unrelated oklch pair, so it always
+     stays visibly related to #F2B84B even if that value changes
+     later. */
+  --status-warning: color-mix(in oklch, #F2B84B 15%, white);
+  --status-warning-foreground: #F2B84B;
   --status-danger: oklch(0.936 0.032 17.717);
   --status-danger-foreground: oklch(0.505 0.213 27.518);
-  --status-neutral: oklch(0.968 0.007 247.896);
-  --status-neutral-foreground: oklch(0.372 0.044 257.287);
+  --status-neutral: #EAF8FA;
+  --status-neutral-foreground: #173B4D;
   --status-paused: oklch(0.954 0.038 75.164);
   --status-paused-foreground: oklch(0.553 0.195 38.402);
-  /* --title-background/--record-background are a two-step wash of
-     --primary's own hue, each step a little further from the plain
-     page background than the last (section title, medium > an
-     individual record's row, most subtle) -- both stay colored (not a
-     near-white neutral like --muted) and keep enough lightness gap
-     from --primary for text sitting on top to stay legible.
-     --header-background here (light mode) stays the bright teal that
-     matches --primary -- Michelle confirmed light mode was already
-     right and only wanted dark mode's page-title bar changed (see
-     .dark's own --header-background below, now a separate darker,
-     muted value instead of matching this one). */
-  --header-background: oklch(0.715 0.143 215.221);
-  --title-background: oklch(0.9 0.045 223.128);
-  /* Back to its original barely-off-white value -- tried making this
-     pure white against an off-white page instead (see --background's
-     own comment above for why that didn't work out) and reverted both
-     together. */
-  --record-background: oklch(0.985 0.01 223.128);
+  --header-background: #08B6CF;
+  --title-background: #CBEFF5;
+  --record-background: #ECF9FB;
 }
 
 .dark {

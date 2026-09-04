@@ -260,7 +260,7 @@ type FixProps = {
 export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueNote }: TableProps & { setIssueNote: (formData: FormData) => void }) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="overflow-x-auto rounded-md border bg-card">
       <table className="w-full min-w-[900px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
@@ -296,7 +296,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
 export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="overflow-x-auto rounded-md border bg-card">
       <table className="w-full min-w-[900px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
@@ -340,7 +340,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
 export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="overflow-x-auto rounded-md border bg-card">
       <table className="w-full min-w-[900px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">

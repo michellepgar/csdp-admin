@@ -203,7 +203,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         <EmailNotesCard schoolId={schoolId} emailNotes={school.emailNotes} setSchoolEmailNotes={setSchoolEmailNotes} />
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center justify-between border-b bg-title-background p-3">
           <h2 className="font-semibold">Contact Info</h2>
           <Link href="/contacts" className="text-sm text-primary underline underline-offset-2">

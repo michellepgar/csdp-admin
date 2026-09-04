@@ -33,7 +33,7 @@ export function EmailTrackerCard({
   const sorted = [...items].reverse();
 
   return (
-    <div id="email-tracker" className="scroll-mt-20 rounded-md border">
+    <div id="email-tracker" className="scroll-mt-20 rounded-md border bg-card">
       <div className="flex items-center gap-2 border-b bg-title-background p-3">
         <h2 className="font-semibold">Email Tracker</h2>
       </div>

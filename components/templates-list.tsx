@@ -84,7 +84,7 @@ export function TemplatesList({
         const isOpen = openId === t.id;
         const isEditing = editingId === t.id;
         return (
-          <div key={t.id} className="rounded-md border">
+          <div key={t.id} className="rounded-md border bg-card">
             <button
               type="button"
               onClick={() => setOpenId(isOpen ? null : t.id)}

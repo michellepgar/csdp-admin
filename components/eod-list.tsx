@@ -21,7 +21,7 @@ function NoteEntry({ e }: { e: EodReport }) {
   const line2 = [e.timeIn ? `IN- ${fmtTime12(e.timeIn)}` : "", e.breakStart ? `BREAK- ${fmtTime12(e.breakStart)}` : ""].filter(Boolean).join(" ");
   const line3 = [e.breakEnd ? `RESUME- ${fmtTime12(e.breakEnd)}` : "", e.timeOut ? `- OUT- ${fmtTime12(e.timeOut)}` : ""].filter(Boolean).join(" ");
   return (
-    <div className="mb-3 rounded-md border">
+    <div className="mb-3 rounded-md border bg-card">
       <div className="px-4 pt-2 text-xs font-semibold text-muted-foreground">{e.author || "Unnamed"}</div>
       <div className="space-y-0.5 p-4 pt-1 text-sm">
         <div>{line1}</div>
@@ -35,7 +35,7 @@ function NoteEntry({ e }: { e: EodReport }) {
 
 function TableView({ list }: { list: EodReport[] }) {
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="overflow-x-auto rounded-md border bg-card">
       <table className="w-full min-w-[800px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">

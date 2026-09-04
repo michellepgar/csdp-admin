@@ -90,7 +90,7 @@ export function OtherContactsList({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border bg-card">
       <div className="border-b p-3">
         <h2 className="font-semibold">Other Contacts</h2>
       </div>

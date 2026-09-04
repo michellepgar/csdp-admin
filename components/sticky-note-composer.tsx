@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bold, Italic, Underline, List, ListChecks, Minus } from "lucide-react";
+import { Bold, Italic, Underline, List, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dropdown } from "@/components/dropdown";
 import { NOTE_PAD_COLORS, NOTE_FONT_COLORS } from "@/lib/app-state";
 
 const FONT_FAMILIES = [
@@ -41,6 +40,8 @@ export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const [padColor, setPadColor] = useState(NOTE_PAD_COLORS[0].value);
+  const [fontFamilyIndex, setFontFamilyIndex] = useState(0);
+  const [fontSizeIndex, setFontSizeIndex] = useState(1);
 
   useEffect(() => {
     const form = editorRef.current?.closest("form");
@@ -77,18 +78,59 @@ export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
     document.execCommand(command, false, value);
   }
 
-  // Always starts a fresh line before inserting -- a single
-  // execCommand("insertHTML", `<div>...</div>`) call, when the cursor
-  // sits mid-line in plain (not-yet-block-wrapped) text, just splices
-  // the fragment in inline rather than actually breaking on to its own
-  // line -- confirmed directly (checking a checkbox in with existing
-  // text produced "textinput type=checkbox>more text", no line break
-  // at all). insertParagraph first (the same command Enter itself
-  // triggers) guarantees a real block break to insert into.
-  function insertLine(html: string) {
-    editorRef.current?.focus();
-    document.execCommand("insertParagraph");
-    document.execCommand("insertHTML", false, html);
+  // Inserts a new checklist row right after whichever top-level block
+  // the cursor is currently in (or appends one if the editor is
+  // completely empty). Deliberately plain DOM methods, not
+  // execCommand("insertParagraph") -- confirmed directly that on an
+  // EMPTY editor, insertParagraph followed by insertHTML produced a
+  // malformed nested structure (an empty leading paragraph, then the
+  // checklist row wrapped inside ANOTHER div instead of sitting at the
+  // top level) rather than one clean row. Walking up to the editor's
+  // own direct child and inserting a sibling next to it sidesteps
+  // execCommand's block-splitting behavior entirely.
+  function insertChecklistItem() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+
+    const newItem = document.createElement("div");
+    newItem.className = "note-checklist-item";
+    newItem.innerHTML = '<input type="checkbox">&nbsp;';
+
+    const selection = window.getSelection();
+    let block: ChildNode | null = selection?.anchorNode && editor.contains(selection.anchorNode) ? (selection.anchorNode as ChildNode) : null;
+    while (block && block.parentNode !== editor) block = block.parentNode as ChildNode | null;
+
+    if (block) {
+      block.after(newItem);
+    } else {
+      editor.appendChild(newItem);
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(newItem);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }
+
+  // Bullet lists (a real <ul>/<li> from execCommand("insertUnorderedList"))
+  // already get this from the browser for free -- Enter inside one
+  // creates the next <li> natively, no code of ours involved. A
+  // checklist row has no such built-in continuation (it's just a
+  // <div> with a checkbox, not a list semantically), so Enter there
+  // needs to be caught and handled the same way a real list would --
+  // reusing insertChecklistItem() above, which (since checklist rows
+  // are always direct children of the editor) lands in the same place
+  // whether it's called from here or from the toolbar button.
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    const anchor = window.getSelection()?.anchorNode;
+    const anchorEl = anchor && (anchor.nodeType === Node.ELEMENT_NODE ? (anchor as Element) : anchor.parentElement);
+    if (!anchorEl?.closest(".note-checklist-item")) return;
+
+    e.preventDefault();
+    insertChecklistItem();
   }
 
   // Every toolbar control needs this on mousedown (not just its own
@@ -131,20 +173,46 @@ export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
           <Underline className="h-3.5 w-3.5" />
         </Button>
 
-        <Dropdown
-          name="_fontFamily"
-          defaultValue={FONT_FAMILIES[0].value}
-          options={FONT_FAMILIES}
-          onChange={(v) => exec("fontName", v || "inherit")}
-          className="rounded border bg-background px-1.5 py-0.5 text-left text-xs"
-        />
-        <Dropdown
-          name="_fontSize"
-          defaultValue={FONT_SIZES[1].value}
-          options={FONT_SIZES}
-          onChange={(v) => exec("fontSize", v)}
-          className="rounded border bg-background px-1.5 py-0.5 text-left text-xs"
-        />
+        {/* Plain click-to-cycle buttons, not the app's own Dropdown --
+            Dropdown opens a popup on its OWN click, which (like every
+            other click outside the contentEditable) blurs it and
+            collapses whatever text was selected there before the
+            click handler -- and thus exec("fontName"/"fontSize") --
+            ever runs. Confirmed directly: picking a font/size from
+            that dropdown silently did nothing. A single button here
+            gets the same onMouseDown preventDefault every other
+            control already needs, with no intermediate popup click to
+            lose the selection on. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          title="Font family"
+          onMouseDown={preserveSelection}
+          onClick={() => {
+            const next = (fontFamilyIndex + 1) % FONT_FAMILIES.length;
+            setFontFamilyIndex(next);
+            exec("fontName", FONT_FAMILIES[next].value || "inherit");
+          }}
+        >
+          {FONT_FAMILIES[fontFamilyIndex].label}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          title="Font size"
+          onMouseDown={preserveSelection}
+          onClick={() => {
+            const next = (fontSizeIndex + 1) % FONT_SIZES.length;
+            setFontSizeIndex(next);
+            exec("fontSize", FONT_SIZES[next].value);
+          }}
+        >
+          {FONT_SIZES[fontSizeIndex].label}
+        </Button>
 
         <div className="flex items-center gap-1 border-l pl-1.5">
           {NOTE_FONT_COLORS.map((c) => (
@@ -164,11 +232,15 @@ export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
           <Button type="button" variant="ghost" size="icon-sm" title="Bullet list" onMouseDown={preserveSelection} onClick={() => exec("insertUnorderedList")}>
             <List className="h-3.5 w-3.5" />
           </Button>
-          <Button type="button" variant="ghost" size="icon-sm" title="Checklist" onMouseDown={preserveSelection} onClick={() => insertLine('<input type="checkbox">&nbsp;')}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            title="Checklist"
+            onMouseDown={preserveSelection}
+            onClick={insertChecklistItem}
+          >
             <ListChecks className="h-3.5 w-3.5" />
-          </Button>
-          <Button type="button" variant="ghost" size="icon-sm" title="Hyphen list" onMouseDown={preserveSelection} onClick={() => insertLine("- ")}>
-            <Minus className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
@@ -178,7 +250,16 @@ export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        className="min-h-24 w-full rounded-md border p-3 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]"
+        onKeyDown={handleKeyDown}
+        // [&_ul]/[&_ol] -- the app's own CSS reset otherwise zeroes
+        // out list-style/padding on every <ul>/<li> globally, so a
+        // Bullet list click looked like it did nothing while actually
+        // typing (the list existed in the DOM, just with no visible
+        // marker). Matches the same override the rendered note itself
+        // uses (general-notes-list.tsx/private-notes-list.tsx).
+        // .note-checklist-item is defined in globals.css (its indent
+        // and checkbox alignment).
+        className="min-h-24 w-full rounded-md border p-3 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
         style={{ backgroundColor: padColor }}
       />
       <input ref={textInputRef} type="hidden" name="text" />

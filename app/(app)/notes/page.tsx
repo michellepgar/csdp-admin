@@ -24,7 +24,7 @@ export default async function NotesPage() {
 
   return (
     <div>
-      <PageHeader title="General Notes/Announcements" />
+      <PageHeader title="General Notes" />
       <PageBody>
         <form action={addGeneralNote} className="space-y-2 max-w-lg">
           <textarea

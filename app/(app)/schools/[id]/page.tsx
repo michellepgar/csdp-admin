@@ -249,12 +249,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                   ) : i === 0 ? (
                     <p className="text-sm text-muted-foreground">No contact people on file yet.</p>
                   ) : null}
-                  {i === 1 && contactRow?.notes && (
-                    <div className="text-sm">
-                      <dt className="text-xs font-semibold uppercase text-muted-foreground">Notes</dt>
-                      <dd className="whitespace-pre-wrap">{contactRow.notes}</dd>
-                    </div>
-                  )}
                 </dl>
               ))}
 
@@ -302,7 +296,18 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                     <span className="whitespace-pre-wrap">{school.hours}</span>
                   </div>
                 )}
-                {!school.website && !school.phone && !school.fax && !school.hours && (
+                {/* Notes comes from the Contacts page's own row, same
+                    as Principal/Front Desk/etc. above -- moved down
+                    here below Hours (was under Front Desk/Nurse)
+                    since it's this school's own free-text note, not
+                    tied to any one contact person. */}
+                {contactRow?.notes && (
+                  <div className="flex items-baseline gap-1">
+                    <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Notes</span>
+                    <span className="whitespace-pre-wrap">{contactRow.notes}</span>
+                  </div>
+                )}
+                {!school.website && !school.phone && !school.fax && !school.hours && !contactRow?.notes && (
                   <p className="text-sm text-muted-foreground">No website/phone/fax/hours on file yet.</p>
                 )}
               </div>

@@ -104,11 +104,20 @@ export function SidebarShell({
           there's no longer a "fully gone" desktop state that needs a
           separate way back in. Mobile is untouched -- it's an overlay
           that's already only on screen when explicitly opened via the
-          hamburger below, so `collapsed` doesn't apply to it at all. */}
+          hamburger below, so `collapsed` doesn't apply to it at all --
+          except for overflow-y-auto, which used to only apply at `md:`
+          and above. `inset-y-0` on this `fixed` element does give it a
+          definite height (viewport height, same as `md:h-screen` makes
+          explicit for desktop) even without that scroll behavior, so
+          nothing here actually clipped -- Sidebar's own content (with
+          enough nav links, or the "Sign out" row added at the very
+          bottom) could just render past the bottom of a phone screen
+          with no way to reach it, confirmed directly. Plain
+          `overflow-y-auto` (no breakpoint) fixes that for mobile too. */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 transition-transform duration-200 ${
+        className={`fixed inset-y-0 left-0 z-40 overflow-y-auto transition-transform duration-200 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } md:sticky md:top-0 md:z-auto md:flex md:h-screen md:translate-x-0 md:overflow-y-auto md:transition-none`}
+        } md:sticky md:top-0 md:z-auto md:flex md:h-screen md:translate-x-0 md:transition-none`}
       >
         <Sidebar
           currentName={currentName}

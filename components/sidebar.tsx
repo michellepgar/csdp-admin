@@ -255,15 +255,15 @@ export function Sidebar({
         </IconTooltip>
 
         {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
-        <IconTooltip label="General Notes/Announcements" active={collapsed}>
+        <IconTooltip label="General Notes" active={collapsed}>
           <Link
             href="/notes"
             prefetch={false}
-            title={!collapsed ? "General Notes/Announcements" : undefined}
+            title={!collapsed ? "General Notes" : undefined}
             className={cn("flex min-w-0 items-center rounded-md py-2 text-sm font-medium hover:bg-muted", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Megaphone className="h-4 w-4 flex-none text-amber-600 dark:text-amber-400" />
-            {!collapsed && <span className="min-w-0 truncate">General Notes/Announcements</span>}
+            {!collapsed && <span className="min-w-0 truncate">General Notes</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="Issues & Concerns" active={collapsed}>

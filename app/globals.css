@@ -71,13 +71,18 @@
      invisible) the moment the dropdown was actually opened in dark
      mode. This is the fix for that, not a cosmetic property. */
   color-scheme: light;
-  /* Slightly off-white (not pure white) so record rows -- which sit at
-     pure white via --record-background just below -- actually stand
-     out against the page behind them, rather than blending into it at
-     a barely-there 1.5% lightness difference like before. Michelle
-     asked to see this before it shipped -- see that discussion for
-     the sample this came from. */
-  --background: oklch(0.96 0.005 250);
+  /* Off-white (not pure white) so record rows -- which sit at pure
+     white via --record-background just below -- actually stand out
+     against the page behind them, rather than blending into it at a
+     barely-there 1.5% lightness difference like before. The first
+     value here (96% lightness) turned out to still be too close to
+     white to read as a different color at all once shipped -- every
+     plain surface using this token (the sidebar, a card's own empty
+     space, the page itself) just looked like more white, confirmed
+     directly from a screenshot. 90% is a clearly visible light gray
+     instead, while still reading as "a light neutral page," not gray
+     in an unpleasant way. */
+  --background: oklch(0.9 0.006 250);
   --foreground: oklch(0.208 0.042 265.755);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.208 0.042 265.755);

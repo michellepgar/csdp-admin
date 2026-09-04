@@ -1,5 +1,7 @@
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { DEMO_APP_STATE } from "@/lib/demo-app-state";
 import type {
   AppState,
   Va,
@@ -420,6 +422,13 @@ function mapAccessRequestRow(r: AccessRequestRow): AccessRequest {
    still be sitting in the blob for already-migrated fields are ignored
    entirely — they're stale leftovers, not read here on purpose. */
 export const fetchAppState = cache(async (): Promise<AppState | null> => {
+  // The login page's "See a demo" link sets this cookie instead of a real
+  // Supabase session -- short-circuit straight to the fake fixture rather
+  // than running the ~25-table Promise.all below against the real
+  // database at all. See lib/demo-app-state.ts's own comment.
+  const isDemo = (await cookies()).get("demo-mode")?.value === "1";
+  if (isDemo) return DEMO_APP_STATE;
+
   const supabase = await createClient();
 
   const [

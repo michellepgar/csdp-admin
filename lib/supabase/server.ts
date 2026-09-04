@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { User } from "@supabase/supabase-js";
+import { DEMO_USER_EMAIL } from "@/lib/demo-app-state";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -31,8 +33,19 @@ export async function createClient() {
 
 /* Same dedup reasoning as fetchAppState() in lib/app-state.ts — the
    layout and the page it renders both need to know who's logged in;
-   this shares one actual call to Supabase per request instead of two. */
+   this shares one actual call to Supabase per request instead of two.
+
+   The login page's "See a demo" link sets a demo-mode cookie instead
+   of creating a real Supabase session -- checked first here (before
+   ever touching Supabase) so every caller of getCurrentUser() sees a
+   fake "Jane" user without needing its own separate demo branch. See
+   lib/demo-app-state.ts's own comment for the rest of this path
+   (fetchAppState(), the (app) layout's is_team_member() check, and
+   proxy.ts's own redirect all need the same bypass). */
 export const getCurrentUser = cache(async () => {
+  const isDemo = (await cookies()).get("demo-mode")?.value === "1";
+  if (isDemo) return { email: DEMO_USER_EMAIL } as User;
+
   const supabase = await createClient();
   const {
     data: { user },

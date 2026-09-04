@@ -30,15 +30,21 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // The login page's "See a demo" link sets this cookie instead of a real
+  // Supabase session -- treated as "signed in" here too, or every demo
+  // page load would bounce straight back to /login. See
+  // lib/demo-app-state.ts's own comment for the rest of this path.
+  const isDemo = request.cookies.get("demo-mode")?.value === "1";
+
   const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
 
-  if (!user && !isLoginRoute) {
+  if (!user && !isDemo && !isLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isLoginRoute) {
+  if ((user || isDemo) && isLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/overview";
     return NextResponse.redirect(url);

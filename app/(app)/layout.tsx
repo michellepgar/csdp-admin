@@ -24,9 +24,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
      independently of that Promise.all, makes the two cases
      distinguishable again: not on the team is expected and gets a
      clear page; anything else failing is a real problem. */
-  const supabase = await createClient();
-  const { data: isMember } = await supabase.rpc("is_team_member");
-  if (!isMember) redirect("/not-on-team");
+  // Demo mode has no real Supabase session for is_team_member() to check
+  // against -- it would just fail RLS and land here as "not on the team",
+  // so skip it entirely for the fake demo user (see getCurrentUser()'s and
+  // fetchAppState()'s own demo-mode checks, which this same cookie drives).
+  const isDemo = (await cookies()).get("demo-mode")?.value === "1";
+  if (!isDemo) {
+    const supabase = await createClient();
+    const { data: isMember } = await supabase.rpc("is_team_member");
+    if (!isMember) redirect("/not-on-team");
+  }
 
   const state = await fetchAppState();
   if (!state) {

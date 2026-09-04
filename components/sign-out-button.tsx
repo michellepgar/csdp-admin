@@ -14,6 +14,12 @@ import { HoverLabel } from "@/components/hover-label";
    rather than a visually distinct control. */
 export function SignOutButton({ collapsed }: { collapsed: boolean }) {
   async function signOut() {
+    // Clearing this unconditionally is harmless for a real account (the
+    // cookie was never set) and is what actually ends a demo session --
+    // the demo user has no real Supabase session for signOut() below to
+    // touch, so without this the demo-mode cookie would just log them
+    // straight back into the demo on their next visit to /login.
+    document.cookie = "demo-mode=; path=/; max-age=0";
     const supabase = createClient();
     await supabase.auth.signOut();
     window.location.href = "/login";

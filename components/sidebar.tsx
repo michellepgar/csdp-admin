@@ -95,7 +95,7 @@ export function Sidebar({
     .filter((s) => !vaFilter || schoolVaAssigned[s.id] === vaFilter);
 
   return (
-    <aside className={cn("flex flex-none flex-col border-r bg-sidebar transition-[width]", collapsed ? "w-16" : "w-64")}>
+    <aside className={cn("flex flex-none flex-col border-r bg-sidebar shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] transition-[width]", collapsed ? "w-16" : "w-64")}>
       {/* bg-header-background + text-white -- Michelle asked for the
           header bar's color to reach all the way over into the
           sidebar's own top corner too, not stop at its right edge.
@@ -170,8 +170,9 @@ export function Sidebar({
           </Link>
         </IconTooltip>
 
+        <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
         {!collapsed && (
-          <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">
+          <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">
             Schools ({schools.length})
           </div>
         )}
@@ -262,20 +263,22 @@ export function Sidebar({
             </button>
           ))}
 
-        {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">My Space</div>}
+        <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
+        {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">My Space</div>}
         <IconTooltip label="Private Notes" active={collapsed}>
           <Link
             href="/private-notes"
             prefetch={false}
             title={!collapsed ? "Private Notes" : undefined}
-            className={navLinkClass("/private-notes", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+            className={navLinkClass("/private-notes", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <Lock className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
             {!collapsed && <span className="min-w-0 truncate">Private Notes</span>}
           </Link>
         </IconTooltip>
 
-        {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
+        <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
+        {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
         <IconTooltip label="General Tasks" active={collapsed}>
           <Link
             href="/general-tasks"
@@ -367,13 +370,14 @@ export function Sidebar({
 
         {isAdmin && (
           <>
-            {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Admin</div>}
+            <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
+            {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Admin</div>}
             <IconTooltip label="Team" active={collapsed}>
               <Link
                 href="/team"
                 prefetch={false}
                 title={!collapsed ? "Team" : undefined}
-                className={navLinkClass("/team", collapsed ? "mt-4 justify-center px-2" : "gap-2 px-3")}
+                className={navLinkClass("/team", collapsed ? "justify-center px-2" : "gap-2 px-3")}
               >
                 <Users className="h-4 w-4 flex-none text-orange-600 dark:text-orange-400" />
                 {!collapsed && <span className="min-w-0 truncate">Team</span>}
@@ -393,8 +397,9 @@ export function Sidebar({
           </>
         )}
 
-        {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Account</div>}
-        <div className={collapsed ? "mt-4" : undefined}>
+        <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
+        {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Account</div>}
+        <div>
           <SignOutButton collapsed={collapsed} />
         </div>
       </nav>

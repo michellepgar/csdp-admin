@@ -23,7 +23,7 @@ export default async function AdminSettingsPage() {
       <PageHeader title="Backup & School Year" />
       <PageBody gap={8}>
       <section className="space-y-3 rounded-md border p-4">
-        <h2 className="text-lg font-semibold">Backup &amp; Restore</h2>
+        <h2 className="font-semibold">Backup &amp; Restore</h2>
         <p className="text-sm text-muted-foreground">
           Download a copy of everything in the tracker — schools, tasks, checklist progress, email tracker, distribution list,
           contacts, notes, all of it — anytime you want. Save the file somewhere safe (Google Drive, email it to yourself).
@@ -51,7 +51,7 @@ export default async function AdminSettingsPage() {
       </section>
 
       <section className="space-y-3 rounded-md border border-destructive/50 p-4">
-        <h2 className="text-lg font-semibold text-destructive">Start New School Year</h2>
+        <h2 className="font-semibold text-destructive">Start New School Year</h2>
         <p className="text-sm text-muted-foreground">
           Clears every school&apos;s Tasks list — file names, statuses, counts, and VA signatures — so each school starts the
           new year with an empty Tasks section. Also clears every school&apos;s Yearly Checklist progress (who checked off

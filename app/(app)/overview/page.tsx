@@ -88,7 +88,7 @@ export default async function OverviewPage() {
 
       <PageBody>
       <div>
-        <h2 className="mb-3 text-lg font-semibold">Currently Working On</h2>
+        <h2 className="mb-3 font-semibold">Currently Working On</h2>
         {vaNamesWithProgress.length === 0 ? (
           <p className="text-sm text-muted-foreground">No one has anything marked &quot;In Progress&quot; right now.</p>
         ) : (
@@ -120,7 +120,7 @@ export default async function OverviewPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left: alerts -- what needs attention right now. */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Alerts</h2>
+          <h2 className="font-semibold">Alerts</h2>
 
           <Card className={schoolsNeedingEmailAttention.length > 0 ? "border-status-danger-foreground/40 bg-status-danger" : ""}>
             <CardHeader>
@@ -191,7 +191,7 @@ export default async function OverviewPage() {
           </Card>
 
           <div>
-            <h2 className="mb-3 text-lg font-semibold">Checklist Progress by School</h2>
+            <h2 className="mb-3 font-semibold">Checklist Progress by School</h2>
             <div className="space-y-3">
               {state.schools.map((school) => {
                 const pct = checklistCompletion(state, school.id);

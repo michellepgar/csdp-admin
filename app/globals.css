@@ -278,3 +278,18 @@
 .bg-record-background:hover {
   background-color: color-mix(in oklch, var(--record-background), var(--primary) 8%);
 }
+
+/* A faint lift so a record row reads as its own small card against the
+   page rather than a flat rectangle -- most record rows are plain
+   white now (see --record-background's own comment above), sitting
+   directly on the page's own off-white, so without this they had
+   nothing but a 1px border to separate them. Doesn't apply to a
+   bg-record-background on a <tr> (Issues, Distribution List, EOD,
+   etc. all use table rows) -- browsers don't paint box-shadow on
+   table rows, only on block-level boxes, so this only shows on the
+   plain-div record rows (Tasks, Suggestions, General Tasks, Overview's
+   own cards). Kept subtle on purpose -- this is a nudge, not a
+   drop-shadow-heavy card effect. */
+.bg-record-background {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}

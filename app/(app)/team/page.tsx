@@ -46,7 +46,7 @@ export default async function TeamPage() {
             button all live on the same row instead of scrolling
             between two lists to find the same person twice. */}
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Add / Remove VAs</h2>
+          <h2 className="font-semibold">Add / Remove VAs</h2>
           <form action={addVa} className="flex gap-2 max-w-sm">
             <Input name="name" placeholder="VA name" required />
             <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
@@ -54,7 +54,7 @@ export default async function TeamPage() {
           <div className="space-y-2">
             {sortedVas.length === 0 && <p className="text-sm text-muted-foreground">No VAs added yet.</p>}
             {sortedVas.map((va) => (
-              <div key={va.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+              <div key={va.id} className="flex flex-wrap items-center gap-2 rounded-md border bg-record-background px-3 py-1">
                 <span className="w-32 flex-none font-medium">
                   {va.name}
                   {va.role === "owner" && <span className="ml-1 text-xs text-muted-foreground">(Owner)</span>}
@@ -85,7 +85,7 @@ export default async function TeamPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">VA Colors</h2>
+          <h2 className="font-semibold">VA Colors</h2>
           <div className="space-y-2">
             {sortedVas.map((va) => (
               <AutoSubmitForm key={va.id} action={updateVaField} className="flex items-center gap-2">
@@ -130,12 +130,12 @@ export default async function TeamPage() {
             server-side (see app/(app)/team/actions.ts) so a crafted
             request bypassing this UI still can't remove it either. */}
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Access</h2>
+          <h2 className="font-semibold">Access</h2>
           <div className="space-y-2">
             {sortedVas.map((va) => {
               const isSuperadmin = va.name === SUPERADMIN_NAME;
               return (
-                <AutoSubmitForm key={va.id} action={updateVaAccess} className="flex items-center gap-4 rounded-md border p-2">
+                <AutoSubmitForm key={va.id} action={updateVaAccess} className="flex items-center gap-4 rounded-md border bg-record-background px-3 py-1">
                   <input type="hidden" name="id" value={va.id} />
                   <span className="w-32 flex-none font-medium">{va.name}</span>
                   <label className="flex items-center gap-1.5 text-sm">
@@ -160,12 +160,12 @@ export default async function TeamPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">School Assignments</h2>
+          <h2 className="font-semibold">School Assignments</h2>
           <div className="space-y-2">
             {[...state.schools].sort((a, b) => a.name.localeCompare(b.name)).map((school) => {
               const sd = state.schoolData[school.id];
               return (
-                <div key={school.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
+                <div key={school.id} className="flex items-center justify-between gap-2 rounded-md border bg-record-background px-3 py-1">
                   <span className="font-medium">{school.name}</span>
                   <AutoSubmitDropdown
                     action={setSchoolAssignment}

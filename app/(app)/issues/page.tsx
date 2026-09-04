@@ -54,17 +54,17 @@ export default async function IssuesPage() {
         />
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Software Issue</h2>
+          <h2 className="font-semibold">Software Issue</h2>
           <SoftwareIssueTable issues={software} {...tableProps} setIssueNote={setIssueNote} />
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Correction / Verification</h2>
+          <h2 className="font-semibold">Correction / Verification</h2>
           <CorrectionTable issues={corrections} {...tableProps} {...fixProps} />
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Charting Questions</h2>
+          <h2 className="font-semibold">Charting Questions</h2>
           <ChartingTable issues={charting} {...tableProps} {...fixProps} />
         </section>
       </PageBody>

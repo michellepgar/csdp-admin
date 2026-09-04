@@ -29,10 +29,12 @@ import {
   setEmailStatus,
   removeEmailItem,
   setSchoolEmailNotes,
+  renameSchool,
   removeSchool,
   removeSchoolAndContacts,
 } from "./actions";
 import { RemoveSchoolControl } from "@/components/remove-school-control";
+import { EditSchoolNameControl } from "@/components/edit-school-name-control";
 import { PageBody } from "@/components/page-body";
 import { CopyButton } from "@/components/copy-button";
 
@@ -111,7 +113,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             VA assigned: <span className="font-medium text-white">{sd.vaAssigned || "Unassigned"}</span>
           </p>
         </div>
-        <div className="flex flex-none items-center gap-3">
+        <div className="flex flex-none flex-wrap items-center gap-2">
+          <EditSchoolNameControl schoolId={schoolId} schoolName={school.name} renameSchool={renameSchool} />
           <RemoveSchoolControl
             schoolId={schoolId}
             schoolName={school.name}

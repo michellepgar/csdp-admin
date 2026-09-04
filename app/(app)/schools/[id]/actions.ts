@@ -318,6 +318,39 @@ export async function setSchoolEmailNotes(formData: FormData) {
    page (app/(app)/contacts/actions.ts's updateContactRow), which
    updates this same `schools` table. This page only displays them. */
 
+/* ---------- Rename school ---------- */
+
+/* The school page is the only place a school's name can be changed --
+   Contacts and Distribution List both only ever show/match it, never
+   edit it. Contacts and Distribution List rows aren't linked to a
+   school by id, only by this exact name (see removeSchoolAndContacts's
+   own comment above), so renaming has to also rewrite every row that
+   currently carries the old name to the new one, or they'd silently
+   stop matching this school at all -- the contact/distribution info
+   would still exist, just orphaned under a name nothing points to
+   anymore. */
+export async function renameSchool(formData: FormData) {
+  const { supabase } = await requireTeamMember();
+  const schoolId = formData.get("schoolId") as string;
+  const newName = ((formData.get("name") as string) || "").trim();
+  if (!newName) return;
+
+  const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
+  if (!school || school.name === newName) return;
+  const oldName = school.name;
+
+  const { error } = await supabase.from("schools").update({ name: newName }).eq("id", schoolId);
+  orThrow(error);
+
+  const { error: contactsError } = await supabase.from("contact_rows").update({ school: newName }).eq("school", oldName);
+  orThrow(contactsError);
+  const { error: distributionError } = await supabase.from("distribution_rows").update({ school: newName }).eq("school", oldName);
+  orThrow(distributionError);
+
+  revalidatePath("/", "layout");
+  revalidateSchool(schoolId);
+}
+
 /* ---------- Remove school ---------- */
 
 /* Deletes the school row only. Cascades (via "on delete cascade" FKs)

@@ -291,15 +291,25 @@ export function TasksCard({
           </div>
         )}
 
-        <form action={addTask} className="flex flex-wrap gap-2">
+        {/* flex-col on mobile, flex-row from sm up -- the Dropdown's own
+            button sizes to fit its label text (no width cap), and a
+            long category name ("Encoding & Uploading (Consent & SDF)")
+            is on its own wider than a phone screen. Side by side in a
+            flex-wrap row, that pushed the file name input almost
+            entirely off-screen instead of onto its own line, so typing
+            into it scrolled the caret out of view with no way to see
+            what was actually being typed. Stacking full-width on
+            mobile (w-full sm:w-auto on each field) avoids that
+            entirely; sm and up keeps the original side-by-side row. */}
+        <form action={addTask} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <input type="hidden" name="schoolId" value={schoolId} />
           <Dropdown
             name="category"
             defaultValue={categories[0]?.name}
             options={categories.map((c) => ({ value: c.name, label: c.name }))}
-            className="rounded-md border px-2 py-1.5 text-left text-sm"
+            className="w-full truncate rounded-md border px-2 py-1.5 text-left text-sm sm:w-auto"
           />
-          <Input name="fileName" placeholder="File name, e.g. Q3-enrollment-report.xlsx" required className="max-w-md flex-1" />
+          <Input name="fileName" placeholder="File name, e.g. Q3-enrollment-report.xlsx" required className="w-full sm:max-w-md sm:flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>
 

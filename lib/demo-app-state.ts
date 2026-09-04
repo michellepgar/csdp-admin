@@ -116,4 +116,10 @@ export const DEMO_APP_STATE: AppState = {
     { id: "gt1", category: "Admin", description: "September payroll reconciliation", status: "In Progress", vaAssigned: [DEMO_USER_NAME], createdAt: new Date().toISOString() },
     { id: "gt2", category: "Training", description: "New-hire onboarding training", status: "", vaAssigned: [], createdAt: new Date().toISOString() },
   ],
+  generalTaskCategories: [
+    { id: "gtc-admin", name: "Admin" },
+    { id: "gtc-training", name: "Training" },
+    { id: "gtc-team-meeting", name: "Team Meeting" },
+    { id: "gtc-payroll", name: "Payroll" },
+  ],
 };

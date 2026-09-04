@@ -197,9 +197,13 @@ export default async function OverviewPage() {
                 const pct = checklistCompletion(state, school.id);
                 const tone = progressTone(pct);
                 return (
-                  <div key={school.id} className="rounded-md border bg-record-background p-3">
+                  <Link
+                    key={school.id}
+                    href={`/schools/${school.id}`}
+                    className="block rounded-md border bg-record-background p-3 hover:bg-[color-mix(in_oklch,var(--record-background),var(--primary)_8%)]"
+                  >
                     <div className="mb-1 flex items-center justify-between text-sm">
-                      <span className="font-medium">{school.name}</span>
+                      <span className="font-medium underline-offset-2 hover:underline">{school.name}</span>
                       <span className="text-muted-foreground">{pct}%</span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -208,7 +212,7 @@ export default async function OverviewPage() {
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

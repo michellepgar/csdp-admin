@@ -129,3 +129,50 @@ export async function removeGeneralTask(formData: FormData) {
   orThrow(error);
   revalidatePath("/general-tasks");
 }
+
+export async function addGeneralTaskCategory(formData: FormData) {
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.generalTaskCategories ??= []).push({ id: `demo-${Date.now()}`, name });
+    });
+    revalidatePath("/general-tasks");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+
+  const { data: maxRow } = await supabase
+    .from("general_task_categories")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase
+    .from("general_task_categories")
+    .insert({ id: crypto.randomUUID(), name, sort_order: nextSortOrder });
+  orThrow(error);
+  revalidatePath("/general-tasks");
+}
+
+export async function removeGeneralTaskCategory(formData: FormData) {
+  const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.generalTaskCategories = (state.generalTaskCategories || []).filter((c) => c.id !== id);
+    });
+    revalidatePath("/general-tasks");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+
+  const { error } = await supabase.from("general_task_categories").delete().eq("id", id);
+  orThrow(error);
+  revalidatePath("/general-tasks");
+}

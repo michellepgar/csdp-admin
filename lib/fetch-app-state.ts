@@ -27,6 +27,7 @@ import type {
   IssueCategory,
   AccessRequest,
   GeneralTask,
+  GeneralTaskCategory,
 } from "@/lib/app-state";
 
 type SchoolRow = { id: string; name: string; website: string | null; phone: string | null; fax: string | null; hours: string | null; email_notes: string | null; no_recheck: boolean | null };
@@ -478,6 +479,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     schoolContactsResult,
     otherContactsResult,
     generalTasksResult,
+    generalTaskCategoriesResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -504,6 +506,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("school_contacts").select("id, school_id, position, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
+    supabase.from("general_task_categories").select("id, name").order("sort_order"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -531,6 +534,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (schoolContactsResult.error) return null;
   if (otherContactsResult.error) return null;
   if (generalTasksResult.error) return null;
+  if (generalTaskCategoriesResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -588,6 +592,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   state.otherContacts = (otherContactsResult.data || []).map((r) => mapOtherContactRow(r as OtherContactRow));
 
   state.generalTasks = (generalTasksResult.data || []).map((r) => mapGeneralTaskRow(r as GeneralTaskRow));
+  state.generalTaskCategories = (generalTaskCategoriesResult.data || []) as GeneralTaskCategory[];
 
   const distributionGroupsById = new Map<string, DistributionGroup>();
   for (const g of (distributionGroupsResult.data || []) as DistributionGroupRow[]) {

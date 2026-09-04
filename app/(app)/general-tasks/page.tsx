@@ -11,6 +11,8 @@ import {
   signGeneralTask,
   removeVaFromGeneralTask,
   removeGeneralTask,
+  addGeneralTaskCategory,
+  removeGeneralTaskCategory,
 } from "./actions";
 
 export default async function GeneralTasksPage() {
@@ -29,6 +31,7 @@ export default async function GeneralTasksPage() {
       <PageBody>
         <GeneralTasksList
           tasks={state.generalTasks || []}
+          categories={state.generalTaskCategories || []}
           vas={state.vas}
           currentUserName={me.name}
           addGeneralTask={addGeneralTask}
@@ -36,6 +39,8 @@ export default async function GeneralTasksPage() {
           signGeneralTask={signGeneralTask}
           removeVaFromGeneralTask={removeVaFromGeneralTask}
           removeGeneralTask={removeGeneralTask}
+          addGeneralTaskCategory={addGeneralTaskCategory}
+          removeGeneralTaskCategory={removeGeneralTaskCategory}
         />
       </PageBody>
     </div>

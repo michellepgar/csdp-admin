@@ -1,17 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SubmitButton } from "@/components/submit-button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
 import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  GENERAL_TASK_CATEGORIES,
   TASK_STATUS_OPTIONS,
   vaColorByName,
   type GeneralTask,
+  type GeneralTaskCategory,
   type Va,
 } from "@/lib/app-state";
 
@@ -84,9 +86,13 @@ function GeneralTaskRow({
 /* Work that isn't tied to any school -- Admin, Training, Team Meeting,
    Payroll, etc. Same look as a school's own Tasks card
    (components/tasks-card.tsx), just without a schoolId, count, or
-   Communications sub-status, none of which apply to non-school work. */
+   Communications sub-status, none of which apply to non-school work.
+   Categories are editable the same way school Tasks' own categories
+   are (Michelle asked for this, not a fixed list) -- see
+   addGeneralTaskCategory/removeGeneralTaskCategory. */
 export function GeneralTasksList({
   tasks,
+  categories,
   vas,
   currentUserName,
   addGeneralTask,
@@ -94,8 +100,11 @@ export function GeneralTasksList({
   signGeneralTask,
   removeVaFromGeneralTask,
   removeGeneralTask,
+  addGeneralTaskCategory,
+  removeGeneralTaskCategory,
 }: {
   tasks: GeneralTask[];
+  categories: GeneralTaskCategory[];
   vas: Va[];
   currentUserName: string;
   addGeneralTask: (formData: FormData) => void;
@@ -103,7 +112,10 @@ export function GeneralTasksList({
   signGeneralTask: (formData: FormData) => void;
   removeVaFromGeneralTask: (formData: FormData) => void;
   removeGeneralTask: (formData: FormData) => void;
+  addGeneralTaskCategory: (formData: FormData) => void;
+  removeGeneralTaskCategory: (formData: FormData) => void;
 }) {
+  const [editorOpen, setEditorOpen] = useState(false);
   const openCount = tasks.filter((t) => t.status === "In Progress").length;
 
   return (
@@ -112,16 +124,43 @@ export function GeneralTasksList({
         <h2 className="font-semibold">
           Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-white/70">{openCount}</span>}
         </h2>
+        <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
+          {editorOpen ? "Close editor" : "Edit categories"}
+        </Button>
       </div>
       <div className="space-y-3 p-3">
-        <form action={addGeneralTask} className="flex flex-wrap items-center gap-2">
+        {editorOpen && (
+          <div className="space-y-2 rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">Existing tasks keep their category name even if it&apos;s later removed here.</p>
+            {categories.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
+                <span>{c.name}</span>
+                <form action={removeGeneralTaskCategory}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <ConfirmDeleteButton confirmMessage={`Remove the "${c.name}" category? Existing tasks keep this category name.`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
+                </form>
+              </div>
+            ))}
+            <form action={addGeneralTaskCategory} className="flex gap-2">
+              <Input name="name" placeholder="New category" required />
+              <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
+            </form>
+          </div>
+        )}
+
+        {/* flex-col on mobile, flex-row from sm up -- same fix as
+            tasks-card.tsx's own add-task form: a field that isn't
+            capped to a definite width can end up nearly off-screen
+            next to a sibling on a narrow phone width instead of
+            wrapping onto its own line. */}
+        <form action={addGeneralTask} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Dropdown
             name="category"
-            defaultValue={GENERAL_TASK_CATEGORIES[0]}
-            options={GENERAL_TASK_CATEGORIES.map((c) => ({ value: c, label: c }))}
-            className="rounded-md border px-2 py-1.5 text-left text-sm"
+            defaultValue={categories[0]?.name}
+            options={categories.map((c) => ({ value: c.name, label: c.name }))}
+            className="w-full truncate rounded-md border px-2 py-1.5 text-left text-sm sm:w-auto"
           />
-          <Input name="description" placeholder="What are you working on?" required className="min-w-0 flex-1" />
+          <Input name="description" placeholder="What are you working on?" required className="w-full sm:min-w-0 sm:flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>
 

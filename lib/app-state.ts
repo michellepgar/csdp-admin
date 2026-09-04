@@ -82,13 +82,14 @@ export interface Task {
    status+signatures, shown alongside the main one on the same row. */
 export const CATEGORIES_WITH_COMMUNICATIONS = ["Initial", "Follow up"];
 
-/* Fixed, not editable like TaskCategory/task_categories above -- a
-   school's Tasks categories get their own "Edit categories" manager
-   because the set of files a school deals with genuinely varies
-   school to school. Non-school work is much more bounded, so a short
-   fixed list (matching the mockup Michelle approved) covers it without
-   building a whole second category-management UI for it. */
-export const GENERAL_TASK_CATEGORIES = ["Admin", "Training", "Team Meeting", "Payroll"];
+/* Editable the same way a school's Tasks categories are (see
+   TaskCategory/task_categories above) -- Michelle asked for the
+   ability to manage this list herself rather than being stuck with a
+   fixed one. Reuses TaskCategory's own shape (just {id, name}) since
+   it's identical; general_task_categories is still its own separate
+   table so a general-task category and a school-task category can
+   never collide by id. */
+export type GeneralTaskCategory = TaskCategory;
 
 /* Work that isn't tied to any school -- shown on its own General Tasks
    page and, when "In Progress", alongside school Tasks in Overview's
@@ -299,6 +300,7 @@ export interface AppState {
   issueCategories?: IssueCategory[];
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];
+  generalTaskCategories?: GeneralTaskCategory[];
 }
 
 /* ---------- Distribution List ----------

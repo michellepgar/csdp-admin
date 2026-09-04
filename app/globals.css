@@ -71,7 +71,13 @@
      invisible) the moment the dropdown was actually opened in dark
      mode. This is the fix for that, not a cosmetic property. */
   color-scheme: light;
-  --background: oklch(1 0 0);
+  /* Slightly off-white (not pure white) so record rows -- which sit at
+     pure white via --record-background just below -- actually stand
+     out against the page behind them, rather than blending into it at
+     a barely-there 1.5% lightness difference like before. Michelle
+     asked to see this before it shipped -- see that discussion for
+     the sample this came from. */
+  --background: oklch(0.96 0.005 250);
   --foreground: oklch(0.208 0.042 265.755);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.208 0.042 265.755);
@@ -132,7 +138,12 @@
      muted value instead of matching this one). */
   --header-background: oklch(0.715 0.143 215.221);
   --title-background: oklch(0.9 0.045 223.128);
-  --record-background: oklch(0.985 0.01 223.128);
+  /* Pure white -- was a barely-off-white oklch(0.985...), practically
+     indistinguishable from the page background it sat on. Now that
+     --background above is genuinely off-white, this can be plain
+     white and actually read as "the record" standing on top of the
+     page rather than "the page." */
+  --record-background: oklch(1 0 0);
 }
 
 .dark {

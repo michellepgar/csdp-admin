@@ -112,4 +112,8 @@ export const DEMO_APP_STATE: AppState = {
     { id: "oc1", name: "District Office", organization: "School District", email: "info@demo-district.edu", phone: "508-555-0900" },
   ],
   accessRequests: [],
+  generalTasks: [
+    { id: "gt1", category: "Admin", description: "September payroll reconciliation", status: "In Progress", vaAssigned: [DEMO_USER_NAME], createdAt: new Date().toISOString() },
+    { id: "gt2", category: "Training", description: "New-hire onboarding training", status: "", vaAssigned: [], createdAt: new Date().toISOString() },
+  ],
 };

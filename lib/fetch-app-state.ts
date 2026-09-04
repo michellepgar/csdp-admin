@@ -26,6 +26,7 @@ import type {
   Issue,
   IssueCategory,
   AccessRequest,
+  GeneralTask,
 } from "@/lib/app-state";
 
 type SchoolRow = { id: string; name: string; website: string | null; phone: string | null; fax: string | null; hours: string | null; email_notes: string | null; no_recheck: boolean | null };
@@ -301,6 +302,26 @@ function mapEodReportRow(r: EodReportRow): EodReport {
   };
 }
 
+type GeneralTaskRow = {
+  id: string;
+  category: string;
+  description: string;
+  status: string;
+  va_assigned: string[];
+  created_at: string;
+};
+
+function mapGeneralTaskRow(r: GeneralTaskRow): GeneralTask {
+  return {
+    id: r.id,
+    category: r.category,
+    description: r.description,
+    status: r.status,
+    vaAssigned: r.va_assigned,
+    createdAt: r.created_at,
+  };
+}
+
 type IssueRow = {
   id: string;
   type: string;
@@ -456,6 +477,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     accessRequestsResult,
     schoolContactsResult,
     otherContactsResult,
+    generalTasksResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -481,6 +503,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
+    supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -507,6 +530,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (accessRequestsResult.error) return null;
   if (schoolContactsResult.error) return null;
   if (otherContactsResult.error) return null;
+  if (generalTasksResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -562,6 +586,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   state.contactGroups = Array.from(contactGroupsById.values());
 
   state.otherContacts = (otherContactsResult.data || []).map((r) => mapOtherContactRow(r as OtherContactRow));
+
+  state.generalTasks = (generalTasksResult.data || []).map((r) => mapGeneralTaskRow(r as GeneralTaskRow));
 
   const distributionGroupsById = new Map<string, DistributionGroup>();
   for (const g of (distributionGroupsResult.data || []) as DistributionGroupRow[]) {

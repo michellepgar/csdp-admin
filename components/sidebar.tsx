@@ -15,6 +15,7 @@ import {
   DatabaseBackup,
   AlertTriangle,
   Send,
+  ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -275,6 +276,17 @@ export function Sidebar({
         </IconTooltip>
 
         {!collapsed && <div className="mt-4 px-3 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
+        <IconTooltip label="General Tasks" active={collapsed}>
+          <Link
+            href="/general-tasks"
+            prefetch={false}
+            title={!collapsed ? "General Tasks" : undefined}
+            className={navLinkClass("/general-tasks", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <ClipboardList className="h-4 w-4 flex-none text-lime-600 dark:text-lime-400" />
+            {!collapsed && <span className="min-w-0 truncate">General Tasks</span>}
+          </Link>
+        </IconTooltip>
         <IconTooltip label="General Notes" active={collapsed}>
           <Link
             href="/notes"

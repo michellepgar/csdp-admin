@@ -3,22 +3,29 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail, isAdmin, SUPERADMIN_NAME, type AppState } from "@/lib/app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
+import { isAdmin, SUPERADMIN_NAME, type AppState } from "@/lib/app-state";
 
-async function requireAdminAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
+/* Every action below except setSchoolAssignment used to start with a
+   helper that ran fetchAppState() -- the whole app's ~25-table
+   Promise.all -- just to check isAdmin() and, in a couple of cases,
+   read one field of one record it could have queried directly. That's
+   the actual cause of "color assignment and removing VA takes so long
+   to save": every click here paid for the entire app's data TWICE
+   (once inside the action, again when revalidatePath() re-renders
+   right after) -- not network flakiness. Same fix already applied to
+   app/(app)/schools/[id]/actions.ts (see its own comment on this).
 
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me || !isAdmin(me)) throw new Error("Not authorized");
-
-  return { supabase, state };
+   requireAdmin() (a single `vas` lookup via requireTeamMember(), plus
+   the isAdmin() check) replaces it for every action that doesn't
+   genuinely need other state. setSchoolAssignment is the one
+   exception below -- schoolData.vaAssigned still lives in the legacy
+   app_state JSON blob, not its own column, so mutating it safely
+   really does need the full round trip. */
+async function requireAdmin() {
+  const { supabase, me } = await requireTeamMember();
+  if (!isAdmin(me)) throw new Error("Not authorized");
+  return { supabase, me };
 }
 
 // communicationEditor and schoolData assignments still live in the
@@ -36,17 +43,15 @@ async function saveLegacyState(
 }
 
 export async function addVa(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;
-  if (state.vas.some((v) => v.name.toLowerCase() === name.toLowerCase())) return;
 
   const { error } = await supabase.from("vas").insert({ id: crypto.randomUUID(), name });
   if (error) {
-    // 23505 = unique_violation. The in-memory check above catches the
-    // common case; this is the backstop for two concurrent "Add VA"
-    // submissions racing each other — not a real error from the
-    // user's perspective, just "someone beat you to that name".
+    // 23505 = unique_violation -- two concurrent "Add VA" submissions
+    // (or a plain duplicate name) racing each other. Not a real error
+    // from the user's perspective, just "that name's already taken".
     if (error.code === "23505") return;
     throw new Error(error.message);
   }
@@ -54,7 +59,7 @@ export async function addVa(formData: FormData) {
 }
 
 export async function removeVa(formData: FormData) {
-  const { supabase } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
   const id = formData.get("id") as string;
 
   const { error } = await supabase.from("vas").delete().eq("id", id);
@@ -63,7 +68,7 @@ export async function removeVa(formData: FormData) {
 }
 
 export async function updateVaField(formData: FormData) {
-  const { supabase } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
   const id = formData.get("id") as string;
   const rawField = formData.get("field") as string;
   const value = ((formData.get("value") as string) || "").trim();
@@ -83,7 +88,7 @@ export async function updateVaField(formData: FormData) {
 // still round-trips the old `communicationEditor` field for backups taken
 // before this changed.
 export async function setCommunicationEditor(formData: FormData) {
-  const { supabase } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
   const name = (formData.get("name") as string) || "";
 
   const { error } = await supabase
@@ -98,9 +103,9 @@ export async function setCommunicationEditor(formData: FormData) {
 // present in FormData at all, so its absence (not a "false" value) is
 // what means "off" here.
 export async function updateVaAccess(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
   const id = formData.get("id") as string;
-  const va = state.vas.find((v) => v.id === id);
+  const { data: va } = await supabase.from("vas").select("name").eq("id", id).maybeSingle();
 
   // Michelle's Admin box renders disabled+locked on the page itself, but
   // that's just UI -- re-asserted here too so a request that skips the
@@ -120,7 +125,9 @@ export async function updateVaAccess(formData: FormData) {
 }
 
 export async function setSchoolAssignment(formData: FormData) {
-  const { supabase, state } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
+  const state = await fetchAppState();
+  if (!state) throw new Error("Couldn't load app state");
   const schoolId = formData.get("schoolId") as string;
   const vaName = (formData.get("vaName") as string) || "";
   if (!state.schoolData[schoolId]) state.schoolData[schoolId] = { vaAssigned: "" };

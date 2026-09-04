@@ -258,16 +258,16 @@ export function TasksCard({
 
   return (
     <div className="rounded-md border bg-card">
-      <div className="flex items-center justify-between border-b bg-title-background p-3">
+      <div className="flex items-center justify-between border-b bg-header-background px-3 py-1 text-white">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold">
-            Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{openCount}</span>}
+            Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-white/70">{openCount}</span>}
           </h2>
           <StatusBadge tone="warning">{inProgressCount}</StatusBadge>
           <StatusBadge tone="paused">{pausedCount}</StatusBadge>
           <StatusBadge tone="success">{completedCount}</StatusBadge>
         </div>
-        <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
+        <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
           {editorOpen ? "Close editor" : "Edit categories"}
         </Button>
       </div>

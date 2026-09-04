@@ -73,14 +73,15 @@ export function Sidebar({
 
   // Every plain nav link below (not the school list or Sign out, which
   // have their own look) shares this same "am I the current page"
-  // class, so the new selected-item highlight (--sidebar-accent, the
-  // palette's "Selected navigation item" color) shows up identically
-  // wherever the visitor actually is, without repeating the isActive
-  // check and its resulting className at each of the ~10 call sites.
+  // class, so the selected-item look (--sidebar-accent background,
+  // --sidebar-accent-foreground text -- its own deeper teal, not just
+  // the ordinary --foreground) shows up identically wherever the
+  // visitor actually is, without repeating the isActive check and its
+  // resulting className at each of the ~10 call sites.
   const navLinkClass = (href: string, extra: string) =>
     cn(
       "flex min-w-0 items-center rounded-md py-2 text-sm font-medium",
-      pathname === href ? "bg-sidebar-accent font-semibold" : "hover:bg-muted",
+      pathname === href ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground" : "hover:bg-muted",
       extra,
     );
 
@@ -159,7 +160,7 @@ export function Sidebar({
             prefetch={false}
             className={cn(
               "flex items-center rounded-md py-2.5 text-base font-bold",
-              pathname === "/overview" ? "bg-sidebar-accent" : "hover:bg-muted",
+              pathname === "/overview" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-muted",
               collapsed ? "justify-center px-2" : "gap-2 px-3",
             )}
           >
@@ -217,7 +218,7 @@ export function Sidebar({
                     title={s.name}
                     className={cn(
                       "flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm",
-                      pathname === `/schools/${s.id}` ? "bg-sidebar-accent font-semibold" : "hover:bg-muted",
+                      pathname === `/schools/${s.id}` ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground" : "hover:bg-muted",
                     )}
                     style={color ? { color } : undefined}
                   >

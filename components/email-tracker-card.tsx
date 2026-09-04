@@ -34,7 +34,7 @@ export function EmailTrackerCard({
 
   return (
     <div id="email-tracker" className="scroll-mt-20 rounded-md border bg-card">
-      <div className="flex items-center gap-2 border-b bg-title-background p-3">
+      <div className="flex items-center gap-2 border-b bg-header-background px-3 py-1 text-white">
         <h2 className="font-semibold">Email Tracker</h2>
       </div>
       <div className="space-y-3 p-3">

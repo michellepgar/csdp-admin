@@ -6,10 +6,8 @@ import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { DistributionList } from "@/components/distribution-list";
 import {
-  addDistributionGroup,
   renameDistributionGroup,
   removeDistributionGroup,
-  addDistributionRow,
   updateDistributionRow,
   toggleDistributionRowDistributed,
   removeDistributionRow,
@@ -31,10 +29,8 @@ export default async function DistributionListPage() {
       <PageBody>
         <DistributionList
           groups={state.distributionGroups || []}
-          addDistributionGroup={addDistributionGroup}
           renameDistributionGroup={renameDistributionGroup}
           removeDistributionGroup={removeDistributionGroup}
-          addDistributionRow={addDistributionRow}
           updateDistributionRow={updateDistributionRow}
           toggleDistributionRowDistributed={toggleDistributionRowDistributed}
           removeDistributionRow={removeDistributionRow}

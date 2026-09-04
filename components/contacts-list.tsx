@@ -204,7 +204,14 @@ export function ContactsList({
 
       {groups.map((group) => (
         <div key={group.id} className="rounded-md border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
+          {/* bg-header-background + text-white -- Michelle asked for the
+              group name's own background to match the PAGE title's
+              color (the h1 bar at the very top), not the softer
+              bg-title-background every other section header uses.
+              White text for the same reason h1 itself uses white --
+              this saturated a teal doesn't read well with the usual
+              dark text. */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
             {editingGroupName === group.id ? (
               <form
                 action={renameContactGroup}
@@ -212,7 +219,7 @@ export function ContactsList({
                 className="flex items-center gap-2"
               >
                 <input type="hidden" name="id" value={group.id} />
-                <Input name="name" defaultValue={group.name} className="max-w-xs" />
+                <Input name="name" defaultValue={group.name} className="max-w-xs bg-background text-foreground" />
                 <SubmitButton pendingLabel="…">✓</SubmitButton>
               </form>
             ) : (

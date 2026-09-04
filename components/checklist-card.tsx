@@ -81,19 +81,19 @@ export function ChecklistCard({
     // schools/[id]/page.tsx) takes whatever this leaves. ml-auto docks
     // it to the row's right edge explicitly.
     <div className="ml-auto w-fit max-w-full rounded-md border bg-card sm:max-w-xs">
-      <div className="flex items-center justify-between gap-2 border-b bg-title-background p-3">
+      <div className="flex items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
         <h2 className="font-semibold whitespace-nowrap">
-          Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">{doneCount}/{template.length}</span>}
+          Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-white/70">{doneCount}/{template.length}</span>}
         </h2>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="link" size="sm" onClick={() => setEditorOpen((o) => !o)}>
+          <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
             {editorOpen ? "Close editor" : "Edit template"}
           </Button>
           {/* No hover label here (unlike the collapsed Show button
               below) -- the panel's own "Yearly Checklist" title sits
               right next to this button already, so a tooltip repeating
               the same text would be redundant while it's open. */}
-          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
+          <Button type="button" variant="ghost" size="icon-sm" className="text-white hover:bg-white/20 hover:text-white" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

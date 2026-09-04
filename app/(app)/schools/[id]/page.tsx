@@ -204,9 +204,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
       </div>
 
       <div className="rounded-md border bg-card">
-        <div className="flex items-center justify-between border-b bg-title-background p-3">
+        <div className="flex items-center justify-between border-b bg-header-background px-3 py-1 text-white">
           <h2 className="font-semibold">Contact Info</h2>
-          <Link href="/contacts" className="text-sm text-primary underline underline-offset-2">
+          <Link href="/contacts" className="text-sm text-white underline underline-offset-2">
             Edit on Contacts page
           </Link>
         </div>

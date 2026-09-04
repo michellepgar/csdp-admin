@@ -442,19 +442,15 @@ function RowEdit({
 
 export function DistributionList({
   groups,
-  addDistributionGroup,
   renameDistributionGroup,
   removeDistributionGroup,
-  addDistributionRow,
   updateDistributionRow,
   toggleDistributionRowDistributed,
   removeDistributionRow,
 }: {
   groups: DistributionGroup[];
-  addDistributionGroup: (formData: FormData) => void;
   renameDistributionGroup: (formData: FormData) => void;
   removeDistributionGroup: (formData: FormData) => void;
-  addDistributionRow: (formData: FormData) => void;
   updateDistributionRow: (formData: FormData) => void;
   toggleDistributionRowDistributed: (formData: FormData) => void;
   removeDistributionRow: (formData: FormData) => void;
@@ -468,28 +464,24 @@ export function DistributionList({
 
   return (
     <div className="space-y-6">
-      <form action={addDistributionRow} className="flex flex-wrap items-center gap-2 rounded-md border p-3">
-        <Dropdown
-          name="group"
-          required
-          placeholder="Choose group…"
-          options={groups.map((g) => ({ value: g.id, label: g.name }))}
-          className="rounded-md border px-2 py-1.5 text-left text-sm"
-        />
-        <Input name="school" placeholder="School name" required className="max-w-xs" />
-        <SubmitButton pendingLabel="Adding…">+ Add school</SubmitButton>
-      </form>
-
-      <form action={addDistributionGroup} className="flex items-center gap-2">
-        <Input name="name" placeholder="New group name" required className="max-w-xs" />
-        <SubmitButton pendingLabel="Adding…">+ Add group</SubmitButton>
-      </form>
-
+      {/* No manual "+ Add school"/"+ Add group" here anymore -- both are
+          redundant with the sidebar's own "+ Add school" button, which
+          already creates the group (from the fixed SCHOOL_GROUPS list)
+          and a blank Distribution List row for it automatically (see
+          createSchool in app/(app)/layout-actions.ts). Michelle asked
+          for these to go since schools now only get added from there. */}
       {groups.map((group) => {
         const totalForms = group.rows.reduce((sum, r) => sum + distributionRowTotalForms(r), 0);
         return (
           <div key={group.id} className="rounded-md border bg-card">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
+            {/* bg-header-background + text-white -- Michelle asked for
+                the group name's own background to match the PAGE
+                title's color (the h1 bar at the very top), not the
+                softer bg-title-background every other section header
+                uses. White text for the same reason h1 itself uses
+                white -- this saturated a teal doesn't read well with
+                the usual dark text. */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
               {editingGroupName === group.id ? (
                 <form
                   action={renameDistributionGroup}
@@ -497,14 +489,14 @@ export function DistributionList({
                   className="flex items-center gap-2"
                 >
                   <input type="hidden" name="id" value={group.id} />
-                  <Input name="name" defaultValue={group.name} className="max-w-xs" />
+                  <Input name="name" defaultValue={group.name} className="max-w-xs bg-background text-foreground" />
                   <SubmitButton pendingLabel="…">✓</SubmitButton>
                 </form>
               ) : (
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{group.name}</span>
                   <Button type="button" variant="ghost" size="sm" onClick={() => setEditingGroupName(group.id)}>✏️</Button>
-                  <span className="text-xs text-muted-foreground">{totalForms} forms total</span>
+                  <span className="text-xs text-white/80">{totalForms} forms total</span>
                 </div>
               )}
               <form action={removeDistributionGroup}>

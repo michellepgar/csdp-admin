@@ -128,9 +128,20 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
       {/* flex, not grid -- Yearly Checklist can collapse to just its
           header (its own "Hide" button) and shrink to that header's
           width instead of always taking a fixed half-width column;
-          Tasks grows to fill whatever space that frees up. */}
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="min-w-0 flex-1 basis-0">
+          Tasks grows to fill whatever space that frees up.
+
+          flex-col sm:flex-row (not flex-wrap on a row) -- flex-wrap
+          only forces a line break once the row's items can't fit at
+          their natural (min-content) width, but Tasks opts OUT of
+          that via min-w-0 specifically so it CAN shrink. Combined,
+          those fought each other on a narrow phone screen: confirmed
+          directly from a screenshot showing Checklist's own open
+          panel rendered on the same row as Tasks, which just got
+          squeezed down to a sliver instead of the row ever wrapping.
+          Stacking unconditionally below `sm` sidesteps that fight
+          entirely instead of trying to out-tune it. */}
+      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start">
+        <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:basis-0">
           <TasksCard
             schoolId={schoolId}
             categories={state.taskCategories || []}
@@ -165,10 +176,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         />
       </div>
 
-      {/* flex, matching the Tasks/Checklist row above -- Michelle
-          asked for Email Notes right beside Email Tracker. */}
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="min-w-0 flex-1 basis-0">
+      {/* flex, matching the Tasks/Checklist row above (see its own
+          comment for why flex-col sm:flex-row rather than flex-wrap on
+          a row) -- Michelle asked for Email Notes right beside Email
+          Tracker. */}
+      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start">
+        <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:basis-0">
           <EmailTrackerCard
             schoolId={schoolId}
             items={sd.emailTracker || []}

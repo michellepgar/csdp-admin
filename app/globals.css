@@ -294,6 +294,28 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
+/* General Notes/Private Notes -- a proper sticky-note read, not just
+   another record row: a stronger lifted shadow, and a small folded
+   corner (a triangle cut into the bottom-right, the classic sticky-
+   note tell) instead of a plain rectangle. Applied on top of each
+   note's own pad-color background (components/sticky-note-composer.tsx
+   sets that separately, inline, per note). */
+.note-card {
+  position: relative;
+  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.note-card::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 14px 14px;
+  border-color: transparent transparent rgba(0, 0, 0, 0.12) transparent;
+}
+
 /* A sticky note's checklist row (components/sticky-note-composer.tsx)
    -- not a real <ul>/<li> (a checkbox has nothing to do with list
    markers), so it doesn't inherit the [&_ul]/[&_ol] indent those get

@@ -45,7 +45,7 @@ export function GeneralNotesList({
         return (
           <div
             key={n.id}
-            className={`rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : ""}`}
+            className={`note-card rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : ""}`}
             style={n.urgency !== "Urgent" && n.padColor ? { backgroundColor: n.padColor } : undefined}
           >
             <div className="flex items-start justify-between gap-3">

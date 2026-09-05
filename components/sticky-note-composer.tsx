@@ -157,7 +157,7 @@ export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
               title={`${c.name} pad`}
               onMouseDown={preserveSelection}
               onClick={() => setPadColor(c.value)}
-              className={`h-5 w-5 rounded-full border-2 ${padColor === c.value ? "border-primary" : "border-transparent"}`}
+              className={`h-5 w-5 rounded-full border-2 transition-transform hover:scale-110 ${padColor === c.value ? "border-primary" : "border-transparent hover:border-muted-foreground/40"}`}
               style={{ backgroundColor: c.value }}
             />
           ))}
@@ -222,7 +222,7 @@ export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
               title={`${c.name} text`}
               onMouseDown={preserveSelection}
               onClick={() => exec("foreColor", c.value)}
-              className="h-4 w-4 rounded-full border"
+              className="h-4 w-4 rounded-full border transition-transform hover:scale-110 hover:border-muted-foreground/40"
               style={{ backgroundColor: c.value }}
             />
           ))}

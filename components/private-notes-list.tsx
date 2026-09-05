@@ -45,7 +45,7 @@ export function PrivateNotesList({
         return (
           <div
             key={n.id}
-            className={`rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
+            className={`note-card rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
             style={n.padColor ? { backgroundColor: n.padColor } : undefined}
           >
             {/* text is sanitized server-side (lib/sanitize-note-html.ts)
@@ -81,7 +81,7 @@ export function PrivateNotesList({
                   name="vaName"
                   placeholder="Share with…"
                   options={notYetSharedWith.map((name) => ({ value: name, label: name }))}
-                  className="rounded-md border px-2 py-1 text-left text-xs"
+                  className="rounded-md border bg-white px-2 py-1 text-left text-xs text-foreground transition-colors hover:bg-muted"
                 />
               )}
               {needsAck && (

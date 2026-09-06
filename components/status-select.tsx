@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /* A colored status picker that looks like a <select> but isn't one --
    native <option> popups turned out to not reliably take CSS styling
@@ -34,9 +35,15 @@ export function StatusSelect({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // Screen position for the portaled option list below -- computed
+  // fresh each time it opens (see the button's onClick) rather than
+  // kept in sync continuously, since it only needs to be right at the
+  // instant it appears.
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, minWidth: 0 });
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const current = options.find((o) => o.value === value);
 
   useEffect(() => {
@@ -44,8 +51,20 @@ export function StatusSelect({
     function onClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     }
+    // Closes on any scroll (this row's own horizontally-scrolling table
+    // included) rather than trying to keep the portaled menu's position
+    // glued to the button as it scrolls out from under it -- simplest
+    // correct behavior, and matches how a native <select>'s popup
+    // disappears the moment its page scrolls.
+    function onScroll() {
+      setOpen(false);
+    }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("scroll", onScroll, true);
+    };
   }, [open]);
 
   function choose(v: string) {
@@ -63,15 +82,33 @@ export function StatusSelect({
       <input ref={inputRef} type="hidden" name="status" defaultValue={value} />
       <div ref={containerRef} className="relative inline-block">
         <button
+          ref={buttonRef}
           type="button"
           disabled={disabled}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            // Every place this renders lives inside a table wrapped in
+            // overflow-x-auto (for the horizontal scroll wide tables
+            // need) -- CSS forces overflow-y to clip right along with
+            // overflow-x on the same element, so the old plain
+            // position:absolute menu got cut off/overlapped by that
+            // container the moment it dropped below the row's own
+            // bottom edge (confirmed directly: Michelle's screenshot
+            // showed exactly that). Portaling to document.body with a
+            // fixed position computed from the button's own real
+            // screen position sidesteps the clipping entirely.
+            const rect = buttonRef.current?.getBoundingClientRect();
+            if (rect) setMenuPos({ top: rect.bottom, left: rect.left, minWidth: rect.width });
+            setOpen((o) => !o);
+          }}
           className={`rounded-md border px-1.5 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${toneClassName}`}
         >
           {current?.label ?? value ?? "—"}
         </button>
-        {open && !disabled && (
-          <div className="absolute top-full left-0 z-20 mt-1 min-w-full overflow-hidden rounded-md border bg-background shadow-lg">
+        {open && !disabled && createPortal(
+          <div
+            className="fixed z-50 mt-1 overflow-hidden rounded-md border bg-background shadow-lg"
+            style={{ top: menuPos.top, left: menuPos.left, minWidth: menuPos.minWidth }}
+          >
             {options.map((o) => (
               <button
                 key={o.value || "none"}
@@ -82,7 +119,8 @@ export function StatusSelect({
                 {o.label}
               </button>
             ))}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </form>

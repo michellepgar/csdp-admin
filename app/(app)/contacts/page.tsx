@@ -9,7 +9,6 @@ import {
   renameContactGroup,
   removeContactGroup,
   updateContactRow,
-  removeContactRow,
   setNurseLeader,
   addOtherContact,
   updateOtherContact,
@@ -38,7 +37,6 @@ export default async function ContactsPage() {
           renameContactGroup={renameContactGroup}
           removeContactGroup={removeContactGroup}
           updateContactRow={updateContactRow}
-          removeContactRow={removeContactRow}
           setNurseLeader={setNurseLeader}
           addOtherContact={addOtherContact}
           updateOtherContact={updateOtherContact}

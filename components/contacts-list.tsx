@@ -48,7 +48,6 @@ function ContactRowEdit({
   schools,
   onDone,
   updateContactRow,
-  removeContactRow,
 }: {
   group: ContactGroup;
   row: ContactGroup["rows"][number];
@@ -56,7 +55,6 @@ function ContactRowEdit({
   schools: School[];
   onDone: () => void;
   updateContactRow: (formData: FormData) => void;
-  removeContactRow: (formData: FormData) => void;
 }) {
   /* Website/hours actually live on `schools`, matched here by name
      (same trim/lowercase match the school page itself uses to find
@@ -127,9 +125,6 @@ function ContactRowEdit({
           )}
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
-            <ConfirmDeleteButton confirmMessage={`Remove ${row.school || "this row"} from Schools Contact Information?`} pendingLabel="…" variant="ghost" formAction={removeContactRow}>
-              Remove
-            </ConfirmDeleteButton>
           </div>
         </form>
       </td>
@@ -145,7 +140,6 @@ export function ContactsList({
   renameContactGroup,
   removeContactGroup,
   updateContactRow,
-  removeContactRow,
   setNurseLeader,
   addOtherContact,
   updateOtherContact,
@@ -158,7 +152,6 @@ export function ContactsList({
   renameContactGroup: (formData: FormData) => void;
   removeContactGroup: (formData: FormData) => void;
   updateContactRow: (formData: FormData) => void;
-  removeContactRow: (formData: FormData) => void;
   setNurseLeader: (formData: FormData) => void;
   addOtherContact: (formData: FormData) => void;
   updateOtherContact: (formData: FormData) => void;
@@ -268,7 +261,6 @@ export function ContactsList({
                           schools={schools}
                           onDone={() => setEditingRow(null)}
                           updateContactRow={updateContactRow}
-                          removeContactRow={removeContactRow}
                         />
                       )}
                     </Fragment>

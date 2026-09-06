@@ -10,7 +10,6 @@ import {
   removeDistributionGroup,
   updateDistributionRow,
   toggleDistributionRowDistributed,
-  removeDistributionRow,
 } from "./actions";
 
 export default async function DistributionListPage() {
@@ -33,7 +32,6 @@ export default async function DistributionListPage() {
           removeDistributionGroup={removeDistributionGroup}
           updateDistributionRow={updateDistributionRow}
           toggleDistributionRowDistributed={toggleDistributionRowDistributed}
-          removeDistributionRow={removeDistributionRow}
         />
       </PageBody>
     </div>

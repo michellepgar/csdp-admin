@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useRef, useState } from "react";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { CalculatorButton } from "@/components/calculator-button";
@@ -62,14 +62,12 @@ function RowView({
   onShowDetail,
   onEdit,
   toggleDistributionRowDistributed,
-  removeDistributionRow,
 }: {
   row: DistributionRow;
   activeMode: RowMode;
   onShowDetail: () => void;
   onEdit: () => void;
   toggleDistributionRowDistributed: (formData: FormData) => void;
-  removeDistributionRow: (formData: FormData) => void;
 }) {
   return (
     <tr className={`border-b bg-record-background ${activeMode !== "compact" ? "border-b-0" : ""}`}>
@@ -116,18 +114,6 @@ function RowView({
           >
             <Pencil className="h-4 w-4" />
           </Button>
-          <form action={removeDistributionRow}>
-            <input type="hidden" name="rowId" value={row.id} />
-            <ConfirmDeleteButton
-              confirmMessage={`Remove ${row.school} from the Distribution List?`}
-              pendingLabel="…"
-              variant="ghost"
-              size="icon-sm"
-              title="Remove"
-            >
-              <Trash2 className="h-4 w-4" />
-            </ConfirmDeleteButton>
-          </form>
         </div>
       </td>
     </tr>
@@ -145,12 +131,10 @@ function RowDetail({
   row,
   onDone,
   onEdit,
-  removeDistributionRow,
 }: {
   row: DistributionRow;
   onDone: () => void;
   onEdit: () => void;
-  removeDistributionRow: (formData: FormData) => void;
 }) {
   const totalCols = 12 + DISTRIBUTION_LANGUAGES.length;
   return (
@@ -203,12 +187,6 @@ function RowDetail({
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={onEdit}>Edit</Button>
             <Button type="button" variant="ghost" size="sm" onClick={onDone}>Close</Button>
-            <form action={removeDistributionRow} className="ml-auto">
-              <input type="hidden" name="rowId" value={row.id} />
-              <ConfirmDeleteButton confirmMessage={`Remove ${row.school} from the Distribution List?`} pendingLabel="…" variant="ghost" size="sm">
-                <Trash2 className="h-4 w-4" />
-              </ConfirmDeleteButton>
-            </form>
           </div>
         </div>
       </td>
@@ -259,14 +237,12 @@ function RowEdit({
   row,
   onDone,
   updateDistributionRow,
-  removeDistributionRow,
 }: {
   groupId: string;
   groups: DistributionGroup[];
   row: DistributionRow;
   onDone: () => void;
   updateDistributionRow: (formData: FormData) => void;
-  removeDistributionRow: (formData: FormData) => void;
 }) {
   const totalCols = 12 + DISTRIBUTION_LANGUAGES.length;
   const consentPacketsRef = useRef<HTMLInputElement>(null);
@@ -428,11 +404,6 @@ function RowEdit({
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
             <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
-            <div className="ml-auto">
-              <ConfirmDeleteButton confirmMessage={`Remove ${row.school} from the Distribution List?`} pendingLabel="…" variant="ghost" formAction={removeDistributionRow}>
-                <Trash2 className="h-4 w-4" />
-              </ConfirmDeleteButton>
-            </div>
           </div>
         </form>
       </td>
@@ -446,14 +417,12 @@ export function DistributionList({
   removeDistributionGroup,
   updateDistributionRow,
   toggleDistributionRowDistributed,
-  removeDistributionRow,
 }: {
   groups: DistributionGroup[];
   renameDistributionGroup: (formData: FormData) => void;
   removeDistributionGroup: (formData: FormData) => void;
   updateDistributionRow: (formData: FormData) => void;
   toggleDistributionRowDistributed: (formData: FormData) => void;
-  removeDistributionRow: (formData: FormData) => void;
 }) {
   const [rowModes, setRowModes] = useState<Record<string, RowMode>>({});
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
@@ -559,14 +528,12 @@ export function DistributionList({
                           onShowDetail={() => setMode(row.id, mode === "detail" ? "compact" : "detail")}
                           onEdit={() => setMode(row.id, mode === "edit" ? "compact" : "edit")}
                           toggleDistributionRowDistributed={toggleDistributionRowDistributed}
-                          removeDistributionRow={removeDistributionRow}
                         />
                         {mode === "detail" && (
                           <RowDetail
                             row={row}
                             onDone={() => setMode(row.id, "compact")}
                             onEdit={() => setMode(row.id, "edit")}
-                            removeDistributionRow={removeDistributionRow}
                           />
                         )}
                         {mode === "edit" && (
@@ -576,7 +543,6 @@ export function DistributionList({
                             row={row}
                             onDone={() => setMode(row.id, "compact")}
                             updateDistributionRow={updateDistributionRow}
-                            removeDistributionRow={removeDistributionRow}
                           />
                         )}
                       </Fragment>

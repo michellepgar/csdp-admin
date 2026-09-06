@@ -58,11 +58,6 @@ function buildSections(): Section[] {
     {
       label: "Sealant",
       rows: [
-        // Event-based (a student with both molars sealed counts twice
-        // here) -- matches how last year's own "Sealant" total related
-        // to 1st Molar + 2nd Molar (549 + 25 = 574 in Michelle's own
-        // spreadsheet), unlike "Total # of Students sealed" below.
-        { label: "Sealant", count: (rows) => rows.filter((r) => r.sealed1stMolar).length + rows.filter((r) => r.sealed2ndMolar).length },
         { label: "Total # of Students sealed", count: (rows) => rows.filter((r) => r.sealed1stMolar || r.sealed2ndMolar).length },
         { label: "1st Molar", count: (rows) => rows.filter((r) => r.sealed1stMolar).length },
         { label: "2nd Molar", count: (rows) => rows.filter((r) => r.sealed2ndMolar).length },

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAdmin, type Issue } from "@/lib/app-state";
+import { isAdmin, NO_SUBCATEGORY, type Issue } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
@@ -41,7 +41,7 @@ export async function addIssue(formData: FormData) {
       if (type === "software_issue") {
         const description = ((formData.get("description") as string) || "").trim();
         if (!description) return;
-        issue = { ...baseIssueRow("Jane", "software_issue"), description, category: (formData.get("category") as string) || "", subcategory: (formData.get("subcategory") as string) || "-", remarks: (formData.get("note") as string) || "" };
+        issue = { ...baseIssueRow("Jane", "software_issue"), description, category: (formData.get("category") as string) || "", subcategory: (formData.get("subcategory") as string) || NO_SUBCATEGORY, remarks: (formData.get("note") as string) || "" };
       } else if (type === "correction") {
         const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
         if (!studentRecordLink) return;
@@ -77,7 +77,7 @@ export async function addIssue(formData: FormData) {
       ...baseIssueInsert(me, "software_issue"),
       description,
       category: (formData.get("category") as string) || "",
-      subcategory: (formData.get("subcategory") as string) || "-",
+      subcategory: (formData.get("subcategory") as string) || NO_SUBCATEGORY,
       remarks: (formData.get("note") as string) || "",
     });
     orThrow(error);

@@ -567,6 +567,14 @@ export const ISSUE_STATUS_OPTIONS = ["Pending", "Resolved"];
 export const CORRECTION_CATEGORIES = ["Name", "Date of Birth", "Insurance Number", "Grade", "School Year", "Other"];
 export const CORRECTION_KINDS = ["Correction", "Verification"];
 
+// Recorded for a Software Issue's subcategory when its category has no
+// subcategories to pick from (the Subcategory field is disabled in
+// that case, so nothing real ever comes through) -- centralized here
+// so every save site (app/(app)/issues/actions.ts's demo and real
+// branches) uses the exact same value instead of each hardcoding its
+// own "-" literal.
+export const NO_SUBCATEGORY = "-";
+
 export interface Issue {
   id: string;
   type: IssueType;

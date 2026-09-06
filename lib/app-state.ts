@@ -65,8 +65,11 @@ export const REDCAP_GRADES = [
 export const REDCAP_INSURANCE_OPTIONS = ["MassHealth", "Private", "No Insurance", "Inactive", "Unknown Insurance"];
 // Shared by Dental Home Status and Referral -- confirmed with Michelle
 // these are genuinely two separate per-student answers, not the same
-// question shown twice, even though they use the same two options.
-export const REDCAP_DENTAL_STATUS_OPTIONS = ["Seen With Dentist Record", "Seen W/Out Dentist Record"];
+// question shown twice, even though they use the same options. Third
+// option covers a scanned form that just didn't answer this question
+// at all -- without it, every student had to be forced into one of
+// the two real answers even when the form itself left it blank.
+export const REDCAP_DENTAL_STATUS_OPTIONS = ["Seen With Dentist Record", "Seen W/Out Dentist Record", "Unknown / Left Blank"];
 export const REDCAP_RACE_OPTIONS = ["Alaska", "Asian", "Black", "Spanish", "White", "Other", "Not Documented"];
 // A student can have more than one of these at once (e.g. both Caries
 // and Urgent) -- multi-select, unlike every other REDCap field above.

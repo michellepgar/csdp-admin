@@ -410,6 +410,7 @@ type RedcapTallyRow = {
   sealed_1st_molar: boolean;
   sealed_2nd_molar: boolean;
   needs: string[];
+  consent: string | null;
   entered_by: string | null;
   created_at: string;
 };
@@ -424,6 +425,7 @@ function mapRedcapTallyRow(r: RedcapTallyRow): RedcapTally {
     dentalHomeStatus: r.dental_home_status,
     referral: r.referral,
     race: r.race,
+    consent: r.consent ?? "",
     fluoride: r.fluoride,
     prophy: r.prophy,
     sealed1stMolar: r.sealed_1st_molar,
@@ -433,6 +435,8 @@ function mapRedcapTallyRow(r: RedcapTallyRow): RedcapTally {
     createdAt: r.created_at,
   };
 }
+
+type RedcapDistributedFormsRow = { school_id: string; school_year: string; count: number };
 
 type AccessRequestRow = {
   id: string;
@@ -524,6 +528,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     generalTasksResult,
     generalTaskCategoriesResult,
     redcapTalliesResult,
+    redcapDistributedFormsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -551,7 +556,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
-    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, insurance, dental_home_status, referral, race, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, created_at").order("created_at"),
+    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, insurance, dental_home_status, referral, race, consent, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, created_at").order("created_at"),
+    supabase.from("redcap_distributed_forms").select("school_id, school_year, count"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -581,6 +587,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (generalTasksResult.error) return null;
   if (generalTaskCategoriesResult.error) return null;
   if (redcapTalliesResult.error) return null;
+  if (redcapDistributedFormsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -678,6 +685,11 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   }
 
   state.redcapTallies = (redcapTalliesResult.data || []).map((r) => mapRedcapTallyRow(r as RedcapTallyRow));
+
+  state.redcapDistributedForms = {};
+  for (const r of (redcapDistributedFormsResult.data || []) as RedcapDistributedFormsRow[]) {
+    state.redcapDistributedForms[`${r.school_id}:${r.school_year}`] = r.count;
+  }
 
   return state;
 });

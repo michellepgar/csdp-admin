@@ -23,6 +23,7 @@ export type RedcapTallyInput = {
   dentalHomeStatus: string;
   referral: string;
   race: string;
+  consent: string;
   fluoride: boolean;
   prophy: boolean;
   sealed1stMolar: boolean;
@@ -55,6 +56,7 @@ export async function addRedcapTally(input: RedcapTallyInput) {
     dental_home_status: input.dentalHomeStatus,
     referral: input.referral,
     race: input.race,
+    consent: input.consent,
     fluoride: input.fluoride,
     prophy: input.prophy,
     sealed_1st_molar: input.sealed1stMolar,
@@ -89,6 +91,7 @@ export async function updateRedcapTally(id: string, input: RedcapTallyInput) {
       dental_home_status: input.dentalHomeStatus,
       referral: input.referral,
       race: input.race,
+      consent: input.consent,
       fluoride: input.fluoride,
       prophy: input.prophy,
       sealed_1st_molar: input.sealed1stMolar,
@@ -96,6 +99,30 @@ export async function updateRedcapTally(id: string, input: RedcapTallyInput) {
       needs: input.needs,
     })
     .eq("id", id);
+  orThrow(error);
+
+  revalidatePath("/redcap-report");
+}
+
+/* "Distributed" isn't derived from anything entered per-student --
+   Michelle types this in directly per school/year (see
+   lib/app-state.ts's RedcapDistributedForms comment). Upsert since
+   there's exactly one number per (school, year): the first save
+   creates the row, every save after that just overwrites it. */
+export async function setRedcapDistributedForms(schoolId: string, schoolYear: string, count: number) {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.redcapDistributedForms ??= {})[`${schoolId}:${schoolYear}`] = count;
+    });
+    revalidatePath("/redcap-report");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+
+  const { error } = await supabase
+    .from("redcap_distributed_forms")
+    .upsert({ school_id: schoolId, school_year: schoolYear, count, updated_at: new Date().toISOString() }, { onConflict: "school_id,school_year" });
   orThrow(error);
 
   revalidatePath("/redcap-report");

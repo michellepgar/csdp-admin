@@ -9,6 +9,7 @@ import {
   REDCAP_DENTAL_STATUS_OPTIONS,
   REDCAP_RACE_OPTIONS,
   REDCAP_NEEDS_OPTIONS,
+  REDCAP_CONSENT_OPTIONS,
 } from "@/lib/app-state";
 import type { RedcapTallyInput } from "@/app/(app)/redcap-report/actions";
 
@@ -56,6 +57,7 @@ function ButtonGroup({
 }
 
 const emptyStudent = {
+  consent: [] as string[],
   insurance: [] as string[],
   dentalHomeStatus: [] as string[],
   referral: [] as string[],
@@ -95,8 +97,8 @@ export function RedcapEntryForm({
       setError("Pick a school and school year above, and a grade below, first.");
       return;
     }
-    if (!student.insurance[0] || !student.dentalHomeStatus[0] || !student.referral[0] || !student.race[0]) {
-      setError("Insurance, Dental Home Status, Referral, and Race are all required for this student.");
+    if (!student.consent[0] || !student.insurance[0] || !student.dentalHomeStatus[0] || !student.referral[0] || !student.race[0]) {
+      setError("Consent, Insurance, Dental Home Status, Referral, and Race are all required for this student.");
       return;
     }
     setError("");
@@ -109,6 +111,7 @@ export function RedcapEntryForm({
       dentalHomeStatus: student.dentalHomeStatus[0],
       referral: student.referral[0],
       race: student.race[0],
+      consent: student.consent[0],
       fluoride: student.fluoride.length > 0,
       prophy: student.prophy.length > 0,
       sealed1stMolar: student.sealant.includes("1st Molar"),
@@ -144,6 +147,10 @@ export function RedcapEntryForm({
         )}
       </div>
 
+      <div className="space-y-1">
+        <div className="text-sm font-medium">Consent</div>
+        <ButtonGroup options={REDCAP_CONSENT_OPTIONS} value={student.consent} onChange={(v) => update("consent", v)} />
+      </div>
       <div className="space-y-1">
         <div className="text-sm font-medium">Insurance</div>
         <ButtonGroup options={REDCAP_INSURANCE_OPTIONS} value={student.insurance} onChange={(v) => update("insurance", v)} />

@@ -78,13 +78,53 @@ function buildSections(): Section[] {
   ];
 }
 
-function ReportTable({ rows, schoolName, schoolYear }: { rows: RedcapTally[]; schoolName: string; schoolYear: string }) {
+/* "Distributed" is Michelle's own typed-in number, not derived from
+   any entered student -- local draft state so it doesn't fire a save
+   on every keystroke, committed on blur/Enter like every other
+   inline-editable number in this app. */
+function DistributedFormsInput({ value, onSave }: { value: number; onSave: (next: number) => Promise<void> }) {
+  const [draft, setDraft] = useState(String(value));
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => setDraft(String(value)), [value]);
+
+  function commit() {
+    const parsed = parseInt(draft, 10) || 0;
+    if (parsed !== value) startTransition(() => onSave(parsed));
+  }
+
+  return (
+    <Input
+      type="number"
+      min={0}
+      value={draft}
+      disabled={isPending}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      className="w-24 tabular-nums"
+    />
+  );
+}
+
+function ReportTable({
+  rows,
+  schoolName,
+  schoolYear,
+  distributedForms,
+  onSetDistributedForms,
+}: {
+  rows: RedcapTally[];
+  schoolName: string;
+  schoolYear: string;
+  distributedForms: number;
+  onSetDistributedForms: (next: number) => Promise<void>;
+}) {
   const grades = REDCAP_GRADES.filter((g) => rows.some((r) => r.grade === g));
   const sections = buildSections();
-
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No students entered yet for {schoolName}, {schoolYear}.</p>;
-  }
+  const positiveConsentCount = rows.filter((r) => r.consent === "Positive").length;
 
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -99,6 +139,36 @@ function ReportTable({ rows, schoolName, schoolYear }: { rows: RedcapTally[]; sc
           </tr>
         </thead>
         <tbody>
+          <tr className="border-b bg-title-background">
+            <td colSpan={2 + grades.length} className="px-3 py-1.5 text-xs font-semibold uppercase text-muted-foreground">
+              Total # of Consent Forms Received and Returned at This Site
+            </td>
+          </tr>
+          <tr className="border-b bg-record-background">
+            <td className="px-3 py-2">Distributed</td>
+            <td className="px-3 py-2">
+              <DistributedFormsInput value={distributedForms} onSave={onSetDistributedForms} />
+            </td>
+            {grades.map((g) => (
+              <td key={g} className="px-3 py-2 text-muted-foreground">—</td>
+            ))}
+          </tr>
+          <tr className="border-b bg-record-background">
+            <td className="px-3 py-2">Positive Consent</td>
+            <td className="px-3 py-2 tabular-nums">{positiveConsentCount}</td>
+            {grades.map((g) => (
+              <td key={g} className="px-3 py-2 tabular-nums">{rows.filter((r) => r.grade === g && r.consent === "Positive").length}</td>
+            ))}
+          </tr>
+
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={2 + grades.length} className="px-3 py-4 text-sm text-muted-foreground">
+                No students entered yet for {schoolName}, {schoolYear}.
+              </td>
+            </tr>
+          ) : (
+            <>
           <tr className="border-b bg-record-background font-semibold">
             <td className="px-3 py-2">Total # of Students Screened</td>
             <td className="px-3 py-2 tabular-nums">{rows.length}</td>
@@ -124,6 +194,8 @@ function ReportTable({ rows, schoolName, schoolYear }: { rows: RedcapTally[]; sc
               ))}
             </Fragment>
           ))}
+            </>
+          )}
         </tbody>
       </table>
     </div>
@@ -192,13 +264,17 @@ function ReviewList({
 export function RedcapReportShell({
   schools,
   redcapTallies,
+  redcapDistributedForms,
   addRedcapTally,
   removeRedcapTally,
+  setRedcapDistributedForms,
 }: {
   schools: School[];
   redcapTallies: RedcapTally[];
+  redcapDistributedForms: Record<string, number>;
   addRedcapTally: (input: RedcapTallyInput) => Promise<void>;
   removeRedcapTally: (id: string) => Promise<void>;
+  setRedcapDistributedForms: (schoolId: string, schoolYear: string, count: number) => Promise<void>;
 }) {
   const schoolYears = useMemo(
     () => Array.from(new Set(redcapTallies.map((t) => t.schoolYear))).sort().reverse(),
@@ -291,7 +367,13 @@ export function RedcapReportShell({
         <RedcapEntryForm schoolId={schoolId} schoolYear={year} addRedcapTally={addRedcapTally} />
       </div>
       <div className={tab === "report" ? "" : "hidden"}>
-        <ReportTable rows={filteredRows} schoolName={school?.name || ""} schoolYear={year} />
+        <ReportTable
+          rows={filteredRows}
+          schoolName={school?.name || ""}
+          schoolYear={year}
+          distributedForms={redcapDistributedForms[`${schoolId}:${year}`] || 0}
+          onSetDistributedForms={(count) => setRedcapDistributedForms(schoolId, year, count)}
+        />
       </div>
       <div className={tab === "review" ? "" : "hidden"}>
         <ReviewList rows={filteredRows} removeRedcapTally={removeRedcapTally} />

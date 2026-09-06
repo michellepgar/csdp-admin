@@ -74,6 +74,7 @@ export const REDCAP_RACE_OPTIONS = ["Alaska", "Asian", "Black", "Spanish", "Whit
 // A student can have more than one of these at once (e.g. both Caries
 // and Urgent) -- multi-select, unlike every other REDCap field above.
 export const REDCAP_NEEDS_OPTIONS = ["Caries", "Untreated", "Urgent", "Other"];
+export const REDCAP_CONSENT_OPTIONS = ["Positive", "Negative"];
 
 export interface RedcapTally {
   id: string;
@@ -84,6 +85,7 @@ export interface RedcapTally {
   dentalHomeStatus: string;
   referral: string;
   race: string;
+  consent: string;
   fluoride: boolean;
   prophy: boolean;
   // "Sealant" and "Total # of Students Sealed" on the report are both
@@ -95,6 +97,17 @@ export interface RedcapTally {
   enteredBy?: string;
   createdAt: string;
 }
+
+/* "Total # of Consent Forms Received and Returned at This Site" is a
+   report SECTION, not a number itself -- "Positive Consent" under it
+   is computed from RedcapTally.consent above like everything else,
+   but "Distributed" is a number Michelle types in by hand (it isn't
+   derived from anything entered per-student), so it needs its own
+   tiny per-school-per-year value rather than living on RedcapTally.
+   Keyed the same way checklistProgress is (`${schoolId}:${schoolYear}`)
+   for the same reason: a flat map is simpler here than a nested one
+   for something this small. */
+export type RedcapDistributedForms = Record<string, number>;
 
 export interface ChecklistProgressEntry {
   status: string;
@@ -381,6 +394,7 @@ export interface AppState {
   generalTasks?: GeneralTask[];
   generalTaskCategories?: GeneralTaskCategory[];
   redcapTallies?: RedcapTally[];
+  redcapDistributedForms?: RedcapDistributedForms;
 }
 
 /* ---------- Distribution List ----------

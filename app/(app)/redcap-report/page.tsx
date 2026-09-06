@@ -5,7 +5,7 @@ import { findVaByEmail } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { RedcapReportShell } from "@/components/redcap-report-shell";
-import { addRedcapTally, removeRedcapTally } from "./actions";
+import { addRedcapTally, removeRedcapTally, setRedcapDistributedForms } from "./actions";
 
 /* Per-student tally entry + report, replacing the earlier v1 (which
    just summed existing Task.count numbers -- not what Michelle
@@ -29,8 +29,10 @@ export default async function RedcapReportPage() {
         <RedcapReportShell
           schools={state.schools}
           redcapTallies={state.redcapTallies || []}
+          redcapDistributedForms={state.redcapDistributedForms || {}}
           addRedcapTally={addRedcapTally}
           removeRedcapTally={removeRedcapTally}
+          setRedcapDistributedForms={setRedcapDistributedForms}
         />
       </PageBody>
     </div>

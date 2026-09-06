@@ -300,12 +300,12 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
       <table className="w-full min-w-[900px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-1">Kind</th>
             <th className="px-2 py-1">Student Record</th>
             <th className="px-2 py-1">Needs</th>
-            <th className="px-2 py-1">Fix</th>
+            <th className="px-2 py-1">Kind</th>
             <th className="px-2 py-1">Reported By</th>
             <th className="px-2 py-1">Status</th>
+            <th className="px-2 py-1">Fix</th>
             <th />
           </tr>
         </thead>
@@ -319,12 +319,12 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
             ].filter(Boolean).join(", ");
             return (
               <tr key={issue.id} className="border-b bg-record-background align-top">
-                <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
                 <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
                 <td className="px-2 py-1">{needs || "—"}</td>
-                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
+                <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                 <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
+                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
                 <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>
             );

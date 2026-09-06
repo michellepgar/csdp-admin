@@ -16,6 +16,14 @@ import {
 } from "@/lib/app-state";
 import type { RedcapTallyInput } from "@/app/(app)/redcap-report/actions";
 
+// A pseudo school id, never a real one -- picking it shows every
+// school's own report table stacked one after another for the picked
+// year, the way Michelle actually compiles the final REDCap
+// submission (one sheet per site). Doesn't make sense for Add
+// Student/Review (which are about ONE school's specific rows), so
+// those two tabs just ask her to pick a real school instead.
+const ALL_SCHOOLS = "__all__";
+
 type Section = { label: string; rows: { label: string; count: (rows: RedcapTally[]) => number }[] };
 
 function buildSections(): Section[] {
@@ -308,16 +316,18 @@ export function RedcapReportShell({
   const filteredRows = redcapTallies.filter((t) => t.schoolId === schoolId && t.schoolYear === year);
 
   // Narrows the flat `${schoolId}:${schoolYear}:${grade}`-keyed map
-  // down to just {grade: count} for whichever school+year is picked --
-  // ReportTable only ever needs to think in terms of grade.
-  const distributedForByGrade = useMemo(() => {
-    const prefix = `${schoolId}:${year}:`;
+  // down to just {grade: count} for one school+year -- ReportTable
+  // only ever needs to think in terms of grade. Takes `sid` as a
+  // parameter (rather than closing over the picked `schoolId`) so the
+  // "All Schools" view below can call this once per real school.
+  function distributedByGradeFor(sid: string) {
+    const prefix = `${sid}:${year}:`;
     const result: Record<string, number> = {};
     for (const [key, count] of Object.entries(redcapDistributedForms)) {
       if (key.startsWith(prefix)) result[key.slice(prefix.length)] = count;
     }
     return result;
-  }, [redcapDistributedForms, schoolId, year]);
+  }
 
   return (
     <div className="space-y-4">
@@ -351,7 +361,7 @@ export function RedcapReportShell({
             name="redcapSchoolId"
             value={schoolId}
             onChange={setSchoolId}
-            options={schools.map((s) => ({ value: s.id, label: s.name }))}
+            options={[{ value: ALL_SCHOOLS, label: "All Schools" }, ...schools.map((s) => ({ value: s.id, label: s.name }))]}
             className="w-full min-w-[200px] rounded-md border px-2 py-1.5 text-left text-sm"
           />
         </div>
@@ -380,19 +390,46 @@ export function RedcapReportShell({
           Keeping everything mounted means flipping to Review mid-entry
           and back leaves a half-filled student exactly as it was. */}
       <div className={tab === "add" ? "" : "hidden"}>
-        <RedcapEntryForm schoolId={schoolId} schoolYear={year} addRedcapTally={addRedcapTally} />
+        {schoolId === ALL_SCHOOLS ? (
+          <p className="text-sm text-muted-foreground">Pick a specific school above to add a student.</p>
+        ) : (
+          <RedcapEntryForm schoolId={schoolId} schoolYear={year} addRedcapTally={addRedcapTally} />
+        )}
       </div>
       <div className={tab === "report" ? "" : "hidden"}>
-        <ReportTable
-          rows={filteredRows}
-          schoolName={school?.name || ""}
-          schoolYear={year}
-          distributedForms={distributedForByGrade}
-          onSetDistributedForms={(grade, count) => setRedcapDistributedForms(schoolId, year, grade, count)}
-        />
+        {schoolId === ALL_SCHOOLS ? (
+          // Every school's own table, stacked -- matches how Michelle
+          // actually compiles the final REDCap submission (one sheet
+          // per site), rather than a single table trying to cram every
+          // school into one set of grade columns.
+          <div className="space-y-6">
+            {schools.map((s) => (
+              <ReportTable
+                key={s.id}
+                rows={redcapTallies.filter((t) => t.schoolId === s.id && t.schoolYear === year)}
+                schoolName={s.name}
+                schoolYear={year}
+                distributedForms={distributedByGradeFor(s.id)}
+                onSetDistributedForms={(grade, count) => setRedcapDistributedForms(s.id, year, grade, count)}
+              />
+            ))}
+          </div>
+        ) : (
+          <ReportTable
+            rows={filteredRows}
+            schoolName={school?.name || ""}
+            schoolYear={year}
+            distributedForms={distributedByGradeFor(schoolId)}
+            onSetDistributedForms={(grade, count) => setRedcapDistributedForms(schoolId, year, grade, count)}
+          />
+        )}
       </div>
       <div className={tab === "review" ? "" : "hidden"}>
-        <ReviewList rows={filteredRows} removeRedcapTally={removeRedcapTally} />
+        {schoolId === ALL_SCHOOLS ? (
+          <p className="text-sm text-muted-foreground">Pick a specific school above to review its entries.</p>
+        ) : (
+          <ReviewList rows={filteredRows} removeRedcapTally={removeRedcapTally} />
+        )}
       </div>
     </div>
   );

@@ -305,7 +305,6 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
             <th className="px-2 py-1">Needs</th>
             <th className="px-2 py-1">Fix</th>
             <th className="px-2 py-1">Reported By</th>
-            <th className="px-2 py-1">Date</th>
             <th className="px-2 py-1">Status</th>
             <th />
           </tr>
@@ -325,7 +324,6 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
                 <td className="px-2 py-1">{needs || "—"}</td>
                 <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
                 <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
                 <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>

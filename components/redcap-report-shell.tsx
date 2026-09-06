@@ -209,17 +209,20 @@ export function RedcapReportShell({
   const [schoolId, setSchoolId] = useState(schools[0]?.id || "");
   const [year, setYear] = useState(schoolYears[0] || new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
 
-  // Snaps the Report/Review year picker to the most recent year that
-  // actually has data whenever the currently-picked one doesn't (e.g.
-  // right after saving the very first entry for a brand-new year, or
-  // when data for the picked year gets deleted out from under it) --
-  // without this, "Report"/"Review" kept showing an empty state for a
-  // guessed year, and getting to the just-entered data needed manually
-  // reopening the dropdown. Never overrides a deliberate pick of a
-  // year that still has rows.
+  // Snaps the year picker to the most recent year that actually has
+  // data whenever the LIST of real years changes (e.g. right after
+  // saving the very first entry for a brand-new year) -- but only
+  // reacts to `schoolYears` itself changing, never to `year` changing
+  // on its own. `year` is also depended on here (via the functional
+  // update below rather than the dependency array) specifically so
+  // typing a brand-new year like "2025-2026" that doesn't exist YET
+  // isn't immediately snapped back on every keystroke -- confirmed
+  // directly as a real bug: with `year` in the dependency array, this
+  // effect re-ran on every character typed and reverted it before the
+  // next one could land, making the field look frozen/dropdown-only.
   useEffect(() => {
-    if (schoolYears.length > 0 && !schoolYears.includes(year)) setYear(schoolYears[0]);
-  }, [schoolYears, year]);
+    setYear((current) => (schoolYears.length > 0 && !schoolYears.includes(current) ? schoolYears[0] : current));
+  }, [schoolYears]);
 
   const school = schools.find((s) => s.id === schoolId);
   const filteredRows = redcapTallies.filter((t) => t.schoolId === schoolId && t.schoolYear === year);

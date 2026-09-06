@@ -125,6 +125,33 @@ export async function removeChecklistTemplateItem(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+/* For drag-and-drop reordering (checklist-card.tsx) -- a drag can move
+   an item several places in one go, so this takes the WHOLE new order
+   and renumbers every row's sort_order to match its new index, rather
+   than a series of pairwise swaps. Called directly as a plain async
+   function from the client (a Server Action doesn't have to be bound
+   to a <form action={...}> -- any serializable arguments work), not
+   through a form, since there's no single click event a <form> would
+   submit from. */
+export async function reorderChecklistTemplate(orderedIds: string[]) {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const byId = new Map(state.checklistTemplate.map((t) => [t.id, t]));
+      const reordered = orderedIds.map((id) => byId.get(id)).filter((t) => t !== undefined);
+      if (reordered.length === state.checklistTemplate.length) state.checklistTemplate = reordered;
+    });
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+
+  await Promise.all(
+    orderedIds.map((id, i) => supabase.from("checklist_template").update({ sort_order: i }).eq("id", id))
+  );
+  revalidatePath("/", "layout");
+}
+
 /* ---------- Tasks ---------- */
 
 export async function addTask(formData: FormData) {

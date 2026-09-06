@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SignatureChip } from "@/components/signature-chip";
@@ -21,6 +21,7 @@ export function ChecklistCard({
   toggleChecklistItem,
   addChecklistTemplateItem,
   removeChecklistTemplateItem,
+  reorderChecklistTemplate,
 }: {
   schoolId: string;
   template: ChecklistTemplateItem[];
@@ -42,10 +43,41 @@ export function ChecklistCard({
   toggleChecklistItem: (formData: FormData) => void;
   addChecklistTemplateItem: (formData: FormData) => void;
   removeChecklistTemplateItem: (formData: FormData) => void;
+  reorderChecklistTemplate: (orderedIds: string[]) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [hidden, setHidden] = useState(initialHidden);
   const doneCount = template.filter((t) => progress[t.id]?.status === "Done").length;
+
+  // A local copy the drag handlers below reorder instantly (dragging
+  // an item several places at once shouldn't wait on a round trip to
+  // the server to look right), then just re-synced from `template`
+  // whenever it changes -- by the time a fresh `template` prop
+  // actually arrives (add/remove, or this same drag's own
+  // reorderChecklistTemplate call finishing), it already matches
+  // whatever's showing locally, so this never visibly flips back to a
+  // stale order in between.
+  const [orderedItems, setOrderedItems] = useState(template);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  useEffect(() => {
+    setOrderedItems(template);
+  }, [template]);
+
+  function handleDrop(targetId: string) {
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      return;
+    }
+    const next = [...orderedItems];
+    const fromIndex = next.findIndex((t) => t.id === draggedId);
+    const toIndex = next.findIndex((t) => t.id === targetId);
+    setDraggedId(null);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setOrderedItems(next);
+    reorderChecklistTemplate(next.map((t) => t.id));
+  }
 
   function setHiddenAndRemember(next: boolean) {
     setHidden(next);
@@ -101,10 +133,21 @@ export function ChecklistCard({
       <div className="space-y-3 p-3">
           {editorOpen && (
             <div className="space-y-2 rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">Editing this list changes the checklist for every school.</p>
-              {template.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span>{item.description}</span>
+              <p className="text-xs text-muted-foreground">Editing this list changes the checklist for every school. Drag by the handle to reorder.</p>
+              {orderedItems.map((item) => (
+                <div
+                  key={item.id}
+                  draggable
+                  onDragStart={() => setDraggedId(item.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDrop(item.id)}
+                  onDragEnd={() => setDraggedId(null)}
+                  className={`flex items-center justify-between gap-2 rounded-md text-sm ${draggedId === item.id ? "opacity-40" : ""}`}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <GripVertical className="h-4 w-4 flex-none cursor-grab text-muted-foreground active:cursor-grabbing" />
+                    {item.description}
+                  </span>
                   <form action={removeChecklistTemplateItem}>
                     <input type="hidden" name="id" value={item.id} />
                     <ConfirmDeleteButton confirmMessage={`Remove "${item.description}" from the checklist for every school?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>

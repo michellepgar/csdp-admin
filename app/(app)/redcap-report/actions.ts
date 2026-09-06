@@ -105,14 +105,14 @@ export async function updateRedcapTally(id: string, input: RedcapTallyInput) {
 }
 
 /* "Distributed" isn't derived from anything entered per-student --
-   Michelle types this in directly per school/year (see
+   Michelle types this in directly per school/year/GRADE (see
    lib/app-state.ts's RedcapDistributedForms comment). Upsert since
-   there's exactly one number per (school, year): the first save
-   creates the row, every save after that just overwrites it. */
-export async function setRedcapDistributedForms(schoolId: string, schoolYear: string, count: number) {
+   there's exactly one number per (school, year, grade): the first
+   save creates the row, every save after that just overwrites it. */
+export async function setRedcapDistributedForms(schoolId: string, schoolYear: string, grade: string, count: number) {
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      (state.redcapDistributedForms ??= {})[`${schoolId}:${schoolYear}`] = count;
+      (state.redcapDistributedForms ??= {})[`${schoolId}:${schoolYear}:${grade}`] = count;
     });
     revalidatePath("/redcap-report");
     return;
@@ -122,7 +122,7 @@ export async function setRedcapDistributedForms(schoolId: string, schoolYear: st
 
   const { error } = await supabase
     .from("redcap_distributed_forms")
-    .upsert({ school_id: schoolId, school_year: schoolYear, count, updated_at: new Date().toISOString() }, { onConflict: "school_id,school_year" });
+    .upsert({ school_id: schoolId, school_year: schoolYear, grade, count, updated_at: new Date().toISOString() }, { onConflict: "school_id,school_year,grade" });
   orThrow(error);
 
   revalidatePath("/redcap-report");

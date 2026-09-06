@@ -436,7 +436,7 @@ function mapRedcapTallyRow(r: RedcapTallyRow): RedcapTally {
   };
 }
 
-type RedcapDistributedFormsRow = { school_id: string; school_year: string; count: number };
+type RedcapDistributedFormsRow = { school_id: string; school_year: string; grade: string; count: number };
 
 type AccessRequestRow = {
   id: string;
@@ -557,7 +557,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
     supabase.from("redcap_tallies").select("id, school_id, school_year, grade, insurance, dental_home_status, referral, race, consent, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, created_at").order("created_at"),
-    supabase.from("redcap_distributed_forms").select("school_id, school_year, count"),
+    supabase.from("redcap_distributed_forms").select("school_id, school_year, grade, count"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -688,7 +688,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
 
   state.redcapDistributedForms = {};
   for (const r of (redcapDistributedFormsResult.data || []) as RedcapDistributedFormsRow[]) {
-    state.redcapDistributedForms[`${r.school_id}:${r.school_year}`] = r.count;
+    state.redcapDistributedForms[`${r.school_id}:${r.school_year}:${r.grade}`] = r.count;
   }
 
   return state;

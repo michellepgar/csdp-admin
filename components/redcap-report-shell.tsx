@@ -119,12 +119,21 @@ function ReportTable({
   rows: RedcapTally[];
   schoolName: string;
   schoolYear: string;
-  distributedForms: number;
-  onSetDistributedForms: (next: number) => Promise<void>;
+  // Keyed by grade alone (the shell already narrows this down to one
+  // school+year before handing it here) -- entered per grade, not one
+  // total, since Distributed is often known before any student for
+  // that grade has actually been screened yet.
+  distributedForms: Record<string, number>;
+  onSetDistributedForms: (grade: string, next: number) => Promise<void>;
 }) {
-  const grades = REDCAP_GRADES.filter((g) => rows.some((r) => r.grade === g));
+  // A grade shows up as a column the moment it has EITHER a real
+  // student entry OR a Distributed count typed in for it -- Michelle
+  // often knows how many forms went out to a grade before anyone from
+  // that grade has been screened.
+  const grades = REDCAP_GRADES.filter((g) => rows.some((r) => r.grade === g) || (distributedForms[g] || 0) > 0);
   const sections = buildSections();
   const positiveConsentCount = rows.filter((r) => r.consent === "Positive").length;
+  const distributedTotal = grades.reduce((sum, g) => sum + (distributedForms[g] || 0), 0);
 
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -146,11 +155,11 @@ function ReportTable({
           </tr>
           <tr className="border-b bg-record-background">
             <td className="px-3 py-2">Distributed</td>
-            <td className="px-3 py-2">
-              <DistributedFormsInput value={distributedForms} onSave={onSetDistributedForms} />
-            </td>
+            <td className="px-3 py-2 font-semibold tabular-nums">{distributedTotal}</td>
             {grades.map((g) => (
-              <td key={g} className="px-3 py-2 text-muted-foreground">—</td>
+              <td key={g} className="px-3 py-2">
+                <DistributedFormsInput value={distributedForms[g] || 0} onSave={(count) => onSetDistributedForms(g, count)} />
+              </td>
             ))}
           </tr>
           <tr className="border-b bg-record-background">
@@ -274,7 +283,7 @@ export function RedcapReportShell({
   redcapDistributedForms: Record<string, number>;
   addRedcapTally: (input: RedcapTallyInput) => Promise<void>;
   removeRedcapTally: (id: string) => Promise<void>;
-  setRedcapDistributedForms: (schoolId: string, schoolYear: string, count: number) => Promise<void>;
+  setRedcapDistributedForms: (schoolId: string, schoolYear: string, grade: string, count: number) => Promise<void>;
 }) {
   const schoolYears = useMemo(
     () => Array.from(new Set(redcapTallies.map((t) => t.schoolYear))).sort().reverse(),
@@ -302,6 +311,18 @@ export function RedcapReportShell({
 
   const school = schools.find((s) => s.id === schoolId);
   const filteredRows = redcapTallies.filter((t) => t.schoolId === schoolId && t.schoolYear === year);
+
+  // Narrows the flat `${schoolId}:${schoolYear}:${grade}`-keyed map
+  // down to just {grade: count} for whichever school+year is picked --
+  // ReportTable only ever needs to think in terms of grade.
+  const distributedForByGrade = useMemo(() => {
+    const prefix = `${schoolId}:${year}:`;
+    const result: Record<string, number> = {};
+    for (const [key, count] of Object.entries(redcapDistributedForms)) {
+      if (key.startsWith(prefix)) result[key.slice(prefix.length)] = count;
+    }
+    return result;
+  }, [redcapDistributedForms, schoolId, year]);
 
   return (
     <div className="space-y-4">
@@ -371,8 +392,8 @@ export function RedcapReportShell({
           rows={filteredRows}
           schoolName={school?.name || ""}
           schoolYear={year}
-          distributedForms={redcapDistributedForms[`${schoolId}:${year}`] || 0}
-          onSetDistributedForms={(count) => setRedcapDistributedForms(schoolId, year, count)}
+          distributedForms={distributedForByGrade}
+          onSetDistributedForms={(grade, count) => setRedcapDistributedForms(schoolId, year, grade, count)}
         />
       </div>
       <div className={tab === "review" ? "" : "hidden"}>

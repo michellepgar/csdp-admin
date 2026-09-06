@@ -101,12 +101,14 @@ export interface RedcapTally {
 /* "Total # of Consent Forms Received and Returned at This Site" is a
    report SECTION, not a number itself -- "Positive Consent" under it
    is computed from RedcapTally.consent above like everything else,
-   but "Distributed" is a number Michelle types in by hand (it isn't
-   derived from anything entered per-student), so it needs its own
-   tiny per-school-per-year value rather than living on RedcapTally.
-   Keyed the same way checklistProgress is (`${schoolId}:${schoolYear}`)
-   for the same reason: a flat map is simpler here than a nested one
-   for something this small. */
+   but "Distributed" is a number Michelle types in by hand PER GRADE
+   (not one total per school/year -- her own correction), so it needs
+   its own tiny per-school-per-year-per-grade value rather than living
+   on RedcapTally. Keyed `${schoolId}:${schoolYear}:${grade}` -- same
+   flat-map-over-nested-object reasoning as checklistProgress's own
+   `${schoolId}:${templateItemId}` keying. The report's Total column
+   for this row is just the sum of every grade's value, computed, not
+   entered directly. */
 export type RedcapDistributedForms = Record<string, number>;
 
 export interface ChecklistProgressEntry {

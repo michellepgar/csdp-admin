@@ -267,10 +267,10 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
             <th className="px-2 py-1">Category</th>
             <th className="px-2 py-1">Subcategory</th>
             <th className="px-2 py-1">Description</th>
-            <th className="px-2 py-1">Note</th>
             <th className="px-2 py-1">Reported By</th>
             <th className="px-2 py-1">Date</th>
             <th className="px-2 py-1">Status</th>
+            <th className="px-2 py-1">Note</th>
             <th />
           </tr>
         </thead>
@@ -280,10 +280,10 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
               <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
               <td className="px-2 py-1 whitespace-nowrap">{issue.subcategory || "—"}</td>
               <td className="px-2 py-1">{issue.description}</td>
-              <td className="px-2 py-1"><NoteField issue={issue} setIssueNote={setIssueNote} /></td>
               <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
               <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
               <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
+              <td className="px-2 py-1"><NoteField issue={issue} setIssueNote={setIssueNote} /></td>
               <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
             </tr>
           ))}

@@ -16,12 +16,6 @@ const PROGRESS_BAR_CLASSES = {
   success: "bg-status-success-foreground",
 };
 
-const PROGRESS_TEXT_CLASSES = {
-  danger: "text-status-danger-foreground",
-  warning: "text-status-warning-foreground",
-  success: "text-status-success-foreground",
-};
-
 function progressTone(pct: number): keyof typeof PROGRESS_BAR_CLASSES {
   if (pct < 34) return "danger";
   if (pct < 67) return "warning";
@@ -40,8 +34,6 @@ export default async function OverviewPage() {
   const waitingOnThemCount = allEmailItems.filter((e) => e.status === "Waiting on Them").length;
 
   const completedSchoolsCount = state.schools.filter((school) => checklistCompletion(state, school.id) === 100).length;
-  const completedSchoolsPct = state.schools.length === 0 ? 0 : Math.round((completedSchoolsCount / state.schools.length) * 100);
-  const completedSchoolsTone = progressTone(completedSchoolsPct);
 
   const openIssues = (state.issues || []).filter((i) => i.status !== "Resolved");
   const issueTypeCounts = (Object.keys(ISSUE_TYPE_LABELS) as IssueType[])
@@ -194,7 +186,7 @@ export default async function OverviewPage() {
           <div>
             <div className="mb-3 flex items-center justify-between bg-header-background px-2 py-1">
               <h2 className="static bg-transparent px-0 py-0 font-semibold">Checklist Progress by School</h2>
-              <span className={`text-sm font-medium ${PROGRESS_TEXT_CLASSES[completedSchoolsTone]}`}>{completedSchoolsCount}/{state.schools.length} completed</span>
+              <span className="text-sm font-medium text-white">{completedSchoolsCount}/{state.schools.length} completed</span>
             </div>
             <div className="space-y-3">
               {state.schools.map((school) => {

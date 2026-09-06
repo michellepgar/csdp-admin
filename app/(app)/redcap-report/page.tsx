@@ -9,9 +9,9 @@ import { addRedcapTally, removeRedcapTally, setRedcapDistributedForms } from "./
 
 /* Per-student tally entry + report, replacing the earlier v1 (which
    just summed existing Task.count numbers -- not what Michelle
-   actually needed, see docs/superpowers/specs). Only reachable via a
-   nav link Michelle alone sees (app/(app)/layout.tsx); the page itself
-   isn't further access-gated yet, per her own call to keep this quick. */
+   actually needed, see docs/superpowers/specs). Open to every team
+   member now (was Michelle-only at first) -- see
+   components/sidebar.tsx's Resources section for the nav link. */
 export default async function RedcapReportPage() {
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");

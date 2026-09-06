@@ -35,7 +35,6 @@ export function SidebarShell({
   schoolVaAssigned,
   addSchool,
   initialCollapsed,
-  showRedcapReport,
   children,
 }: {
   currentName: string;
@@ -45,7 +44,6 @@ export function SidebarShell({
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
   initialCollapsed: boolean;
-  showRedcapReport: boolean;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -130,7 +128,6 @@ export function SidebarShell({
           addSchool={addSchool}
           onCollapse={handleSidebarHide}
           collapsed={collapsed}
-          showRedcapReport={showRedcapReport}
         />
       </div>
 

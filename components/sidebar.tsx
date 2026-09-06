@@ -41,7 +41,6 @@ export function Sidebar({
   addSchool,
   onCollapse,
   collapsed = false,
-  showRedcapReport,
 }: {
   currentName: string;
   schools: { id: string; name: string }[];
@@ -66,9 +65,6 @@ export function Sidebar({
      "always visible, wastes space" problem for it to solve (see
      components/sidebar-shell.tsx). */
   collapsed?: boolean;
-  /* Just Michelle's own for now (see app/(app)/layout.tsx's own
-     comment) -- everyone else simply never gets this link. */
-  showRedcapReport: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [vaFilter, setVaFilter] = useState("");
@@ -281,20 +277,6 @@ export function Sidebar({
             {!collapsed && <span className="min-w-0 truncate">Private Notes</span>}
           </Link>
         </IconTooltip>
-        {showRedcapReport && (
-          <IconTooltip label="REDCap Report" active={collapsed}>
-            <Link
-              href="/redcap-report"
-              prefetch={false}
-              title={!collapsed ? "REDCap Report" : undefined}
-              className={navLinkClass("/redcap-report", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-            >
-              <FileBarChart2 className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
-              {!collapsed && <span className="min-w-0 truncate">REDCap Report</span>}
-            </Link>
-          </IconTooltip>
-        )}
-
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
         {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
         <IconTooltip label="General Tasks" active={collapsed}>
@@ -361,6 +343,17 @@ export function Sidebar({
           >
             <Send className="h-4 w-4 flex-none text-indigo-600 dark:text-indigo-400" />
             {!collapsed && <span className="min-w-0 truncate">Distribution List</span>}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="REDCap Report" active={collapsed}>
+          <Link
+            href="/redcap-report"
+            prefetch={false}
+            title={!collapsed ? "REDCap Report" : undefined}
+            className={navLinkClass("/redcap-report", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <FileBarChart2 className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
+            {!collapsed && <span className="min-w-0 truncate">REDCap Report</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="Email Templates" active={collapsed}>

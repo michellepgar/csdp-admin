@@ -48,6 +48,51 @@ export interface SchoolContact {
   createdAt: string;
 }
 
+/* ---------- REDCap Report ----------
+   One row per student screened (not just running counters) so a
+   mis-tap can be found and fixed later -- every number on the REDCap
+   Report page is computed live from these rows, nothing is stored
+   pre-aggregated. Kept across school years on purpose (schoolYear is
+   just a field here, not a table that gets wiped on "Start New School
+   Year" like tasks/checklistProgress) -- Michelle needs both
+   2024-2025 and 2025-2026 entered side by side, not just "this year". */
+export const REDCAP_GRADES = [
+  "Pre-K", "Kindergarten",
+  "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade",
+  "6th Grade", "7th Grade", "8th Grade",
+  "9th Grade", "10th Grade", "11th Grade", "12th Grade",
+];
+export const REDCAP_INSURANCE_OPTIONS = ["MassHealth", "Private", "No Insurance", "Inactive", "Unknown Insurance"];
+// Shared by Dental Home Status and Referral -- confirmed with Michelle
+// these are genuinely two separate per-student answers, not the same
+// question shown twice, even though they use the same two options.
+export const REDCAP_DENTAL_STATUS_OPTIONS = ["Seen With Dentist Record", "Seen W/Out Dentist Record"];
+export const REDCAP_RACE_OPTIONS = ["Alaska", "Asian", "Black", "Spanish", "White", "Other", "Not Documented"];
+// A student can have more than one of these at once (e.g. both Caries
+// and Urgent) -- multi-select, unlike every other REDCap field above.
+export const REDCAP_NEEDS_OPTIONS = ["Caries", "Untreated", "Urgent", "Other"];
+
+export interface RedcapTally {
+  id: string;
+  schoolId: string;
+  schoolYear: string;
+  grade: string;
+  insurance: string;
+  dentalHomeStatus: string;
+  referral: string;
+  race: string;
+  fluoride: boolean;
+  prophy: boolean;
+  // "Sealant" and "Total # of Students Sealed" on the report are both
+  // computed from these two booleans, not entered directly -- checking
+  // either or both counts as "sealed" for that student.
+  sealed1stMolar: boolean;
+  sealed2ndMolar: boolean;
+  needs: string[];
+  enteredBy?: string;
+  createdAt: string;
+}
+
 export interface ChecklistProgressEntry {
   status: string;
   /* Name of whoever last checked this off -- shown as a small signature
@@ -332,6 +377,7 @@ export interface AppState {
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];
   generalTaskCategories?: GeneralTaskCategory[];
+  redcapTallies?: RedcapTally[];
 }
 
 /* ---------- Distribution List ----------

@@ -1,0 +1,119 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireTeamMember } from "@/lib/require-team-member";
+import { isDemoMode, demoMutate } from "@/lib/demo-session";
+import type { RedcapTally } from "@/lib/app-state";
+
+function orThrow(error: { message: string } | null) {
+  if (error) throw new Error(error.message);
+}
+
+/* Called directly as plain functions from components/redcap-entry-form.tsx
+   (a typed object, not FormData) -- same pattern as
+   reorderChecklistTemplate in app/(app)/schools/[id]/actions.ts. The
+   entry form's fields are all button-driven single/multi-select state,
+   not native form controls, so there's no <form> for FormData to come
+   from in the first place. */
+export type RedcapTallyInput = {
+  schoolId: string;
+  schoolYear: string;
+  grade: string;
+  insurance: string;
+  dentalHomeStatus: string;
+  referral: string;
+  race: string;
+  fluoride: boolean;
+  prophy: boolean;
+  sealed1stMolar: boolean;
+  sealed2ndMolar: boolean;
+  needs: string[];
+};
+
+export async function addRedcapTally(input: RedcapTallyInput) {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.redcapTallies ??= []).push({
+        id: `demo-${Date.now()}`,
+        ...input,
+        enteredBy: "Jane",
+        createdAt: new Date().toISOString(),
+      });
+    });
+    revalidatePath("/redcap-report");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { error } = await supabase.from("redcap_tallies").insert({
+    id: crypto.randomUUID(),
+    school_id: input.schoolId,
+    school_year: input.schoolYear,
+    grade: input.grade,
+    insurance: input.insurance,
+    dental_home_status: input.dentalHomeStatus,
+    referral: input.referral,
+    race: input.race,
+    fluoride: input.fluoride,
+    prophy: input.prophy,
+    sealed_1st_molar: input.sealed1stMolar,
+    sealed_2nd_molar: input.sealed2ndMolar,
+    needs: input.needs,
+    entered_by: me.name,
+  });
+  orThrow(error);
+
+  revalidatePath("/redcap-report");
+}
+
+export async function updateRedcapTally(id: string, input: RedcapTallyInput) {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const row = state.redcapTallies?.find((t) => t.id === id);
+      if (row) Object.assign(row, input);
+    });
+    revalidatePath("/redcap-report");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+
+  const { error } = await supabase
+    .from("redcap_tallies")
+    .update({
+      school_id: input.schoolId,
+      school_year: input.schoolYear,
+      grade: input.grade,
+      insurance: input.insurance,
+      dental_home_status: input.dentalHomeStatus,
+      referral: input.referral,
+      race: input.race,
+      fluoride: input.fluoride,
+      prophy: input.prophy,
+      sealed_1st_molar: input.sealed1stMolar,
+      sealed_2nd_molar: input.sealed2ndMolar,
+      needs: input.needs,
+    })
+    .eq("id", id);
+  orThrow(error);
+
+  revalidatePath("/redcap-report");
+}
+
+export async function removeRedcapTally(id: string) {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.redcapTallies = (state.redcapTallies || []).filter((t: RedcapTally) => t.id !== id);
+    });
+    revalidatePath("/redcap-report");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+
+  const { error } = await supabase.from("redcap_tallies").delete().eq("id", id);
+  orThrow(error);
+
+  revalidatePath("/redcap-report");
+}

@@ -28,6 +28,7 @@ import type {
   AccessRequest,
   GeneralTask,
   GeneralTaskCategory,
+  RedcapTally,
 } from "@/lib/app-state";
 
 type SchoolRow = { id: string; name: string; website: string | null; phone: string | null; fax: string | null; hours: string | null; email_notes: string | null; no_recheck: boolean | null };
@@ -395,6 +396,44 @@ function mapSchoolContactRow(r: SchoolContactRow): SchoolContact {
   return { id: r.id, position: r.position, email: r.email, createdAt: r.created_at };
 }
 
+type RedcapTallyRow = {
+  id: string;
+  school_id: string;
+  school_year: string;
+  grade: string;
+  insurance: string;
+  dental_home_status: string;
+  referral: string;
+  race: string;
+  fluoride: boolean;
+  prophy: boolean;
+  sealed_1st_molar: boolean;
+  sealed_2nd_molar: boolean;
+  needs: string[];
+  entered_by: string | null;
+  created_at: string;
+};
+
+function mapRedcapTallyRow(r: RedcapTallyRow): RedcapTally {
+  return {
+    id: r.id,
+    schoolId: r.school_id,
+    schoolYear: r.school_year,
+    grade: r.grade,
+    insurance: r.insurance,
+    dentalHomeStatus: r.dental_home_status,
+    referral: r.referral,
+    race: r.race,
+    fluoride: r.fluoride,
+    prophy: r.prophy,
+    sealed1stMolar: r.sealed_1st_molar,
+    sealed2ndMolar: r.sealed_2nd_molar,
+    needs: r.needs || [],
+    enteredBy: r.entered_by ?? undefined,
+    createdAt: r.created_at,
+  };
+}
+
 type AccessRequestRow = {
   id: string;
   record_kind: string;
@@ -484,6 +523,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     otherContactsResult,
     generalTasksResult,
     generalTaskCategoriesResult,
+    redcapTalliesResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -511,6 +551,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
+    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, insurance, dental_home_status, referral, race, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -539,6 +580,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (otherContactsResult.error) return null;
   if (generalTasksResult.error) return null;
   if (generalTaskCategoriesResult.error) return null;
+  if (redcapTalliesResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -634,6 +676,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     if (!state.schoolContacts[r.school_id]) state.schoolContacts[r.school_id] = [];
     state.schoolContacts[r.school_id].push(mapSchoolContactRow(r));
   }
+
+  state.redcapTallies = (redcapTalliesResult.data || []).map((r) => mapRedcapTallyRow(r as RedcapTallyRow));
 
   return state;
 });

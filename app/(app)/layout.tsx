@@ -61,6 +61,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const sidebarCollapsed = (await cookies()).get("sidebar-collapsed")?.value === "1";
 
+  /* REDCap Report is Michelle's own -- hardcoded to her email rather
+     than a role/admin flag since this isn't meant to be admin-wide,
+     just hers for now. Only hides the nav link; the page itself isn't
+     access-gated yet (Michelle's own call, to keep this quick -- can
+     add a real server-side check later if it needs to be stricter). */
+  const showRedcapReport = user.email.toLowerCase() === "michellepgar@gmail.com";
+
   const schoolVaAssigned: Record<string, string> = {};
   for (const schoolId of Object.keys(state.schoolData)) {
     const va = state.schoolData[schoolId]?.vaAssigned;
@@ -76,6 +83,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       schoolVaAssigned={schoolVaAssigned}
       addSchool={addSchool}
       initialCollapsed={sidebarCollapsed}
+      showRedcapReport={showRedcapReport}
     >
       {children}
     </SidebarShell>

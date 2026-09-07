@@ -94,25 +94,27 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           (components/sidebar-shell.tsx). pl-12 (see PageHeader's own
           comment) reserves room for the floating "show sidebar"
           button so it doesn't sit on top of the title's first letter
-          when collapsed/closed. min-h-16 (not padding-driven, and not
-          a hard h-16) lines this up with the sidebar's own top corner
+          when collapsed/closed. min-h-14 (not padding-driven, and not
+          a hard h-14) lines this up with the sidebar's own top corner
           and every other page's header in the common case (no extra
           py- here on top of that -- min-height alone already sizes
-          this to exactly 64px when its one line of content fits
-          within that, an earlier py-2 add-on was pushing it past 64px
+          this to exactly that height when its one line of content fits
+          within it, an earlier py-2 add-on was pushing it past that
           even then and breaking that same alignment, confirmed
           directly from a screenshot), but still lets the row grow
           past that on a narrow phone screen where a long school name
-          wraps to two lines -- a hard h-16 there clipped nothing (no
+          wraps to two lines -- a hard height there clipped nothing (no
           overflow-hidden) but the wrapped second line and the button
           row both rendered past the row's own box and overlapped the
           content below it instead of pushing it down, confirmed
           directly at a 375px viewport. VA assigned now sits inline
           next to the title (was its own line below) -- one less line
-          means the common case reliably fits in that same 64px
+          means the common case reliably fits in that same height
           instead of leaving it up to how long the school's name and
-          the VA's name each happen to be. */}
-      <div className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center justify-between gap-2 bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
+          the VA's name each happen to be. Shrank from min-h-16 to
+          min-h-14 alongside the h1 text itself going smaller and
+          uniform (see PageHeader's own comment). */}
+      <div className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center justify-between gap-2 bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="static bg-transparent px-0 py-0">{school.name}</h1>
           {/* text-white/80 (not text-muted-foreground) -- this sits on

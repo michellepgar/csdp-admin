@@ -18,22 +18,24 @@
    (desktop) or closed (mobile). Confirmed directly: without this, that
    button's icon sits right on top of the title's first letter.
 
-   h-16 (fixed, not padding-driven) -- Michelle pointed out this
+   h-14 (fixed, not padding-driven) -- Michelle pointed out this
    header and the sidebar's own top corner (components/sidebar.tsx)
    didn't line up; different content (a subtitle on the school page,
    none here) plus padding-based sizing meant each block's actual
    height depended on its own font metrics instead of a shared value.
    Every header block in the app (this one, Overview's, the school
-   page's) now uses this same fixed height with its content vertically
-   centered inside it, so the sidebar corner lines up with whichever
-   page header is showing regardless of page. Was h-20 originally;
-   Michelle later said that read as too much empty padding around a
-   single line of title text, so every one of these shrank to h-16
-   together (keeping them all equal, and equal to the sidebar corner,
-   is the part that actually matters here -- not the specific value). */
+   page's, and the sidebar's own top corner) now uses this same fixed
+   height with its content vertically centered inside it, so the
+   sidebar corner lines up with whichever page header is showing
+   regardless of page. Was h-20, then h-16 -- shrunk again to h-14
+   alongside the h1 text itself going from text-2xl/text-4xl down to a
+   uniform text-xl (see app/globals.css), since h-16 left visibly more
+   empty space around the now-smaller title than before (keeping them
+   all equal, and equal to the sidebar corner, is the part that
+   actually matters here -- not the specific value). */
 export function PageHeader({ title }: { title: string }) {
   return (
-    <div className="sticky top-0 z-10 flex h-16 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
+    <div className="sticky top-0 z-10 flex h-14 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
       <h1 className="static bg-transparent px-0 py-0">{title}</h1>
     </div>
   );

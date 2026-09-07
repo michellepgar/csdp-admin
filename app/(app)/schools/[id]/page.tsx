@@ -114,7 +114,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           the VA's name each happen to be. */}
       <div className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center justify-between gap-2 bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{school.name}</h1>
+          <h1 className="static bg-transparent px-0 py-0">{school.name}</h1>
           {/* text-white/80 (not text-muted-foreground) -- this sits on
               the same bold teal bg-header-background as the white h1
               text above it, where a soft gray reads as barely-visible

@@ -34,7 +34,7 @@
 export function PageHeader({ title }: { title: string }) {
   return (
     <div className="sticky top-0 z-10 flex h-16 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
-      <h1 className="static bg-transparent px-0 py-0 text-2xl font-bold">{title}</h1>
+      <h1 className="static bg-transparent px-0 py-0">{title}</h1>
     </div>
   );
 }

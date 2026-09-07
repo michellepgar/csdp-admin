@@ -237,11 +237,23 @@
      pinned to the top of the page while the rest of it scrolls
      beneath -- z-10 plus the opaque background so scrolled content
      doesn't show through underneath it. */
+  /* Font sizes for h1/h2/record rows all centralized here on purpose
+     (Michelle asked for every header, every title, and every record
+     entry to each be one uniform size, a little smaller than before)
+     -- a handful of pages used to set their own explicit text-size
+     class on top of these (Overview's own h1 was text-4xl, the school
+     page's and PageHeader's were text-2xl; none of the many h2 usages
+     had their own override, they just inherited whatever ambient size
+     happened to surround them). Those explicit overrides are removed
+     at their own call sites now, so this rule alone is what actually
+     controls the size everywhere -- verify with a grep for `<h1` /
+     `<h2` before adding a new one elsewhere, and don't give it its own
+     text-* class, or it'll drift from every other page again. */
   h1 {
-    @apply text-white sticky top-0 z-10 block bg-header-background px-3 py-1.5;
+    @apply text-white sticky top-0 z-10 block bg-header-background px-3 py-1.5 text-xl font-bold;
   }
   h2 {
-    @apply text-white block bg-header-background px-2 py-1;
+    @apply text-white block bg-header-background px-2 py-1 text-sm font-semibold;
   }
 
   /* Native checkboxes/radios (Distributed, Urgent, the Correction
@@ -289,9 +301,23 @@
    table rows, only on block-level boxes, so this only shows on the
    plain-div record rows (Tasks, Suggestions, General Tasks, Overview's
    own cards). Kept subtle on purpose -- this is a nudge, not a
-   drop-shadow-heavy card effect. */
+   drop-shadow-heavy card effect.
+
+   font-size lives here too, for the same "uniform, a little smaller"
+   reason as h1/h2 above: every record row across the app (Tasks,
+   Issues, Contacts, Distribution List, EOD, Suggestions, General
+   Notes, this REDCap feature, etc.) already shares this one class,
+   but none of them set their own explicit text-size -- each just
+   inherited whatever size happened to surround it (a table's own
+   text-sm wrapper in some places, plain body text in others), so
+   sizing actually varied page to page. Set directly on this class
+   (not a table/row size that could be overridden top-down) so every
+   record row's base text size is the same regardless of what wraps
+   it; a child that needs to read smaller/larger still can with its
+   own text-* class, same as before. */
 .bg-record-background {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  font-size: 0.8125rem;
 }
 
 /* General Notes/Private Notes -- a proper sticky-note read, not just

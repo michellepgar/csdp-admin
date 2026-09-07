@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Dropdown } from "@/components/dropdown";
 import { RedcapEntryForm } from "@/components/redcap-entry-form";
 import {
+  StudentFields,
+  studentFieldsFromTally,
+  studentFieldsAreComplete,
+  toTallyFields,
+  type StudentFieldsState,
+} from "@/components/redcap-student-fields";
+import {
   REDCAP_GRADES,
   REDCAP_INSURANCE_OPTIONS,
   REDCAP_DENTAL_STATUS_OPTIONS,
@@ -19,10 +26,20 @@ import type { RedcapTallyInput } from "@/app/(app)/redcap-report/actions";
 // A pseudo school id, never a real one -- picking it shows every
 // school's own report table stacked one after another for the picked
 // year, the way Michelle actually compiles the final REDCap
-// submission (one sheet per site). Doesn't make sense for Add
-// Student/Review (which are about ONE school's specific rows), so
-// those two tabs just ask her to pick a real school instead.
+// submission (one sheet per site). Add Student stays school-specific;
+// Review and Flags both support it (Flags especially -- checking
+// every site at once for the final submission is the whole point).
 const ALL_SCHOOLS = "__all__";
+
+// A grade is worth its own column/breakdown the moment it has EITHER
+// a real student entry OR a Distributed count typed in for it --
+// Michelle often knows how many forms went out to a grade before
+// anyone from that grade has actually been screened. Shared by
+// ReportTable and the Flags checks so both agree on which grades are
+// "in play" for a school/year.
+function gradesInPlay(rows: RedcapTally[], distributedByGrade: Record<string, number>) {
+  return REDCAP_GRADES.filter((g) => rows.some((r) => r.grade === g) || (distributedByGrade[g] || 0) > 0);
+}
 
 type Section = { label: string; rows: { label: string; count: (rows: RedcapTally[]) => number }[] };
 
@@ -122,18 +139,10 @@ function ReportTable({
   rows: RedcapTally[];
   schoolName: string;
   schoolYear: string;
-  // Keyed by grade alone (the shell already narrows this down to one
-  // school+year before handing it here) -- entered per grade, not one
-  // total, since Distributed is often known before any student for
-  // that grade has actually been screened yet.
   distributedForms: Record<string, number>;
   onSetDistributedForms: (grade: string, next: number) => Promise<void>;
 }) {
-  // A grade shows up as a column the moment it has EITHER a real
-  // student entry OR a Distributed count typed in for it -- Michelle
-  // often knows how many forms went out to a grade before anyone from
-  // that grade has been screened.
-  const grades = REDCAP_GRADES.filter((g) => rows.some((r) => r.grade === g) || (distributedForms[g] || 0) > 0);
+  const grades = gradesInPlay(rows, distributedForms);
   const sections = buildSections();
   const positiveConsentCount = rows.filter((r) => r.consent === "Positive").length;
   const distributedTotal = grades.reduce((sum, g) => sum + (distributedForms[g] || 0), 0);
@@ -214,61 +223,303 @@ function ReportTable({
   );
 }
 
+/* One row in the Review table -- doubles as its own inline editor.
+   Replaces the old "delete and re-add from Add Student" fix flow: the
+   full set of answers is visible right in the table for scanning by
+   eye, and "Edit" turns this same row into the same field editor the
+   Add Student form uses (components/redcap-student-fields.tsx),
+   saving via updateRedcapTally instead of a fresh addRedcapTally. */
+function ReviewRow({
+  tally,
+  updateRedcapTally,
+  removeRedcapTally,
+}: {
+  tally: RedcapTally;
+  updateRedcapTally: (id: string, input: RedcapTallyInput) => Promise<void>;
+  removeRedcapTally: (id: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [grade, setGrade] = useState(tally.grade);
+  const [student, setStudent] = useState<StudentFieldsState>(() => studentFieldsFromTally(tally));
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function startEdit() {
+    setGrade(tally.grade);
+    setStudent(studentFieldsFromTally(tally));
+    setError("");
+    setEditing(true);
+  }
+
+  function handleSave() {
+    if (!grade || !studentFieldsAreComplete(student)) {
+      setError("Grade, Consent, Insurance, Dental Home Status, Referral, and Race are all required.");
+      return;
+    }
+    setError("");
+    const input: RedcapTallyInput = { schoolId: tally.schoolId, schoolYear: tally.schoolYear, grade, ...toTallyFields(student) };
+    startTransition(async () => {
+      await updateRedcapTally(tally.id, input);
+      setEditing(false);
+    });
+  }
+
+  if (editing) {
+    return (
+      <tr className="border-b bg-muted/30">
+        <td colSpan={10} className="p-3">
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Grade</label>
+              <Dropdown
+                name="grade"
+                value={grade}
+                onChange={setGrade}
+                options={REDCAP_GRADES.map((g) => ({ value: g, label: g }))}
+                className="w-full max-w-[180px] rounded-md border px-2 py-1.5 text-left text-sm"
+              />
+            </div>
+            <StudentFields value={student} onChange={setStudent} />
+            {error && <p className="text-sm text-status-danger-foreground">{error}</p>}
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" onClick={handleSave} disabled={isPending} className="font-semibold">
+                {isPending ? "Saving…" : "Save changes"}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={isPending}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  const sealed = [tally.sealed1stMolar && "1st Molar", tally.sealed2ndMolar && "2nd Molar"].filter(Boolean).join(" & ") || "—";
+
+  return (
+    <tr className="border-b bg-record-background">
+      <td className="px-3 py-2 whitespace-nowrap">{tally.grade}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{tally.consent || "—"}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{tally.insurance}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{tally.dentalHomeStatus}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{tally.referral}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{tally.race}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{[tally.fluoride && "Fluoride", tally.prophy && "Prophy"].filter(Boolean).join(", ") || "—"}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{sealed}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{tally.needs.join(", ") || "—"}</td>
+      <td className="px-3 py-2 text-right whitespace-nowrap">
+        <Button type="button" variant="ghost" size="sm" onClick={startEdit}>
+          Edit
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          onClick={() => {
+            if (!window.confirm("Delete this student's entry? This can't be undone.")) return;
+            startTransition(() => removeRedcapTally(tally.id));
+          }}
+        >
+          Delete
+        </Button>
+      </td>
+    </tr>
+  );
+}
+
 function ReviewList({
   rows,
+  updateRedcapTally,
   removeRedcapTally,
 }: {
   rows: RedcapTally[];
+  updateRedcapTally: (id: string, input: RedcapTallyInput) => Promise<void>;
   removeRedcapTally: (id: string) => Promise<void>;
 }) {
-  const [isPending, startTransition] = useTransition();
-
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">Nothing entered yet for this school/year.</p>;
   }
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full min-w-[560px] text-sm">
+      <table className="w-full min-w-[1100px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
             <th className="px-3 py-2">Grade</th>
+            <th className="px-3 py-2">Consent</th>
             <th className="px-3 py-2">Insurance</th>
+            <th className="px-3 py-2">Dental Home</th>
+            <th className="px-3 py-2">Referral</th>
             <th className="px-3 py-2">Race</th>
+            <th className="px-3 py-2">Treatment</th>
             <th className="px-3 py-2">Sealed</th>
+            <th className="px-3 py-2">Needs</th>
             <th className="px-3 py-2" />
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-b bg-record-background">
-              <td className="px-3 py-2">{r.grade}</td>
-              <td className="px-3 py-2">{r.insurance}</td>
-              <td className="px-3 py-2">{r.race}</td>
-              <td className="px-3 py-2">
-                {[r.sealed1stMolar && "1st Molar", r.sealed2ndMolar && "2nd Molar"].filter(Boolean).join(" & ") || "—"}
-              </td>
-              <td className="px-3 py-2 text-right">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => {
-                    if (!window.confirm("Delete this student's entry? This can't be undone.")) return;
-                    startTransition(() => removeRedcapTally(r.id));
-                  }}
-                >
-                  Delete
-                </Button>
-              </td>
-            </tr>
+            <ReviewRow key={r.id} tally={r} updateRedcapTally={updateRedcapTally} removeRedcapTally={removeRedcapTally} />
           ))}
         </tbody>
       </table>
-      <p className="border-t bg-title-background px-3 py-2 text-xs text-muted-foreground">
-        Made a mistake? Delete the entry here and re-add it correctly from the Add Student tab.
+    </div>
+  );
+}
+
+type Flag = {
+  id: string;
+  severity: "error" | "warning";
+  message: string;
+  tallyIds: string[];
+};
+
+/* The actual "catch mistakes before submitting" logic Michelle asked
+   for -- things that are either logically impossible (a consent form
+   marked Negative shouldn't have any treatment recorded; more
+   positive consents or screened students than forms distributed) or
+   just worth a second look (Dental Home Status/Referral left
+   Unknown/Left Blank a lot suggests rushed entry). Scoped to one
+   school at a time; the caller runs this once per school for "All
+   Schools". */
+function computeFlags(schoolName: string, rows: RedcapTally[], distributedByGrade: Record<string, number>): Flag[] {
+  const flags: Flag[] = [];
+
+  const negativeWithTreatment = rows.filter(
+    (r) => r.consent === "Negative" && (r.fluoride || r.prophy || r.sealed1stMolar || r.sealed2ndMolar || r.needs.length > 0)
+  );
+  if (negativeWithTreatment.length > 0) {
+    flags.push({
+      id: `${schoolName}-neg-treatment`,
+      severity: "error",
+      message: `${schoolName}: ${negativeWithTreatment.length} student${negativeWithTreatment.length === 1 ? "" : "s"} marked Consent = Negative but have treatment recorded (Fluoride/Prophy/Sealant/Needs)`,
+      tallyIds: negativeWithTreatment.map((r) => r.id),
+    });
+  }
+
+  for (const g of gradesInPlay(rows, distributedByGrade)) {
+    const distributed = distributedByGrade[g] || 0;
+    const gradeRows = rows.filter((r) => r.grade === g);
+    const screened = gradeRows.length;
+    const positiveConsent = gradeRows.filter((r) => r.consent === "Positive").length;
+    if (distributed > 0 && screened > distributed) {
+      flags.push({
+        id: `${schoolName}-${g}-screened`,
+        severity: "error",
+        message: `${schoolName}, ${g}: ${screened} students screened but only ${distributed} forms distributed`,
+        tallyIds: gradeRows.map((r) => r.id),
+      });
+    }
+    if (distributed > 0 && positiveConsent > distributed) {
+      flags.push({
+        id: `${schoolName}-${g}-consent`,
+        severity: "error",
+        message: `${schoolName}, ${g}: ${positiveConsent} positive consents but only ${distributed} forms distributed`,
+        tallyIds: gradeRows.filter((r) => r.consent === "Positive").map((r) => r.id),
+      });
+    }
+  }
+
+  const blankDentalHome = rows.filter((r) => r.dentalHomeStatus === "Unknown / Left Blank");
+  if (blankDentalHome.length > 0) {
+    flags.push({
+      id: `${schoolName}-blank-dental`,
+      severity: "warning",
+      message: `${schoolName}: ${blankDentalHome.length} student${blankDentalHome.length === 1 ? "" : "s"} have Dental Home Status marked Unknown/Left Blank`,
+      tallyIds: blankDentalHome.map((r) => r.id),
+    });
+  }
+
+  const blankReferral = rows.filter((r) => r.referral === "Unknown / Left Blank");
+  if (blankReferral.length > 0) {
+    flags.push({
+      id: `${schoolName}-blank-referral`,
+      severity: "warning",
+      message: `${schoolName}: ${blankReferral.length} student${blankReferral.length === 1 ? "" : "s"} have Referral marked Unknown/Left Blank`,
+      tallyIds: blankReferral.map((r) => r.id),
+    });
+  }
+
+  return flags;
+}
+
+function FlagRow({
+  flag,
+  tallies,
+  updateRedcapTally,
+  removeRedcapTally,
+}: {
+  flag: Flag;
+  tallies: RedcapTally[];
+  updateRedcapTally: (id: string, input: RedcapTallyInput) => Promise<void>;
+  removeRedcapTally: (id: string) => Promise<void>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const affected = tallies.filter((t) => flag.tallyIds.includes(t.id));
+  const toneClass = flag.severity === "error" ? "border-status-danger-foreground/40 bg-status-danger" : "border-status-warning-foreground/40 bg-status-warning";
+  const textClass = flag.severity === "error" ? "text-status-danger-foreground" : "text-status-warning-foreground";
+
+  return (
+    <div className={`rounded-md border p-3 ${toneClass}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={`text-sm font-medium ${textClass}`}>{flag.message}</p>
+        {affected.length > 0 && (
+          <Button type="button" variant="ghost" size="sm" className={textClass} onClick={() => setExpanded((e) => !e)}>
+            {expanded ? "Hide entries" : "Show entries"}
+          </Button>
+        )}
+      </div>
+      {expanded && affected.length > 0 && (
+        <div className="mt-3">
+          <ReviewList rows={affected} updateRedcapTally={updateRedcapTally} removeRedcapTally={removeRedcapTally} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FlagsPanel({
+  schools,
+  schoolId,
+  year,
+  redcapTallies,
+  distributedByGradeFor,
+  updateRedcapTally,
+  removeRedcapTally,
+}: {
+  schools: School[];
+  schoolId: string;
+  year: string;
+  redcapTallies: RedcapTally[];
+  distributedByGradeFor: (sid: string) => Record<string, number>;
+  updateRedcapTally: (id: string, input: RedcapTallyInput) => Promise<void>;
+  removeRedcapTally: (id: string) => Promise<void>;
+}) {
+  const scopedSchools = schoolId === ALL_SCHOOLS ? schools : schools.filter((s) => s.id === schoolId);
+
+  const flags = scopedSchools.flatMap((s) => {
+    const rows = redcapTallies.filter((t) => t.schoolId === s.id && t.schoolYear === year);
+    return computeFlags(s.name, rows, distributedByGradeFor(s.id));
+  });
+
+  if (flags.length === 0) {
+    return (
+      <p className="text-sm text-status-success-foreground">
+        ✓ No discrepancies found for {schoolId === ALL_SCHOOLS ? "any school" : scopedSchools[0]?.name || "this school"}, {year}.
       </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        {flags.filter((f) => f.severity === "error").length} thing{flags.filter((f) => f.severity === "error").length === 1 ? "" : "s"} likely need fixing, {flags.filter((f) => f.severity === "warning").length} worth a second look.
+      </p>
+      {flags.map((flag) => (
+        <FlagRow key={flag.id} flag={flag} tallies={redcapTallies} updateRedcapTally={updateRedcapTally} removeRedcapTally={removeRedcapTally} />
+      ))}
     </div>
   );
 }
@@ -278,6 +529,7 @@ export function RedcapReportShell({
   redcapTallies,
   redcapDistributedForms,
   addRedcapTally,
+  updateRedcapTally,
   removeRedcapTally,
   setRedcapDistributedForms,
 }: {
@@ -285,6 +537,7 @@ export function RedcapReportShell({
   redcapTallies: RedcapTally[];
   redcapDistributedForms: Record<string, number>;
   addRedcapTally: (input: RedcapTallyInput) => Promise<void>;
+  updateRedcapTally: (id: string, input: RedcapTallyInput) => Promise<void>;
   removeRedcapTally: (id: string) => Promise<void>;
   setRedcapDistributedForms: (schoolId: string, schoolYear: string, grade: string, count: number) => Promise<void>;
 }) {
@@ -293,7 +546,7 @@ export function RedcapReportShell({
     [redcapTallies]
   );
 
-  const [tab, setTab] = useState<"report" | "add" | "review">(redcapTallies.length === 0 ? "add" : "report");
+  const [tab, setTab] = useState<"report" | "add" | "review" | "flags">(redcapTallies.length === 0 ? "add" : "report");
   const [schoolId, setSchoolId] = useState(schools[0]?.id || "");
   const [year, setYear] = useState(schoolYears[0] || new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
 
@@ -341,19 +594,22 @@ export function RedcapReportShell({
         <Button type="button" variant={tab === "review" ? "default" : "ghost"} size="sm" onClick={() => setTab("review")}>
           Review Entries
         </Button>
+        <Button type="button" variant={tab === "flags" ? "default" : "ghost"} size="sm" onClick={() => setTab("flags")}>
+          Flags
+        </Button>
       </div>
 
-      {/* School + School Year live here, ONE level above all three
-          tabs, and stay exactly as picked no matter which tab is
-          active -- these used to be re-declared inside
-          RedcapEntryForm's own state, which reset to a guessed
-          default every time that component unmounted (i.e. every time
-          you switched away from "Add Student" and back), even though
-          it looked like it "remembered" your pick within one
-          uninterrupted stretch of saves. Reported directly by
-          Michelle: picking School/Year should hold across tabs so she
-          can check the Report, jump to Add Student, and keep adding
-          to the exact same school/year without re-picking either one. */}
+      {/* School + School Year live here, ONE level above all tabs, and
+          stay exactly as picked no matter which tab is active -- these
+          used to be re-declared inside RedcapEntryForm's own state,
+          which reset to a guessed default every time that component
+          unmounted (i.e. every time you switched away from "Add
+          Student" and back), even though it looked like it
+          "remembered" your pick within one uninterrupted stretch of
+          saves. Reported directly by Michelle: picking School/Year
+          should hold across tabs so she can check the Report, jump to
+          Add Student, and keep adding to the exact same school/year
+          without re-picking either one. */}
       <div className="flex flex-wrap items-end gap-3 rounded-md border bg-record-background p-3">
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">School</label>
@@ -382,7 +638,7 @@ export function RedcapReportShell({
         </div>
       </div>
 
-      {/* All three tabs stay mounted (hidden via CSS, not removed from
+      {/* All four tabs stay mounted (hidden via CSS, not removed from
           the tree) rather than conditionally rendered -- switching
           tabs used to unmount whichever wasn't active, which is
           exactly what was resetting Add Student's in-progress Grade
@@ -428,8 +684,19 @@ export function RedcapReportShell({
         {schoolId === ALL_SCHOOLS ? (
           <p className="text-sm text-muted-foreground">Pick a specific school above to review its entries.</p>
         ) : (
-          <ReviewList rows={filteredRows} removeRedcapTally={removeRedcapTally} />
+          <ReviewList rows={filteredRows} updateRedcapTally={updateRedcapTally} removeRedcapTally={removeRedcapTally} />
         )}
+      </div>
+      <div className={tab === "flags" ? "" : "hidden"}>
+        <FlagsPanel
+          schools={schools}
+          schoolId={schoolId}
+          year={year}
+          redcapTallies={redcapTallies}
+          distributedByGradeFor={distributedByGradeFor}
+          updateRedcapTally={updateRedcapTally}
+          removeRedcapTally={removeRedcapTally}
+        />
       </div>
     </div>
   );

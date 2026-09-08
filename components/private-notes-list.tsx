@@ -87,7 +87,7 @@ export function PrivateNotesList({
             >
               ⠿
             </span>
-            <NoteCardContent note={n} />
+            <NoteCardContent note={n} showAuthor={!isAuthor} />
 
             {isAuthor && sharedWith.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">

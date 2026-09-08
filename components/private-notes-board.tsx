@@ -23,10 +23,12 @@ type PersistFn = (id: string, patch: BoardPatch) => Promise<void>;
    `frameVersion`, so the JSX picks up the reverted values. */
 function BoardNote({
   note,
+  currentUserName,
   onPersist,
   onReturnToList,
 }: {
   note: PrivateNote;
+  currentUserName: string;
   onPersist: PersistFn;
   onReturnToList: (id: string) => void;
 }) {
@@ -126,7 +128,7 @@ function BoardNote({
           className="absolute right-3 top-3 h-3 w-3 cursor-pointer rounded-full bg-red-600 shadow hover:scale-125"
         />
         <div ref={dragAreaRef} className="pr-4">
-          <NoteCardContent note={note} />
+          <NoteCardContent note={note} showAuthor={note.author !== currentUserName} />
           {/* Read-only -- the board is a compact view, so this shows who
               a note is shared with (and whether they've acknowledged it)
               the same as the list, without repeating the list's own
@@ -172,11 +174,13 @@ function BoardNote({
 
 export function PrivateNotesBoard({
   notes,
+  currentUserName,
   pinPrivateNote,
   updatePrivateNoteBoardState,
   unpinPrivateNote,
 }: {
   notes: PrivateNote[];
+  currentUserName: string;
   pinPrivateNote: (id: string, x: number, y: number) => Promise<void>;
   updatePrivateNoteBoardState: PersistFn;
   unpinPrivateNote: (id: string) => void;
@@ -208,7 +212,13 @@ export function PrivateNotesBoard({
         </p>
       )}
       {notes.map((n) => (
-        <BoardNote key={n.id} note={n} onPersist={updatePrivateNoteBoardState} onReturnToList={unpinPrivateNote} />
+        <BoardNote
+          key={n.id}
+          note={n}
+          currentUserName={currentUserName}
+          onPersist={updatePrivateNoteBoardState}
+          onReturnToList={unpinPrivateNote}
+        />
       ))}
     </div>
   );

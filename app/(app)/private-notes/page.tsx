@@ -64,6 +64,7 @@ export default async function PrivateNotesPage() {
             </p>
             <PrivateNotesBoard
               notes={boardNotes}
+              currentUserName={me.name}
               pinPrivateNote={pinPrivateNote}
               updatePrivateNoteBoardState={updatePrivateNoteBoardState}
               unpinPrivateNote={unpinPrivateNote}

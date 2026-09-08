@@ -39,6 +39,7 @@ import {
 } from "./actions";
 import { RemoveSchoolControl } from "@/components/remove-school-control";
 import { EditSchoolNameControl } from "@/components/edit-school-name-control";
+import { NurseBox } from "@/components/nurse-box";
 import { PageBody } from "@/components/page-body";
 import { CopyButton } from "@/components/copy-button";
 import { SchoolContactsList } from "@/components/school-contacts-list";
@@ -79,6 +80,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
   const contactRow = (state.contactGroups || [])
     .flatMap((g) => g.rows)
     .find((r) => r.school.trim().toLowerCase() === school.name.trim().toLowerCase());
+
+  /* A school can have more than one nurse -- that's still the Nurse
+     role, not a separate "Additional Contacts" entry (see NurseBox's
+     own comment), so it's pulled out of the generic contact-position
+     grid below and handled on its own. schoolContactsForSchool is
+     also reused by the (nurse-excluded) Additional Contacts list
+     further down. */
+  const schoolContactsForSchool = state.schoolContacts?.[schoolId] || [];
+  const nurseContacts = schoolContactsForSchool.filter((c) => c.position === "Nurse");
+  const otherSchoolContacts = schoolContactsForSchool.filter((c) => c.position !== "Nurse");
 
   return (
     <div>
@@ -231,10 +242,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           ) : (
             <div className="grid gap-6 sm:grid-cols-3">
               {/* CONTACT_POSITION_GROUPS is Principal, Asst Principal,
-                  Front Desk, Nurse in that order -- split into its
-                  first/second half for these two columns rather than
-                  hardcoding each position separately. */}
-              {[CONTACT_POSITION_GROUPS.slice(0, 2), CONTACT_POSITION_GROUPS.slice(2, 4)].map((groups, i) => (
+                  Front Desk, Nurse in that order -- Nurse is pulled
+                  out (rendered as its own NurseBox below, in the same
+                  column Front Desk sits in) since it's the one
+                  position that can have more than one person. */}
+              {[CONTACT_POSITION_GROUPS.slice(0, 2), CONTACT_POSITION_GROUPS.slice(2, 3)].map((groups, i) => (
                 <dl key={i} className="space-y-2">
                   {contactRow ? (
                     groups.map((g) => {
@@ -257,6 +269,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                   ) : i === 0 ? (
                     <p className="text-sm text-muted-foreground">No contact people on file yet.</p>
                   ) : null}
+                  {i === 1 && (
+                    <NurseBox
+                      schoolId={schoolId}
+                      nurses={nurseContacts}
+                      legacyNurse={{ name: contactRow?.nurseName, email: contactRow?.nurseEmail }}
+                      addSchoolContact={addSchoolContact}
+                      updateSchoolContact={updateSchoolContact}
+                      removeSchoolContact={removeSchoolContact}
+                    />
+                  )}
                 </dl>
               ))}
 
@@ -329,7 +351,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           )}
           <SchoolContactsList
             schoolId={schoolId}
-            contacts={state.schoolContacts?.[schoolId] || []}
+            contacts={otherSchoolContacts}
             addSchoolContact={addSchoolContact}
             updateSchoolContact={updateSchoolContact}
             removeSchoolContact={removeSchoolContact}

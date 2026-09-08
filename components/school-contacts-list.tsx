@@ -15,12 +15,17 @@ type Actions = {
   removeSchoolContact: (formData: FormData) => void;
 };
 
+// Nurse isn't offered here -- a school with two nurses gets them in
+// its own dedicated box (components/nurse-box.tsx) right on the
+// Contact Info card, not as an entry in this generic list. Filtering
+// it out of the Position choices keeps this list from becoming a
+// second, competing way to add a nurse.
+const NON_NURSE_POSITIONS = CONTACT_POSITIONS.filter((p) => p !== "Nurse");
+
 /* Shared Position/Name/Email fields for both the add form and a row's
-   own edit form -- position defaults to "Nurse" since a second contact
-   for the same role is the actual reason this list exists (see this
-   component's own header comment). */
+   own edit form. */
 function ContactFields({
-  defaultPosition = "Nurse",
+  defaultPosition = NON_NURSE_POSITIONS[0],
   defaultName = "",
   defaultEmail = "",
 }: {
@@ -35,7 +40,7 @@ function ContactFields({
         <Dropdown
           name="position"
           defaultValue={defaultPosition}
-          options={CONTACT_POSITIONS.map((p) => ({ value: p, label: p }))}
+          options={NON_NURSE_POSITIONS.map((p) => ({ value: p, label: p }))}
           className="w-full min-w-[140px] rounded-md border px-2 py-1.5 text-left text-sm"
         />
       </div>
@@ -129,14 +134,16 @@ function AddContactForm({ schoolId, addSchoolContact }: { schoolId: string } & P
   );
 }
 
-/* For when a school has more than one person in the same role -- most
-   often two nurses -- that the single Principal/Asst Principal/Front
-   Desk/Nurse fields above (one name+email each, edited from the
-   Contacts page) have no room for. Adding or editing an entry here
-   also updates whichever of those single fields matches its position,
-   to the newest entry for that position (see lib/sync-contact-row.ts)
-   -- this list is for tracking every contact, that single field is
-   still just "the current one" shown everywhere else in the app. */
+/* For a second Principal, Assistant Principal, or Front Desk contact
+   at a school -- Nurse is deliberately excluded (see
+   NON_NURSE_POSITIONS above); a school with two nurses gets its own
+   dedicated box instead (components/nurse-box.tsx), not this generic
+   list. Adding or editing an entry here also updates whichever of the
+   single Principal/Asst Principal/Front Desk fields above (edited
+   from the Contacts page) matches its position, to the newest entry
+   for that position (see lib/sync-contact-row.ts) -- this list is for
+   tracking every contact, that single field is still just "the
+   current one" shown everywhere else in the app. */
 export function SchoolContactsList({
   schoolId,
   contacts,
@@ -149,7 +156,7 @@ export function SchoolContactsList({
       <div className="text-xs font-semibold uppercase text-muted-foreground">Additional Contacts</div>
       {contacts.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          For a school with more than one person in the same role (e.g. two nurses) -- add them here.
+          For a second Principal, Assistant Principal, or Front Desk contact at this school -- add them here.
         </p>
       ) : (
         <div className="space-y-1.5">

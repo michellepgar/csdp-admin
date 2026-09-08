@@ -126,7 +126,11 @@ function ContactRowDetail({
   );
 }
 
-function ContactRowEdit({
+/* Just the form -- no tr/td wrapper -- so both the desktop table row
+   (ContactRowEdit below) and the mobile card list (ContactRowCard)
+   can share the exact same edit form instead of two copies drifting
+   apart. */
+function ContactRowEditForm({
   group,
   row,
   groups,
@@ -150,9 +154,7 @@ function ContactRowEdit({
   const matchedSchool = schools.find((s) => s.name.trim().toLowerCase() === row.school.trim().toLowerCase());
 
   return (
-    <tr className="border-b bg-muted/30">
-      <td colSpan={CONTACT_FIELDS.length + 1} className="p-3">
-        <form action={updateContactRow} onSubmit={onDone} className="space-y-2">
+    <form action={updateContactRow} onSubmit={onDone} className="space-y-2">
           <input type="hidden" name="groupId" value={group.id} />
           <input type="hidden" name="rowId" value={row.id} />
           {matchedSchool && <input type="hidden" name="schoolId" value={matchedSchool.id} />}
@@ -248,8 +250,129 @@ function ContactRowEdit({
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
           </div>
         </form>
+  );
+}
+
+/* Desktop-only: wraps ContactRowEditForm in the tr/td an accordion row
+   needs inside the table. */
+function ContactRowEdit(props: {
+  group: ContactGroup;
+  row: ContactGroup["rows"][number];
+  groups: ContactGroup[];
+  schools: School[];
+  onDone: () => void;
+  updateContactRow: (formData: FormData) => void;
+}) {
+  return (
+    <tr className="border-b bg-muted/30">
+      <td colSpan={CONTACT_FIELDS.length + 1} className="p-3">
+        <ContactRowEditForm {...props} />
       </td>
     </tr>
+  );
+}
+
+/* Mobile-only: one row's compact fields as a card instead of a table
+   row -- CONTACT_FIELDS' ten columns plus Show/Edit have nowhere to go
+   on a phone-width screen without horizontal scrolling. Unlike the
+   desktop table (which has a separate Show toggle for the school-level
+   fields), this card always includes them when a matched school
+   exists -- there's no compact-vs-detail distinction worth keeping once
+   everything's already stacking vertically. */
+function ContactRowCard({
+  row,
+  schools,
+  mode,
+  onEdit,
+  group,
+  groups,
+  onDone,
+  updateContactRow,
+}: {
+  row: ContactGroup["rows"][number];
+  schools: School[];
+  mode: RowMode;
+  onEdit: () => void;
+  group: ContactGroup;
+  groups: ContactGroup[];
+  onDone: () => void;
+  updateContactRow: (formData: FormData) => void;
+}) {
+  const matchedSchool = schools.find((s) => s.name.trim().toLowerCase() === row.school.trim().toLowerCase());
+
+  if (mode === "edit") {
+    return (
+      <div className="rounded-md border bg-muted/30 p-3">
+        <ContactRowEditForm group={group} row={row} groups={groups} schools={schools} onDone={onDone} updateContactRow={updateContactRow} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-semibold">{row.school}</span>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Edit" onClick={onEdit}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </div>
+      {CONTACT_POSITION_GROUPS.map((g) => {
+        const name = row[g.nameKey];
+        const email = row[g.emailKey];
+        if (!name && !email) return null;
+        return (
+          <div key={g.label}>
+            <div className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</div>
+            <div>{name || "—"}</div>
+            {email && <div className="text-muted-foreground">{email}</div>}
+          </div>
+        );
+      })}
+      {row.notes && (
+        <div>
+          <div className="text-xs font-semibold uppercase text-muted-foreground">Notes</div>
+          <div className="whitespace-pre-wrap">{row.notes}</div>
+        </div>
+      )}
+      {matchedSchool && (
+        <div className="space-y-1 border-t pt-2">
+          {matchedSchool.website && (
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Website</div>
+              <div>{matchedSchool.website}</div>
+            </div>
+          )}
+          {matchedSchool.address && (
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Address</div>
+              <div className="whitespace-pre-wrap">{matchedSchool.address}</div>
+            </div>
+          )}
+          {(matchedSchool.phone || matchedSchool.fax) && (
+            <div className="grid grid-cols-2 gap-2">
+              {matchedSchool.phone && (
+                <div>
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Phone</div>
+                  <div>{matchedSchool.phone}</div>
+                </div>
+              )}
+              {matchedSchool.fax && (
+                <div>
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Fax</div>
+                  <div>{matchedSchool.fax}</div>
+                </div>
+              )}
+            </div>
+          )}
+          {matchedSchool.hours && (
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Hours</div>
+              <div className="whitespace-pre-wrap">{matchedSchool.hours}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -351,7 +474,12 @@ export function ContactsList({
               <ConfirmDeleteButton confirmMessage={`Remove the "${group.name}" group and all its schools from Contacts?`} pendingLabel="…" variant="ghost" size="sm">Remove group</ConfirmDeleteButton>
             </form>
           </div>
-          <div className="overflow-x-auto">
+          {/* Table on sm and up; a stacked card list below sm (see
+              ContactRowCard's own comment) -- CONTACT_FIELDS' ten
+              columns have no way to fit a phone-width screen even at
+              minimum padding, so this is a real second layout, not
+              just a narrower version of the same one. */}
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
@@ -402,6 +530,27 @@ export function ContactsList({
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="space-y-2 p-2 sm:hidden">
+            {group.rows.length === 0 && (
+              <p className="py-2 text-center text-sm text-muted-foreground">No schools in this group yet.</p>
+            )}
+            {group.rows.map((row) => {
+              const mode = rowModes[row.id] || "compact";
+              return (
+                <ContactRowCard
+                  key={row.id}
+                  row={row}
+                  schools={schools}
+                  mode={mode}
+                  onEdit={() => setMode(row.id, mode === "edit" ? "compact" : "edit")}
+                  group={group}
+                  groups={groups}
+                  onDone={() => setMode(row.id, "compact")}
+                  updateContactRow={updateContactRow}
+                />
+              );
+            })}
           </div>
         </div>
       ))}

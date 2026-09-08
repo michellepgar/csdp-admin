@@ -67,50 +67,103 @@ function TableView({
   removeEodReport: (formData: FormData) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full min-w-[800px] text-sm">
-        <thead>
-          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-2">VA</th>
-            <th className="px-2 py-2">Date</th>
-            <th className="px-2 py-2">In</th>
-            <th className="px-2 py-2">Break</th>
-            <th className="px-2 py-2">Resume</th>
-            <th className="px-2 py-2">Out</th>
-            <th className="px-2 py-2">Total Hours</th>
-            <th className="px-2 py-2">Tasks</th>
-            <th className="px-2 py-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {list.length === 0 && (
-            <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">No EOD reports yet.</td></tr>
-          )}
-          {list.map((e) => (
-            <tr key={e.id} className="border-b bg-record-background">
-              <td className="px-2 py-2">{e.author || "Unnamed"}</td>
-              <td className="px-2 py-2">{fmtEodDate(e.date)}</td>
-              <td className="px-2 py-2">{fmtTime12(e.timeIn)}</td>
-              <td className="px-2 py-2">{fmtTime12(e.breakStart)}</td>
-              <td className="px-2 py-2">{fmtTime12(e.breakEnd)}</td>
-              <td className="px-2 py-2">{fmtTime12(e.timeOut)}</td>
-              <td className="px-2 py-2">{e.totalHours || ""}</td>
-              <td className="px-2 py-2">{(e.tasks || []).join("; ")}</td>
-              <td className="px-2 py-2">
-                {canDeleteEodReport(e, currentUserName, currentIsAdmin) && (
-                  <form action={removeEodReport}>
-                    <input type="hidden" name="id" value={e.id} />
-                    <ConfirmDeleteButton confirmMessage="Remove this EOD report?" pendingLabel="…" variant="ghost" size="xs">
-                      Remove
-                    </ConfirmDeleteButton>
-                  </form>
-                )}
-              </td>
+    <>
+      {/* Table on sm and up; a stacked card list below sm -- this
+          table's 8 columns have no way to fit a phone-width screen.
+          (Notes view, the default, is already card-shaped and doesn't
+          need this -- this only matters if Table is picked.) */}
+      <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
+        <table className="w-full min-w-[800px] text-sm">
+          <thead>
+            <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+              <th className="px-2 py-2">VA</th>
+              <th className="px-2 py-2">Date</th>
+              <th className="px-2 py-2">In</th>
+              <th className="px-2 py-2">Break</th>
+              <th className="px-2 py-2">Resume</th>
+              <th className="px-2 py-2">Out</th>
+              <th className="px-2 py-2">Total Hours</th>
+              <th className="px-2 py-2">Tasks</th>
+              <th className="px-2 py-2" />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {list.length === 0 && (
+              <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">No EOD reports yet.</td></tr>
+            )}
+            {list.map((e) => (
+              <tr key={e.id} className="border-b bg-record-background">
+                <td className="px-2 py-2">{e.author || "Unnamed"}</td>
+                <td className="px-2 py-2">{fmtEodDate(e.date)}</td>
+                <td className="px-2 py-2">{fmtTime12(e.timeIn)}</td>
+                <td className="px-2 py-2">{fmtTime12(e.breakStart)}</td>
+                <td className="px-2 py-2">{fmtTime12(e.breakEnd)}</td>
+                <td className="px-2 py-2">{fmtTime12(e.timeOut)}</td>
+                <td className="px-2 py-2">{e.totalHours || ""}</td>
+                <td className="px-2 py-2">{(e.tasks || []).join("; ")}</td>
+                <td className="px-2 py-2">
+                  {canDeleteEodReport(e, currentUserName, currentIsAdmin) && (
+                    <form action={removeEodReport}>
+                      <input type="hidden" name="id" value={e.id} />
+                      <ConfirmDeleteButton confirmMessage="Remove this EOD report?" pendingLabel="…" variant="ghost" size="xs">
+                        Remove
+                      </ConfirmDeleteButton>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-2 sm:hidden">
+        {list.length === 0 && <p className="py-2 text-center text-sm text-muted-foreground">No EOD reports yet.</p>}
+        {list.map((e) => (
+          <div key={e.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold">{e.author || "Unnamed"}</span>
+              <span className="text-muted-foreground">{fmtEodDate(e.date)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">In</div>
+                <div>{fmtTime12(e.timeIn) || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Break</div>
+                <div>{fmtTime12(e.breakStart) || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Resume</div>
+                <div>{fmtTime12(e.breakEnd) || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Out</div>
+                <div>{fmtTime12(e.timeOut) || "—"}</div>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Total Hours</div>
+              <div>{e.totalHours || "—"}</div>
+            </div>
+            {(e.tasks || []).length > 0 && (
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Tasks</div>
+                <div>{(e.tasks || []).join("; ")}</div>
+              </div>
+            )}
+            {canDeleteEodReport(e, currentUserName, currentIsAdmin) && (
+              <form action={removeEodReport}>
+                <input type="hidden" name="id" value={e.id} />
+                <ConfirmDeleteButton confirmMessage="Remove this EOD report?" pendingLabel="…" variant="ghost" size="xs">
+                  Remove
+                </ConfirmDeleteButton>
+              </form>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 

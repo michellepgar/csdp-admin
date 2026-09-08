@@ -270,65 +270,113 @@ type FixProps = {
 
 export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueNote }: TableProps & { setIssueNote: (formData: FormData) => void }) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
+  const reversed = [...issues].reverse();
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full min-w-[900px] text-sm">
-        <thead>
-          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-1">Category</th>
-            <th className="px-2 py-1">Subcategory</th>
-            <th className="px-2 py-1">Description</th>
-            <th className="px-2 py-1">Reported By</th>
-            <th className="px-2 py-1">Date</th>
-            <th className="px-2 py-1">Status</th>
-            <th className="px-2 py-1">Note</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {[...issues].reverse().map((issue) => (
-            <tr key={issue.id} className="border-b bg-record-background align-top">
-              <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
-              <td className="px-2 py-1 whitespace-nowrap">{issue.subcategory || "—"}</td>
-              <td className="px-2 py-1">{issue.description}</td>
-              <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
-              <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-              <td className="px-2 py-1"><NoteField issue={issue} setIssueNote={setIssueNote} /></td>
-              <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+    <>
+      {/* Table on sm and up; a stacked card list below sm -- this
+          table's 8 columns (several holding their own inline-editable
+          widgets) have no way to fit a phone-width screen. */}
+      <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead>
+            <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+              <th className="px-2 py-1">Category</th>
+              <th className="px-2 py-1">Subcategory</th>
+              <th className="px-2 py-1">Description</th>
+              <th className="px-2 py-1">Reported By</th>
+              <th className="px-2 py-1">Date</th>
+              <th className="px-2 py-1">Status</th>
+              <th className="px-2 py-1">Note</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {reversed.map((issue) => (
+              <tr key={issue.id} className="border-b bg-record-background align-top">
+                <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
+                <td className="px-2 py-1 whitespace-nowrap">{issue.subcategory || "—"}</td>
+                <td className="px-2 py-1">{issue.description}</td>
+                <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+                <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+                <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
+                <td className="px-2 py-1"><NoteField issue={issue} setIssueNote={setIssueNote} /></td>
+                <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-2 sm:hidden">
+        {reversed.map((issue) => (
+          <div key={issue.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Category</div>
+                <div>{issue.category || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Subcategory</div>
+                <div>{issue.subcategory || "—"}</div>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Description</div>
+              <div>{issue.description}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Reported By</div>
+                <div>{issue.reportedBy}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Date</div>
+                <div>{fmtDate(issue.createdAt)}</div>
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Status</div>
+              <StatusSelectField issue={issue} setIssueStatus={setIssueStatus} />
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Note</div>
+              <NoteField issue={issue} setIssueNote={setIssueNote} />
+            </div>
+            <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
 export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
+  const rows = [...issues].reverse().map((issue) => ({
+    issue,
+    needs: [
+      issue.needsNameCorrection && "Name",
+      issue.needsDobCorrection && "DOB",
+      issue.needsInsuranceCorrection && "Insurance",
+      issue.needsOtherCorrection && (issue.otherCorrectionDetail || "Other"),
+    ].filter(Boolean).join(", "),
+  }));
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full min-w-[900px] text-sm">
-        <thead>
-          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-1">Student Record</th>
-            <th className="px-2 py-1">Needs</th>
-            <th className="px-2 py-1">Kind</th>
-            <th className="px-2 py-1">Reported By</th>
-            <th className="px-2 py-1">Status</th>
-            <th className="px-2 py-1">Note</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {[...issues].reverse().map((issue) => {
-            const needs = [
-              issue.needsNameCorrection && "Name",
-              issue.needsDobCorrection && "DOB",
-              issue.needsInsuranceCorrection && "Insurance",
-              issue.needsOtherCorrection && (issue.otherCorrectionDetail || "Other"),
-            ].filter(Boolean).join(", ");
-            return (
+    <>
+      <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead>
+            <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+              <th className="px-2 py-1">Student Record</th>
+              <th className="px-2 py-1">Needs</th>
+              <th className="px-2 py-1">Kind</th>
+              <th className="px-2 py-1">Reported By</th>
+              <th className="px-2 py-1">Status</th>
+              <th className="px-2 py-1">Note</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ issue, needs }) => (
               <tr key={issue.id} className="border-b bg-record-background align-top">
                 <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
                 <td className="px-2 py-1">{needs || "—"}</td>
@@ -338,44 +386,113 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
                 <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} placeholder="Add a note…" /></td>
                 <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-2 sm:hidden">
+        {rows.map(({ issue, needs }) => (
+          <div key={issue.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Student Record</div>
+              <a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="break-all text-primary underline">{issue.studentRecordLink}</a>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Needs</div>
+                <div>{needs || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Kind</div>
+                <div>{issue.correctionKind}</div>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Reported By</div>
+              <div>{issue.reportedBy}</div>
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Status</div>
+              <StatusSelectField issue={issue} setIssueStatus={setIssueStatus} />
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Note</div>
+              <FixNote issue={issue} setIssueFixNote={setIssueFixNote} placeholder="Add a note…" />
+            </div>
+            <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
 export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
+  const reversed = [...issues].reverse();
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="w-full min-w-[900px] text-sm">
-        <thead>
-          <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-            <th className="px-2 py-1">Student Record</th>
-            <th className="px-2 py-1">Question</th>
-            <th className="px-2 py-1">Fix</th>
-            <th className="px-2 py-1">Reported By</th>
-            <th className="px-2 py-1">Date</th>
-            <th className="px-2 py-1">Status</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {[...issues].reverse().map((issue) => (
-            <tr key={issue.id} className="border-b bg-record-background align-top">
-              <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
-              <td className="px-2 py-1">{issue.question}</td>
-              <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
-              <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
-              <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-              <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-              <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+    <>
+      <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead>
+            <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+              <th className="px-2 py-1">Student Record</th>
+              <th className="px-2 py-1">Question</th>
+              <th className="px-2 py-1">Fix</th>
+              <th className="px-2 py-1">Reported By</th>
+              <th className="px-2 py-1">Date</th>
+              <th className="px-2 py-1">Status</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {reversed.map((issue) => (
+              <tr key={issue.id} className="border-b bg-record-background align-top">
+                <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+                <td className="px-2 py-1">{issue.question}</td>
+                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
+                <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+                <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+                <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
+                <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-2 sm:hidden">
+        {reversed.map((issue) => (
+          <div key={issue.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Student Record</div>
+              <a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="break-all text-primary underline">{issue.studentRecordLink}</a>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Question</div>
+              <div>{issue.question}</div>
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Fix</div>
+              <FixNote issue={issue} setIssueFixNote={setIssueFixNote} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Reported By</div>
+                <div>{issue.reportedBy}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Date</div>
+                <div>{fmtDate(issue.createdAt)}</div>
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Status</div>
+              <StatusSelectField issue={issue} setIssueStatus={setIssueStatus} />
+            </div>
+            <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

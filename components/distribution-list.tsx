@@ -56,6 +56,43 @@ function DistributedCheckbox({
   );
 }
 
+function RowActions({
+  activeMode,
+  onShowDetail,
+  onEdit,
+}: {
+  activeMode: RowMode;
+  onShowDetail: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={activeMode === "detail" ? "Hide details" : "Show details"}
+        aria-pressed={activeMode === "detail"}
+        className={activeMode === "detail" ? "text-primary" : ""}
+        onClick={onShowDetail}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={activeMode === "edit" ? "Close edit" : "Edit"}
+        aria-pressed={activeMode === "edit"}
+        className={activeMode === "edit" ? "text-primary" : ""}
+        onClick={onEdit}
+      >
+        <Pencil className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 function RowView({
   row,
   activeMode,
@@ -92,31 +129,158 @@ function RowView({
       <td className="px-2 py-2 align-top text-sm whitespace-pre-wrap">{row.remarks || ""}</td>
       <td className="px-2 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={activeMode === "detail" ? "Hide details" : "Show details"}
-            aria-pressed={activeMode === "detail"}
-            className={activeMode === "detail" ? "text-primary" : ""}
-            onClick={onShowDetail}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={activeMode === "edit" ? "Close edit" : "Edit"}
-            aria-pressed={activeMode === "edit"}
-            className={activeMode === "edit" ? "text-primary" : ""}
-            onClick={onEdit}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+          <RowActions activeMode={activeMode} onShowDetail={onShowDetail} onEdit={onEdit} />
         </div>
       </td>
     </tr>
+  );
+}
+
+/* Mobile-only equivalent of RowView -- one card instead of a table row,
+   since the desktop table's 12+ columns have no way to fit a phone
+   screen even at minimum padding. Shows the same fields RowView does,
+   just stacked; Show/Edit still open the same accordion panels below
+   it (RowDetail/RowEditForm), just as plain divs instead of table
+   rows -- see this file's own mobile-card comment on the table
+   wrapper below. */
+function RowCard({
+  row,
+  activeMode,
+  onShowDetail,
+  onEdit,
+  toggleDistributionRowDistributed,
+}: {
+  row: DistributionRow;
+  activeMode: RowMode;
+  onShowDetail: () => void;
+  onEdit: () => void;
+  toggleDistributionRowDistributed: (formData: FormData) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-semibold">{row.school}</span>
+        <RowActions activeMode={activeMode} onShowDetail={onShowDetail} onEdit={onEdit} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <div className="text-xs font-semibold uppercase text-muted-foreground">Enrolled</div>
+          <div>{row.enrolled || "—"}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">Distributed</span>
+          <DistributedCheckbox rowId={row.id} distributed={!!row.distributed} toggleDistributionRowDistributed={toggleDistributionRowDistributed} />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {DISTRIBUTION_CLASSROOM_TYPES.map((c) => {
+          const count = c.key === "regular" ? row.classroomRegular : c.key === "launch" ? row.classroomLaunch : row.classroomCrr;
+          return (
+            <div key={c.key}>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">{c.label.replace(" Classroom", "").replace(" Classes", "")}</div>
+              <div className="tabular-nums">{count || "—"}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${Math.min(DISTRIBUTION_LANGUAGES.length, 3)}, minmax(0, 1fr))` }}>
+        {DISTRIBUTION_LANGUAGES.map((l) => (
+          <div key={l.key}>
+            <div className="text-xs font-semibold uppercase text-muted-foreground">{l.label}</div>
+            <div className="tabular-nums">{distributionRowLanguageTotal(row, l.key) || "—"}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between border-t pt-2 text-sm font-semibold">
+        <span>Total forms distributed</span>
+        <span className="tabular-nums">{distributionRowTotalForms(row)}</span>
+      </div>
+      {row.contactPerson && (
+        <div>
+          <div className="text-xs font-semibold uppercase text-muted-foreground">Contact Person</div>
+          <div>{row.contactPerson}</div>
+        </div>
+      )}
+      {row.remarks && (
+        <div>
+          <div className="text-xs font-semibold uppercase text-muted-foreground">Remarks</div>
+          <div className="whitespace-pre-wrap">{row.remarks}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* The full classroom-type x language Packets/Loose/Extra breakdown,
+   read-only -- shared body for both the desktop table (RowDetail) and
+   the mobile stacked list (RowDetailStacked), which are otherwise
+   identical apart from layout. */
+function BreakdownRows({ row }: { row: DistributionRow }) {
+  return (
+    <>
+      {DISTRIBUTION_CLASSROOM_TYPES.flatMap((c) =>
+        DISTRIBUTION_LANGUAGES.map((l, i) => {
+          const cell = (row.breakdown[c.key] || {})[l.key];
+          const classroomCount =
+            c.key === "regular" ? row.classroomRegular : c.key === "launch" ? row.classroomLaunch : row.classroomCrr;
+          return (
+            <tr key={`${c.key}_${l.key}`} className={i === 0 ? "border-t" : ""}>
+              {i === 0 && (
+                <td rowSpan={DISTRIBUTION_LANGUAGES.length} className="px-2 py-1 align-top font-medium">
+                  {c.label}
+                  {classroomCount ? ` (${classroomCount} classrooms)` : ""}
+                </td>
+              )}
+              <td className="px-2 py-1">{l.label}</td>
+              <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "packets") || "—"}</td>
+              <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "packetSize")}</td>
+              <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "loose") || "—"}</td>
+              <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "extraPackets") || "—"}</td>
+              <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "extraLoose") || "—"}</td>
+              <td className="px-2 py-1 text-center font-semibold tabular-nums">{distributionCellForms(cell)}</td>
+            </tr>
+          );
+        })
+      )}
+    </>
+  );
+}
+
+/* Mobile equivalent of BreakdownRows -- each classroom type x language
+   combo as its own small block instead of a table row, since the
+   desktop breakdown table (min-w-[820px]) has no way to fit a phone
+   screen. */
+function BreakdownStacked({ row }: { row: DistributionRow }) {
+  return (
+    <div className="space-y-3">
+      {DISTRIBUTION_CLASSROOM_TYPES.map((c) => {
+        const classroomCount = c.key === "regular" ? row.classroomRegular : c.key === "launch" ? row.classroomLaunch : row.classroomCrr;
+        return (
+          <div key={c.key} className="space-y-2">
+            <div className="text-sm font-semibold">
+              {c.label}
+              {classroomCount ? ` (${classroomCount} classrooms)` : ""}
+            </div>
+            {DISTRIBUTION_LANGUAGES.map((l) => {
+              const cell = (row.breakdown[c.key] || {})[l.key];
+              return (
+                <div key={l.key} className="rounded-md border p-2">
+                  <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">{l.label}</div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                    <div>Packets: <span className="tabular-nums">{distributionCellField(cell, "packets") || "—"}</span></div>
+                    <div>Packet Size: <span className="tabular-nums">{distributionCellField(cell, "packetSize")}</span></div>
+                    <div>Loose Forms: <span className="tabular-nums">{distributionCellField(cell, "loose") || "—"}</span></div>
+                    <div>Extra Packets: <span className="tabular-nums">{distributionCellField(cell, "extraPackets") || "—"}</span></div>
+                    <div>Extra Loose: <span className="tabular-nums">{distributionCellField(cell, "extraLoose") || "—"}</span></div>
+                    <div className="font-semibold">Forms Total: <span className="tabular-nums">{distributionCellForms(cell)}</span></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -156,30 +320,7 @@ function RowDetail({
                 </tr>
               </thead>
               <tbody>
-                {DISTRIBUTION_CLASSROOM_TYPES.flatMap((c) =>
-                  DISTRIBUTION_LANGUAGES.map((l, i) => {
-                    const cell = (row.breakdown[c.key] || {})[l.key];
-                    const classroomCount =
-                      c.key === "regular" ? row.classroomRegular : c.key === "launch" ? row.classroomLaunch : row.classroomCrr;
-                    return (
-                      <tr key={`${c.key}_${l.key}`} className={i === 0 ? "border-t" : ""}>
-                        {i === 0 && (
-                          <td rowSpan={DISTRIBUTION_LANGUAGES.length} className="px-2 py-1 align-top font-medium">
-                            {c.label}
-                            {classroomCount ? ` (${classroomCount} classrooms)` : ""}
-                          </td>
-                        )}
-                        <td className="px-2 py-1">{l.label}</td>
-                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "packets") || "—"}</td>
-                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "packetSize")}</td>
-                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "loose") || "—"}</td>
-                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "extraPackets") || "—"}</td>
-                        <td className="px-2 py-1 text-center tabular-nums">{distributionCellField(cell, "extraLoose") || "—"}</td>
-                        <td className="px-2 py-1 text-center font-semibold tabular-nums">{distributionCellForms(cell)}</td>
-                      </tr>
-                    );
-                  })
-                )}
+                <BreakdownRows row={row} />
               </tbody>
             </table>
           </div>
@@ -191,6 +332,29 @@ function RowDetail({
         </div>
       </td>
     </tr>
+  );
+}
+
+/* Mobile-only equivalent of RowDetail -- BreakdownStacked instead of
+   the table, no colSpan/tr wrapper needed since this renders in the
+   plain card list, not inside the desktop table. */
+function RowDetailCard({
+  row,
+  onDone,
+  onEdit,
+}: {
+  row: DistributionRow;
+  onDone: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-md border bg-muted/30 p-3 text-sm">
+      <BreakdownStacked row={row} />
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onEdit}>Edit</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>Close</Button>
+      </div>
+    </div>
   );
 }
 
@@ -231,20 +395,74 @@ const BREAKDOWN_SUBFIELDS = [
   { key: "extraLoose" as const, label: "Extra Loose" },
 ];
 
-function RowEdit({
+/* Mobile equivalent of the desktop breakdown edit table -- each
+   classroom type x language combo as its own labeled block of inputs
+   instead of table columns, sharing the exact same input `name`s (so
+   the same recomputeConsentPackets handler and server action work
+   unchanged regardless of which layout rendered them). */
+function BreakdownEditStacked({ row }: { row: DistributionRow }) {
+  return (
+    <div className="space-y-3">
+      {DISTRIBUTION_CLASSROOM_TYPES.map((c) => (
+        <div key={c.key} className="space-y-2 rounded-md border p-2">
+          <div className="text-sm font-semibold">{c.label}</div>
+          {DISTRIBUTION_LANGUAGES.map((l, i) => {
+            const cell = (row.breakdown[c.key] || {})[l.key];
+            return (
+              <div key={l.key} className={`space-y-2 ${i > 0 ? "border-t pt-2" : ""}`}>
+                <div className="text-xs font-medium text-muted-foreground">{l.label}</div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Packets × Packet Size</label>
+                  <div className="flex items-center gap-1">
+                    <CalcInput name={`packets_${c.key}_${l.key}`} defaultValue={distributionCellField(cell, "packets")} />
+                    <span className="text-xs text-muted-foreground">×</span>
+                    <Input
+                      name={`packetSize_${c.key}_${l.key}`}
+                      defaultValue={distributionCellField(cell, "packetSize")}
+                      className="w-14 text-center"
+                      inputMode="numeric"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {BREAKDOWN_SUBFIELDS.slice(1).map((f) => (
+                    <div key={f.key} className="space-y-1">
+                      <label className="text-xs text-muted-foreground">{f.label}</label>
+                      <CalcInput name={`${f.key}_${c.key}_${l.key}`} defaultValue={distributionCellField(cell, f.key)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* Just the form -- no tr/td wrapper -- so both the desktop table row
+   (RowEdit below) and the mobile card list (RowEditCard) can share
+   the exact same field markup for everything except the breakdown
+   grid, which takes a `layout` prop since that ONE section genuinely
+   needs a different shape per screen size, not just different CSS.
+   Each is its own separate <form>, so the two layouts never end up
+   with duplicate-named inputs inside the same form. */
+function RowEditForm({
   groupId,
   groups,
   row,
+  layout,
   onDone,
   updateDistributionRow,
 }: {
   groupId: string;
   groups: DistributionGroup[];
   row: DistributionRow;
+  layout: "table" | "stacked";
   onDone: () => void;
   updateDistributionRow: (formData: FormData) => void;
 }) {
-  const totalCols = 12 + DISTRIBUTION_LANGUAGES.length;
   const consentPacketsRef = useRef<HTMLInputElement>(null);
 
   /* Number of Consent Packets isn't entered anymore -- Michelle asked
@@ -258,8 +476,10 @@ function RowEdit({
      computed server-side from the submitted breakdown regardless
      (app/(app)/distribution-list/actions.ts), so this display can
      never drift from what gets saved even if a keystroke were missed
-     here. */
-  function recomputeConsentPackets(e: React.FormEvent<HTMLDivElement>) {
+     here. Attached on the form itself (not the breakdown wrapper) so
+     it works the same regardless of which layout rendered the
+     breakdown inputs. */
+  function recomputeConsentPackets(e: React.FormEvent<HTMLFormElement>) {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;
     if (!target.name.startsWith("packets_") && !target.name.startsWith("extraPackets_")) return;
@@ -269,145 +489,181 @@ function RowEdit({
     });
     if (consentPacketsRef.current) consentPacketsRef.current.value = String(total);
   }
+
+  return (
+    <form action={updateDistributionRow} onSubmit={onDone} onInput={recomputeConsentPackets} className="space-y-3">
+      <input type="hidden" name="rowId" value={row.id} />
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Group</label>
+          <Dropdown
+            name="moveToGroupId"
+            defaultValue={groupId}
+            options={groups.map((g) => ({ value: g.id, label: g.name }))}
+            className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">School</label>
+          <Input defaultValue={row.school} disabled />
+        </div>
+        {/* w-24 -- comfortably fits the 5-digit max these two
+            fields actually get encoded with. */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Enrolled</label>
+          <Input name="enrolled" defaultValue={row.enrolled || ""} className="w-24" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Number of Consent Packets</label>
+          <input
+            ref={consentPacketsRef}
+            type="text"
+            readOnly
+            tabIndex={-1}
+            title="Packets + Extra Packets, totaled automatically from the grid below"
+            defaultValue={distributionRowConsentPacketsTotal(row)}
+            className="h-8 w-24 rounded-lg border border-input bg-muted px-2.5 py-1 text-center text-sm text-muted-foreground outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Contact Person</label>
+          <Input name="contactPerson" defaultValue={row.contactPerson || ""} />
+        </div>
+        {/* w-16 -- a classroom count is realistically 1-2 digits,
+            same width as the breakdown grid's own inputs below. */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Regular Classrooms</label>
+          <CalcInput name="classroomRegular" defaultValue={row.classroomRegular || ""} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Launch Classrooms</label>
+          <CalcInput name="classroomLaunch" defaultValue={row.classroomLaunch || ""} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">CRR Classrooms</label>
+          <CalcInput name="classroomCrr" defaultValue={row.classroomCrr || ""} />
+        </div>
+        <div className="space-y-1 md:col-span-4">
+          <label className="text-xs font-medium text-muted-foreground">Remarks</label>
+          <textarea name="remarks" defaultValue={row.remarks || ""} rows={2} className="w-full rounded-md border px-2 py-1 text-sm" />
+        </div>
+      </div>
+
+      {/* Packets/packet size/Loose/Extra Packets/Extra Loose per
+          classroom type x language, same shape the original HTML
+          app used (and automatically totals the same way -- see
+          distributionCellForms) -- restored per Michelle's
+          request, having been simplified to one plain number per
+          cell earlier in this rewrite. Every field here gets a
+          calculator button; Michelle only excluded Group/School/
+          Enrolled/Contact Person, which live above, not in this
+          grid. Table layout on sm and up, stacked below it -- see
+          BreakdownEditStacked's own comment. */}
+      {layout === "table" ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-[900px] text-sm">
+            <thead>
+              <tr className="text-left text-xs font-semibold uppercase text-muted-foreground">
+                <th className="px-2 py-1">Classroom Type</th>
+                <th className="px-2 py-1">Language</th>
+                <th className="px-2 py-1">
+                  Packets
+                  <br />
+                  <span className="font-normal normal-case">(size editable)</span>
+                </th>
+                {BREAKDOWN_SUBFIELDS.slice(1).map((f) => (
+                  <th key={f.key} className="px-2 py-1">{f.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {DISTRIBUTION_CLASSROOM_TYPES.flatMap((c) =>
+                DISTRIBUTION_LANGUAGES.map((l, i) => {
+                  const cell = (row.breakdown[c.key] || {})[l.key];
+                  return (
+                    <tr key={`${c.key}_${l.key}`} className={i === 0 ? "border-t" : ""}>
+                      {i === 0 && (
+                        <td rowSpan={DISTRIBUTION_LANGUAGES.length} className="px-2 py-1 align-top text-sm font-medium">
+                          {c.label}
+                        </td>
+                      )}
+                      <td className="px-2 py-1">{l.label}</td>
+                      <td className="px-2 py-1">
+                        <div className="flex items-center gap-1">
+                          <CalcInput
+                            name={`packets_${c.key}_${l.key}`}
+                            defaultValue={distributionCellField(cell, "packets")}
+                          />
+                          <span className="text-xs text-muted-foreground">×</span>
+                          {/* No calculator here -- packet size is a
+                              single multiplier (usually just 25),
+                              not a list of numbers to add up. */}
+                          <Input
+                            name={`packetSize_${c.key}_${l.key}`}
+                            defaultValue={distributionCellField(cell, "packetSize")}
+                            className="w-14 text-center"
+                            inputMode="numeric"
+                          />
+                        </div>
+                      </td>
+                      {(["loose", "extraPackets", "extraLoose"] as const).map((field) => (
+                        <td key={field} className="px-2 py-1">
+                          <CalcInput
+                            name={`${field}_${c.key}_${l.key}`}
+                            defaultValue={distributionCellField(cell, field)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <BreakdownEditStacked row={row} />
+      )}
+
+      <div className="flex items-center gap-2">
+        <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
+      </div>
+    </form>
+  );
+}
+
+/* Desktop-only: wraps RowEditForm in the tr/td an accordion row needs
+   inside the table. */
+function RowEdit(props: {
+  groupId: string;
+  groups: DistributionGroup[];
+  row: DistributionRow;
+  onDone: () => void;
+  updateDistributionRow: (formData: FormData) => void;
+}) {
+  const totalCols = 12 + DISTRIBUTION_LANGUAGES.length;
   return (
     <tr className="border-b bg-muted/30">
       <td colSpan={totalCols} className="p-3">
-        <form action={updateDistributionRow} onSubmit={onDone} className="space-y-3">
-          <input type="hidden" name="rowId" value={row.id} />
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Group</label>
-              <Dropdown
-                name="moveToGroupId"
-                defaultValue={groupId}
-                options={groups.map((g) => ({ value: g.id, label: g.name }))}
-                className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">School</label>
-              <Input defaultValue={row.school} disabled />
-            </div>
-            {/* w-24 -- comfortably fits the 5-digit max these two
-                fields actually get encoded with. */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Enrolled</label>
-              <Input name="enrolled" defaultValue={row.enrolled || ""} className="w-24" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Number of Consent Packets</label>
-              <input
-                ref={consentPacketsRef}
-                type="text"
-                readOnly
-                tabIndex={-1}
-                title="Packets + Extra Packets, totaled automatically from the grid below"
-                defaultValue={distributionRowConsentPacketsTotal(row)}
-                className="h-8 w-24 rounded-lg border border-input bg-muted px-2.5 py-1 text-center text-sm text-muted-foreground outline-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Contact Person</label>
-              <Input name="contactPerson" defaultValue={row.contactPerson || ""} />
-            </div>
-            {/* w-16 -- a classroom count is realistically 1-2 digits,
-                same width as the breakdown grid's own inputs below. */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Regular Classrooms</label>
-              <CalcInput name="classroomRegular" defaultValue={row.classroomRegular || ""} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Launch Classrooms</label>
-              <CalcInput name="classroomLaunch" defaultValue={row.classroomLaunch || ""} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">CRR Classrooms</label>
-              <CalcInput name="classroomCrr" defaultValue={row.classroomCrr || ""} />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <label className="text-xs font-medium text-muted-foreground">Remarks</label>
-              <textarea name="remarks" defaultValue={row.remarks || ""} rows={2} className="w-full rounded-md border px-2 py-1 text-sm" />
-            </div>
-          </div>
-
-          {/* Packets/packet size/Loose/Extra Packets/Extra Loose per
-              classroom type x language, same shape the original HTML
-              app used (and automatically totals the same way -- see
-              distributionCellForms) -- restored per Michelle's
-              request, having been simplified to one plain number per
-              cell earlier in this rewrite. Every field here gets a
-              calculator button; Michelle only excluded Group/School/
-              Enrolled/Contact Person, which live above, not in this
-              grid. */}
-          <div className="overflow-x-auto" onInput={recomputeConsentPackets}>
-            <table className="min-w-[900px] text-sm">
-              <thead>
-                <tr className="text-left text-xs font-semibold uppercase text-muted-foreground">
-                  <th className="px-2 py-1">Classroom Type</th>
-                  <th className="px-2 py-1">Language</th>
-                  <th className="px-2 py-1">
-                    Packets
-                    <br />
-                    <span className="font-normal normal-case">(size editable)</span>
-                  </th>
-                  {BREAKDOWN_SUBFIELDS.slice(1).map((f) => (
-                    <th key={f.key} className="px-2 py-1">{f.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {DISTRIBUTION_CLASSROOM_TYPES.flatMap((c) =>
-                  DISTRIBUTION_LANGUAGES.map((l, i) => {
-                    const cell = (row.breakdown[c.key] || {})[l.key];
-                    return (
-                      <tr key={`${c.key}_${l.key}`} className={i === 0 ? "border-t" : ""}>
-                        {i === 0 && (
-                          <td rowSpan={DISTRIBUTION_LANGUAGES.length} className="px-2 py-1 align-top text-sm font-medium">
-                            {c.label}
-                          </td>
-                        )}
-                        <td className="px-2 py-1">{l.label}</td>
-                        <td className="px-2 py-1">
-                          <div className="flex items-center gap-1">
-                            <CalcInput
-                              name={`packets_${c.key}_${l.key}`}
-                              defaultValue={distributionCellField(cell, "packets")}
-                            />
-                            <span className="text-xs text-muted-foreground">×</span>
-                            {/* No calculator here -- packet size is a
-                                single multiplier (usually just 25),
-                                not a list of numbers to add up. */}
-                            <Input
-                              name={`packetSize_${c.key}_${l.key}`}
-                              defaultValue={distributionCellField(cell, "packetSize")}
-                              className="w-14 text-center"
-                              inputMode="numeric"
-                            />
-                          </div>
-                        </td>
-                        {(["loose", "extraPackets", "extraLoose"] as const).map((field) => (
-                          <td key={field} className="px-2 py-1">
-                            <CalcInput
-                              name={`${field}_${c.key}_${l.key}`}
-                              defaultValue={distributionCellField(cell, field)}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
-            <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
-          </div>
-        </form>
+        <RowEditForm {...props} layout="table" />
       </td>
     </tr>
+  );
+}
+
+/* Mobile-only: wraps RowEditForm in a plain card instead of tr/td. */
+function RowEditCard(props: {
+  groupId: string;
+  groups: DistributionGroup[];
+  row: DistributionRow;
+  onDone: () => void;
+  updateDistributionRow: (formData: FormData) => void;
+}) {
+  return (
+    <div className="rounded-md border bg-muted/30 p-3">
+      <RowEditForm {...props} layout="stacked" />
+    </div>
   );
 }
 
@@ -473,7 +729,11 @@ export function DistributionList({
                 <ConfirmDeleteButton confirmMessage={`Remove the "${group.name}" group and all its schools from the Distribution List?`} pendingLabel="…" variant="ghost" size="sm">Remove group</ConfirmDeleteButton>
               </form>
             </div>
-            <div className="overflow-x-auto">
+            {/* Table on sm and up; a stacked card list below sm (see
+                RowCard's own comment) -- this table's 12+ columns have
+                no way to fit a phone-width screen even at minimum
+                padding. */}
+            <div className="hidden overflow-x-auto sm:block">
               <table className="w-full min-w-[1300px]">
                 <thead>
                   <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
@@ -569,6 +829,49 @@ export function DistributionList({
                   </tfoot>
                 )}
               </table>
+            </div>
+            <div className="space-y-2 p-2 sm:hidden">
+              {group.rows.length === 0 && (
+                <p className="py-2 text-center text-sm text-muted-foreground">No schools in this group yet.</p>
+              )}
+              {group.rows.map((row) => {
+                const mode = rowModes[row.id] || "compact";
+                return (
+                  <Fragment key={row.id}>
+                    <RowCard
+                      row={row}
+                      activeMode={mode}
+                      onShowDetail={() => setMode(row.id, mode === "detail" ? "compact" : "detail")}
+                      onEdit={() => setMode(row.id, mode === "edit" ? "compact" : "edit")}
+                      toggleDistributionRowDistributed={toggleDistributionRowDistributed}
+                    />
+                    {mode === "detail" && (
+                      <RowDetailCard
+                        row={row}
+                        onDone={() => setMode(row.id, "compact")}
+                        onEdit={() => setMode(row.id, "edit")}
+                      />
+                    )}
+                    {mode === "edit" && (
+                      <RowEditCard
+                        groupId={group.id}
+                        groups={groups}
+                        row={row}
+                        onDone={() => setMode(row.id, "compact")}
+                        updateDistributionRow={updateDistributionRow}
+                      />
+                    )}
+                  </Fragment>
+                );
+              })}
+              {group.rows.length > 0 && (
+                <div className="flex items-center justify-between rounded-md border bg-title-background/60 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                  <span>Group total</span>
+                  <span className="tabular-nums">
+                    {DISTRIBUTION_LANGUAGES.map((l) => `${l.label}: ${group.rows.reduce((sum, r) => sum + distributionRowLanguageTotal(r, l.key), 0)}`).join(" · ")}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         );

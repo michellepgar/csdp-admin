@@ -383,6 +383,133 @@ function sortByFileName(rows: RedcapTally[]): RedcapTally[] {
     .map(({ r }) => r);
 }
 
+/* Mobile equivalent of ReviewRow -- one card instead of a table row
+   (the desktop table's 10 columns have no way to fit a phone-width
+   screen), with its own independent copy of the same editing state.
+   That's fine even though it duplicates ReviewRow's state shape: only
+   one of the two (desktop table vs. this card list) is ever visible
+   at a given screen width, so there's no scenario where both are "in
+   use" by the same person at once -- see the hidden/sm:hidden split
+   in ReviewList below. */
+function ReviewRowCard({
+  tally,
+  updateRedcapTally,
+  removeRedcapTally,
+}: {
+  tally: RedcapTally;
+  updateRedcapTally: (id: string, input: RedcapTallyInput) => Promise<void>;
+  removeRedcapTally: (id: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [grade, setGrade] = useState(tally.grade);
+  const [fileName, setFileName] = useState(tally.fileName || "");
+  const [student, setStudent] = useState<StudentFieldsState>(() => studentFieldsFromTally(tally));
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function startEdit() {
+    setGrade(tally.grade);
+    setFileName(tally.fileName || "");
+    setStudent(studentFieldsFromTally(tally));
+    setError("");
+    setEditing(true);
+  }
+
+  function handleSave() {
+    if (!grade || !studentFieldsAreComplete(student)) {
+      setError("Grade, Consent, Insurance, Dental Home Status, Referral, and Race are all required.");
+      return;
+    }
+    setError("");
+    const input: RedcapTallyInput = {
+      schoolId: tally.schoolId,
+      schoolYear: tally.schoolYear,
+      grade,
+      fileName: fileName.trim() || undefined,
+      ...toTallyFields(student),
+    };
+    startTransition(async () => {
+      await updateRedcapTally(tally.id, input);
+      setEditing(false);
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Grade</label>
+          <Dropdown
+            name="grade"
+            value={grade}
+            onChange={setGrade}
+            options={REDCAP_GRADES.map((g) => ({ value: g, label: g }))}
+            className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">File name (for tracking mistakes -- not shown on the report)</label>
+          <Input value={fileName} onChange={(e) => setFileName(e.target.value)} className="text-sm" />
+        </div>
+        <StudentFields value={student} onChange={setStudent} />
+        {error && <p className="text-sm text-status-danger-foreground">{error}</p>}
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" onClick={handleSave} disabled={isPending} className="font-semibold">
+            {isPending ? "Saving…" : "Save changes"}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={isPending}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const sealed = [tally.sealed1stMolar && "1st Molar", tally.sealed2ndMolar && "2nd Molar"].filter(Boolean).join(" & ") || "—";
+  const fields: [string, string][] = [
+    ["Grade", tally.grade],
+    ["Consent", tally.consent || "—"],
+    ["Insurance", tally.insurance],
+    ["Dental Home", tally.dentalHomeStatus],
+    ["Referral", tally.referral],
+    ["Race", tally.race],
+    ["Treatment", [tally.fluoride && "Fluoride", tally.prophy && "Prophy"].filter(Boolean).join(", ") || "—"],
+    ["Sealed", sealed],
+    ["Needs", tally.needs.join(", ") || "—"],
+  ];
+
+  return (
+    <div className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+      <div className="grid grid-cols-2 gap-2">
+        {fields.map(([label, value]) => (
+          <div key={label}>
+            <div className="text-xs font-semibold uppercase text-muted-foreground">{label}</div>
+            <div>{value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="border-t pt-2 text-xs text-muted-foreground" title="For tracking mistakes -- never shown on the Report tab">
+        File: {tally.fileName || "—"}
+      </div>
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={startEdit}>Edit</Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          onClick={() => {
+            if (!window.confirm("Delete this student's entry? This can't be undone.")) return;
+            startTransition(() => removeRedcapTally(tally.id));
+          }}
+        >
+          Delete
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ReviewList({
   rows,
   updateRedcapTally,
@@ -398,7 +525,11 @@ function ReviewList({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <>
+    {/* Table on sm and up; a stacked card list below sm (ReviewRowCard)
+        -- this table's 10 columns have no way to fit a phone-width
+        screen even at minimum padding. */}
+    <div className="hidden overflow-x-auto rounded-md border sm:block">
       <table className="w-full min-w-[1100px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
@@ -422,6 +553,12 @@ function ReviewList({
         </tbody>
       </table>
     </div>
+    <div className="space-y-2 sm:hidden">
+      {sorted.map((r) => (
+        <ReviewRowCard key={r.id} tally={r} updateRedcapTally={updateRedcapTally} removeRedcapTally={removeRedcapTally} />
+      ))}
+    </div>
+    </>
   );
 }
 

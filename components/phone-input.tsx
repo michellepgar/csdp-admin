@@ -33,7 +33,7 @@ export function PhoneInput({
       name={name}
       value={value}
       onChange={(e) => setValue(formatPhone(e.target.value))}
-      placeholder="###-###-####"
+      placeholder="Phone Number"
       className={className}
     />
   );

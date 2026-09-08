@@ -104,7 +104,9 @@ export function OtherContactsList({
           <SubmitButton pendingLabel="Adding…">+ Add contact</SubmitButton>
         </form>
 
-        <div className="overflow-x-auto">
+        {/* Table on sm and up; a stacked card list below sm -- this
+            table's 6 columns have no way to fit a phone-width screen. */}
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
@@ -139,6 +141,55 @@ export function OtherContactsList({
               )}
             </tbody>
           </table>
+        </div>
+        <div className="space-y-2 sm:hidden">
+          {contacts.length === 0 && <p className="py-2 text-center text-sm text-muted-foreground">No non-school contacts yet.</p>}
+          {contacts.map((c) =>
+            editingId === c.id ? (
+              <div key={c.id} className="rounded-md border bg-muted/30 p-3">
+                <form action={updateOtherContact} onSubmit={() => setEditingId(null)} className="space-y-2">
+                  <input type="hidden" name="id" value={c.id} />
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Name</label>
+                    <Input name="name" defaultValue={c.name} required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Organization</label>
+                    <Input name="organization" defaultValue={c.organization || ""} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Email</label>
+                    <Input name="email" defaultValue={c.email || ""} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                    <PhoneInput name="phone" defaultValue={c.phone || ""} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                    <textarea name="notes" defaultValue={c.notes || ""} rows={2} className="w-full rounded-md border px-2 py-1 text-sm" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
+                    <ConfirmDeleteButton confirmMessage={`Remove ${c.name}?`} pendingLabel="…" variant="ghost" formAction={removeOtherContact}>
+                      Remove
+                    </ConfirmDeleteButton>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div key={c.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-semibold">{c.name}</span>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(c.id)}>Edit</Button>
+                </div>
+                {c.organization && <div>{c.organization}</div>}
+                {c.email && <div className="text-muted-foreground">{c.email}</div>}
+                {c.phone && <div className="text-muted-foreground">{c.phone}</div>}
+                {c.notes && <div className="whitespace-pre-wrap text-muted-foreground">{c.notes}</div>}
+              </div>
+            )
+          )}
         </div>
       </div>
     </div>

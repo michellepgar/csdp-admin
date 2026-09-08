@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { Eye, Pencil } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
@@ -10,33 +11,116 @@ import { Dropdown } from "@/components/dropdown";
 import { CONTACT_FIELDS, CONTACT_POSITION_GROUPS, type ContactGroup, type NurseLeader, type OtherContact, type School } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
 
-/* Row stays visible and the edit form opens as an ADDITIONAL sibling
-   row below it (rendered by the caller) rather than replacing this
-   one -- same accordion pattern as the Distribution List's Show/Edit
-   (components/distribution-list.tsx), which Michelle asked this page
-   to match. Clicking "Edit" again while already editing this row
-   toggles it back closed instead of doing nothing, exactly like that
-   pattern's own Edit button. */
+type RowMode = "compact" | "detail" | "edit";
+
+/* Row stays visible and the edit form (or the read-only detail panel)
+   opens as an ADDITIONAL sibling row below it -- same accordion
+   pattern, and now the same Show(eye)/Edit(pencil) icon pair, as
+   Distribution List (components/distribution-list.tsx), which
+   Michelle asked this page to match. Clicking the active icon again
+   closes its panel back to compact, exactly like that pattern. */
 function ContactRowView({
   row,
-  isEditing,
-  onToggleEdit,
+  activeMode,
+  onShowDetail,
+  onEdit,
 }: {
   row: ContactGroup["rows"][number];
-  isEditing: boolean;
-  onToggleEdit: () => void;
+  activeMode: RowMode;
+  onShowDetail: () => void;
+  onEdit: () => void;
 }) {
   return (
-    <tr className="border-b bg-record-background">
+    <tr className={`border-b bg-record-background ${activeMode !== "compact" ? "border-b-0" : ""}`}>
       {CONTACT_FIELDS.map((f) => (
         <td key={f.key} className="px-2 py-2 align-top text-sm whitespace-pre-wrap">
           {row[f.key] || ""}
         </td>
       ))}
       <td className="px-2 py-2 text-right">
-        <Button type="button" variant="link" size="sm" onClick={onToggleEdit}>
-          {isEditing ? "Close" : "Edit"}
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={activeMode === "detail" ? "Hide details" : "Show details"}
+            aria-pressed={activeMode === "detail"}
+            className={activeMode === "detail" ? "text-primary" : ""}
+            onClick={onShowDetail}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={activeMode === "edit" ? "Close edit" : "Edit"}
+            aria-pressed={activeMode === "edit"}
+            className={activeMode === "edit" ? "text-primary" : ""}
+            onClick={onEdit}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/* Read-only -- just the school-level fields (Website/Address/Phone/
+   Fax/Hours) that the compact row above never shows (they only ever
+   lived in the Edit form until now). Everything else on the compact
+   row already covers the contact people, so this is only for the one
+   thing that isn't visible without opening Edit. */
+function ContactRowDetail({
+  row,
+  schools,
+  onDone,
+  onEdit,
+}: {
+  row: ContactGroup["rows"][number];
+  schools: School[];
+  onDone: () => void;
+  onEdit: () => void;
+}) {
+  const matchedSchool = schools.find((s) => s.name.trim().toLowerCase() === row.school.trim().toLowerCase());
+  return (
+    <tr className="border-b bg-muted/30">
+      <td colSpan={CONTACT_FIELDS.length + 1} className="p-3">
+        <div className="space-y-3 text-sm">
+          {matchedSchool ? (
+            <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs font-semibold uppercase text-muted-foreground">Website</dt>
+                <dd>{matchedSchool.website || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-muted-foreground">Address</dt>
+                <dd className="whitespace-pre-wrap">{matchedSchool.address || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-muted-foreground">Phone</dt>
+                <dd>{matchedSchool.phone || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-muted-foreground">Fax</dt>
+                <dd>{matchedSchool.fax || "—"}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-semibold uppercase text-muted-foreground">Hours</dt>
+                <dd className="whitespace-pre-wrap">{matchedSchool.hours || "—"}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-muted-foreground">
+              This row&apos;s school name (&quot;{row.school}&quot;) doesn&apos;t match a real school, so there&apos;s no website/address/phone/fax/hours to show.
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onEdit}>Edit</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={onDone}>Close</Button>
+          </div>
+        </div>
       </td>
     </tr>
   );
@@ -194,9 +278,13 @@ export function ContactsList({
   updateOtherContact: (formData: FormData) => void;
   removeOtherContact: (formData: FormData) => void;
 }) {
-  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [rowModes, setRowModes] = useState<Record<string, RowMode>>({});
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [editingLeader, setEditingLeader] = useState(false);
+
+  function setMode(rowId: string, mode: RowMode) {
+    setRowModes((prev) => ({ ...prev, [rowId]: mode }));
+  }
 
   return (
     <div className="space-y-6">
@@ -282,21 +370,30 @@ export function ContactsList({
                   </tr>
                 )}
                 {group.rows.map((row) => {
-                  const isEditing = editingRow === row.id;
+                  const mode = rowModes[row.id] || "compact";
                   return (
                     <Fragment key={row.id}>
                       <ContactRowView
                         row={row}
-                        isEditing={isEditing}
-                        onToggleEdit={() => setEditingRow(isEditing ? null : row.id)}
+                        activeMode={mode}
+                        onShowDetail={() => setMode(row.id, mode === "detail" ? "compact" : "detail")}
+                        onEdit={() => setMode(row.id, mode === "edit" ? "compact" : "edit")}
                       />
-                      {isEditing && (
+                      {mode === "detail" && (
+                        <ContactRowDetail
+                          row={row}
+                          schools={schools}
+                          onDone={() => setMode(row.id, "compact")}
+                          onEdit={() => setMode(row.id, "edit")}
+                        />
+                      )}
+                      {mode === "edit" && (
                         <ContactRowEdit
                           group={group}
                           row={row}
                           groups={groups}
                           schools={schools}
-                          onDone={() => setEditingRow(null)}
+                          onDone={() => setMode(row.id, "compact")}
                           updateContactRow={updateContactRow}
                         />
                       )}

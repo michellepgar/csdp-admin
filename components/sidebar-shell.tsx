@@ -55,6 +55,33 @@ export function SidebarShell({
     setMobileOpen(false);
   }, [pathname]);
 
+  // Restores each page's own scroll position when you land back on it --
+  // the browser's real Back button already does this on its own
+  // (confirmed directly), but clicking a normal link (sidebar nav, a
+  // link from a card) to a page you'd already scrolled down on doesn't
+  // count as "back" to the browser, so it always starts at the top.
+  // Keying by pathname in sessionStorage means each page remembers its
+  // own spot independently, and it's cleared when the tab closes.
+  useEffect(() => {
+    const key = `scroll:${pathname}`;
+    const saved = sessionStorage.getItem(key);
+    window.scrollTo(0, saved ? parseInt(saved, 10) : 0);
+
+    // Deliberately NOT also saving on this effect's cleanup -- by the
+    // time cleanup for the OUTGOING page runs, Next.js has already
+    // navigated and window.scrollY already reflects the NEW page (0),
+    // so a "final save" there overwrites the real position with 0
+    // (confirmed directly: that's exactly what made the first version
+    // of this fix not work). The live listener below already keeps
+    // sessionStorage current as of the last real scroll on this page,
+    // which is all that's needed.
+    function saveScroll() {
+      sessionStorage.setItem(key, String(window.scrollY));
+    }
+    window.addEventListener("scroll", saveScroll, { passive: true });
+    return () => window.removeEventListener("scroll", saveScroll);
+  }, [pathname]);
+
   function isDesktopViewport() {
     return typeof window !== "undefined" && window.matchMedia(DESKTOP_BREAKPOINT_QUERY).matches;
   }

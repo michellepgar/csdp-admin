@@ -98,6 +98,10 @@ function ContactRowEdit({
                   <Input name="website" defaultValue={matchedSchool.website || ""} />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Address</label>
+                  <Input name="address" defaultValue={matchedSchool.address || ""} />
+                </div>
+                <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Phone</label>
                   <Input name="phone" defaultValue={matchedSchool.phone || ""} placeholder="508-894-4440" />
                 </div>
@@ -121,7 +125,7 @@ function ContactRowEdit({
             </div>
           )}
           {matchedSchool && (
-            <p className="text-xs text-muted-foreground">Website/phone/fax/hours only show on the school&apos;s own page, not in this table.</p>
+            <p className="text-xs text-muted-foreground">Website/address/phone/fax/hours only show on the school&apos;s own page, not in this table.</p>
           )}
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>

@@ -31,13 +31,24 @@ import type {
   RedcapTally,
 } from "@/lib/app-state";
 
-type SchoolRow = { id: string; name: string; website: string | null; phone: string | null; fax: string | null; hours: string | null; email_notes: string | null; no_recheck: boolean | null };
+type SchoolRow = {
+  id: string;
+  name: string;
+  website: string | null;
+  address: string | null;
+  phone: string | null;
+  fax: string | null;
+  hours: string | null;
+  email_notes: string | null;
+  no_recheck: boolean | null;
+};
 
 function mapSchoolRow(r: SchoolRow): School {
   return {
     id: r.id,
     name: r.name,
     website: r.website ?? undefined,
+    address: r.address ?? undefined,
     phone: r.phone ?? undefined,
     fax: r.fax ?? undefined,
     hours: r.hours ?? undefined,
@@ -546,7 +557,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
-    supabase.from("schools").select("id, name, website, phone, fax, hours, email_notes, no_recheck").order("name"),
+    supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes, no_recheck").order("name"),
     supabase.from("task_categories").select("id, name").order("sort_order"),
     supabase.from("checklist_template").select("id, description").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by"),

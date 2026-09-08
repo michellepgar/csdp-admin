@@ -222,7 +222,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               Nurse, then the school's own details (Website/Phone/
               Fax/Hours) -- Michelle asked for this split (previously
               two columns, before that one stacked block). */}
-          {!contactRow && !school.website && !school.phone && !school.fax && !school.hours ? (
+          {!contactRow && !school.website && !school.address && !school.phone && !school.fax && !school.hours ? (
             <p className="text-sm text-muted-foreground">No contact info on file for this school yet.</p>
           ) : (
             <div className="grid gap-6 sm:grid-cols-3">
@@ -271,6 +271,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                     </a>
                   </div>
                 )}
+                {school.address && (
+                  <div className="flex items-baseline gap-1">
+                    <span className="w-16 flex-none text-xs font-semibold uppercase text-muted-foreground">Address</span>
+                    <span className="whitespace-pre-wrap">{school.address}</span>
+                  </div>
+                )}
                 {/* Phone and Fax always share one row, next to each
                     other -- they used to just be two more items flowing
                     through a 2-column grid alongside Website/Hours,
@@ -311,8 +317,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                     <span className="whitespace-pre-wrap">{contactRow.notes}</span>
                   </div>
                 )}
-                {!school.website && !school.phone && !school.fax && !school.hours && !contactRow?.notes && (
-                  <p className="text-sm text-muted-foreground">No website/phone/fax/hours on file yet.</p>
+                {!school.website && !school.address && !school.phone && !school.fax && !school.hours && !contactRow?.notes && (
+                  <p className="text-sm text-muted-foreground">No website/address/phone/fax/hours on file yet.</p>
                 )}
               </div>
             </div>

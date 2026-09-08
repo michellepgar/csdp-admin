@@ -22,6 +22,10 @@ export interface School {
   id: string;
   name: string;
   website?: string;
+  /** Same convention as website/phone/fax/hours below -- editable from
+   *  the Contacts page's row edit form, only ever shown on the
+   *  school's own page. */
+  address?: string;
   phone?: string;
   fax?: string;
   /* Grade-level hours only now (e.g. "K-5 Hours: 9:00 a.m. - 3:15

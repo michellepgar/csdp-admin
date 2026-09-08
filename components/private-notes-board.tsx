@@ -127,6 +127,16 @@ function BoardNote({
         />
         <div ref={dragAreaRef} className="pr-4">
           <NoteCardContent note={note} />
+          {/* Read-only -- the board is a compact view, so this shows who
+              a note is shared with (and whether they've acknowledged it)
+              the same as the list, without repeating the list's own
+              share/unshare controls here. Manage sharing from the list
+              (click the pin to send it back) if a change is needed. */}
+          {(note.sharedWith || []).length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Shared with: {(note.sharedWith || []).map((name) => `${name}${(note.ackBy || []).includes(name) ? " ✓" : ""}`).join(", ")}
+            </p>
+          )}
         </div>
         {saveError && <p className="mt-1 text-xs text-destructive">Couldn&apos;t save — try moving it again.</p>}
       </div>

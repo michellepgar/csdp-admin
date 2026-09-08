@@ -166,26 +166,25 @@ function canManageBoardState(note: { author: string; shared_with: string[] | nul
   return note.author === currentName || (note.shared_with || []).includes(currentName);
 }
 
-/* Pins a note to the board at the given coordinates: sets its
-   position, gives it a small randomized tilt so pinned notes don't
-   look robotically aligned, and brings it to the front (highest
-   board_z among ALL private_notes rows -- simplest to compute, and
-   correct regardless of which subset of notes any one viewer can
-   actually see, since z-index only ever matters relative to what's
-   rendered together in one person's own board). */
-export async function pinPrivateNote(id: string, x: number, y: number) {
-  const rotation = Math.random() * 12 - 6; // -6..6 degrees
+/* Pins a note to the board, appending it to the end of the current
+   left-to-right order. board_z is reused here as a pure sequence
+   number (not a stacking z-index -- freeform positioning was dropped
+   in favor of an ordered left-to-right layout you rearrange with the
+   board's Reorder mode). board_x is set to a fixed sentinel (0) purely
+   so "is this note on the board" (board_x non-null) still holds; its
+   value is never read for layout. board_rotation keeps a small
+   randomized tilt for visual character (-6..6 degrees), same as
+   before, just no longer adjustable afterward. */
+export async function pinPrivateNote(id: string) {
+  const rotation = Math.random() * 6 - 3; // -3..3 degrees -- subtler now that it's purely decorative
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const note = (state.privateNotes || []).find((n) => n.id === id);
       if (!note) return;
       const maxZ = Math.max(0, ...(state.privateNotes || []).map((n) => n.boardZ || 0));
-      note.boardX = x;
-      note.boardY = y;
+      note.boardX = 0;
       note.boardRotation = rotation;
-      note.boardWidth = undefined;
-      note.boardHeight = undefined;
       note.boardZ = maxZ + 1;
     });
     revalidatePath("/private-notes");
@@ -206,75 +205,35 @@ export async function pinPrivateNote(id: string, x: number, y: number) {
     .maybeSingle();
   const nextZ = (maxZRow?.board_z || 0) + 1;
 
-  const { error } = await supabase
-    .from("private_notes")
-    .update({ board_x: x, board_y: y, board_rotation: rotation, board_width: null, board_height: null, board_z: nextZ })
-    .eq("id", id);
+  const { error } = await supabase.from("private_notes").update({ board_x: 0, board_rotation: rotation, board_z: nextZ }).eq("id", id);
   orThrow(error);
   revalidatePath("/private-notes");
 }
 
-/* Flexible updater for everything that can happen to a note ONCE it's
-   already on the board: dragging, resizing, rotating, or simply being
-   touched (bringToFront). Only ever changes the fields present in
-   `patch` -- e.g. a drag-end call only patches x/y, never touching
-   width/height/rotation. Silently no-ops if the note isn't on the
-   board (board_x is null) -- documented limitation, see the design
-   spec's Error Handling / Data Model sections. */
-export async function updatePrivateNoteBoardState(
-  id: string,
-  patch: { x?: number; y?: number; rotation?: number; width?: number; height?: number; bringToFront?: boolean }
-) {
+/* Reassigns the left-to-right order of every pinned note -- same
+   pattern as reorderChecklistTemplate in app/(app)/schools/[id]/actions.ts:
+   each id's position in the array becomes its new board_z. */
+export async function reorderPinnedNotes(orderedIds: string[]) {
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      const note = (state.privateNotes || []).find((n) => n.id === id);
-      if (!note || note.boardX == null) return;
-      if (patch.x !== undefined) note.boardX = patch.x;
-      if (patch.y !== undefined) note.boardY = patch.y;
-      if (patch.rotation !== undefined) note.boardRotation = patch.rotation;
-      if (patch.width !== undefined) note.boardWidth = patch.width;
-      if (patch.height !== undefined) note.boardHeight = patch.height;
-      if (patch.bringToFront) {
-        const maxZ = Math.max(0, ...(state.privateNotes || []).map((n) => n.boardZ || 0));
-        note.boardZ = maxZ + 1;
-      }
+      const byId = new Map((state.privateNotes || []).map((n) => [n.id, n]));
+      orderedIds.forEach((id, i) => {
+        const note = byId.get(id);
+        if (note) note.boardZ = i;
+      });
     });
     revalidatePath("/private-notes");
     return;
   }
 
-  const { supabase, me } = await requireTeamMember();
+  const { supabase } = await requireTeamMember();
 
-  const { data: note } = await supabase.from("private_notes").select("author, shared_with, board_x").eq("id", id).maybeSingle();
-  if (!note || note.board_x == null || !canManageBoardState(note, me.name)) return;
-
-  const update: Record<string, number | null> = {};
-  if (patch.x !== undefined) update.board_x = patch.x;
-  if (patch.y !== undefined) update.board_y = patch.y;
-  if (patch.rotation !== undefined) update.board_rotation = patch.rotation;
-  if (patch.width !== undefined) update.board_width = patch.width;
-  if (patch.height !== undefined) update.board_height = patch.height;
-
-  if (patch.bringToFront) {
-    const { data: maxZRow } = await supabase
-      .from("private_notes")
-      .select("board_z")
-      .not("board_z", "is", null)
-      .order("board_z", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    update.board_z = (maxZRow?.board_z || 0) + 1;
-  }
-
-  if (Object.keys(update).length === 0) return;
-
-  const { error } = await supabase.from("private_notes").update(update).eq("id", id);
-  orThrow(error);
+  await Promise.all(orderedIds.map((id, i) => supabase.from("private_notes").update({ board_z: i }).eq("id", id)));
   revalidatePath("/private-notes");
 }
 
 /* Returns a note from the board to the ordinary list by clearing all
-   six board columns -- this is the "drag it back" gesture. */
+   six board columns -- this is the "Unpin" menu action. */
 export async function unpinPrivateNote(id: string) {
   if (await isDemoMode()) {
     await demoMutate((state) => {

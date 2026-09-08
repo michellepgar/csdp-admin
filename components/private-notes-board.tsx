@@ -108,7 +108,11 @@ function BoardNote({
           draggable
           onDragStart={(e) => e.dataTransfer.setData("text/note-id", note.id)}
           title="Drag to return this note to the list"
-          className="absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full bg-red-600 shadow active:cursor-grabbing"
+          // Off in the top-left corner, not top-center -- top-center is
+          // where Moveable's own rotate handle and its connecting line
+          // render, and the two sitting on top of each other is what
+          // read as "the pin is on the line we drag" in feedback.
+          className="absolute left-2 top-0 h-3 w-3 -translate-y-1/2 cursor-grab rounded-full bg-red-600 shadow active:cursor-grabbing"
         />
         <NoteCardContent note={note} />
         <button
@@ -130,6 +134,10 @@ function BoardNote({
         target={targetRef}
         draggable
         rotatable
+        // Hides the small circle Moveable renders at the note's center
+        // by default -- it's the rotation transform-origin marker, which
+        // isn't useful here and read as an unexplained decoration.
+        origin={false}
         throttleDrag={0}
         throttleRotate={0}
         onDragStart={bringToFront}

@@ -82,6 +82,12 @@ function BoardNote({ note, onPersist }: { note: PrivateNote; onPersist: PersistF
           height: current.current.height,
           transform: `rotate(${current.current.rotation}deg)`,
           backgroundColor: note.padColor || undefined,
+          // boardZ is always read from the fresh `note` prop, never the
+          // `current` ref -- it's server-authoritative (bringToFront
+          // resolves it from the database's current max), and a new
+          // value only ever arrives via revalidatePath re-rendering
+          // this component with an updated note.boardZ.
+          zIndex: note.boardZ ?? 0,
         }}
       >
         <span

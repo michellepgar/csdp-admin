@@ -31,6 +31,13 @@ function BoardNote({
   onReturnToList: (id: string) => void;
 }) {
   const targetRef = useRef<HTMLDivElement>(null);
+  // Moveable's own `dragTarget`/`rotationTarget` -- restricting drag/rotate
+  // to just the note's body (not the whole target div) is what actually
+  // keeps the pin button clickable. An earlier attempt used
+  // stopPropagation on the pin's mousedown instead, which turned out NOT
+  // to reliably beat Moveable's own listener; giving Moveable a narrower
+  // target than the pin altogether sidesteps the race entirely.
+  const dragAreaRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Resizing was removed after live use showed it wasn't wanted -- every
   // note keeps its default size on the board. boardWidth/boardHeight stay
@@ -103,37 +110,29 @@ function BoardNote({
           zIndex: note.boardZ ?? 0,
         }}
       >
-        <span
-          aria-hidden
-          draggable
-          onDragStart={(e) => e.dataTransfer.setData("text/note-id", note.id)}
-          title="Drag to return this note to the list"
-          // Off in the top-left corner, not top-center -- top-center is
-          // where Moveable's own rotate handle and its connecting line
-          // render, and the two sitting on top of each other is what
-          // read as "the pin is on the line we drag" in feedback. Inset
-          // from the corner (not flush with the edge) so it reads as
-          // pinned INTO the paper rather than clipped at its border.
-          className="absolute left-3 top-3 h-3 w-3 cursor-grab rounded-full bg-red-600 shadow active:cursor-grabbing"
-        />
-        <NoteCardContent note={note} />
         <button
           type="button"
-          title="Return this note to the list"
-          // Moveable starts its own drag from a mousedown on this same
-          // target element -- stopping propagation here keeps a plain
-          // click on this button from also being interpreted as the
-          // start of a board drag.
-          onMouseDown={(e) => e.stopPropagation()}
+          title="Click to return this note to the list"
+          // Sits outside dragAreaRef below, so Moveable's drag/rotate
+          // never starts from a mousedown here -- see the note on
+          // dragAreaRef above for why that's the reliable fix, not
+          // stopPropagation.
           onClick={() => onReturnToList(note.id)}
-          className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
-        >
-          ↩ Return to list
-        </button>
+          // Top-RIGHT corner, inset from the edge (not top-center, where
+          // Moveable's own rotate handle/line render -- the two sitting
+          // on top of each other read as "the pin is on the line we
+          // drag" in feedback). The note's own right padding (pr-4
+          // below) keeps this clear of the text underneath it.
+          className="absolute right-3 top-3 h-3 w-3 cursor-pointer rounded-full bg-red-600 shadow hover:scale-125"
+        />
+        <div ref={dragAreaRef} className="pr-4">
+          <NoteCardContent note={note} />
+        </div>
         {saveError && <p className="mt-1 text-xs text-destructive">Couldn&apos;t save — try moving it again.</p>}
       </div>
       <Moveable
         target={targetRef}
+        dragTarget={dragAreaRef}
         draggable
         rotatable
         // Hides the small circle Moveable renders at the note's center

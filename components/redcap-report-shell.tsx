@@ -14,6 +14,7 @@ import {
 } from "@/components/redcap-student-fields";
 import {
   REDCAP_GRADES,
+  REDCAP_SCHOOL_YEARS,
   REDCAP_INSURANCE_OPTIONS,
   REDCAP_DENTAL_STATUS_OPTIONS,
   REDCAP_RACE_OPTIONS,
@@ -563,6 +564,16 @@ export function RedcapReportShell({
     () => Array.from(new Set(redcapTallies.map((t) => t.schoolYear))).sort().reverse(),
     [redcapTallies]
   );
+  // Datalist suggestions only -- REDCAP_SCHOOL_YEARS' presets plus
+  // whatever years already have real data, deduped. Deliberately kept
+  // separate from `schoolYears` above, which the auto-snap effect
+  // below uses to mean "years with actual data" specifically -- mixing
+  // in the presets there would make it snap to e.g. 2026-2027 just
+  // because it's suggested, not because anything's been entered for it.
+  const yearSuggestions = useMemo(
+    () => Array.from(new Set([...REDCAP_SCHOOL_YEARS, ...schoolYears])).sort().reverse(),
+    [schoolYears]
+  );
 
   const [tab, setTab] = useState<"report" | "add" | "review" | "flags">(redcapTallies.length === 0 ? "add" : "report");
   const [schoolId, setSchoolId] = useState(schools[0]?.id || "");
@@ -644,12 +655,12 @@ export function RedcapReportShell({
           <Input
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            placeholder="2025-2026"
+            placeholder="YYYY-YYYY"
             list="redcap-school-years"
             className="w-32"
           />
           <datalist id="redcap-school-years">
-            {schoolYears.map((y) => (
+            {yearSuggestions.map((y) => (
               <option key={y} value={y} />
             ))}
           </datalist>

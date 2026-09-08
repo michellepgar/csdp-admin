@@ -66,6 +66,14 @@ export const REDCAP_GRADES = [
   "6th Grade", "7th Grade", "8th Grade",
   "9th Grade", "10th Grade", "11th Grade", "12th Grade",
 ];
+/* Suggested school years for the report's year picker -- shown as
+   datalist options alongside whatever years already have real data
+   (see components/redcap-report-shell.tsx), NOT a closed list: the
+   picker is still a plain text input, so typing any other year (a
+   future one not listed here yet) works exactly the same. Update this
+   list occasionally as years pass rather than trying to keep it
+   perpetually "current + 2 ahead" automatically. */
+export const REDCAP_SCHOOL_YEARS = ["2024-2025", "2025-2026", "2026-2027"];
 export const REDCAP_INSURANCE_OPTIONS = ["MassHealth", "Private", "No Insurance", "Inactive", "Unknown Insurance"];
 // Shared by Dental Home Status and Referral -- confirmed with Michelle
 // these are genuinely two separate per-student answers, not the same

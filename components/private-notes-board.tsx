@@ -216,6 +216,10 @@ function BoardNote({
         target={targetRef}
         dragTarget={dragAreaRef}
         draggable
+        // Hides the small circle Moveable renders at the note's center
+        // by default -- it's a general rendering default (shows even
+        // with rotatable off), not tied to any capability we're using.
+        origin={false}
         // Interactive rotation removed after live feedback -- the
         // handle-and-line control read as an unwanted "antenna" sticking
         // out of the note. Each note still gets its small random tilt

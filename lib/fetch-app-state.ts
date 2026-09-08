@@ -424,6 +424,7 @@ type RedcapTallyRow = {
   needs: string[];
   consent: string | null;
   entered_by: string | null;
+  file_name: string | null;
   created_at: string;
 };
 
@@ -444,6 +445,7 @@ function mapRedcapTallyRow(r: RedcapTallyRow): RedcapTally {
     sealed2ndMolar: r.sealed_2nd_molar,
     needs: r.needs || [],
     enteredBy: r.entered_by ?? undefined,
+    fileName: r.file_name ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -568,7 +570,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
-    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, insurance, dental_home_status, referral, race, consent, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, created_at").order("created_at"),
+    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, insurance, dental_home_status, referral, race, consent, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, file_name, created_at").order("created_at"),
     supabase.from("redcap_distributed_forms").select("school_id, school_year, grade, count"),
   ]);
 

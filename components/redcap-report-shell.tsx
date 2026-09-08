@@ -240,12 +240,14 @@ function ReviewRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [grade, setGrade] = useState(tally.grade);
+  const [fileName, setFileName] = useState(tally.fileName || "");
   const [student, setStudent] = useState<StudentFieldsState>(() => studentFieldsFromTally(tally));
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function startEdit() {
     setGrade(tally.grade);
+    setFileName(tally.fileName || "");
     setStudent(studentFieldsFromTally(tally));
     setError("");
     setEditing(true);
@@ -257,7 +259,13 @@ function ReviewRow({
       return;
     }
     setError("");
-    const input: RedcapTallyInput = { schoolId: tally.schoolId, schoolYear: tally.schoolYear, grade, ...toTallyFields(student) };
+    const input: RedcapTallyInput = {
+      schoolId: tally.schoolId,
+      schoolYear: tally.schoolYear,
+      grade,
+      fileName: fileName.trim() || undefined,
+      ...toTallyFields(student),
+    };
     startTransition(async () => {
       await updateRedcapTally(tally.id, input);
       setEditing(false);
@@ -267,17 +275,23 @@ function ReviewRow({
   if (editing) {
     return (
       <tr className="border-b bg-muted/30">
-        <td colSpan={10} className="p-3">
+        <td colSpan={11} className="p-3">
           <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Grade</label>
-              <Dropdown
-                name="grade"
-                value={grade}
-                onChange={setGrade}
-                options={REDCAP_GRADES.map((g) => ({ value: g, label: g }))}
-                className="w-full max-w-[180px] rounded-md border px-2 py-1.5 text-left text-sm"
-              />
+            <div className="flex flex-wrap gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Grade</label>
+                <Dropdown
+                  name="grade"
+                  value={grade}
+                  onChange={setGrade}
+                  options={REDCAP_GRADES.map((g) => ({ value: g, label: g }))}
+                  className="w-full max-w-[180px] rounded-md border px-2 py-1.5 text-left text-sm"
+                />
+              </div>
+              <div className="min-w-[220px] flex-1 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">File name (for tracking mistakes -- not shown on the report)</label>
+                <Input value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="e.g. consent-forms-batch-3.pdf" className="text-sm" />
+              </div>
             </div>
             <StudentFields value={student} onChange={setStudent} />
             {error && <p className="text-sm text-status-danger-foreground">{error}</p>}
@@ -308,6 +322,9 @@ function ReviewRow({
       <td className="px-3 py-2 whitespace-nowrap">{[tally.fluoride && "Fluoride", tally.prophy && "Prophy"].filter(Boolean).join(", ") || "—"}</td>
       <td className="px-3 py-2 whitespace-nowrap">{sealed}</td>
       <td className="px-3 py-2 whitespace-nowrap">{tally.needs.join(", ") || "—"}</td>
+      <td className="px-3 py-2 whitespace-nowrap text-muted-foreground" title="For tracking mistakes -- never shown on the Report tab">
+        {tally.fileName || "—"}
+      </td>
       <td className="px-3 py-2 text-right whitespace-nowrap">
         <Button type="button" variant="ghost" size="sm" onClick={startEdit}>
           Edit
@@ -356,6 +373,7 @@ function ReviewList({
             <th className="px-3 py-2">Treatment</th>
             <th className="px-3 py-2">Sealed</th>
             <th className="px-3 py-2">Needs</th>
+            <th className="px-3 py-2" title="For tracking mistakes -- never shown on the Report tab">File</th>
             <th className="px-3 py-2" />
           </tr>
         </thead>

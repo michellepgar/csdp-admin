@@ -95,6 +95,11 @@ export interface RedcapTally {
   sealed2ndMolar: boolean;
   needs: string[];
   enteredBy?: string;
+  /** Internal audit trail only -- which scanned form file this student's
+   *  entry came from, so a mistake can be traced back to its source.
+   *  Never shown on the Report tab (which only ever aggregates counts,
+   *  not per-row data), only in Review Entries / Flags. */
+  fileName?: string;
   createdAt: string;
 }
 

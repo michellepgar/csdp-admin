@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dropdown } from "@/components/dropdown";
 import { REDCAP_GRADES } from "@/lib/app-state";
 import type { RedcapTallyInput } from "@/app/(app)/redcap-report/actions";
@@ -22,6 +23,7 @@ export function RedcapEntryForm({
   addRedcapTally: (input: RedcapTallyInput) => Promise<void>;
 }) {
   const [grade, setGrade] = useState(REDCAP_GRADES[0]);
+  const [fileName, setFileName] = useState("");
   const [student, setStudent] = useState(emptyStudentFields);
   const [savedCount, setSavedCount] = useState(0);
   const [error, setError] = useState("");
@@ -38,14 +40,22 @@ export function RedcapEntryForm({
     }
     setError("");
 
-    const input: RedcapTallyInput = { schoolId, schoolYear: schoolYear.trim(), grade, ...toTallyFields(student) };
+    const input: RedcapTallyInput = {
+      schoolId,
+      schoolYear: schoolYear.trim(),
+      grade,
+      fileName: fileName.trim() || undefined,
+      ...toTallyFields(student),
+    };
 
     startTransition(async () => {
       await addRedcapTally(input);
       // School/year/grade stay put on purpose -- Michelle works
       // through a whole stack of scanned forms for the same
-      // school/grade at once. Only this one student's answers clear.
+      // school/grade at once. Only this one student's answers (and
+      // its file name, which is specific to that one scanned form) clear.
       setStudent(emptyStudentFields);
+      setFileName("");
       setSavedCount((c) => c + 1);
     });
   }
@@ -61,6 +71,15 @@ export function RedcapEntryForm({
             onChange={setGrade}
             options={REDCAP_GRADES.map((g) => ({ value: g, label: g }))}
             className="w-full min-w-[140px] rounded-md border px-2 py-1.5 text-left text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">File name (for tracking mistakes -- not shown on the report)</label>
+          <Input
+            value={fileName}
+            onChange={(e) => setFileName(e.target.value)}
+            placeholder="e.g. consent-forms-batch-3.pdf"
+            className="min-w-[220px] text-sm"
           />
         </div>
         {savedCount > 0 && (

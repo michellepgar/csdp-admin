@@ -29,6 +29,9 @@ export type RedcapTallyInput = {
   sealed1stMolar: boolean;
   sealed2ndMolar: boolean;
   needs: string[];
+  /** Internal audit trail only -- see RedcapTally's own comment in
+   *  lib/app-state.ts. */
+  fileName?: string;
 };
 
 export async function addRedcapTally(input: RedcapTallyInput) {
@@ -63,6 +66,7 @@ export async function addRedcapTally(input: RedcapTallyInput) {
     sealed_2nd_molar: input.sealed2ndMolar,
     needs: input.needs,
     entered_by: me.name,
+    file_name: input.fileName || null,
   });
   orThrow(error);
 
@@ -97,6 +101,7 @@ export async function updateRedcapTally(id: string, input: RedcapTallyInput) {
       sealed_1st_molar: input.sealed1stMolar,
       sealed_2nd_molar: input.sealed2ndMolar,
       needs: input.needs,
+      file_name: input.fileName || null,
     })
     .eq("id", id);
   orThrow(error);

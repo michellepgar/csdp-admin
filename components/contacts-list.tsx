@@ -8,15 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/phone-input";
 import { Dropdown } from "@/components/dropdown";
-import { CONTACT_FIELDS, CONTACT_POSITION_GROUPS, type ContactGroup, type NurseLeader, type OtherContact, type School, type SchoolContact } from "@/lib/app-state";
+import { CONTACT_FIELDS, CONTACT_POSITION_GROUPS, type ContactGroup, type NurseLeader, type OtherContact, type School } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
-import { SchoolContactsList } from "@/components/school-contacts-list";
-
-type SchoolContactActions = {
-  addSchoolContact: (formData: FormData) => void;
-  updateSchoolContact: (formData: FormData) => void;
-  removeSchoolContact: (formData: FormData) => void;
-};
 
 type RowMode = "compact" | "detail" | "edit";
 
@@ -82,18 +75,15 @@ function ContactRowView({
 function ContactRowDetail({
   row,
   schools,
-  schoolContacts,
   onDone,
   onEdit,
 }: {
   row: ContactGroup["rows"][number];
   schools: School[];
-  schoolContacts: Record<string, SchoolContact[]>;
   onDone: () => void;
   onEdit: () => void;
 }) {
   const matchedSchool = schools.find((s) => s.name.trim().toLowerCase() === row.school.trim().toLowerCase());
-  const forSchool = matchedSchool ? schoolContacts[matchedSchool.id] || [] : [];
   return (
     <tr className="border-b bg-muted/30">
       <td colSpan={CONTACT_FIELDS.length + 1} className="p-3">
@@ -122,7 +112,6 @@ function ContactRowDetail({
                   <dd className="whitespace-pre-wrap">{matchedSchool.hours || "—"}</dd>
                 </div>
               </dl>
-              <SchoolContactsList schoolId={matchedSchool.id} contacts={forSchool.filter((c) => c.position !== "Nurse")} readOnly />
             </>
           ) : (
             <p className="text-muted-foreground">
@@ -148,21 +137,16 @@ function ContactRowEditForm({
   row,
   groups,
   schools,
-  schoolContacts,
   onDone,
   updateContactRow,
-  addSchoolContact,
-  updateSchoolContact,
-  removeSchoolContact,
 }: {
   group: ContactGroup;
   row: ContactGroup["rows"][number];
   groups: ContactGroup[];
   schools: School[];
-  schoolContacts: Record<string, SchoolContact[]>;
   onDone: () => void;
   updateContactRow: (formData: FormData) => void;
-} & SchoolContactActions) {
+}) {
   /* Website/hours actually live on `schools`, matched here by name
      (same trim/lowercase match the school page itself uses to find
      its contact_rows entry -- contact_rows only ever stored a school
@@ -170,10 +154,8 @@ function ContactRowEditForm({
      school (typo, or a school since renamed/removed) just doesn't get
      these two fields -- nothing to save them against. */
   const matchedSchool = schools.find((s) => s.name.trim().toLowerCase() === row.school.trim().toLowerCase());
-  const forSchool = matchedSchool ? schoolContacts[matchedSchool.id] || [] : [];
 
   return (
-    <div className="space-y-3">
     <form action={updateContactRow} onSubmit={onDone} className="space-y-2">
           <input type="hidden" name="groupId" value={group.id} />
           <input type="hidden" name="rowId" value={row.id} />
@@ -304,24 +286,6 @@ function ContactRowEditForm({
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
           </div>
         </form>
-      {/* Outside the form above on purpose -- SchoolContactsList submits
-          through its own per-entry forms (add/edit/remove one at a
-          time), and a <form> can't nest inside another one (the
-          browser silently flattens it into the outer form instead of
-          keeping it separate). It only manages school_contacts rows
-          directly; nothing here needs updateContactRow's own submit. */}
-      {matchedSchool && (
-        <div className="border-t pt-2">
-          <SchoolContactsList
-            schoolId={matchedSchool.id}
-            contacts={forSchool.filter((c) => c.position !== "Nurse")}
-            addSchoolContact={addSchoolContact}
-            updateSchoolContact={updateSchoolContact}
-            removeSchoolContact={removeSchoolContact}
-          />
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -332,10 +296,9 @@ function ContactRowEdit(props: {
   row: ContactGroup["rows"][number];
   groups: ContactGroup[];
   schools: School[];
-  schoolContacts: Record<string, SchoolContact[]>;
   onDone: () => void;
   updateContactRow: (formData: FormData) => void;
-} & SchoolContactActions) {
+}) {
   return (
     <tr className="border-b bg-muted/30">
       <td colSpan={CONTACT_FIELDS.length + 1} className="p-3">
@@ -355,29 +318,23 @@ function ContactRowEdit(props: {
 function ContactRowCard({
   row,
   schools,
-  schoolContacts,
   mode,
   onEdit,
   group,
   groups,
   onDone,
   updateContactRow,
-  addSchoolContact,
-  updateSchoolContact,
-  removeSchoolContact,
 }: {
   row: ContactGroup["rows"][number];
   schools: School[];
-  schoolContacts: Record<string, SchoolContact[]>;
   mode: RowMode;
   onEdit: () => void;
   group: ContactGroup;
   groups: ContactGroup[];
   onDone: () => void;
   updateContactRow: (formData: FormData) => void;
-} & SchoolContactActions) {
+}) {
   const matchedSchool = schools.find((s) => s.name.trim().toLowerCase() === row.school.trim().toLowerCase());
-  const forSchool = matchedSchool ? schoolContacts[matchedSchool.id] || [] : [];
 
   if (mode === "edit") {
     return (
@@ -387,12 +344,8 @@ function ContactRowCard({
           row={row}
           groups={groups}
           schools={schools}
-          schoolContacts={schoolContacts}
           onDone={onDone}
           updateContactRow={updateContactRow}
-          addSchoolContact={addSchoolContact}
-          updateSchoolContact={updateSchoolContact}
-          removeSchoolContact={removeSchoolContact}
         />
       </div>
     );
@@ -462,7 +415,6 @@ function ContactRowCard({
           )}
         </div>
       )}
-      {matchedSchool && <SchoolContactsList schoolId={matchedSchool.id} contacts={forSchool.filter((c) => c.position !== "Nurse")} readOnly />}
     </div>
   );
 }
@@ -470,7 +422,6 @@ function ContactRowCard({
 export function ContactsList({
   groups,
   schools,
-  schoolContacts,
   nurseLeader,
   otherContacts,
   renameContactGroup,
@@ -480,13 +431,9 @@ export function ContactsList({
   addOtherContact,
   updateOtherContact,
   removeOtherContact,
-  addSchoolContact,
-  updateSchoolContact,
-  removeSchoolContact,
 }: {
   groups: ContactGroup[];
   schools: School[];
-  schoolContacts: Record<string, SchoolContact[]>;
   nurseLeader: NurseLeader;
   otherContacts: OtherContact[];
   renameContactGroup: (formData: FormData) => void;
@@ -496,7 +443,7 @@ export function ContactsList({
   addOtherContact: (formData: FormData) => void;
   updateOtherContact: (formData: FormData) => void;
   removeOtherContact: (formData: FormData) => void;
-} & SchoolContactActions) {
+}) {
   const [rowModes, setRowModes] = useState<Record<string, RowMode>>({});
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [editingLeader, setEditingLeader] = useState(false);
@@ -607,7 +554,6 @@ export function ContactsList({
                         <ContactRowDetail
                           row={row}
                           schools={schools}
-                          schoolContacts={schoolContacts}
                           onDone={() => setMode(row.id, "compact")}
                           onEdit={() => setMode(row.id, "edit")}
                         />
@@ -618,12 +564,8 @@ export function ContactsList({
                           row={row}
                           groups={groups}
                           schools={schools}
-                          schoolContacts={schoolContacts}
                           onDone={() => setMode(row.id, "compact")}
                           updateContactRow={updateContactRow}
-                          addSchoolContact={addSchoolContact}
-                          updateSchoolContact={updateSchoolContact}
-                          removeSchoolContact={removeSchoolContact}
                         />
                       )}
                     </Fragment>
@@ -643,16 +585,12 @@ export function ContactsList({
                   key={row.id}
                   row={row}
                   schools={schools}
-                  schoolContacts={schoolContacts}
                   mode={mode}
                   onEdit={() => setMode(row.id, mode === "edit" ? "compact" : "edit")}
                   group={group}
                   groups={groups}
                   onDone={() => setMode(row.id, "compact")}
                   updateContactRow={updateContactRow}
-                  addSchoolContact={addSchoolContact}
-                  updateSchoolContact={updateSchoolContact}
-                  removeSchoolContact={removeSchoolContact}
                 />
               );
             })}

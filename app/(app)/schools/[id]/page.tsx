@@ -38,7 +38,6 @@ import { RemoveSchoolControl } from "@/components/remove-school-control";
 import { EditSchoolNameControl } from "@/components/edit-school-name-control";
 import { PageBody } from "@/components/page-body";
 import { CopyButton } from "@/components/copy-button";
-import { SchoolContactsList } from "@/components/school-contacts-list";
 
 /* A website saved as "www.school.edu" or "school.edu" (no protocol) is
    a relative link to the browser -- clicking it would try to load
@@ -76,13 +75,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
   const contactRow = (state.contactGroups || [])
     .flatMap((g) => g.rows)
     .find((r) => r.school.trim().toLowerCase() === school.name.trim().toLowerCase());
-
-  /* Additional Contacts (a second Principal/Asst Principal/Front Desk)
-     still uses school_contacts -- Nurse doesn't anymore: it's just
-     nurseName/nurseEmail on contactRow, one name per line matched by
-     line number to the same line in nurseEmail (see the Contacts
-     page's own edit form). */
-  const otherSchoolContacts = (state.schoolContacts?.[schoolId] || []).filter((c) => c.position !== "Nurse");
 
   return (
     <div>
@@ -335,7 +327,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           )}
-          <SchoolContactsList schoolId={schoolId} contacts={otherSchoolContacts} readOnly />
         </div>
       </div>
       </PageBody>

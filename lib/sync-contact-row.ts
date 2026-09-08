@@ -25,10 +25,14 @@ const POSITION_TO_COLUMNS: Record<string, { name: string; email: string }> = {
 
    Originally email-only; extended to also sync name once
    school_contacts grew a name column (added so a second contact for
-   the same position -- e.g. a school with two nurses -- can be told
-   apart in its own list, see components/school-contacts-list.tsx).
-   The single Contacts-page field for a position still only ever shows
-   ONE name+email pair -- whichever school_contacts entry for that
+   the same position -- e.g. a school with two nurses -- could be told
+   apart in its own list). The Additional Contacts UI that once wrote
+   to school_contacts (add/edit/remove per entry) was removed at
+   Michelle's request; addSchoolContact/updateSchoolContact/
+   removeSchoolContact (app/(app)/schools/[id]/actions.ts) still exist
+   and still call this, but nothing in the UI calls them anymore. The
+   single Contacts-page field for a position still only ever shows ONE
+   name+email pair -- whichever school_contacts entry for that
    position was added or edited most recently. */
 export async function syncContactRowEmail(
   supabase: Awaited<ReturnType<typeof createClient>>,

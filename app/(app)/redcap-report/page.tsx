@@ -9,9 +9,11 @@ import { addRedcapTally, updateRedcapTally, removeRedcapTally, setRedcapDistribu
 
 /* Per-student tally entry + report, replacing the earlier v1 (which
    just summed existing Task.count numbers -- not what Michelle
-   actually needed, see docs/superpowers/specs). Open to every team
-   member now (was Michelle-only at first) -- see
-   components/sidebar.tsx's Resources section for the nav link. */
+   actually needed, see docs/superpowers/specs). Was open to every
+   team member; back to Michelle-only for now while REDCap v2
+   (per-student dedup across Initial/Follow-up visits, still being
+   worked out) is in progress -- see components/sidebar.tsx's own nav
+   gate, which hides the link the same way. */
 export default async function RedcapReportPage() {
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
@@ -21,6 +23,7 @@ export default async function RedcapReportPage() {
 
   const me = findVaByEmail(state, user.email);
   if (!me) redirect("/not-on-team");
+  if (me.name !== "Michelle") redirect("/");
 
   return (
     <div>

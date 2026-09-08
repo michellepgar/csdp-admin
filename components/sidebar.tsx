@@ -346,17 +346,25 @@ export function Sidebar({
             {!collapsed && <span className="min-w-0 truncate">Distribution List</span>}
           </Link>
         </IconTooltip>
-        <IconTooltip label="REDCap Report" active={collapsed}>
-          <Link
-            href="/redcap-report"
-            prefetch={false}
-            title={!collapsed ? "REDCap Report" : undefined}
-            className={navLinkClass("/redcap-report", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-          >
-            <FileBarChart2 className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
-            {!collapsed && <span className="min-w-0 truncate">REDCap Report</span>}
-          </Link>
-        </IconTooltip>
+        {/* Michelle-only while REDCap v2 (per-student dedup, see
+            docs/superpowers/specs) is still being worked out -- was
+            open to the whole team before, will be again once it's
+            settled. Gated on the exact name rather than isAdmin since
+            an admin who isn't Michelle shouldn't see it either while
+            it's in this in-between state. */}
+        {currentName === "Michelle" && (
+          <IconTooltip label="REDCap Report" active={collapsed}>
+            <Link
+              href="/redcap-report"
+              prefetch={false}
+              title={!collapsed ? "REDCap Report" : undefined}
+              className={navLinkClass("/redcap-report", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+            >
+              <FileBarChart2 className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
+              {!collapsed && <span className="min-w-0 truncate">REDCap Report</span>}
+            </Link>
+          </IconTooltip>
+        )}
         <IconTooltip label="Email Templates" active={collapsed}>
           <Link
             href="/templates"

@@ -14,6 +14,7 @@ export function PrivateNotesList({
   sharePrivateNote,
   unsharePrivateNote,
   removePrivateNote,
+  unpinPrivateNote,
 }: {
   notes: PrivateNote[];
   currentUserName: string;
@@ -22,15 +23,30 @@ export function PrivateNotesList({
   sharePrivateNote: (formData: FormData) => void;
   unsharePrivateNote: (formData: FormData) => void;
   removePrivateNote: (formData: FormData) => void;
+  unpinPrivateNote: (id: string) => void;
 }) {
   const sorted = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  function handleListDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text/note-id");
+    if (id) unpinPrivateNote(id);
+  }
+
   if (sorted.length === 0) {
-    return <p className="text-sm text-muted-foreground">No private notes yet — only you can see this page.</p>;
+    return (
+      <p
+        className="text-sm text-muted-foreground"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleListDrop}
+      >
+        No private notes yet — only you can see this page.
+      </p>
+    );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" onDragOver={(e) => e.preventDefault()} onDrop={handleListDrop}>
       {sorted.map((n) => {
         const isAuthor = n.author === currentUserName;
         const sharedWith = n.sharedWith || [];
@@ -42,7 +58,9 @@ export function PrivateNotesList({
         return (
           <div
             key={n.id}
-            className={`note-card rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
+            draggable
+            onDragStart={(e) => e.dataTransfer.setData("text/note-id", n.id)}
+            className={`note-card cursor-grab rounded-md border p-3 active:cursor-grabbing ${!n.padColor ? "bg-record-background" : ""}`}
             style={n.padColor ? { backgroundColor: n.padColor } : undefined}
           >
             <NoteCardContent note={n} />

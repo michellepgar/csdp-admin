@@ -37,7 +37,12 @@ export default async function PrivateNotesPage() {
     <div>
       <PageHeader title="Private Notes" />
       <PageBody>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* An even 50/50 split -- grid-cols-2's default 1fr/1fr columns
+            already give that; the only thing that mattered was lowering
+            the breakpoint (was lg: 1024px) so it stays side-by-side at
+            ordinary window widths instead of stacking the board full-
+            width below the list, which read as "not actually half". */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-4">
             <form action={addPrivateNote} className="max-w-lg space-y-2">
               <StickyNoteComposer placeholder="Add a private note…" />

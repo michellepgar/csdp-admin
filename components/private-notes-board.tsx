@@ -111,8 +111,10 @@ function BoardNote({
           // Off in the top-left corner, not top-center -- top-center is
           // where Moveable's own rotate handle and its connecting line
           // render, and the two sitting on top of each other is what
-          // read as "the pin is on the line we drag" in feedback.
-          className="absolute left-2 top-0 h-3 w-3 -translate-y-1/2 cursor-grab rounded-full bg-red-600 shadow active:cursor-grabbing"
+          // read as "the pin is on the line we drag" in feedback. Inset
+          // from the corner (not flush with the edge) so it reads as
+          // pinned INTO the paper rather than clipped at its border.
+          className="absolute left-3 top-3 h-3 w-3 cursor-grab rounded-full bg-red-600 shadow active:cursor-grabbing"
         />
         <NoteCardContent note={note} />
         <button

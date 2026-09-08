@@ -256,6 +256,33 @@
     @apply text-white block bg-header-background px-2 py-1 text-sm font-semibold;
   }
 
+  /* A plain <label> is `display: inline` by default in every browser --
+     fine for a label sitting right next to what it names, but every
+     "Label above its own input" field across this app (Distribution
+     List's edit row, Contacts, Other Contacts, EOD, REDCap, etc. --
+     the `<label className="text-xs ...">Name</label>` immediately
+     followed by an `<input>`/Dropdown inside a `space-y-1` wrapper)
+     depends on the label and its input stacking vertically, not
+     flowing as two inline-level boxes on the same text line. An
+     `<input>` is ALSO inline-block by default, so for any input
+     narrow enough to fit next to the label's own text (confirmed
+     directly: Distribution List's Group/Enrolled/Number of Consent
+     Packets fields, all narrower inputs, actually rendered their
+     input overlapping UP INTO the label above it -- Michelle's own
+     screenshot caught this), the two competed for the same inline
+     line box instead of stacking, producing exactly that "label sits
+     right on top of its box" look. Forcing every label to block fixes
+     every one of these at once, in the one place they all already
+     share a class name convention. Doesn't affect the handful of
+     labels that wrap a checkbox + its own text side by side (Issues'
+     Name/DOB/Insurance/Other, EOD's Notes/Table toggle) -- those set
+     their own `flex` class, a utilities-layer rule that always beats
+     this base-layer one regardless of order (see .bg-record-background
+     :hover's own comment below for why). */
+  label {
+    @apply block;
+  }
+
   /* Native checkboxes/radios (Distributed, Urgent, the Correction
      form's Name/DOB/Insurance/Other, etc.) otherwise render in the
      browser's default blue/gray, unrelated to this app's own accent

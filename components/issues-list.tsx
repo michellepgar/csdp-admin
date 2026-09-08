@@ -184,8 +184,19 @@ function StatusSelectField({ issue, setIssueStatus }: { issue: Issue; setIssueSt
 }
 
 /* A free-text note about the fix, auto-saved on change -- was a list
-   of sign-off chips before. */
-function FixNote({ issue, setIssueFixNote }: { issue: Issue; setIssueFixNote: (formData: FormData) => void }) {
+   of sign-off chips before. Correction/Verification calls this a plain
+   "Note" (not every entry there needed an actual fix, just a comment),
+   while Charting keeps "Fix" -- same field/column underneath, just a
+   different placeholder per caller. */
+function FixNote({
+  issue,
+  setIssueFixNote,
+  placeholder = "What was done to fix this…",
+}: {
+  issue: Issue;
+  setIssueFixNote: (formData: FormData) => void;
+  placeholder?: string;
+}) {
   return (
     <AutoSubmitForm action={setIssueFixNote}>
       <input type="hidden" name="id" value={issue.id} />
@@ -193,7 +204,7 @@ function FixNote({ issue, setIssueFixNote }: { issue: Issue; setIssueFixNote: (f
         key={issue.fixNote || ""}
         name="fixNote"
         defaultValue={issue.fixNote || ""}
-        placeholder="What was done to fix this…"
+        placeholder={placeholder}
         rows={1}
         className="w-full min-w-[160px] resize-y rounded-md border px-1.5 py-0.5 text-sm"
       />
@@ -305,7 +316,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
             <th className="px-2 py-1">Kind</th>
             <th className="px-2 py-1">Reported By</th>
             <th className="px-2 py-1">Status</th>
-            <th className="px-2 py-1">Fix</th>
+            <th className="px-2 py-1">Note</th>
             <th />
           </tr>
         </thead>
@@ -324,7 +335,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
                 <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                 <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
+                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} placeholder="Add a note…" /></td>
                 <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>
             );

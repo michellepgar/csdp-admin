@@ -10,7 +10,6 @@ import { PhoneInput } from "@/components/phone-input";
 import { Dropdown } from "@/components/dropdown";
 import { CONTACT_FIELDS, CONTACT_POSITION_GROUPS, type ContactGroup, type NurseLeader, type OtherContact, type School, type SchoolContact } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
-import { NurseBox } from "@/components/nurse-box";
 import { SchoolContactsList } from "@/components/school-contacts-list";
 
 type SchoolContactActions = {
@@ -123,12 +122,6 @@ function ContactRowDetail({
                   <dd className="whitespace-pre-wrap">{matchedSchool.hours || "—"}</dd>
                 </div>
               </dl>
-              <NurseBox
-                schoolId={matchedSchool.id}
-                nurses={forSchool.filter((c) => c.position === "Nurse")}
-                legacyNurse={{ name: row.nurseName, email: row.nurseEmail }}
-                readOnly
-              />
               <SchoolContactsList schoolId={matchedSchool.id} contacts={forSchool.filter((c) => c.position !== "Nurse")} readOnly />
             </>
           ) : (
@@ -213,10 +206,9 @@ function ContactRowEditForm({
               odd column count, so Front Desk's email used to land on
               the NEXT row instead of next to Front Desk's name).
 
-              Nurse is excluded here -- it's managed entirely through
-              the NurseBox below now (which can hold more than one),
-              not as a single name+email pair typed directly into this
-              grid. */}
+              Nurse is excluded from this grid -- it gets its own
+              multi-line textareas right below instead of a single-line
+              Input, since a school can have more than one nurse. */}
           <div className="space-y-1">
             <div className="text-xs font-semibold text-muted-foreground uppercase">Contact People</div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -232,6 +224,36 @@ function ContactRowEditForm({
                   </div>
                 </Fragment>
               ))}
+            </div>
+          </div>
+
+          {/* Nurse: one name per line, matched by line number to the
+              same line in Nurse Email -- a second (or third) nurse is
+              just another line, not a separate add/edit/remove entry
+              (tried that first; Michelle asked for this instead, "one
+              box" you can see every name in at a glance). Same
+              multi-line convention Hours already uses further down. */}
+          <div className="space-y-1">
+            <div className="text-xs font-semibold text-muted-foreground uppercase">Nurse</div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Nurse Name (one per line)</label>
+                <textarea
+                  name="nurseName"
+                  defaultValue={row.nurseName || ""}
+                  rows={3}
+                  className="w-full rounded-md border px-2 py-1 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Nurse Email (matching line per line)</label>
+                <textarea
+                  name="nurseEmail"
+                  defaultValue={row.nurseEmail || ""}
+                  rows={3}
+                  className="w-full rounded-md border px-2 py-1 text-sm"
+                />
+              </div>
             </div>
           </div>
 
@@ -282,23 +304,14 @@ function ContactRowEditForm({
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
           </div>
         </form>
-      {/* Outside the form above on purpose -- NurseBox and
-          SchoolContactsList each submit through their own per-entry
-          forms (add/edit/remove one at a time), and a <form> can't
-          nest inside another one (the browser silently flattens it
-          into the outer form instead of keeping it separate). Both
-          only manage school_contacts rows directly; nothing here
-          needs updateContactRow's own submit at all. */}
+      {/* Outside the form above on purpose -- SchoolContactsList submits
+          through its own per-entry forms (add/edit/remove one at a
+          time), and a <form> can't nest inside another one (the
+          browser silently flattens it into the outer form instead of
+          keeping it separate). It only manages school_contacts rows
+          directly; nothing here needs updateContactRow's own submit. */}
       {matchedSchool && (
-        <div className="space-y-3 border-t pt-2">
-          <NurseBox
-            schoolId={matchedSchool.id}
-            nurses={forSchool.filter((c) => c.position === "Nurse")}
-            legacyNurse={{ name: row.nurseName, email: row.nurseEmail }}
-            addSchoolContact={addSchoolContact}
-            updateSchoolContact={updateSchoolContact}
-            removeSchoolContact={removeSchoolContact}
-          />
+        <div className="border-t pt-2">
           <SchoolContactsList
             schoolId={matchedSchool.id}
             contacts={forSchool.filter((c) => c.position !== "Nurse")}
@@ -393,26 +406,18 @@ function ContactRowCard({
           <Pencil className="h-4 w-4" />
         </Button>
       </div>
-      {CONTACT_POSITION_GROUPS.filter((g) => g.label !== "Nurse").map((g) => {
+      {CONTACT_POSITION_GROUPS.map((g) => {
         const name = row[g.nameKey];
         const email = row[g.emailKey];
         if (!name && !email) return null;
         return (
           <div key={g.label}>
             <div className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</div>
-            <div>{name || "—"}</div>
-            {email && <div className="text-muted-foreground">{email}</div>}
+            <div className="whitespace-pre-wrap">{name || "—"}</div>
+            {email && <div className="whitespace-pre-wrap text-muted-foreground">{email}</div>}
           </div>
         );
       })}
-      {matchedSchool && (
-        <NurseBox
-          schoolId={matchedSchool.id}
-          nurses={forSchool.filter((c) => c.position === "Nurse")}
-          legacyNurse={{ name: row.nurseName, email: row.nurseEmail }}
-          readOnly
-        />
-      )}
       {row.notes && (
         <div>
           <div className="text-xs font-semibold uppercase text-muted-foreground">Notes</div>

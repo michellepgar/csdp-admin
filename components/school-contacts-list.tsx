@@ -15,11 +15,9 @@ type Actions = {
   removeSchoolContact: (formData: FormData) => void;
 };
 
-// Nurse isn't offered here -- a school with two nurses gets them in
-// its own dedicated box (components/nurse-box.tsx) right on the
-// Contact Info card, not as an entry in this generic list. Filtering
-// it out of the Position choices keeps this list from becoming a
-// second, competing way to add a nurse.
+// Nurse isn't offered here -- it's just nurseName/nurseEmail on
+// contact_rows, one nurse per line in each (see the Contacts page's
+// own edit form), not an entry in this generic list.
 const NON_NURSE_POSITIONS = CONTACT_POSITIONS.filter((p) => p !== "Nurse");
 
 /* Shared Position/Name/Email fields for both the add form and a row's
@@ -136,20 +134,19 @@ function AddContactForm({ schoolId, addSchoolContact }: { schoolId: string } & P
 
 /* For a second Principal, Assistant Principal, or Front Desk contact
    at a school -- Nurse is deliberately excluded (see
-   NON_NURSE_POSITIONS above); a school with two nurses gets its own
-   dedicated box instead (components/nurse-box.tsx), not this generic
-   list. Adding or editing an entry here also updates whichever of the
-   single Principal/Asst Principal/Front Desk fields above (edited
-   from the Contacts page) matches its position, to the newest entry
-   for that position (see lib/sync-contact-row.ts) -- this list is for
-   tracking every contact, that single field is still just "the
-   current one" shown everywhere else in the app.
+   NON_NURSE_POSITIONS above); a school with more than one nurse just
+   gets another line in nurseName/nurseEmail instead (see the Contacts
+   page's own edit form). Adding or editing an entry here also updates
+   whichever of the single Principal/Asst Principal/Front Desk fields
+   above (edited from the Contacts page) matches its position, to the
+   newest entry for that position (see lib/sync-contact-row.ts) -- this
+   list is for tracking every contact, that single field is still just
+   "the current one" shown everywhere else in the app.
 
    Rendered interactively in the Contacts page's row edit form, and
-   `readOnly` on the school's own page -- same convention NurseBox
-   follows (see its own comment) since Michelle asked for the school
-   page to only ever reflect what's entered on Contacts, never be a
-   second place to edit it from. */
+   `readOnly` on the school's own page, since Michelle asked for the
+   school page to only ever reflect what's entered on Contacts, never
+   be a second place to edit it from. */
 export function SchoolContactsList({
   schoolId,
   contacts,

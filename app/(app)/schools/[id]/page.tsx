@@ -229,10 +229,12 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               {/* CONTACT_POSITION_GROUPS is Principal, Asst Principal,
                   Front Desk, Nurse in that order -- split into its
                   first/second half for these two columns. Nurse's own
-                  name/email can be multiple lines (one nurse per line,
-                  see the Contacts page's own edit form), so it gets
-                  whitespace-pre-wrap instead of the single-line
-                  truncate the other three positions use. */}
+                  name/email can be multiple lines -- one nurse per
+                  line, matched by line number between the two fields
+                  (see the Contacts page's own edit form) -- so instead
+                  of one name block and one email block, it renders one
+                  row per nurse with that nurse's name and email side
+                  by side, each with its own copy icon. */}
               {[CONTACT_POSITION_GROUPS.slice(0, 2), CONTACT_POSITION_GROUPS.slice(2, 4)].map((groups, i) => (
                 <dl key={i} className="space-y-2">
                   {contactRow ? (
@@ -240,15 +242,40 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                       const name = contactRow[g.nameKey] || "";
                       const email = contactRow[g.emailKey] || "";
                       if (!name && !email) return null;
-                      const multiline = g.label === "Nurse";
+                      if (g.label === "Nurse") {
+                        const names = name.split("\n");
+                        const emails = email.split("\n");
+                        const rowCount = Math.max(names.length, emails.length);
+                        return (
+                          <div key={g.label} className="text-sm">
+                            <dt className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</dt>
+                            {Array.from({ length: rowCount }, (_, idx) => {
+                              const n = names[idx] || "";
+                              const e = emails[idx] || "";
+                              if (!n && !e) return null;
+                              return (
+                                <dd key={idx} className="flex min-w-0 flex-wrap items-center gap-1">
+                                  <span>{n || "—"}</span>
+                                  {e && (
+                                    <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                                      <span>— {e}</span>
+                                      <CopyButton value={e} />
+                                    </span>
+                                  )}
+                                </dd>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
                       return (
                         <div key={g.label} className="text-sm">
                           <dt className="text-xs font-semibold uppercase text-muted-foreground">{g.label}</dt>
-                          <dd className={multiline ? "whitespace-pre-wrap" : "truncate"}>{name || "—"}</dd>
+                          <dd className="truncate">{name || "—"}</dd>
                           {email && (
-                            <dd className={`flex min-w-0 items-center gap-1 text-muted-foreground ${multiline ? "whitespace-pre-wrap" : ""}`}>
-                              <span className={multiline ? "whitespace-pre-wrap" : "truncate"}>{email}</span>
-                              {!multiline && <CopyButton value={email} />}
+                            <dd className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                              <span className="truncate">{email}</span>
+                              <CopyButton value={email} />
                             </dd>
                           )}
                         </div>

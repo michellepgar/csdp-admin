@@ -219,7 +219,7 @@ function ContactRowEditForm({
             <div className="text-xs font-semibold text-muted-foreground uppercase">Nurse</div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Nurse Name (one per line)</label>
+                <label className="text-xs font-medium text-muted-foreground">Nurse Name</label>
                 <textarea
                   name="nurseName"
                   defaultValue={row.nurseName || ""}
@@ -228,7 +228,7 @@ function ContactRowEditForm({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Nurse Email (matching line per line)</label>
+                <label className="text-xs font-medium text-muted-foreground">Nurse Email</label>
                 <textarea
                   name="nurseEmail"
                   defaultValue={row.nurseEmail || ""}

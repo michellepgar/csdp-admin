@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Moveable from "react-moveable";
 import { NoteCardContent } from "@/components/note-card-content";
 import type { PrivateNote } from "@/lib/app-state";
@@ -26,11 +26,16 @@ function BoardNote({
   currentUserName,
   onPersist,
   onReturnToList,
+  getBounds,
 }: {
   note: PrivateNote;
   currentUserName: string;
   onPersist: PersistFn;
   onReturnToList: (id: string) => void;
+  /** Current pixel size of the board container, or null before it's
+   *  measured. Used to keep a note from ever landing somewhere the
+   *  board's overflow-hidden clips it out of view entirely. */
+  getBounds: () => { width: number; height: number } | null;
 }) {
   const targetRef = useRef<HTMLDivElement>(null);
   // Moveable's own `dragTarget`/`rotationTarget` -- restricting drag/rotate
@@ -56,6 +61,39 @@ function BoardNote({
   const lastGood = useRef({ ...current.current });
   const [, setFrameVersion] = useState(0);
   const [saveError, setSaveError] = useState(false);
+
+  // Keeps a position inside the board's actual current size -- without
+  // this, dragging (or a fast/large drag delta) past the edge put the
+  // note somewhere the board's overflow-hidden clips out of view
+  // entirely, with no way back to it (confirmed live: a note dragged
+  // out was completely unreachable, pin and all).
+  function clamp(x: number, y: number) {
+    const bounds = getBounds();
+    if (!bounds) return { x: Math.max(0, x), y: Math.max(0, y) };
+    return {
+      x: Math.min(Math.max(0, x), Math.max(0, bounds.width - current.current.width)),
+      y: Math.min(Math.max(0, y), Math.max(0, bounds.height - current.current.height)),
+    };
+  }
+
+  // Self-heals a note that's already stuck off-screen from before this
+  // fix existed (or from any other stale/bad stored position) -- runs
+  // once the board's real size is known, silently repositions it back
+  // into view, and persists the corrected position so it stays fixed.
+  useEffect(() => {
+    const bounds = getBounds();
+    if (!bounds) return;
+    const clamped = clamp(current.current.x, current.current.y);
+    if (clamped.x === current.current.x && clamped.y === current.current.y) return;
+    current.current.x = clamped.x;
+    current.current.y = clamped.y;
+    applyFrameToTarget();
+    onPersist(note.id, { x: clamped.x, y: clamped.y }).catch(() => {
+      // Non-critical here too -- worst case it drifts back off-screen
+      // and gets healed again on the next load.
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function applyFrameToTarget() {
     const el = targetRef.current;
@@ -155,10 +193,11 @@ function BoardNote({
         throttleRotate={0}
         onDragStart={bringToFront}
         onDrag={({ target, left, top }: { target: HTMLElement | SVGElement; left: number; top: number }) => {
-          current.current.x = left;
-          current.current.y = top;
-          (target as HTMLElement).style.left = `${left}px`;
-          (target as HTMLElement).style.top = `${top}px`;
+          const clamped = clamp(left, top);
+          current.current.x = clamped.x;
+          current.current.y = clamped.y;
+          (target as HTMLElement).style.left = `${clamped.x}px`;
+          (target as HTMLElement).style.top = `${clamped.y}px`;
         }}
         onDragEnd={() => scheduleSave({ x: current.current.x, y: current.current.y })}
         onRotateStart={bringToFront}
@@ -187,14 +226,19 @@ export function PrivateNotesBoard({
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
 
+  function getBounds() {
+    const rect = boardRef.current?.getBoundingClientRect();
+    return rect ? { width: rect.width, height: rect.height } : null;
+  }
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     const id = e.dataTransfer.getData("text/note-id");
     const board = boardRef.current;
     if (!id || !board) return;
     const rect = board.getBoundingClientRect();
-    const x = Math.max(0, e.clientX - rect.left - DEFAULT_WIDTH / 2);
-    const y = Math.max(0, e.clientY - rect.top - 20);
+    const x = Math.max(0, Math.min(e.clientX - rect.left - DEFAULT_WIDTH / 2, rect.width - DEFAULT_WIDTH));
+    const y = Math.max(0, Math.min(e.clientY - rect.top - 20, rect.height - DEFAULT_HEIGHT));
     pinPrivateNote(id, x, y);
   }
 
@@ -218,6 +262,7 @@ export function PrivateNotesBoard({
           currentUserName={currentUserName}
           onPersist={updatePrivateNoteBoardState}
           onReturnToList={unpinPrivateNote}
+          getBounds={getBounds}
         />
       ))}
     </div>

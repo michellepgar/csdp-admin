@@ -162,6 +162,12 @@ type PrivateNoteRow = {
   ack_by: string[];
   created_at: string;
   pad_color: string | null;
+  board_x: number | null;
+  board_y: number | null;
+  board_rotation: number | null;
+  board_width: number | null;
+  board_height: number | null;
+  board_z: number | null;
 };
 
 function mapPrivateNoteRow(r: PrivateNoteRow): PrivateNote {
@@ -172,6 +178,12 @@ function mapPrivateNoteRow(r: PrivateNoteRow): PrivateNote {
     author: r.author,
     sharedWith: r.shared_with,
     ackBy: r.ack_by,
+    boardX: r.board_x ?? undefined,
+    boardY: r.board_y ?? undefined,
+    boardRotation: r.board_rotation ?? undefined,
+    boardWidth: r.board_width ?? undefined,
+    boardHeight: r.board_height ?? undefined,
+    boardZ: r.board_z ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -540,7 +552,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
     supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at, pad_color").order("created_at"),
-    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, created_at, pad_color").order("created_at"),
+    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, created_at, pad_color, board_x, board_y, board_rotation, board_width, board_height, board_z").order("created_at"),
     supabase.from("email_templates").select("id, name, category, subject, body").order("sort_order"),
     supabase.from("contact_groups").select("id, name").order("sort_order"),
     supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),

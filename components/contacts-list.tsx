@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/phone-input";
 import { Dropdown } from "@/components/dropdown";
-import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact, type School } from "@/lib/app-state";
+import { CONTACT_FIELDS, CONTACT_POSITION_GROUPS, type ContactGroup, type NurseLeader, type OtherContact, type School } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
 
 /* Row stays visible and the edit form opens as an ADDITIONAL sibling
@@ -72,17 +72,14 @@ function ContactRowEdit({
           <input type="hidden" name="groupId" value={group.id} />
           <input type="hidden" name="rowId" value={row.id} />
           {matchedSchool && <input type="hidden" name="schoolId" value={matchedSchool.id} />}
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-            {CONTACT_FIELDS.map((f) => (
-              <div key={f.key} className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
-                {f.key === "notes" ? (
-                  <textarea name={f.key} defaultValue={row[f.key] || ""} rows={2} className="w-full rounded-md border px-2 py-1 text-sm" />
-                ) : (
-                  <Input name={f.key} defaultValue={row[f.key] || ""} />
-                )}
-              </div>
-            ))}
+          {/* School name + which group it's in, together up top -- these
+              two are the row's own identity, not a "contact person"
+              or "school info" field. */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">School</label>
+              <Input name="school" defaultValue={row.school || ""} />
+            </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Move to group</label>
               <Dropdown
@@ -92,8 +89,48 @@ function ContactRowEdit({
                 className="w-full rounded-md border px-2 py-1.5 text-left text-sm"
               />
             </div>
-            {matchedSchool && (
-              <>
+          </div>
+
+          {/* Each contact person's name and email side by side --
+              CONTACT_POSITION_GROUPS pairs them by position for exactly
+              this (see its own comment in lib/app-state.ts). A 2-column
+              grid keeps every pair on the same row regardless of how
+              many rows there are, which a 3-column grid couldn't (an
+              even number of fields per person split unevenly across an
+              odd column count, so Front Desk's email used to land on
+              the NEXT row instead of next to Front Desk's name). */}
+          <div className="space-y-1">
+            <div className="text-xs font-semibold text-muted-foreground uppercase">Contact People</div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {CONTACT_POSITION_GROUPS.map((g) => (
+                <Fragment key={g.label}>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">{g.label}</label>
+                    <Input name={g.nameKey} defaultValue={row[g.nameKey] || ""} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">{g.label} Email</label>
+                    <Input name={g.emailKey} defaultValue={row[g.emailKey] || ""} />
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Notes</label>
+            <textarea name="notes" defaultValue={row.notes || ""} rows={2} className="w-full rounded-md border px-2 py-1 text-sm" />
+          </div>
+
+          {/* School-level fields, grouped in their own section separate
+              from the contact people above -- these live on `schools`,
+              not this contact_rows entry (see the comment at the top of
+              this component), and only ever show on the school's own
+              page. */}
+          {matchedSchool && (
+            <div className="space-y-2 border-t pt-2">
+              <div className="text-xs font-semibold text-muted-foreground uppercase">School Info</div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Website</label>
                   <Input name="website" defaultValue={matchedSchool.website || ""} />
@@ -110,22 +147,18 @@ function ContactRowEdit({
                   <label className="text-xs font-medium text-muted-foreground">Fax</label>
                   <PhoneInput name="fax" defaultValue={matchedSchool.fax || ""} />
                 </div>
-              </>
-            )}
-          </div>
-          {matchedSchool && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Hours (grade-level hours, one per line)</label>
-              <textarea
-                name="hours"
-                defaultValue={matchedSchool.hours || ""}
-                rows={4}
-                className="w-full rounded-md border px-2 py-1 font-mono text-sm"
-              />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Hours (grade-level hours, one per line)</label>
+                <textarea
+                  name="hours"
+                  defaultValue={matchedSchool.hours || ""}
+                  rows={4}
+                  className="w-full rounded-md border px-2 py-1 font-mono text-sm"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Website/address/phone/fax/hours only show on the school&apos;s own page, not in this table.</p>
             </div>
-          )}
-          {matchedSchool && (
-            <p className="text-xs text-muted-foreground">Website/address/phone/fax/hours only show on the school&apos;s own page, not in this table.</p>
           )}
           <div className="flex items-center gap-2">
             <SubmitButton pendingLabel="Saving…">Done</SubmitButton>

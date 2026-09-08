@@ -143,29 +143,47 @@ function AddContactForm({ schoolId, addSchoolContact }: { schoolId: string } & P
    from the Contacts page) matches its position, to the newest entry
    for that position (see lib/sync-contact-row.ts) -- this list is for
    tracking every contact, that single field is still just "the
-   current one" shown everywhere else in the app. */
+   current one" shown everywhere else in the app.
+
+   Rendered interactively in the Contacts page's row edit form, and
+   `readOnly` on the school's own page -- same convention NurseBox
+   follows (see its own comment) since Michelle asked for the school
+   page to only ever reflect what's entered on Contacts, never be a
+   second place to edit it from. */
 export function SchoolContactsList({
   schoolId,
   contacts,
+  readOnly = false,
   addSchoolContact,
   updateSchoolContact,
   removeSchoolContact,
-}: { schoolId: string; contacts: SchoolContact[] } & Actions) {
+}: { schoolId: string; contacts: SchoolContact[]; readOnly?: boolean } & Partial<Actions>) {
   return (
     <div className="space-y-2 border-t pt-3">
       <div className="text-xs font-semibold uppercase text-muted-foreground">Additional Contacts</div>
       {contacts.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          For a second Principal, Assistant Principal, or Front Desk contact at this school -- add them here.
+          {readOnly ? "None on file." : "For a second Principal, Assistant Principal, or Front Desk contact at this school -- add them here."}
         </p>
       ) : (
         <div className="space-y-1.5">
-          {contacts.map((c) => (
-            <ContactRow key={c.id} schoolId={schoolId} contact={c} updateSchoolContact={updateSchoolContact} removeSchoolContact={removeSchoolContact} />
-          ))}
+          {contacts.map((c) =>
+            readOnly ? (
+              <div key={c.id} className="rounded-md border bg-record-background px-2 py-1.5 text-sm">
+                <span className="font-medium">{c.position}</span>
+                {c.name && <span className="text-muted-foreground"> — {c.name}</span>}
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <span className="truncate">{c.email}</span>
+                  <CopyButton value={c.email} />
+                </div>
+              </div>
+            ) : (
+              <ContactRow key={c.id} schoolId={schoolId} contact={c} updateSchoolContact={updateSchoolContact!} removeSchoolContact={removeSchoolContact!} />
+            )
+          )}
         </div>
       )}
-      <AddContactForm schoolId={schoolId} addSchoolContact={addSchoolContact} />
+      {!readOnly && <AddContactForm schoolId={schoolId} addSchoolContact={addSchoolContact!} />}
     </div>
   );
 }

@@ -33,9 +33,6 @@ import {
   renameSchool,
   removeSchool,
   removeSchoolAndContacts,
-  addSchoolContact,
-  updateSchoolContact,
-  removeSchoolContact,
 } from "./actions";
 import { RemoveSchoolControl } from "@/components/remove-school-control";
 import { EditSchoolNameControl } from "@/components/edit-school-name-control";
@@ -274,9 +271,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
                       schoolId={schoolId}
                       nurses={nurseContacts}
                       legacyNurse={{ name: contactRow?.nurseName, email: contactRow?.nurseEmail }}
-                      addSchoolContact={addSchoolContact}
-                      updateSchoolContact={updateSchoolContact}
-                      removeSchoolContact={removeSchoolContact}
+                      readOnly
                     />
                   )}
                 </dl>
@@ -349,13 +344,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           )}
-          <SchoolContactsList
-            schoolId={schoolId}
-            contacts={otherSchoolContacts}
-            addSchoolContact={addSchoolContact}
-            updateSchoolContact={updateSchoolContact}
-            removeSchoolContact={removeSchoolContact}
-          />
+          <SchoolContactsList schoolId={schoolId} contacts={otherSchoolContacts} readOnly />
         </div>
       </div>
       </PageBody>

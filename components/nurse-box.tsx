@@ -105,6 +105,15 @@ function AddNurseForm({ schoolId, addSchoolContact }: { schoolId: string } & Pic
    components/school-contacts-list.tsx) so a nurse only ever shows up
    in this one place.
 
+   Rendered in two places: interactively (add/edit/remove) in the
+   Contacts page's row edit form, and `readOnly` on the school's own
+   page -- same convention Website/Address/Phone/Fax/Hours already
+   follow (editable only from Contacts, just displayed here), since
+   Michelle asked for the school page to only ever reflect what's
+   entered on Contacts, never be a second place to edit it from.
+   `readOnly` skips rendering Add/Edit/Remove entirely, so the action
+   props aren't needed there (hence optional).
+
    `legacyNurse` covers a school whose nurse name/email was entered
    before this box existed (still just living on contact_rows, no
    school_contacts row of its own) -- shown read-only alongside any
@@ -117,6 +126,7 @@ export function NurseBox({
   schoolId,
   nurses,
   legacyNurse,
+  readOnly = false,
   addSchoolContact,
   updateSchoolContact,
   removeSchoolContact,
@@ -124,7 +134,8 @@ export function NurseBox({
   schoolId: string;
   nurses: SchoolContact[];
   legacyNurse?: { name?: string; email?: string };
-} & Actions) {
+  readOnly?: boolean;
+} & Partial<Actions>) {
   const showLegacy = nurses.length === 0 && legacyNurse && (legacyNurse.name || legacyNurse.email);
 
   return (
@@ -142,10 +153,22 @@ export function NurseBox({
           )}
         </div>
       )}
-      {nurses.map((n) => (
-        <NurseRow key={n.id} schoolId={schoolId} nurse={n} updateSchoolContact={updateSchoolContact} removeSchoolContact={removeSchoolContact} />
-      ))}
-      <AddNurseForm schoolId={schoolId} addSchoolContact={addSchoolContact} />
+      {readOnly
+        ? nurses.map((n) => (
+            <div key={n.id} className="text-sm">
+              <div>{n.name || "—"}</div>
+              {n.email && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <span className="truncate">{n.email}</span>
+                  <CopyButton value={n.email} />
+                </div>
+              )}
+            </div>
+          ))
+        : nurses.map((n) => (
+            <NurseRow key={n.id} schoolId={schoolId} nurse={n} updateSchoolContact={updateSchoolContact!} removeSchoolContact={removeSchoolContact!} />
+          ))}
+      {!readOnly && <AddNurseForm schoolId={schoolId} addSchoolContact={addSchoolContact!} />}
     </div>
   );
 }

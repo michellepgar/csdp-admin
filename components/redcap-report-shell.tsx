@@ -362,6 +362,27 @@ function ReviewRow({
   );
 }
 
+// Groups every row from the same scanned file together, so a mistake
+// on one student can be checked against the rest of that same file at
+// a glance -- undated/blank file names sort to the end rather than
+// mixing in with named ones, and rows sharing a file name keep their
+// original relative order (a stable sort, not re-sorted by anything
+// else) so entries still read top-to-bottom in the order they were
+// added within that file.
+function sortByFileName(rows: RedcapTally[]): RedcapTally[] {
+  return rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => {
+      const fa = a.r.fileName || "";
+      const fb = b.r.fileName || "";
+      if (!fa && fb) return 1;
+      if (fa && !fb) return -1;
+      if (fa !== fb) return fa.localeCompare(fb);
+      return a.i - b.i;
+    })
+    .map(({ r }) => r);
+}
+
 function ReviewList({
   rows,
   updateRedcapTally,
@@ -371,6 +392,7 @@ function ReviewList({
   updateRedcapTally: (id: string, input: RedcapTallyInput) => Promise<void>;
   removeRedcapTally: (id: string) => Promise<void>;
 }) {
+  const sorted = sortByFileName(rows);
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">Nothing entered yet for this school/year.</p>;
   }
@@ -394,7 +416,7 @@ function ReviewList({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {sorted.map((r) => (
             <ReviewRow key={r.id} tally={r} updateRedcapTally={updateRedcapTally} removeRedcapTally={removeRedcapTally} />
           ))}
         </tbody>

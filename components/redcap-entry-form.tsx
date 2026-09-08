@@ -50,12 +50,13 @@ export function RedcapEntryForm({
 
     startTransition(async () => {
       await addRedcapTally(input);
-      // School/year/grade stay put on purpose -- Michelle works
-      // through a whole stack of scanned forms for the same
-      // school/grade at once. Only this one student's answers (and
-      // its file name, which is specific to that one scanned form) clear.
+      // School/year/grade/file name all stay put on purpose -- one
+      // scanned file is usually a whole batch of students from the
+      // same school/grade, so the file name should carry over to the
+      // next entry by default too. Only this one student's own
+      // answers clear; type over the file name yourself once you
+      // start a new file.
       setStudent(emptyStudentFields);
-      setFileName("");
       setSavedCount((c) => c + 1);
     });
   }

@@ -617,6 +617,14 @@ export function canDeleteIssue(issue: Issue, currentName: string, currentIsAdmin
   return issue.reportedBy === currentName;
 }
 
+// Same own-entry-or-admin rule as canDeleteIssue above -- a VA can
+// remove their own EOD report (e.g. a duplicate/mis-entered one), an
+// admin can remove anyone's.
+export function canDeleteEodReport(report: EodReport, currentName: string, currentIsAdmin: boolean): boolean {
+  if (currentIsAdmin) return true;
+  return report.author === currentName;
+}
+
 /* ---------- EOD Reports: pure date/time helpers, same logic as the
    HTML app's computeEodTotalHours/fmtTime12/etc. — no server imports,
    safe to call from either a Server Action or a client component. */

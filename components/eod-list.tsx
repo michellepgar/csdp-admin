@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/dropdown";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import {
   fmtEodDate,
   fmtMonthLabel,
   fmtTime12,
   parseHoursMinutesToMinutes,
   formatMinutesAsHours,
+  canDeleteEodReport,
   type EodReport,
 } from "@/lib/app-state";
 
@@ -16,13 +18,33 @@ function todayYearMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
-function NoteEntry({ e }: { e: EodReport }) {
+function NoteEntry({
+  e,
+  currentUserName,
+  currentIsAdmin,
+  removeEodReport,
+}: {
+  e: EodReport;
+  currentUserName: string;
+  currentIsAdmin: boolean;
+  removeEodReport: (formData: FormData) => void;
+}) {
   const line1 = `EOD ${fmtEodDate(e.date)}${e.totalHours ? ` (TOTAL HOURS: ${e.totalHours})` : ""}`;
   const line2 = [e.timeIn ? `IN- ${fmtTime12(e.timeIn)}` : "", e.breakStart ? `BREAK- ${fmtTime12(e.breakStart)}` : ""].filter(Boolean).join(" ");
   const line3 = [e.breakEnd ? `RESUME- ${fmtTime12(e.breakEnd)}` : "", e.timeOut ? `- OUT- ${fmtTime12(e.timeOut)}` : ""].filter(Boolean).join(" ");
   return (
     <div className="mb-3 rounded-md border bg-card">
-      <div className="px-4 pt-2 text-xs font-semibold text-muted-foreground">{e.author || "Unnamed"}</div>
+      <div className="flex items-center justify-between gap-2 px-4 pt-2">
+        <span className="text-xs font-semibold text-muted-foreground">{e.author || "Unnamed"}</span>
+        {canDeleteEodReport(e, currentUserName, currentIsAdmin) && (
+          <form action={removeEodReport}>
+            <input type="hidden" name="id" value={e.id} />
+            <ConfirmDeleteButton confirmMessage="Remove this EOD report?" pendingLabel="…" variant="ghost" size="xs">
+              Remove
+            </ConfirmDeleteButton>
+          </form>
+        )}
+      </div>
       <div className="space-y-0.5 p-4 pt-1 text-sm">
         <div>{line1}</div>
         {line2 && <div>{line2}</div>}
@@ -33,7 +55,17 @@ function NoteEntry({ e }: { e: EodReport }) {
   );
 }
 
-function TableView({ list }: { list: EodReport[] }) {
+function TableView({
+  list,
+  currentUserName,
+  currentIsAdmin,
+  removeEodReport,
+}: {
+  list: EodReport[];
+  currentUserName: string;
+  currentIsAdmin: boolean;
+  removeEodReport: (formData: FormData) => void;
+}) {
   return (
     <div className="overflow-x-auto rounded-md border bg-card">
       <table className="w-full min-w-[800px] text-sm">
@@ -47,11 +79,12 @@ function TableView({ list }: { list: EodReport[] }) {
             <th className="px-2 py-2">Out</th>
             <th className="px-2 py-2">Total Hours</th>
             <th className="px-2 py-2">Tasks</th>
+            <th className="px-2 py-2" />
           </tr>
         </thead>
         <tbody>
           {list.length === 0 && (
-            <tr><td colSpan={8} className="px-2 py-4 text-center text-muted-foreground">No EOD reports yet.</td></tr>
+            <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">No EOD reports yet.</td></tr>
           )}
           {list.map((e) => (
             <tr key={e.id} className="border-b bg-record-background">
@@ -63,6 +96,16 @@ function TableView({ list }: { list: EodReport[] }) {
               <td className="px-2 py-2">{fmtTime12(e.timeOut)}</td>
               <td className="px-2 py-2">{e.totalHours || ""}</td>
               <td className="px-2 py-2">{(e.tasks || []).join("; ")}</td>
+              <td className="px-2 py-2">
+                {canDeleteEodReport(e, currentUserName, currentIsAdmin) && (
+                  <form action={removeEodReport}>
+                    <input type="hidden" name="id" value={e.id} />
+                    <ConfirmDeleteButton confirmMessage="Remove this EOD report?" pendingLabel="…" variant="ghost" size="xs">
+                      Remove
+                    </ConfirmDeleteButton>
+                  </form>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -71,7 +114,19 @@ function TableView({ list }: { list: EodReport[] }) {
   );
 }
 
-export function EodList({ reports, vaNames }: { reports: EodReport[]; vaNames: string[] }) {
+export function EodList({
+  reports,
+  vaNames,
+  currentUserName,
+  currentIsAdmin,
+  removeEodReport,
+}: {
+  reports: EodReport[];
+  vaNames: string[];
+  currentUserName: string;
+  currentIsAdmin: boolean;
+  removeEodReport: (formData: FormData) => void;
+}) {
   const [filterAuthor, setFilterAuthor] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
   const [showArchive, setShowArchive] = useState(false);
@@ -134,13 +189,15 @@ export function EodList({ reports, vaNames }: { reports: EodReport[]; vaNames: s
       </p>
 
       {viewMode === "table" ? (
-        <TableView list={list} />
+        <TableView list={list} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeEodReport={removeEodReport} />
       ) : list.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {showArchive ? "No archived reports match these filters." : `No EOD reports yet for ${fmtMonthLabel(currentMonth)}.`}
         </p>
       ) : (
-        list.map((e) => <NoteEntry key={e.id} e={e} />)
+        list.map((e) => (
+          <NoteEntry key={e.id} e={e} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeEodReport={removeEodReport} />
+        ))
       )}
     </div>
   );

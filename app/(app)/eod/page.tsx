@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail } from "@/lib/app-state";
+import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { EodList } from "@/components/eod-list";
 import { SubmitButton } from "@/components/submit-button";
-import { addEodReport } from "./actions";
+import { addEodReport, removeEodReport } from "./actions";
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -60,7 +60,13 @@ export default async function EodPage() {
         <SubmitButton pendingLabel="Adding…">Add EOD report</SubmitButton>
       </form>
 
-      <EodList reports={state.eodReports || []} vaNames={state.vas.map((v) => v.name)} />
+      <EodList
+        reports={state.eodReports || []}
+        vaNames={state.vas.map((v) => v.name)}
+        currentUserName={me.name}
+        currentIsAdmin={isAdmin(me)}
+        removeEodReport={removeEodReport}
+      />
       </PageBody>
     </div>
   );

@@ -33,11 +33,15 @@ import {
   renameSchool,
   removeSchool,
   removeSchoolAndContacts,
+  addSchoolContact,
+  updateSchoolContact,
+  removeSchoolContact,
 } from "./actions";
 import { RemoveSchoolControl } from "@/components/remove-school-control";
 import { EditSchoolNameControl } from "@/components/edit-school-name-control";
 import { PageBody } from "@/components/page-body";
 import { CopyButton } from "@/components/copy-button";
+import { SchoolContactsList } from "@/components/school-contacts-list";
 
 /* A website saved as "www.school.edu" or "school.edu" (no protocol) is
    a relative link to the browser -- clicking it would try to load
@@ -323,6 +327,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           )}
+          <SchoolContactsList
+            schoolId={schoolId}
+            contacts={state.schoolContacts?.[schoolId] || []}
+            addSchoolContact={addSchoolContact}
+            updateSchoolContact={updateSchoolContact}
+            removeSchoolContact={removeSchoolContact}
+          />
         </div>
       </div>
       </PageBody>

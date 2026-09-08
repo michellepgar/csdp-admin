@@ -413,10 +413,10 @@ function mapIssueRow(r: IssueRow): Issue {
   };
 }
 
-type SchoolContactRow = { id: string; school_id: string; position: string; email: string; created_at: string };
+type SchoolContactRow = { id: string; school_id: string; position: string; name: string | null; email: string; created_at: string };
 
 function mapSchoolContactRow(r: SchoolContactRow): SchoolContact {
-  return { id: r.id, position: r.position, email: r.email, createdAt: r.created_at };
+  return { id: r.id, position: r.position, name: r.name ?? undefined, email: r.email, createdAt: r.created_at };
 }
 
 type RedcapTallyRow = {
@@ -577,7 +577,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("issue_categories").select("id, name").order("sort_order"),
     supabase.from("issue_subcategories").select("id, category_id, name").order("sort_order"),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
-    supabase.from("school_contacts").select("id, school_id, position, email, created_at").order("created_at"),
+    supabase.from("school_contacts").select("id, school_id, position, name, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),

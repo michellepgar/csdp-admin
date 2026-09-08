@@ -660,13 +660,14 @@ export async function removeSchoolAndContacts(formData: FormData) {
 export async function addSchoolContact(formData: FormData) {
   const schoolId = formData.get("schoolId") as string;
   const position = (formData.get("position") as string) || "";
+  const name = ((formData.get("name") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
   if (!email) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       (state.schoolContacts ??= {})[schoolId] ??= [];
-      state.schoolContacts[schoolId].push({ id: `demo-${Date.now()}`, position, email, createdAt: new Date().toISOString() });
+      state.schoolContacts[schoolId].push({ id: `demo-${Date.now()}`, position, name: name || undefined, email, createdAt: new Date().toISOString() });
     });
     revalidateSchool(schoolId);
     revalidatePath("/contacts");
@@ -679,6 +680,7 @@ export async function addSchoolContact(formData: FormData) {
     id: crypto.randomUUID(),
     school_id: schoolId,
     position,
+    name: name || null,
     email,
   });
   orThrow(error);
@@ -693,6 +695,7 @@ export async function updateSchoolContact(formData: FormData) {
   const id = formData.get("id") as string;
   const schoolId = formData.get("schoolId") as string;
   const position = (formData.get("position") as string) || "";
+  const name = ((formData.get("name") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
   if (!email) return;
 
@@ -701,6 +704,7 @@ export async function updateSchoolContact(formData: FormData) {
       const contact = state.schoolContacts?.[schoolId]?.find((c) => c.id === id);
       if (contact) {
         contact.position = position;
+        contact.name = name || undefined;
         contact.email = email;
       }
     });
@@ -711,7 +715,7 @@ export async function updateSchoolContact(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("school_contacts").update({ position, email }).eq("id", id);
+  const { error } = await supabase.from("school_contacts").update({ position, name: name || null, email }).eq("id", id);
   orThrow(error);
 
   const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();

@@ -48,6 +48,11 @@ export interface School {
 export interface SchoolContact {
   id: string;
   position: string;
+  /** Optional -- lets a second (or third) contact for the same
+   *  position (e.g. a school with two nurses) be told apart, since
+   *  the primary Contacts-page fields only ever have room for one
+   *  name+email per position. */
+  name?: string;
   email: string;
   createdAt: string;
 }

@@ -21,15 +21,28 @@ type PersistFn = (id: string, patch: BoardPatch) => Promise<void>;
    time to persist (on *End) or revert (on a failed save). The only
    time this component re-renders itself is right after a revert, via
    `frameVersion`, so the JSX picks up the reverted values. */
-function BoardNote({ note, onPersist }: { note: PrivateNote; onPersist: PersistFn }) {
+function BoardNote({
+  note,
+  onPersist,
+  onReturnToList,
+}: {
+  note: PrivateNote;
+  onPersist: PersistFn;
+  onReturnToList: (id: string) => void;
+}) {
   const targetRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Resizing was removed after live use showed it wasn't wanted -- every
+  // note keeps its default size on the board. boardWidth/boardHeight stay
+  // in the data model (a note pinned before this change may still carry
+  // an old custom size, which this simply ignores) so no migration or
+  // backfill is needed.
   const current = useRef({
     x: note.boardX ?? 0,
     y: note.boardY ?? 0,
     rotation: note.boardRotation ?? 0,
-    width: note.boardWidth ?? DEFAULT_WIDTH,
-    height: note.boardHeight ?? DEFAULT_HEIGHT,
+    width: DEFAULT_WIDTH,
+    height: DEFAULT_HEIGHT,
   });
   const lastGood = useRef({ ...current.current });
   const [, setFrameVersion] = useState(0);
@@ -98,15 +111,26 @@ function BoardNote({ note, onPersist }: { note: PrivateNote; onPersist: PersistF
           className="absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full bg-red-600 shadow active:cursor-grabbing"
         />
         <NoteCardContent note={note} />
+        <button
+          type="button"
+          title="Return this note to the list"
+          // Moveable starts its own drag from a mousedown on this same
+          // target element -- stopping propagation here keeps a plain
+          // click on this button from also being interpreted as the
+          // start of a board drag.
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => onReturnToList(note.id)}
+          className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+        >
+          ↩ Return to list
+        </button>
         {saveError && <p className="mt-1 text-xs text-destructive">Couldn&apos;t save — try moving it again.</p>}
       </div>
       <Moveable
         target={targetRef}
         draggable
-        resizable
         rotatable
         throttleDrag={0}
-        throttleResize={0}
         throttleRotate={0}
         onDragStart={bringToFront}
         onDrag={({ target, left, top }: { target: HTMLElement | SVGElement; left: number; top: number }) => {
@@ -116,35 +140,6 @@ function BoardNote({ note, onPersist }: { note: PrivateNote; onPersist: PersistF
           (target as HTMLElement).style.top = `${top}px`;
         }}
         onDragEnd={() => scheduleSave({ x: current.current.x, y: current.current.y })}
-        onResizeStart={bringToFront}
-        onResize={({
-          target,
-          width,
-          height,
-          drag,
-        }: {
-          target: HTMLElement | SVGElement;
-          width: number;
-          height: number;
-          drag: { left: number; top: number };
-        }) => {
-          current.current.width = width;
-          current.current.height = height;
-          current.current.x = drag.left;
-          current.current.y = drag.top;
-          (target as HTMLElement).style.width = `${width}px`;
-          (target as HTMLElement).style.height = `${height}px`;
-          (target as HTMLElement).style.left = `${drag.left}px`;
-          (target as HTMLElement).style.top = `${drag.top}px`;
-        }}
-        onResizeEnd={() =>
-          scheduleSave({
-            width: current.current.width,
-            height: current.current.height,
-            x: current.current.x,
-            y: current.current.y,
-          })
-        }
         onRotateStart={bringToFront}
         onRotate={({ target, rotate }: { target: HTMLElement | SVGElement; rotate: number }) => {
           current.current.rotation = rotate;
@@ -160,10 +155,12 @@ export function PrivateNotesBoard({
   notes,
   pinPrivateNote,
   updatePrivateNoteBoardState,
+  unpinPrivateNote,
 }: {
   notes: PrivateNote[];
   pinPrivateNote: (id: string, x: number, y: number) => Promise<void>;
   updatePrivateNoteBoardState: PersistFn;
+  unpinPrivateNote: (id: string) => void;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -188,11 +185,11 @@ export function PrivateNotesBoard({
     >
       {notes.length === 0 && (
         <p className="p-4 text-sm text-muted-foreground">
-          Drag a note from the list onto this board to pin it anywhere you like.
+          Click 📌 Pin to board on a note in the list (or drag it here) to pin it anywhere you like.
         </p>
       )}
       {notes.map((n) => (
-        <BoardNote key={n.id} note={n} onPersist={updatePrivateNoteBoardState} />
+        <BoardNote key={n.id} note={n} onPersist={updatePrivateNoteBoardState} onReturnToList={unpinPrivateNote} />
       ))}
     </div>
   );

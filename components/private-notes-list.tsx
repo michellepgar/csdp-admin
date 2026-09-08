@@ -1,6 +1,7 @@
 "use client";
 
 import { SubmitButton } from "@/components/submit-button";
+import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { NoteCardContent } from "@/components/note-card-content";
@@ -15,6 +16,7 @@ export function PrivateNotesList({
   unsharePrivateNote,
   removePrivateNote,
   unpinPrivateNote,
+  pinPrivateNote,
 }: {
   notes: PrivateNote[];
   currentUserName: string;
@@ -24,7 +26,14 @@ export function PrivateNotesList({
   unsharePrivateNote: (formData: FormData) => void;
   removePrivateNote: (formData: FormData) => void;
   unpinPrivateNote: (id: string) => void;
+  pinPrivateNote: (id: string, x: number, y: number) => void;
 }) {
+  // A note pinned via this button (rather than dragged) still needs SOME
+  // starting position -- staggering each one a little avoids every
+  // button-pinned note landing in an identical spot on the board.
+  function pinToBoard(id: string) {
+    pinPrivateNote(id, 20 + Math.random() * 120, 20 + Math.random() * 120);
+  }
   const sorted = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   function handleListDrop(e: React.DragEvent) {
@@ -99,6 +108,15 @@ export function PrivateNotesList({
                   <SubmitButton pendingLabel="…" variant="outline" size="sm">Mark as checked</SubmitButton>
                 </form>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                title="Pin this note to the freeform board on the right — you can also just drag it there"
+                onClick={() => pinToBoard(n.id)}
+              >
+                📌 Pin to board
+              </Button>
               {(isAuthor || isSharedWithMe) && (
                 <form action={removePrivateNote}>
                   <input type="hidden" name="id" value={n.id} />

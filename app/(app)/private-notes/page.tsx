@@ -53,18 +53,20 @@ export default async function PrivateNotesPage() {
               unsharePrivateNote={unsharePrivateNote}
               removePrivateNote={removePrivateNote}
               unpinPrivateNote={unpinPrivateNote}
+              pinPrivateNote={pinPrivateNote}
             />
           </div>
 
           <div>
             <h2 className="mb-2">Pinboard</h2>
             <p className="mb-2 text-xs text-muted-foreground">
-              Drag any note from the list onto the board to pin it anywhere — drag its pin back onto the list to return it.
+              Click 📌 Pin to board on any note (or drag it here) to pin it anywhere — click ↩ Return to list on a pinned note to bring it back.
             </p>
             <PrivateNotesBoard
               notes={boardNotes}
               pinPrivateNote={pinPrivateNote}
               updatePrivateNoteBoardState={updatePrivateNoteBoardState}
+              unpinPrivateNote={unpinPrivateNote}
             />
           </div>
         </div>

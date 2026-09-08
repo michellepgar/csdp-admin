@@ -184,13 +184,12 @@ function BoardNote({
         target={targetRef}
         dragTarget={dragAreaRef}
         draggable
-        rotatable
-        // Hides the small circle Moveable renders at the note's center
-        // by default -- it's the rotation transform-origin marker, which
-        // isn't useful here and read as an unexplained decoration.
-        origin={false}
+        // Interactive rotation removed after live feedback -- the
+        // handle-and-line control read as an unwanted "antenna" sticking
+        // out of the note. Each note still gets its small random tilt
+        // when pinned (current.current.rotation, set once in
+        // pinPrivateNote), it just can't be adjusted afterward.
         throttleDrag={0}
-        throttleRotate={0}
         onDragStart={bringToFront}
         onDrag={({ target, left, top }: { target: HTMLElement | SVGElement; left: number; top: number }) => {
           const clamped = clamp(left, top);
@@ -200,12 +199,6 @@ function BoardNote({
           (target as HTMLElement).style.top = `${clamped.y}px`;
         }}
         onDragEnd={() => scheduleSave({ x: current.current.x, y: current.current.y })}
-        onRotateStart={bringToFront}
-        onRotate={({ target, rotate }: { target: HTMLElement | SVGElement; rotate: number }) => {
-          current.current.rotation = rotate;
-          (target as HTMLElement).style.transform = `rotate(${rotate}deg)`;
-        }}
-        onRotateEnd={() => scheduleSave({ rotation: current.current.rotation })}
       />
     </>
   );

@@ -260,6 +260,20 @@ export interface PrivateNote {
   sharedWith?: string[];
   ackBy?: string[];
   createdAt: string;
+  /** Position on the freeform pinboard (components/private-notes-board.tsx).
+   *  Non-null boardX means this note lives on the board instead of the
+   *  ordered list -- this is the ONLY signal used to decide that; there
+   *  is no separate "isPinned" flag, so the two can't drift apart. */
+  boardX?: number;
+  boardY?: number;
+  /** Degrees, e.g. -6 to 6 for the initial pin, freely adjustable after. */
+  boardRotation?: number;
+  /** Pixels. Undefined means "render at the board's default note size". */
+  boardWidth?: number;
+  boardHeight?: number;
+  /** Stacking order -- higher draws on top. Recomputed server-side to
+   *  current-max-plus-one whenever a note is touched, never client-set. */
+  boardZ?: number;
 }
 
 export interface EmailTemplate {

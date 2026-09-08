@@ -65,7 +65,7 @@ export default async function PrivateNotesPage() {
           <div>
             <h2 className="mb-2">Pinboard</h2>
             <p className="mb-2 text-xs text-muted-foreground">
-              Click 📌 Pin to board on any note (or drag it here) to pin it anywhere — click the pin again to send it back to the list.
+              Click 📌 Pin to board on any note (or drag it here) to pin it anywhere — use the ⋮ menu on a pinned note to unpin it.
             </p>
             <PrivateNotesBoard
               notes={boardNotes}

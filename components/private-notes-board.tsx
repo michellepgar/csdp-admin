@@ -61,6 +61,20 @@ function BoardNote({
   const lastGood = useRef({ ...current.current });
   const [, setFrameVersion] = useState(0);
   const [saveError, setSaveError] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Closes the ⋮ menu on any click outside it -- otherwise it stays
+  // open until Unpin is clicked, which is surprising once you've moved
+  // on to look at (or drag) something else.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [menuOpen]);
 
   // Keeps a position inside the board's actual current size -- without
   // this, dragging (or a fast/large drag delta) past the edge put the
@@ -150,21 +164,39 @@ function BoardNote({
           zIndex: note.boardZ ?? 0,
         }}
       >
-        <button
-          type="button"
-          title="Click to return this note to the list"
-          // Sits outside dragAreaRef below, so Moveable's drag/rotate
-          // never starts from a mousedown here -- see the note on
-          // dragAreaRef above for why that's the reliable fix, not
-          // stopPropagation.
-          onClick={() => onReturnToList(note.id)}
-          // Top-RIGHT corner, inset from the edge (not top-center, where
-          // Moveable's own rotate handle/line render -- the two sitting
-          // on top of each other read as "the pin is on the line we
-          // drag" in feedback). The note's own right padding (pr-4
-          // below) keeps this clear of the text underneath it.
-          className="absolute right-3 top-3 h-3 w-3 cursor-pointer rounded-full bg-red-600 shadow hover:scale-125"
-        />
+        <div ref={menuRef} className="absolute right-2 top-2">
+          <button
+            type="button"
+            title="Note options"
+            onClick={() => setMenuOpen((v) => !v)}
+            // Sits outside dragAreaRef below, so Moveable's drag never
+            // starts from a mousedown here -- same reasoning as the old
+            // pin button this replaced (see dragAreaRef's own comment).
+            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-black/5"
+          >
+            ⋮
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-6 z-10 w-32 rounded-md border bg-white py-1 text-xs shadow-lg">
+              {/* Not a button -- there's no separate "move" action, this
+                  is just a labeled reminder that dragging anywhere on
+                  the note (the text area) repositions it. */}
+              <p className="cursor-default px-3 py-1.5 text-muted-foreground" title="Drag the note itself to reposition it">
+                ⠿ Move (drag note)
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onReturnToList(note.id);
+                }}
+                className="block w-full px-3 py-1.5 text-left text-foreground hover:bg-muted"
+              >
+                ↩ Unpin
+              </button>
+            </div>
+          )}
+        </div>
         <div ref={dragAreaRef} className="pr-4">
           <NoteCardContent note={note} showAuthor={note.author !== currentUserName} />
           {/* Read-only -- the board is a compact view, so this shows who

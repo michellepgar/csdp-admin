@@ -78,7 +78,6 @@ export function RedcapEntryForm({
           <Input
             value={fileName}
             onChange={(e) => setFileName(e.target.value)}
-            placeholder="e.g. consent-forms-batch-3.pdf"
             className="min-w-[220px] text-sm"
           />
         </div>

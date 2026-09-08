@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/phone-input";
 import type { OtherContact } from "@/lib/app-state";
 
 function OtherContactView({ contact, onEdit }: { contact: OtherContact; onEdit: () => void }) {
@@ -53,7 +54,7 @@ function OtherContactEdit({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Phone</label>
-              <Input name="phone" defaultValue={contact.phone || ""} />
+              <PhoneInput name="phone" defaultValue={contact.phone || ""} />
             </div>
             <div className="space-y-1 md:col-span-4">
               <label className="text-xs font-medium text-muted-foreground">Notes</label>
@@ -99,7 +100,7 @@ export function OtherContactsList({
           <Input name="name" placeholder="Name" required className="max-w-[160px]" />
           <Input name="organization" placeholder="Organization" className="max-w-[180px]" />
           <Input name="email" placeholder="Email" className="max-w-[200px]" />
-          <Input name="phone" placeholder="Phone" className="max-w-[140px]" />
+          <PhoneInput name="phone" className="max-w-[140px]" />
           <SubmitButton pendingLabel="Adding…">+ Add contact</SubmitButton>
         </form>
 

@@ -309,7 +309,7 @@ export function TasksCard({
             options={categories.map((c) => ({ value: c.name, label: c.name }))}
             className="w-full truncate rounded-md border px-2 py-1.5 text-left text-sm sm:w-auto"
           />
-          <Input name="fileName" placeholder="File name, e.g. Q3-enrollment-report.xlsx" required className="w-full sm:max-w-md sm:flex-1" />
+          <Input name="fileName" placeholder="File name" required className="w-full sm:max-w-md sm:flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>
 

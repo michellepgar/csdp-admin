@@ -290,7 +290,7 @@ function ReviewRow({
               </div>
               <div className="min-w-[220px] flex-1 space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">File name (for tracking mistakes -- not shown on the report)</label>
-                <Input value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="e.g. consent-forms-batch-3.pdf" className="text-sm" />
+                <Input value={fileName} onChange={(e) => setFileName(e.target.value)} className="text-sm" />
               </div>
             </div>
             <StudentFields value={student} onChange={setStudent} />

@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/phone-input";
 import { Dropdown } from "@/components/dropdown";
 import { CONTACT_FIELDS, type ContactGroup, type NurseLeader, type OtherContact, type School } from "@/lib/app-state";
 import { OtherContactsList } from "@/components/other-contacts-list";
@@ -103,11 +104,11 @@ function ContactRowEdit({
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Phone</label>
-                  <Input name="phone" defaultValue={matchedSchool.phone || ""} placeholder="508-894-4440" />
+                  <PhoneInput name="phone" defaultValue={matchedSchool.phone || ""} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Fax</label>
-                  <Input name="fax" defaultValue={matchedSchool.fax || ""} placeholder="508-894-4466" />
+                  <PhoneInput name="fax" defaultValue={matchedSchool.fax || ""} />
                 </div>
               </>
             )}
@@ -119,7 +120,6 @@ function ContactRowEdit({
                 name="hours"
                 defaultValue={matchedSchool.hours || ""}
                 rows={4}
-                placeholder={"K-5 Hours: 9:00 a.m. - 3:15 p.m.\nAM Pre-K Hours: 9:00 a.m. - 11:30 a.m.\nPM Pre-K Hours: 12:45 p.m. - 3:15 p.m."}
                 className="w-full rounded-md border px-2 py-1 font-mono text-sm"
               />
             </div>

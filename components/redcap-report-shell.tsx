@@ -150,11 +150,26 @@ function ReportTable({
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <table className="w-full min-w-[640px] border-collapse text-sm">
+      {/* table-fixed makes the first two columns' widths (set on their
+          header cells below) absolute rather than content-influenced --
+          without it, the browser's auto layout still nudges column
+          widths slightly based on each table's own content, which left
+          Total a few pixels off between schools even with explicit
+          widths set. */}
+      <table className="w-full min-w-[640px] table-fixed border-collapse text-sm">
         <thead>
           <tr className="bg-header-background text-left text-white">
-            <th className="px-3 py-2">{schoolName} — S.Y. {schoolYear}</th>
-            <th className="px-3 py-2 tabular-nums">Total</th>
+            {/* Fixed widths on these first two columns -- without them,
+                each school's own table (rendered separately, one per
+                site) auto-sizes its first column to fit that school's
+                own name, so "Total" (and every grade column after it)
+                drifted left/right between stacked tables depending on
+                how long each name happened to be (confirmed via a
+                screenshot: Total zigzagged across 4 schools). A fixed
+                width keeps every table's columns starting at the same
+                x position regardless of name length. */}
+            <th className="w-64 truncate px-3 py-2">{schoolName} — S.Y. {schoolYear}</th>
+            <th className="w-20 px-3 py-2 tabular-nums">Total</th>
             {grades.map((g) => (
               <th key={g} className="px-3 py-2 whitespace-nowrap tabular-nums">{g}</th>
             ))}

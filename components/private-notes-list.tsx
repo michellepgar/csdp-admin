@@ -3,11 +3,8 @@
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
+import { NoteCardContent } from "@/components/note-card-content";
 import type { PrivateNote } from "@/lib/app-state";
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-}
 
 export function PrivateNotesList({
   notes,
@@ -48,13 +45,7 @@ export function PrivateNotesList({
             className={`note-card rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
             style={n.padColor ? { backgroundColor: n.padColor } : undefined}
           >
-            {/* text is sanitized server-side (lib/sanitize-note-html.ts)
-                before it's ever stored -- see private-notes/actions.ts's
-                addPrivateNote -- so this is safe to render as-is. */}
-            <div className="text-sm [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: n.text }} />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {n.author} · {formatDateTime(n.createdAt)}
-            </p>
+            <NoteCardContent note={n} />
 
             {isAuthor && sharedWith.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">

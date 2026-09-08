@@ -67,11 +67,26 @@ export function PrivateNotesList({
         return (
           <div
             key={n.id}
-            draggable
-            onDragStart={(e) => e.dataTransfer.setData("text/note-id", n.id)}
-            className={`note-card cursor-grab rounded-md border p-3 active:cursor-grabbing ${!n.padColor ? "bg-record-background" : ""}`}
+            className={`note-card relative rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
             style={n.padColor ? { backgroundColor: n.padColor } : undefined}
           >
+            {/* A dedicated drag handle, NOT the whole card -- making the
+                entire card draggable made its own buttons unreliable to
+                click (confirmed live: a draggable ancestor can swallow a
+                click as an attempted drag on some browsers/trackpads,
+                especially with the smallest bit of cursor movement during
+                the click). The 📌 Pin to board button below is the primary,
+                always-reliable way to pin; this handle is just for anyone
+                who prefers dragging. */}
+            <span
+              aria-hidden
+              draggable
+              onDragStart={(e) => e.dataTransfer.setData("text/note-id", n.id)}
+              title="Drag to pin this note to the board"
+              className="absolute right-2 top-2 cursor-grab select-none text-muted-foreground active:cursor-grabbing"
+            >
+              ⠿
+            </span>
             <NoteCardContent note={n} />
 
             {isAuthor && sharedWith.length > 0 && (

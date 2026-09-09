@@ -73,7 +73,6 @@ export default async function TeamPage() {
                 <div key={va.id} className="flex flex-wrap items-center gap-3 rounded-md border bg-record-background px-3 py-1.5">
                   <span className="w-28 flex-none font-medium">
                     {va.name}
-                    {va.role === "owner" && <span className="ml-1 text-xs text-muted-foreground">(Owner)</span>}
                   </span>
 
                   <AutoSubmitForm action={updateVaField} className="flex items-center gap-2">

@@ -92,12 +92,33 @@ export const REDCAP_RACE_OPTIONS = ["Alaska", "Asian", "Black", "Spanish", "Whit
 // and Urgent) -- multi-select, unlike every other REDCap field above.
 export const REDCAP_NEEDS_OPTIONS = ["Caries", "Untreated", "Urgent", "Other"];
 export const REDCAP_CONSENT_OPTIONS = ["Positive", "Negative"];
+// Which visit a single Add Student entry is for -- Michelle's boss
+// visits each school twice a year, and not every student is seen at
+// both. See RedcapTally's own seenInitialDate/seenFollowUpDate below.
+export const REDCAP_VISITS = ["Initial", "Follow-up"] as const;
 
 export interface RedcapTally {
   id: string;
   schoolId: string;
   schoolYear: string;
   grade: string;
+  /** Student identity, added for REDCap v2's per-student dedup (see
+   *  docs/superpowers/specs/2026-09-09-redcap-v2-student-dedup-design.md).
+   *  All optional -- historical rows have none, and even for new
+   *  entries DOB/insurance # are often missing or wrong on the
+   *  scanned forms, so neither can be required. Name is enforced as
+   *  required in the Add Student form's own UI validation instead of
+   *  here, matching how Consent/Insurance/etc. below are also
+   *  optional at this type level but required by that same form. */
+  studentName?: string;
+  dateOfBirth?: string;
+  insuranceNumber?: string;
+  /** Presence of either means "seen at that visit" -- a student seen
+   *  at both has both set. Entering a Follow-up visit for a student
+   *  already matched from their Initial visit sets this one without
+   *  touching seenInitialDate, and vice versa. */
+  seenInitialDate?: string;
+  seenFollowUpDate?: string;
   insurance: string;
   dentalHomeStatus: string;
   referral: string;

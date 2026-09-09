@@ -11,7 +11,14 @@ import type { PrivateNote } from "@/lib/app-state";
    rotate (via react-moveable) was tried first but proved confusing in
    practice (an unreliable "move" gesture, notes draggable off-screen
    entirely) -- an ordered left-to-right layout you rearrange via the
-   board's Reorder mode is simpler and has no equivalent failure mode. */
+   board's Reorder mode is simpler and has no equivalent failure mode.
+
+   No rotation either -- pinPrivateNote (app/(app)/private-notes/actions.ts)
+   used to give each note a small random decorative tilt, but Michelle
+   asked for pinned notes to sit straight, so note.boardRotation is
+   never read here anymore regardless of what's stored (an old note
+   pinned before this change can still carry a nonzero value; ignoring
+   it here straightens those out too, not just newly-pinned ones). */
 function BoardNote({
   note,
   currentUserName,
@@ -47,7 +54,6 @@ function BoardNote({
       } ${reorderMode ? "cursor-grab active:cursor-grabbing" : ""}`}
       style={{
         backgroundColor: note.padColor || undefined,
-        transform: `rotate(${note.boardRotation ?? 0}deg)`,
       }}
     >
       {reorderMode ? (

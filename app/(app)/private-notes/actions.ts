@@ -172,19 +172,20 @@ function canManageBoardState(note: { author: string; shared_with: string[] | nul
    in favor of an ordered left-to-right layout you rearrange with the
    board's Reorder mode). board_x is set to a fixed sentinel (0) purely
    so "is this note on the board" (board_x non-null) still holds; its
-   value is never read for layout. board_rotation keeps a small
-   randomized tilt for visual character (-6..6 degrees), same as
-   before, just no longer adjustable afterward. */
+   value is never read for layout. board_rotation used to keep a small
+   randomized tilt for visual character -- Michelle asked for pinned
+   notes to just sit straight instead, so this always writes 0 now
+   (components/private-notes-board.tsx also stopped reading the stored
+   value, so an old note with a leftover nonzero tilt renders straight
+   too, not just newly-pinned ones). */
 export async function pinPrivateNote(id: string) {
-  const rotation = Math.random() * 6 - 3; // -3..3 degrees -- subtler now that it's purely decorative
-
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const note = (state.privateNotes || []).find((n) => n.id === id);
       if (!note) return;
       const maxZ = Math.max(0, ...(state.privateNotes || []).map((n) => n.boardZ || 0));
       note.boardX = 0;
-      note.boardRotation = rotation;
+      note.boardRotation = 0;
       note.boardZ = maxZ + 1;
     });
     revalidatePath("/private-notes");
@@ -205,7 +206,7 @@ export async function pinPrivateNote(id: string) {
     .maybeSingle();
   const nextZ = (maxZRow?.board_z || 0) + 1;
 
-  const { error } = await supabase.from("private_notes").update({ board_x: 0, board_rotation: rotation, board_z: nextZ }).eq("id", id);
+  const { error } = await supabase.from("private_notes").update({ board_x: 0, board_rotation: 0, board_z: nextZ }).eq("id", id);
   orThrow(error);
   revalidatePath("/private-notes");
 }

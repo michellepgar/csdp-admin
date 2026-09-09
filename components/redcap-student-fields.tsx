@@ -126,6 +126,38 @@ export function toTallyFields(s: StudentFieldsState): Omit<RedcapTallyInput, "sc
   };
 }
 
+// REDCap v2's dedup check (see
+// docs/superpowers/specs/2026-09-09-redcap-v2-student-dedup-design.md)
+// -- name match only (trimmed, case-insensitive), scoped to the same
+// school + school year. DOB/Insurance # are too often missing or
+// wrong on the scanned forms to gate the match on, per Michelle --
+// they're shown alongside a found match for a human to eyeball
+// instead. Returns the first match, or undefined if the name is blank
+// or nothing matches.
+export function findMatchingStudent(
+  existing: RedcapTally[],
+  schoolId: string,
+  schoolYear: string,
+  name: string
+): RedcapTally | undefined {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return existing.find(
+    (t) =>
+      t.schoolId === schoolId &&
+      t.schoolYear === schoolYear &&
+      (t.studentName || "").trim().toLowerCase() === normalized
+  );
+}
+
+// "Initial", "Follow-up", or "Initial & Follow-up" -- derived from
+// which of seenInitialDate/seenFollowUpDate are set. Used by the
+// match-confirm prompt and the Review Entries "Seen At" column.
+export function visitsSeenLabel(t: RedcapTally): string {
+  const seen = [t.seenInitialDate && "Initial", t.seenFollowUpDate && "Follow-up"].filter(Boolean);
+  return seen.length > 0 ? seen.join(" & ") : "—";
+}
+
 export function StudentFields({ value, onChange }: { value: StudentFieldsState; onChange: (next: StudentFieldsState) => void }) {
   function update<K extends keyof StudentFieldsState>(key: K, next: string[]) {
     onChange({ ...value, [key]: next });

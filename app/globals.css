@@ -215,20 +215,22 @@
   body {
     @apply bg-background text-foreground;
   }
-  /* Michelle asked for all text, everywhere, one size smaller. Every
-     text-* Tailwind utility (text-xs/sm/base/lg/etc.) is defined in
-     rem, relative to the root font-size -- normally the browser
-     default of 16px. Shrinking that root size here scales every one
-     of those utilities down by the same ratio in one place, instead
-     of hunting down and adjusting each of the hundreds of text-*
-     classes across the app individually (which would also make
-     everything drift out of the relative scale it's on today -- e.g.
-     text-sm next to text-xs should stay one step apart, not both
-     become the same size). 15px (94% of the 16px default) reads as a
-     uniform "one notch down" without needing every component touched. */
+  /* Michelle asked for all text, everywhere, one size smaller -- then,
+     after seeing 15px live, smaller still. Every text-* Tailwind
+     utility (text-xs/sm/base/lg/etc.) is defined in rem, relative to
+     the root font-size -- normally the browser default of 16px.
+     Shrinking that root size here scales every one of those utilities
+     down by the same ratio in one place, instead of hunting down and
+     adjusting each of the hundreds of text-* classes across the app
+     individually (which would also make everything drift out of the
+     relative scale it's on today -- e.g. text-sm next to text-xs
+     should stay one step apart, not both become the same size). 14px
+     (87.5% of the 16px default -- the same ratio as one full Tailwind
+     step down, e.g. text-sm to text-xs) reads as a bigger, clearer
+     "one notch down" than 15px did. */
   html {
     @apply font-sans;
-    font-size: 15px;
+    font-size: 14px;
   }
   /* Every h1 in this app is a page title and every h2 a section
      heading — no other use of either tag exists (verified by
@@ -261,11 +263,18 @@
      controls the size everywhere -- verify with a grep for `<h1` /
      `<h2` before adding a new one elsewhere, and don't give it its own
      text-* class, or it'll drift from every other page again. */
+  /* Fixed px, not the text-xl/text-sm classes' own rem sizing -- pinned
+     at 15px regardless of the root font-size above (14px as of this
+     writing) so headers/titles stay a deliberate step LARGER than
+     general text instead of shrinking in lockstep with it if the root
+     size ever changes again. */
   h1 {
-    @apply text-white sticky top-0 z-10 block bg-header-background px-3 py-1.5 text-xl font-bold;
+    @apply text-white sticky top-0 z-10 block bg-header-background px-3 py-1.5 font-bold;
+    font-size: 15px;
   }
   h2 {
-    @apply text-white block bg-header-background px-2 py-1 text-sm font-semibold;
+    @apply text-white block bg-header-background px-2 py-1 font-semibold;
+    font-size: 15px;
   }
 
   /* A plain <label> is `display: inline` by default in every browser --
@@ -353,10 +362,15 @@
    (not a table/row size that could be overridden top-down) so every
    record row's base text size is the same regardless of what wraps
    it; a child that needs to read smaller/larger still can with its
-   own text-* class, same as before. */
+   own text-* class, same as before.
+
+   Fixed px, not rem, since Michelle asked for records specifically at
+   12px regardless of whatever the root font-size (above, in @layer
+   base) happens to be set to -- keeps this one deliberately smaller
+   than general text rather than shrinking in lockstep with it. */
 .bg-record-background {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  font-size: 0.8125rem;
+  font-size: 12px;
 }
 
 /* General Notes/Private Notes -- a proper sticky-note read, not just

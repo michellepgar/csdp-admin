@@ -5,12 +5,8 @@ import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { EodList } from "@/components/eod-list";
-import { SubmitButton } from "@/components/submit-button";
+import { EodEntryForm } from "@/components/eod-entry-form";
 import { addEodReport, removeEodReport } from "./actions";
-
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default async function EodPage() {
   const user = await getCurrentUser();
@@ -26,39 +22,7 @@ export default async function EodPage() {
     <div>
       <PageHeader title="EOD Reports" />
       <PageBody>
-      <form action={addEodReport} className="space-y-2 rounded-md border p-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Date</label>
-            <input type="date" name="date" defaultValue={todayIsoDate()} required className="rounded-md border px-2 py-1.5 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Time in</label>
-            <input type="time" name="timeIn" className="rounded-md border px-2 py-1.5 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Break</label>
-            <input type="time" name="breakStart" className="rounded-md border px-2 py-1.5 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Resume</label>
-            <input type="time" name="breakEnd" className="rounded-md border px-2 py-1.5 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Time out</label>
-            <input type="time" name="timeOut" className="rounded-md border px-2 py-1.5 text-sm" />
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">Total hours are calculated automatically from Time in/out, minus your break.</p>
-        <textarea
-          name="tasks"
-          placeholder="What did you work on today? One item per line…"
-          required
-          rows={4}
-          className="w-full rounded-md border px-3 py-2 text-sm"
-        />
-        <SubmitButton pendingLabel="Adding…">Add EOD report</SubmitButton>
-      </form>
+      <EodEntryForm addEodReport={addEodReport} />
 
       <EodList
         reports={state.eodReports || []}

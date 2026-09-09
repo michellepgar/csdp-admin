@@ -283,7 +283,7 @@ function ContactRowEditForm({
             </div>
           )}
           <div className="flex items-center gap-2">
-            <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
+            <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
           </div>
         </form>
   );
@@ -471,7 +471,7 @@ export function ContactsList({
             >
               <Input name="name" placeholder="Name" defaultValue={nurseLeader.name} className="max-w-[160px]" />
               <Input name="email" placeholder="Email" defaultValue={nurseLeader.email} className="max-w-[220px]" />
-              <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
+              <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
             </form>
           ) : (
             <>

@@ -626,7 +626,7 @@ function RowEditForm({
       )}
 
       <div className="flex items-center gap-2">
-        <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
+        <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
       </div>
     </form>

@@ -62,7 +62,7 @@ function OtherContactEdit({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
+            <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
             <ConfirmDeleteButton confirmMessage={`Remove ${contact.name}?`} pendingLabel="…" variant="ghost" formAction={removeOtherContact}>
               Remove
             </ConfirmDeleteButton>
@@ -170,7 +170,7 @@ export function OtherContactsList({
                     <textarea name="notes" defaultValue={c.notes || ""} rows={2} className="w-full rounded-md border px-2 py-1 text-sm" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <SubmitButton pendingLabel="Saving…">Done</SubmitButton>
+                    <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
                     <ConfirmDeleteButton confirmMessage={`Remove ${c.name}?`} pendingLabel="…" variant="ghost" formAction={removeOtherContact}>
                       Remove
                     </ConfirmDeleteButton>

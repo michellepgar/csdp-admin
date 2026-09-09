@@ -10,6 +10,7 @@ import {
   studentFieldsFromTally,
   studentFieldsAreComplete,
   toTallyFields,
+  visitsSeenLabel,
   type StudentFieldsState,
 } from "@/components/redcap-student-fields";
 import {
@@ -257,6 +258,11 @@ function ReviewRow({
   const [editing, setEditing] = useState(false);
   const [grade, setGrade] = useState(tally.grade);
   const [fileName, setFileName] = useState(tally.fileName || "");
+  const [name, setName] = useState(tally.studentName || "");
+  const [dob, setDob] = useState(tally.dateOfBirth || "");
+  const [insuranceNumber, setInsuranceNumber] = useState(tally.insuranceNumber || "");
+  const [seenInitialDate, setSeenInitialDate] = useState(tally.seenInitialDate || "");
+  const [seenFollowUpDate, setSeenFollowUpDate] = useState(tally.seenFollowUpDate || "");
   const [student, setStudent] = useState<StudentFieldsState>(() => studentFieldsFromTally(tally));
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -264,6 +270,11 @@ function ReviewRow({
   function startEdit() {
     setGrade(tally.grade);
     setFileName(tally.fileName || "");
+    setName(tally.studentName || "");
+    setDob(tally.dateOfBirth || "");
+    setInsuranceNumber(tally.insuranceNumber || "");
+    setSeenInitialDate(tally.seenInitialDate || "");
+    setSeenFollowUpDate(tally.seenFollowUpDate || "");
     setStudent(studentFieldsFromTally(tally));
     setError("");
     setEditing(true);
@@ -280,6 +291,11 @@ function ReviewRow({
       schoolYear: tally.schoolYear,
       grade,
       fileName: fileName.trim() || undefined,
+      studentName: name.trim() || undefined,
+      dateOfBirth: dob.trim() || undefined,
+      insuranceNumber: insuranceNumber.trim() || undefined,
+      seenInitialDate: seenInitialDate.trim() || undefined,
+      seenFollowUpDate: seenFollowUpDate.trim() || undefined,
       ...toTallyFields(student),
     };
     startTransition(async () => {
@@ -291,9 +307,29 @@ function ReviewRow({
   if (editing) {
     return (
       <tr className="border-b bg-muted/30">
-        <td colSpan={11} className="p-3">
+        <td colSpan={13} className="p-3">
           <div className="space-y-3">
             <div className="flex flex-wrap gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Student name</label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} className="min-w-[180px] text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Date of birth</label>
+                <Input value={dob} onChange={(e) => setDob(e.target.value)} placeholder="MM/DD/YYYY" className="min-w-[130px] text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Insurance #</label>
+                <Input value={insuranceNumber} onChange={(e) => setInsuranceNumber(e.target.value)} className="min-w-[150px] text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Seen at Initial visit</label>
+                <Input type="date" value={seenInitialDate} onChange={(e) => setSeenInitialDate(e.target.value)} className="min-w-[150px] text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Seen at Follow-up visit</label>
+                <Input type="date" value={seenFollowUpDate} onChange={(e) => setSeenFollowUpDate(e.target.value)} className="min-w-[150px] text-sm" />
+              </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Grade</label>
                 <Dropdown
@@ -329,6 +365,7 @@ function ReviewRow({
 
   return (
     <tr className="border-b bg-record-background">
+      <td className="px-3 py-2 whitespace-nowrap font-medium">{tally.studentName || "—"}</td>
       <td className="px-3 py-2 whitespace-nowrap">{tally.grade}</td>
       <td className="px-3 py-2 whitespace-nowrap">{tally.consent || "—"}</td>
       <td className="px-3 py-2 whitespace-nowrap">{tally.insurance}</td>
@@ -338,6 +375,7 @@ function ReviewRow({
       <td className="px-3 py-2 whitespace-nowrap">{[tally.fluoride && "Fluoride", tally.prophy && "Prophy"].filter(Boolean).join(", ") || "—"}</td>
       <td className="px-3 py-2 whitespace-nowrap">{sealed}</td>
       <td className="px-3 py-2 whitespace-nowrap">{tally.needs.join(", ") || "—"}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{visitsSeenLabel(tally)}</td>
       <td className="px-3 py-2 whitespace-nowrap text-muted-foreground" title="For tracking mistakes -- never shown on the Report tab">
         {tally.fileName || "—"}
       </td>
@@ -403,6 +441,11 @@ function ReviewRowCard({
   const [editing, setEditing] = useState(false);
   const [grade, setGrade] = useState(tally.grade);
   const [fileName, setFileName] = useState(tally.fileName || "");
+  const [name, setName] = useState(tally.studentName || "");
+  const [dob, setDob] = useState(tally.dateOfBirth || "");
+  const [insuranceNumber, setInsuranceNumber] = useState(tally.insuranceNumber || "");
+  const [seenInitialDate, setSeenInitialDate] = useState(tally.seenInitialDate || "");
+  const [seenFollowUpDate, setSeenFollowUpDate] = useState(tally.seenFollowUpDate || "");
   const [student, setStudent] = useState<StudentFieldsState>(() => studentFieldsFromTally(tally));
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -410,6 +453,11 @@ function ReviewRowCard({
   function startEdit() {
     setGrade(tally.grade);
     setFileName(tally.fileName || "");
+    setName(tally.studentName || "");
+    setDob(tally.dateOfBirth || "");
+    setInsuranceNumber(tally.insuranceNumber || "");
+    setSeenInitialDate(tally.seenInitialDate || "");
+    setSeenFollowUpDate(tally.seenFollowUpDate || "");
     setStudent(studentFieldsFromTally(tally));
     setError("");
     setEditing(true);
@@ -426,6 +474,11 @@ function ReviewRowCard({
       schoolYear: tally.schoolYear,
       grade,
       fileName: fileName.trim() || undefined,
+      studentName: name.trim() || undefined,
+      dateOfBirth: dob.trim() || undefined,
+      insuranceNumber: insuranceNumber.trim() || undefined,
+      seenInitialDate: seenInitialDate.trim() || undefined,
+      seenFollowUpDate: seenFollowUpDate.trim() || undefined,
       ...toTallyFields(student),
     };
     startTransition(async () => {
@@ -437,6 +490,26 @@ function ReviewRowCard({
   if (editing) {
     return (
       <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Student name</label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="text-sm" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Date of birth</label>
+          <Input value={dob} onChange={(e) => setDob(e.target.value)} placeholder="MM/DD/YYYY" className="text-sm" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Insurance #</label>
+          <Input value={insuranceNumber} onChange={(e) => setInsuranceNumber(e.target.value)} className="text-sm" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Seen at Initial visit</label>
+          <Input type="date" value={seenInitialDate} onChange={(e) => setSeenInitialDate(e.target.value)} className="text-sm" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Seen at Follow-up visit</label>
+          <Input type="date" value={seenFollowUpDate} onChange={(e) => setSeenFollowUpDate(e.target.value)} className="text-sm" />
+        </div>
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Grade</label>
           <Dropdown
@@ -467,6 +540,7 @@ function ReviewRowCard({
 
   const sealed = [tally.sealed1stMolar && "1st Molar", tally.sealed2ndMolar && "2nd Molar"].filter(Boolean).join(" & ") || "—";
   const fields: [string, string][] = [
+    ["Name", tally.studentName || "—"],
     ["Grade", tally.grade],
     ["Consent", tally.consent || "—"],
     ["Insurance", tally.insurance],
@@ -476,6 +550,7 @@ function ReviewRowCard({
     ["Treatment", [tally.fluoride && "Fluoride", tally.prophy && "Prophy"].filter(Boolean).join(", ") || "—"],
     ["Sealed", sealed],
     ["Needs", tally.needs.join(", ") || "—"],
+    ["Seen At", visitsSeenLabel(tally)],
   ];
 
   return (
@@ -530,9 +605,10 @@ function ReviewList({
         -- this table's 10 columns have no way to fit a phone-width
         screen even at minimum padding. */}
     <div className="hidden overflow-x-auto rounded-md border sm:block">
-      <table className="w-full min-w-[1100px] text-sm">
+      <table className="w-full min-w-[1300px] text-sm">
         <thead>
           <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+            <th className="px-3 py-2">Name</th>
             <th className="px-3 py-2">Grade</th>
             <th className="px-3 py-2">Consent</th>
             <th className="px-3 py-2">Insurance</th>
@@ -542,6 +618,7 @@ function ReviewList({
             <th className="px-3 py-2">Treatment</th>
             <th className="px-3 py-2">Sealed</th>
             <th className="px-3 py-2">Needs</th>
+            <th className="px-3 py-2">Seen At</th>
             <th className="px-3 py-2" title="For tracking mistakes -- never shown on the Report tab">File</th>
             <th className="px-3 py-2" />
           </tr>
@@ -852,7 +929,13 @@ export function RedcapReportShell({
         {schoolId === ALL_SCHOOLS ? (
           <p className="text-sm text-muted-foreground">Pick a specific school above to add a student.</p>
         ) : (
-          <RedcapEntryForm schoolId={schoolId} schoolYear={year} addRedcapTally={addRedcapTally} />
+          <RedcapEntryForm
+            schoolId={schoolId}
+            schoolYear={year}
+            existingStudents={filteredRows}
+            addRedcapTally={addRedcapTally}
+            updateRedcapTally={updateRedcapTally}
+          />
         )}
       </div>
       <div className={tab === "report" ? "" : "hidden"}>

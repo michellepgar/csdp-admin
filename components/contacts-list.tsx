@@ -486,7 +486,15 @@ export function ContactsList({
         </div>
       </div>
 
-      {groups.map((group) => (
+      {groups.map((group) => {
+        // Always alphabetical by school name, regardless of the order
+        // schools were added in (sort_order in the database just
+        // reflects insertion order) -- Michelle asked for this to be
+        // automatic, not something anyone has to maintain by hand.
+        // localeCompare with numeric:true so e.g. "School 2" sorts
+        // before "School 10", not after it.
+        const sortedRows = [...group.rows].sort((a, b) => a.school.localeCompare(b.school, undefined, { numeric: true, sensitivity: "base" }));
+        return (
         <div key={group.id} className="rounded-md border bg-card">
           {/* bg-header-background + text-white -- Michelle asked for the
               group name's own background to match the PAGE title's
@@ -533,14 +541,14 @@ export function ContactsList({
                 </tr>
               </thead>
               <tbody>
-                {group.rows.length === 0 && (
+                {sortedRows.length === 0 && (
                   <tr>
                     <td colSpan={CONTACT_FIELDS.length + 1} className="px-2 py-4 text-center text-sm text-muted-foreground">
                       No schools in this group yet.
                     </td>
                   </tr>
                 )}
-                {group.rows.map((row) => {
+                {sortedRows.map((row) => {
                   const mode = rowModes[row.id] || "compact";
                   return (
                     <Fragment key={row.id}>
@@ -575,10 +583,10 @@ export function ContactsList({
             </table>
           </div>
           <div className="space-y-2 p-2 sm:hidden">
-            {group.rows.length === 0 && (
+            {sortedRows.length === 0 && (
               <p className="py-2 text-center text-sm text-muted-foreground">No schools in this group yet.</p>
             )}
-            {group.rows.map((row) => {
+            {sortedRows.map((row) => {
               const mode = rowModes[row.id] || "compact";
               return (
                 <ContactRowCard
@@ -596,7 +604,8 @@ export function ContactsList({
             })}
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <OtherContactsList
         contacts={otherContacts}

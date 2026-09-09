@@ -215,8 +215,20 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Michelle asked for all text, everywhere, one size smaller. Every
+     text-* Tailwind utility (text-xs/sm/base/lg/etc.) is defined in
+     rem, relative to the root font-size -- normally the browser
+     default of 16px. Shrinking that root size here scales every one
+     of those utilities down by the same ratio in one place, instead
+     of hunting down and adjusting each of the hundreds of text-*
+     classes across the app individually (which would also make
+     everything drift out of the relative scale it's on today -- e.g.
+     text-sm next to text-xs should stay one step apart, not both
+     become the same size). 15px (94% of the 16px default) reads as a
+     uniform "one notch down" without needing every component touched. */
   html {
     @apply font-sans;
+    font-size: 15px;
   }
   /* Every h1 in this app is a page title and every h2 a section
      heading — no other use of either tag exists (verified by

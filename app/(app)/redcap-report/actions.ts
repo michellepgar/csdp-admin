@@ -19,6 +19,16 @@ export type RedcapTallyInput = {
   schoolId: string;
   schoolYear: string;
   grade: string;
+  /** Student identity + visit tracking -- see RedcapTally's own
+   *  comment in lib/app-state.ts for why these are all optional here
+   *  too. The Add Student form (components/redcap-entry-form.tsx)
+   *  requires studentName in its own validation before ever calling
+   *  addRedcapTally/updateRedcapTally with it unset. */
+  studentName?: string;
+  dateOfBirth?: string;
+  insuranceNumber?: string;
+  seenInitialDate?: string;
+  seenFollowUpDate?: string;
   insurance: string;
   dentalHomeStatus: string;
   referral: string;
@@ -55,6 +65,11 @@ export async function addRedcapTally(input: RedcapTallyInput) {
     school_id: input.schoolId,
     school_year: input.schoolYear,
     grade: input.grade,
+    student_name: input.studentName || null,
+    date_of_birth: input.dateOfBirth || null,
+    insurance_number: input.insuranceNumber || null,
+    seen_initial_date: input.seenInitialDate || null,
+    seen_follow_up_date: input.seenFollowUpDate || null,
     insurance: input.insurance,
     dental_home_status: input.dentalHomeStatus,
     referral: input.referral,
@@ -91,6 +106,11 @@ export async function updateRedcapTally(id: string, input: RedcapTallyInput) {
       school_id: input.schoolId,
       school_year: input.schoolYear,
       grade: input.grade,
+      student_name: input.studentName || null,
+      date_of_birth: input.dateOfBirth || null,
+      insurance_number: input.insuranceNumber || null,
+      seen_initial_date: input.seenInitialDate || null,
+      seen_follow_up_date: input.seenFollowUpDate || null,
       insurance: input.insurance,
       dental_home_status: input.dentalHomeStatus,
       referral: input.referral,

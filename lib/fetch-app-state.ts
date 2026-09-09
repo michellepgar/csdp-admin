@@ -424,6 +424,11 @@ type RedcapTallyRow = {
   school_id: string;
   school_year: string;
   grade: string;
+  student_name: string | null;
+  date_of_birth: string | null;
+  insurance_number: string | null;
+  seen_initial_date: string | null;
+  seen_follow_up_date: string | null;
   insurance: string;
   dental_home_status: string;
   referral: string;
@@ -445,6 +450,11 @@ function mapRedcapTallyRow(r: RedcapTallyRow): RedcapTally {
     schoolId: r.school_id,
     schoolYear: r.school_year,
     grade: r.grade,
+    studentName: r.student_name ?? undefined,
+    dateOfBirth: r.date_of_birth ?? undefined,
+    insuranceNumber: r.insurance_number ?? undefined,
+    seenInitialDate: r.seen_initial_date ?? undefined,
+    seenFollowUpDate: r.seen_follow_up_date ?? undefined,
     insurance: r.insurance,
     dentalHomeStatus: r.dental_home_status,
     referral: r.referral,
@@ -581,7 +591,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
-    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, insurance, dental_home_status, referral, race, consent, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, file_name, created_at").order("created_at"),
+    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, student_name, date_of_birth, insurance_number, seen_initial_date, seen_follow_up_date, insurance, dental_home_status, referral, race, consent, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, file_name, created_at").order("created_at"),
     supabase.from("redcap_distributed_forms").select("school_id, school_year, grade, count"),
   ]);
 

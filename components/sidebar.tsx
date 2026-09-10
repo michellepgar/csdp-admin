@@ -41,6 +41,8 @@ export function Sidebar({
   addSchool,
   onCollapse,
   collapsed = false,
+  needsPrivateNoteAck,
+  needsGeneralNoteAck,
 }: {
   currentName: string;
   schools: { id: string; name: string }[];
@@ -54,6 +56,13 @@ export function Sidebar({
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
   onCollapse: () => void;
+  /* Drives the blinking dot on Private Notes/General Notes -- see
+     app/(app)/layout.tsx's own comment for exactly what each one
+     means. Computed there, not here, since Sidebar has no need for
+     the full privateNotes/generalNotes arrays, just these two
+     booleans. */
+  needsPrivateNoteAck: boolean;
+  needsGeneralNoteAck: boolean;
   /* Icons-only mode -- Michelle asked to be able to jump between
      pages without the full labeled panel taking up space every time.
      Search/VA-filter/"+ Add school" all need room to type in, so
@@ -274,7 +283,12 @@ export function Sidebar({
             title={!collapsed ? "Private Notes" : undefined}
             className={navLinkClass("/private-notes", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Lock className="h-4 w-4 flex-none text-violet-600 dark:text-violet-400" />
+            <span className="relative flex-none">
+              <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              {needsPrivateNoteAck && (
+                <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="A note was shared with you -- open it to clear this" />
+              )}
+            </span>
             {!collapsed && <span className="min-w-0 truncate">Private Notes</span>}
           </Link>
         </IconTooltip>
@@ -298,7 +312,12 @@ export function Sidebar({
             title={!collapsed ? "General Notes" : undefined}
             className={navLinkClass("/notes", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Megaphone className="h-4 w-4 flex-none text-amber-600 dark:text-amber-400" />
+            <span className="relative flex-none">
+              <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              {needsGeneralNoteAck && (
+                <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="An urgent note needs your acknowledgment" />
+              )}
+            </span>
             {!collapsed && <span className="min-w-0 truncate">General Notes</span>}
           </Link>
         </IconTooltip>

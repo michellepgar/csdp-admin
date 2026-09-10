@@ -410,3 +410,23 @@
 .note-checklist-item input[type="checkbox"] {
   margin-top: 0.1875rem;
 }
+
+/* Sidebar "you have something to acknowledge" dot (Private Notes/
+   General Notes nav links, components/sidebar.tsx) -- keeps blinking
+   until the thing it's flagging is actually acked, not just glanced
+   at, per Michelle's own "will not stop blinking until clicked marked
+   as checked or read." Steady (no animation) under
+   prefers-reduced-motion instead of just hiding -- still needs to be
+   noticeable, just not by flashing. */
+.nav-alert-dot {
+  animation: nav-alert-blink 1.1s ease-in-out infinite;
+}
+@keyframes nav-alert-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-alert-dot {
+    animation: none;
+  }
+}

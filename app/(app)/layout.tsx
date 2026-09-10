@@ -67,6 +67,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (va) schoolVaAssigned[schoolId] = va;
   }
 
+  /* Drives the blinking dot on the Private Notes/General Notes nav
+     links -- Michelle asked for a notification "whenever someone
+     shared a private note" that keeps blinking until acknowledged, so
+     this reuses the same sharedWith/ackBy (Private Notes) and
+     urgency==="Urgent"/ackBy (General Notes) fields those pages
+     already track and show their own "needs ack" state from, rather
+     than introducing a separate notification system. Computed here
+     (not in Sidebar itself) since this layout already has the full
+     `state` and `me` in scope; Sidebar only ever needs the two
+     booleans. */
+  const needsPrivateNoteAck = (state.privateNotes || []).some(
+    (n) => (n.sharedWith || []).includes(me.name) && !(n.ackBy || []).includes(me.name)
+  );
+  const needsGeneralNoteAck = (state.generalNotes || []).some(
+    (n) => n.urgency === "Urgent" && n.author !== me.name && !(n.ackBy || []).includes(me.name)
+  );
+
   return (
     <SidebarShell
       currentName={me.name}
@@ -76,6 +93,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       schoolVaAssigned={schoolVaAssigned}
       addSchool={addSchool}
       initialCollapsed={sidebarCollapsed}
+      needsPrivateNoteAck={needsPrivateNoteAck}
+      needsGeneralNoteAck={needsGeneralNoteAck}
     >
       {children}
     </SidebarShell>

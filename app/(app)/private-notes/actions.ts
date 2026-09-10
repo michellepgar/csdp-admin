@@ -211,6 +211,41 @@ export async function pinPrivateNote(id: string) {
   revalidatePath("/private-notes");
 }
 
+// Clamp shared with the client-side drag handler in
+// components/private-notes-board.tsx so a stale/tampered value posted
+// straight to this action still lands in the same sane range.
+const MIN_BOARD_NOTE_WIDTH = 140;
+const MAX_BOARD_NOTE_WIDTH = 640;
+
+/* Sets a pinned note's own width, overriding the board's normal fixed
+   card width -- Michelle asked to be able to stretch a note sideways
+   (board_width already existed as a column/field, left over from the
+   earlier freeform Moveable board that stored it too, just unused
+   since nothing wrote to it or read it for layout until now). Only
+   width is adjustable, not height -- the card's height still grows
+   naturally with its content, same as every other note. */
+export async function resizePinnedNoteWidth(id: string, width: number) {
+  const clamped = Math.round(Math.max(MIN_BOARD_NOTE_WIDTH, Math.min(MAX_BOARD_NOTE_WIDTH, width)));
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === id);
+      if (note) note.boardWidth = clamped;
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", id).maybeSingle();
+  if (!note || !canManageBoardState(note, me.name)) return;
+
+  const { error } = await supabase.from("private_notes").update({ board_width: clamped }).eq("id", id);
+  orThrow(error);
+  revalidatePath("/private-notes");
+}
+
 /* Reassigns the left-to-right order of every pinned note -- same
    pattern as reorderChecklistTemplate in app/(app)/schools/[id]/actions.ts:
    each id's position in the array becomes its new board_z. */

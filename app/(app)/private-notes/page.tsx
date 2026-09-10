@@ -17,6 +17,7 @@ import {
   pinPrivateNote,
   reorderPinnedNotes,
   unpinPrivateNote,
+  resizePinnedNoteWidth,
 } from "./actions";
 
 export default async function PrivateNotesPage() {
@@ -70,6 +71,7 @@ export default async function PrivateNotesPage() {
               pinPrivateNote={pinPrivateNote}
               reorderPinnedNotes={reorderPinnedNotes}
               unpinPrivateNote={unpinPrivateNote}
+              resizePinnedNoteWidth={resizePinnedNoteWidth}
             />
           </div>
         </div>

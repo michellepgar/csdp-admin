@@ -219,7 +219,10 @@ export function PrivateNotesBoard({
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleBoardDrop}
-        className="flex min-h-[200px] flex-wrap gap-3 rounded-md border p-4"
+        // 500px, up from 200px -- Michelle asked for a taller board, so
+        // there's real room for several rows of notes before you have
+        // to scroll, not just a sliver that happened to fit one row.
+        className="flex min-h-[500px] flex-wrap content-start gap-3 rounded-md border p-4"
         style={{ backgroundColor: "#f0ede4" }}
       >
         {orderedNotes.length === 0 && (

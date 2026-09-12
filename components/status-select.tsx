@@ -44,12 +44,25 @@ export function StatusSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  // The open menu itself, so onClickOutside below can tell a click on
+  // an OPTION apart from a real outside click -- createPortal renders
+  // the menu into document.body, not inside containerRef's own DOM
+  // subtree, even though it's written inside containerRef's JSX. That
+  // meant containerRef.current.contains(e.target) was false for every
+  // click on an option, so mousedown (which always fires before
+  // click) closed the menu and unmounted the option out from under
+  // the click that was supposed to choose it -- confirmed directly:
+  // choosing a status silently did nothing for every real mouse click.
+  const menuRef = useRef<HTMLDivElement>(null);
   const current = options.find((o) => o.value === value);
 
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
     // Closes on any scroll (this row's own horizontally-scrolling table
     // included) rather than trying to keep the portaled menu's position
@@ -106,6 +119,7 @@ export function StatusSelect({
         </button>
         {open && !disabled && createPortal(
           <div
+            ref={menuRef}
             className="fixed z-50 mt-1 overflow-hidden rounded-md border bg-background shadow-lg"
             style={{ top: menuPos.top, left: menuPos.left, minWidth: menuPos.minWidth }}
           >

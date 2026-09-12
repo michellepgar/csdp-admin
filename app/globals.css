@@ -79,10 +79,12 @@
      and a specific destructive red -- every role the first two
      palettes had left for this file to infer on its own now has an
      explicit answer. */
-  /* Lightened further from the #FFFCF5 Michelle's spec named --
-     mixed toward white rather than hand-picking a new hex, so it
-     stays visibly the same cream, just paler. */
-  --background: color-mix(in oklch, #FFFCF5 55%, white);
+  /* Cool light blue-gray, replacing the earlier warm cream --
+     Michelle pointed at a reference screenshot (a patient-record
+     app) and asked for this page background specifically; --card/
+     --popover stay plain white so content panels still read as
+     raised surfaces against it, same relationship as before. */
+  --background: #EEF1F5;
   --foreground: #173B4D;
   --card: #FFFFFF;
   --card-foreground: #173B4D;

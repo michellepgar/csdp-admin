@@ -28,7 +28,6 @@ import type {
   AccessRequest,
   GeneralTask,
   GeneralTaskCategory,
-  RedcapTally,
 } from "@/lib/app-state";
 
 type SchoolRow = {
@@ -419,60 +418,6 @@ function mapSchoolContactRow(r: SchoolContactRow): SchoolContact {
   return { id: r.id, position: r.position, name: r.name ?? undefined, email: r.email, createdAt: r.created_at };
 }
 
-type RedcapTallyRow = {
-  id: string;
-  school_id: string;
-  school_year: string;
-  grade: string;
-  student_name: string | null;
-  date_of_birth: string | null;
-  insurance_number: string | null;
-  seen_initial_date: string | null;
-  seen_follow_up_date: string | null;
-  insurance: string;
-  dental_home_status: string;
-  referral: string;
-  race: string;
-  fluoride: boolean;
-  prophy: boolean;
-  sealed_1st_molar: boolean;
-  sealed_2nd_molar: boolean;
-  needs: string[];
-  consent: string | null;
-  entered_by: string | null;
-  file_name: string | null;
-  created_at: string;
-};
-
-function mapRedcapTallyRow(r: RedcapTallyRow): RedcapTally {
-  return {
-    id: r.id,
-    schoolId: r.school_id,
-    schoolYear: r.school_year,
-    grade: r.grade,
-    studentName: r.student_name ?? undefined,
-    dateOfBirth: r.date_of_birth ?? undefined,
-    insuranceNumber: r.insurance_number ?? undefined,
-    seenInitialDate: r.seen_initial_date ?? undefined,
-    seenFollowUpDate: r.seen_follow_up_date ?? undefined,
-    insurance: r.insurance,
-    dentalHomeStatus: r.dental_home_status,
-    referral: r.referral,
-    race: r.race,
-    consent: r.consent ?? "",
-    fluoride: r.fluoride,
-    prophy: r.prophy,
-    sealed1stMolar: r.sealed_1st_molar,
-    sealed2ndMolar: r.sealed_2nd_molar,
-    needs: r.needs || [],
-    enteredBy: r.entered_by ?? undefined,
-    fileName: r.file_name ?? undefined,
-    createdAt: r.created_at,
-  };
-}
-
-type RedcapDistributedFormsRow = { school_id: string; school_year: string; grade: string; count: number };
-
 type AccessRequestRow = {
   id: string;
   record_kind: string;
@@ -562,8 +507,6 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     otherContactsResult,
     generalTasksResult,
     generalTaskCategoriesResult,
-    redcapTalliesResult,
-    redcapDistributedFormsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -591,8 +534,6 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
-    supabase.from("redcap_tallies").select("id, school_id, school_year, grade, student_name, date_of_birth, insurance_number, seen_initial_date, seen_follow_up_date, insurance, dental_home_status, referral, race, consent, fluoride, prophy, sealed_1st_molar, sealed_2nd_molar, needs, entered_by, file_name, created_at").order("created_at"),
-    supabase.from("redcap_distributed_forms").select("school_id, school_year, grade, count"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -621,8 +562,6 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (otherContactsResult.error) return null;
   if (generalTasksResult.error) return null;
   if (generalTaskCategoriesResult.error) return null;
-  if (redcapTalliesResult.error) return null;
-  if (redcapDistributedFormsResult.error) return null;
 
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
@@ -717,13 +656,6 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   for (const r of (schoolContactsResult.data || []) as SchoolContactRow[]) {
     if (!state.schoolContacts[r.school_id]) state.schoolContacts[r.school_id] = [];
     state.schoolContacts[r.school_id].push(mapSchoolContactRow(r));
-  }
-
-  state.redcapTallies = (redcapTalliesResult.data || []).map((r) => mapRedcapTallyRow(r as RedcapTallyRow));
-
-  state.redcapDistributedForms = {};
-  for (const r of (redcapDistributedFormsResult.data || []) as RedcapDistributedFormsRow[]) {
-    state.redcapDistributedForms[`${r.school_id}:${r.school_year}:${r.grade}`] = r.count;
   }
 
   return state;

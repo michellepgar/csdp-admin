@@ -57,103 +57,6 @@ export interface SchoolContact {
   createdAt: string;
 }
 
-/* ---------- REDCap Report ----------
-   One row per student screened (not just running counters) so a
-   mis-tap can be found and fixed later -- every number on the REDCap
-   Report page is computed live from these rows, nothing is stored
-   pre-aggregated. Kept across school years on purpose (schoolYear is
-   just a field here, not a table that gets wiped on "Start New School
-   Year" like tasks/checklistProgress) -- Michelle needs both
-   2024-2025 and 2025-2026 entered side by side, not just "this year". */
-export const REDCAP_GRADES = [
-  "Pre-K", "Kindergarten",
-  "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade",
-  "6th Grade", "7th Grade", "8th Grade",
-  "9th Grade", "10th Grade", "11th Grade", "12th Grade",
-];
-/* Suggested school years for the report's year picker -- shown as
-   datalist options alongside whatever years already have real data
-   (see components/redcap-report-shell.tsx), NOT a closed list: the
-   picker is still a plain text input, so typing any other year (a
-   future one not listed here yet) works exactly the same. Update this
-   list occasionally as years pass rather than trying to keep it
-   perpetually "current + 2 ahead" automatically. */
-export const REDCAP_SCHOOL_YEARS = ["2024-2025", "2025-2026", "2026-2027"];
-export const REDCAP_INSURANCE_OPTIONS = ["MassHealth", "Private", "No Insurance", "Inactive", "Unknown Insurance"];
-// Shared by Dental Home Status and Referral -- confirmed with Michelle
-// these are genuinely two separate per-student answers, not the same
-// question shown twice, even though they use the same options. Third
-// option covers a scanned form that just didn't answer this question
-// at all -- without it, every student had to be forced into one of
-// the two real answers even when the form itself left it blank.
-export const REDCAP_DENTAL_STATUS_OPTIONS = ["Seen With Dentist Record", "Seen W/Out Dentist Record", "Unknown / Left Blank"];
-export const REDCAP_RACE_OPTIONS = ["Alaska", "Asian", "Black", "Spanish", "White", "Other", "Not Documented"];
-// A student can have more than one of these at once (e.g. both Caries
-// and Urgent) -- multi-select, unlike every other REDCap field above.
-export const REDCAP_NEEDS_OPTIONS = ["Caries", "Untreated", "Urgent", "Other"];
-export const REDCAP_CONSENT_OPTIONS = ["Positive", "Negative"];
-// Which visit a single Add Student entry is for -- Michelle's boss
-// visits each school twice a year, and not every student is seen at
-// both. See RedcapTally's own seenInitialDate/seenFollowUpDate below.
-export const REDCAP_VISITS = ["Initial", "Follow-up"] as const;
-
-export interface RedcapTally {
-  id: string;
-  schoolId: string;
-  schoolYear: string;
-  grade: string;
-  /** Student identity, added for REDCap v2's per-student dedup (see
-   *  docs/superpowers/specs/2026-09-09-redcap-v2-student-dedup-design.md).
-   *  All optional -- historical rows have none, and even for new
-   *  entries DOB/insurance # are often missing or wrong on the
-   *  scanned forms, so neither can be required. Name is enforced as
-   *  required in the Add Student form's own UI validation instead of
-   *  here, matching how Consent/Insurance/etc. below are also
-   *  optional at this type level but required by that same form. */
-  studentName?: string;
-  dateOfBirth?: string;
-  insuranceNumber?: string;
-  /** Presence of either means "seen at that visit" -- a student seen
-   *  at both has both set. Entering a Follow-up visit for a student
-   *  already matched from their Initial visit sets this one without
-   *  touching seenInitialDate, and vice versa. */
-  seenInitialDate?: string;
-  seenFollowUpDate?: string;
-  insurance: string;
-  dentalHomeStatus: string;
-  referral: string;
-  race: string;
-  consent: string;
-  fluoride: boolean;
-  prophy: boolean;
-  // "Sealant" and "Total # of Students Sealed" on the report are both
-  // computed from these two booleans, not entered directly -- checking
-  // either or both counts as "sealed" for that student.
-  sealed1stMolar: boolean;
-  sealed2ndMolar: boolean;
-  needs: string[];
-  enteredBy?: string;
-  /** Internal audit trail only -- which scanned form file this student's
-   *  entry came from, so a mistake can be traced back to its source.
-   *  Never shown on the Report tab (which only ever aggregates counts,
-   *  not per-row data), only in Review Entries / Flags. */
-  fileName?: string;
-  createdAt: string;
-}
-
-/* "Total # of Consent Forms Received and Returned at This Site" is a
-   report SECTION, not a number itself -- "Positive Consent" under it
-   is computed from RedcapTally.consent above like everything else,
-   but "Distributed" is a number Michelle types in by hand PER GRADE
-   (not one total per school/year -- her own correction), so it needs
-   its own tiny per-school-per-year-per-grade value rather than living
-   on RedcapTally. Keyed `${schoolId}:${schoolYear}:${grade}` -- same
-   flat-map-over-nested-object reasoning as checklistProgress's own
-   `${schoolId}:${templateItemId}` keying. The report's Total column
-   for this row is just the sum of every grade's value, computed, not
-   entered directly. */
-export type RedcapDistributedForms = Record<string, number>;
-
 export interface ChecklistProgressEntry {
   status: string;
   /* Name of whoever last checked this off -- shown as a small signature
@@ -452,8 +355,6 @@ export interface AppState {
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];
   generalTaskCategories?: GeneralTaskCategory[];
-  redcapTallies?: RedcapTally[];
-  redcapDistributedForms?: RedcapDistributedForms;
 }
 
 /* ---------- Distribution List ----------

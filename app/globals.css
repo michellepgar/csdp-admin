@@ -113,13 +113,15 @@
   --chart-5: oklch(0.269 0 0);
   --radius: 0.25rem;
   /* Wired into the actual sidebar (components/sidebar.tsx uses
-     bg-sidebar, not bg-background) so it reads as its own distinct
-     surface between the header and the page. --sidebar-accent is the
-     selected nav item's own background; --sidebar-accent-foreground
-     is its own deeper teal TEXT color this time (the first two
-     palettes just left the selected item's text as the same
-     --foreground as everything else). */
-  --sidebar: #FFFEFA;
+     bg-sidebar, not bg-background) -- matches --background exactly
+     now (Michelle asked for the left panel included in the same
+     cool-gray change) rather than being its own distinct off-white
+     surface. --sidebar-accent is the selected nav item's own
+     background; --sidebar-accent-foreground is its own deeper teal
+     TEXT color this time (the first two palettes just left the
+     selected item's text as the same --foreground as everything
+     else). */
+  --sidebar: #EEF1F5;
   --sidebar-foreground: #173B4D;
   --sidebar-primary: #079DB7;
   --sidebar-primary-foreground: #FFFFFF;

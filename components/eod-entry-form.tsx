@@ -23,7 +23,7 @@ export function EodEntryForm({ addEodReport }: { addEodReport: (formData: FormDa
   const totalHours = computeEodTotalHours(timeIn, timeOut, breakStart, breakEnd);
 
   return (
-    <form action={addEodReport} className="space-y-2 rounded-md border p-3">
+    <form action={addEodReport} className="space-y-2 rounded-md border bg-card p-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Date</label>

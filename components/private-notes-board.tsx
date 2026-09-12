@@ -284,8 +284,14 @@ export function PrivateNotesBoard({
         // 500px, up from 200px -- Michelle asked for a taller board, so
         // there's real room for several rows of notes before you have
         // to scroll, not just a sliver that happened to fit one row.
-        className="flex min-h-[500px] flex-wrap content-start gap-3 rounded-md border p-4"
-        style={{ backgroundColor: "#f0ede4" }}
+        // Was a hardcoded warm cream (#f0ede4) matching the OLD page
+        // background -- now uses the theme's own --muted token (the
+        // same pale teal already used for title bars/toolbar
+        // backgrounds elsewhere), so the board reads as a distinct
+        // "cork" surface that's still part of the current palette
+        // instead of a leftover color from before the page background
+        // changed.
+        className="flex min-h-[500px] flex-wrap content-start gap-3 rounded-md border bg-muted p-4"
       >
         {orderedNotes.length === 0 && (
           <p className="text-sm text-muted-foreground">Drag a note from the list onto this board to pin it.</p>

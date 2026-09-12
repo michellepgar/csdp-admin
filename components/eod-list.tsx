@@ -217,7 +217,7 @@ export function EodList({
           onChange={setFilterAuthor}
           placeholder="All team members"
           options={[{ value: "", label: "All team members" }, ...[...vaNames].sort().map((name) => ({ value: name, label: name }))]}
-          className="rounded-md border px-2 py-1.5 text-left text-sm"
+          className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
         />
         {showArchive && (
           <Dropdown
@@ -226,10 +226,10 @@ export function EodList({
             onChange={setFilterMonth}
             placeholder="All months"
             options={[{ value: "", label: "All months" }, ...months.map((ym) => ({ value: ym, label: fmtMonthLabel(ym) }))]}
-            className="rounded-md border px-2 py-1.5 text-left text-sm"
+            className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
           />
         )}
-        <div className="flex overflow-hidden rounded-md border">
+        <div className="flex overflow-hidden rounded-md border bg-card">
           <button type="button" onClick={() => setViewMode("notes")} className={`px-3 py-1.5 text-sm ${viewMode === "notes" ? "bg-primary text-primary-foreground" : ""}`}>Notes</button>
           <button type="button" onClick={() => setViewMode("table")} className={`px-3 py-1.5 text-sm ${viewMode === "table" ? "bg-primary text-primary-foreground" : ""}`}>Table</button>
         </div>

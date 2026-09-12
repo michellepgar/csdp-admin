@@ -61,14 +61,14 @@ export function AddIssueForm({
 
   return (
     <div className="space-y-2">
-      <form action={addIssue} className="space-y-2 rounded-md border p-3">
+      <form action={addIssue} className="space-y-2 rounded-md border bg-card p-3">
         <div className="flex items-center justify-between gap-2">
           <Dropdown
             name="type"
             value={type}
             onChange={(v) => setType(v as IssueType)}
             options={(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((t) => ({ value: t, label: ISSUE_TYPE_LABELS[t] }))}
-            className="rounded-md border px-2 py-1.5 text-left text-sm font-medium"
+            className="rounded-md border bg-card px-2 py-1.5 text-left text-sm font-medium"
           />
           {type === "software_issue" && (
             <button type="button" onClick={() => setEditorOpen((o) => !o)} className="text-sm text-primary underline underline-offset-2">
@@ -85,7 +85,7 @@ export function AddIssueForm({
               onChange={setCategoryName}
               placeholder="Category…"
               options={issueCategories.map((c) => ({ value: c.name, label: c.name }))}
-              className="rounded-md border px-2 py-1.5 text-left text-sm"
+              className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
             />
             <Dropdown
               key={categoryName}
@@ -93,7 +93,7 @@ export function AddIssueForm({
               placeholder="Subcategory…"
               disabled={!selectedCategory || selectedCategory.subcategories.length === 0}
               options={(selectedCategory?.subcategories || []).map((s) => ({ value: s.name, label: s.name }))}
-              className="rounded-md border px-2 py-1.5 text-left text-sm"
+              className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
             />
             <Input name="description" placeholder="What's the issue?" required className="max-w-md flex-1" />
             <Input name="note" placeholder="Note (optional)" className="max-w-xs" />
@@ -107,7 +107,7 @@ export function AddIssueForm({
               name="correctionKind"
               defaultValue="Correction"
               options={CORRECTION_KINDS.map((k) => ({ value: k, label: k }))}
-              className="rounded-md border px-2 py-1.5 text-left text-sm"
+              className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
             />
             <Input name="studentRecordLink" placeholder="Link to student record" required className="max-w-md flex-1" />
           </div>
@@ -133,10 +133,10 @@ export function AddIssueForm({
       </form>
 
       {editorOpen && type === "software_issue" && (
-        <div className="space-y-3 rounded-md border p-3">
+        <div className="space-y-3 rounded-md border bg-card p-3">
           <p className="text-xs text-muted-foreground">Editing this list changes the categories/subcategories available for every Software Issue.</p>
           {issueCategories.map((c) => (
-            <div key={c.id} className="space-y-1 rounded-md border p-2">
+            <div key={c.id} className="space-y-1 rounded-md border bg-record-background p-2">
               <div className="flex items-center justify-between gap-2 text-sm font-medium">
                 <span>{c.name}</span>
                 <form action={removeIssueCategory}>

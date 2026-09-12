@@ -121,7 +121,7 @@
      TEXT color this time (the first two palettes just left the
      selected item's text as the same --foreground as everything
      else). */
-  --sidebar: #EEF1F5;
+  --sidebar: #FFFFFF;
   --sidebar-foreground: #173B4D;
   --sidebar-primary: #079DB7;
   --sidebar-primary-foreground: #FFFFFF;

@@ -52,7 +52,7 @@ export default async function PrivateNotesPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_3fr]">
           <div className="space-y-4">
             <form action={addPrivateNote} className="max-w-lg space-y-2">
-              <StickyNoteComposer placeholder="Add a private note…" />
+              <StickyNoteComposer placeholder="Add a private note…" draftKey="draft:private-note" />
               <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
             </form>
 

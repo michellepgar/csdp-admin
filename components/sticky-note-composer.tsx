@@ -36,10 +36,42 @@ const FONT_SIZES = [
    to stay a small sticky-note composer, not a document editor. Every
    major browser (Chrome, Edge, Safari, Firefox) still implements it
    for exactly this case. */
+// A draft is just {html, padColor} under its own key -- wrapped in
+// try/catch everywhere since localStorage can throw (private
+// browsing, disabled site data) and a draft is a convenience, never
+// something worth breaking the composer over if it's unavailable.
+type Draft = { html: string; padColor: string };
+
+function loadDraft(key: string): Draft | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Draft) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(key: string, draft: Draft) {
+  try {
+    localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // ignore -- see Draft's own comment
+  }
+}
+
+function clearDraft(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore -- see Draft's own comment
+  }
+}
+
 export function StickyNoteComposer({
   placeholder,
   defaultText,
   defaultPadColor,
+  draftKey,
 }: {
   placeholder: string;
   /** Pre-fills the editor with existing sanitized HTML and starts the
@@ -52,6 +84,18 @@ export function StickyNoteComposer({
    *  it" case to keep in sync with. */
   defaultText?: string;
   defaultPadColor?: string;
+  /** Turns on draft persistence -- Michelle asked for the "Add a note"
+   *  box specifically to remember what's half-written if you switch
+   *  pages before posting it. Saved to localStorage (per browser, not
+   *  synced anywhere) under this exact key on every keystroke, loaded
+   *  back on mount, and cleared the moment the note is actually
+   *  posted. Only passed by the two "Add a note" composers
+   *  (app/(app)/notes/page.tsx, app/(app)/private-notes/page.tsx), not
+   *  by an EDIT row -- editing an existing note has its own saved
+   *  content already; a half-finished edit isn't a "draft" in the
+   *  sense Michelle meant, and separately drafting an edit vs. losing
+   *  one was never asked for. */
+  draftKey?: string;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -61,11 +105,48 @@ export function StickyNoteComposer({
 
   // contentEditable's own content can't be set via React children/
   // dangerouslySetInnerHTML (React warns about mixing that with
-  // contentEditable), so this sets it once, directly, on mount.
+  // contentEditable), so this sets it once, directly, on mount -- a
+  // saved draft loses out to defaultText (editing an existing note
+  // always wins over a leftover draft, though in practice an edit row
+  // never passes draftKey at all, see draftKey's own comment above).
+  // The draft itself is only ever read here, inside an effect -- never
+  // during render -- since localStorage doesn't exist during this
+  // "use client" component's initial SERVER render (Next.js still
+  // renders Client Components once on the server for the first HTML,
+  // before hydrating); touching it outside an effect would crash that
+  // render.
   useEffect(() => {
-    if (editorRef.current && defaultText) editorRef.current.innerHTML = defaultText;
+    if (!editorRef.current) return;
+    if (defaultText) {
+      editorRef.current.innerHTML = defaultText;
+      return;
+    }
+    const draft = draftKey ? loadDraft(draftKey) : null;
+    if (draft?.html) {
+      editorRef.current.innerHTML = draft.html;
+      setPadColor(draft.padColor);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Saves the draft on every keystroke and pad-color change -- cheap
+  // enough for a synchronous localStorage write at note-composing
+  // scale, and simpler than debouncing for what's meant to just
+  // survive a page navigation, not a rapid-fire save.
+  useEffect(() => {
+    if (!draftKey) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    function persist() {
+      if (!editor) return;
+      const html = editor.innerHTML;
+      if (!editor.innerText.trim()) clearDraft(draftKey!);
+      else saveDraft(draftKey!, { html, padColor });
+    }
+    editor.addEventListener("input", persist);
+    return () => editor.removeEventListener("input", persist);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey, padColor]);
 
   useEffect(() => {
     const form = editorRef.current?.closest("form");
@@ -84,17 +165,20 @@ export function StickyNoteComposer({
     return () => form.removeEventListener("submit", syncBeforeSubmit);
   }, []);
 
-  // Clears the editor after a successful add -- the surrounding page
-  // re-renders via revalidatePath, but this component itself doesn't
-  // remount (same DOM node, same key), so without this the last note's
-  // formatting would still be sitting in the box.
+  // Clears the editor (and the draft, if any) after a successful add
+  // -- the surrounding page re-renders via revalidatePath, but this
+  // component itself doesn't remount (same DOM node, same key), so
+  // without this the last note's formatting would still be sitting in
+  // the box.
   useEffect(() => {
     function clearOnSuccessfulSubmit() {
       if (editorRef.current) editorRef.current.innerHTML = "";
+      if (draftKey) clearDraft(draftKey);
     }
     const form = editorRef.current?.closest("form");
     form?.addEventListener("submit", clearOnSuccessfulSubmit);
     return () => form?.removeEventListener("submit", clearOnSuccessfulSubmit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function exec(command: string, value?: string) {

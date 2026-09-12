@@ -37,6 +37,41 @@ export async function addPrivateNote(formData: FormData) {
   revalidatePath("/private-notes");
 }
 
+/* Author-only, matching sharePrivateNote/unsharePrivateNote below --
+   being shared a note gets you read/ack/delete, never the ability to
+   change someone else's own words. */
+export async function updatePrivateNote(formData: FormData) {
+  const id = formData.get("id") as string;
+  const rawText = ((formData.get("text") as string) || "").trim();
+  if (!rawText) return;
+  const text = sanitizeNoteHtml(rawText);
+  const padColor = (formData.get("padColor") as string) || undefined;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === id && n.author === "Jane");
+      if (note) {
+        note.text = text;
+        note.padColor = padColor;
+      }
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: note } = await supabase.from("private_notes").select("author").eq("id", id).maybeSingle();
+  if (!note || note.author !== me.name) return;
+
+  const { error } = await supabase
+    .from("private_notes")
+    .update({ text, pad_color: padColor || null })
+    .eq("id", id);
+  orThrow(error);
+  revalidatePath("/private-notes");
+}
+
 export async function sharePrivateNote(formData: FormData) {
   const id = formData.get("id") as string;
   const vaName = formData.get("vaName") as string;

@@ -39,6 +39,45 @@ export async function addGeneralNote(formData: FormData) {
   revalidatePath("/notes");
 }
 
+/* Strictly the note's own author, no exception -- unlike
+   removeGeneralNote below (which lets an admin clean up after someone
+   leaves the team), Michelle asked for editing to be author-only,
+   full stop: nobody else should ever be able to change what someone
+   else wrote, admin or not. */
+export async function updateGeneralNote(formData: FormData) {
+  const id = formData.get("id") as string;
+  const rawText = ((formData.get("text") as string) || "").trim();
+  if (!rawText) return;
+  const text = sanitizeNoteHtml(rawText);
+  const padColor = (formData.get("padColor") as string) || undefined;
+  const urgency = formData.get("urgent") ? "Urgent" : "";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.generalNotes || []).find((n) => n.id === id);
+      if (note && note.author === "Jane") {
+        note.text = text;
+        note.padColor = padColor;
+        note.urgency = (urgency || "") as "Urgent" | "";
+      }
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: note } = await supabase.from("general_notes").select("author").eq("id", id).maybeSingle();
+  if (!note || note.author !== me.name) return;
+
+  const { error } = await supabase
+    .from("general_notes")
+    .update({ text, pad_color: padColor || null, urgency: urgency || null })
+    .eq("id", id);
+  orThrow(error);
+  revalidatePath("/notes");
+}
+
 export async function ackGeneralNote(formData: FormData) {
   const id = formData.get("id") as string;
 

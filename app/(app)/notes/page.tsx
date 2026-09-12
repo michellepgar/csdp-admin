@@ -7,7 +7,7 @@ import { PageBody } from "@/components/page-body";
 import { GeneralNotesList } from "@/components/general-notes-list";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { SubmitButton } from "@/components/submit-button";
-import { addGeneralNote, ackGeneralNote, removeGeneralNote } from "./actions";
+import { addGeneralNote, ackGeneralNote, updateGeneralNote, removeGeneralNote } from "./actions";
 
 export default async function NotesPage() {
   const user = await getCurrentUser();
@@ -43,6 +43,7 @@ export default async function NotesPage() {
           currentUserName={me.name}
           deletable={deletable}
           ackGeneralNote={ackGeneralNote}
+          updateGeneralNote={updateGeneralNote}
           removeGeneralNote={removeGeneralNote}
         />
       </PageBody>

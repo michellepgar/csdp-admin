@@ -10,6 +10,7 @@ import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { SubmitButton } from "@/components/submit-button";
 import {
   addPrivateNote,
+  updatePrivateNote,
   sharePrivateNote,
   unsharePrivateNote,
   ackPrivateNote,
@@ -60,6 +61,7 @@ export default async function PrivateNotesPage() {
               currentUserName={me.name}
               shareableVas={state.vas.map((v) => v.name)}
               ackPrivateNote={ackPrivateNote}
+              updatePrivateNote={updatePrivateNote}
               sharePrivateNote={sharePrivateNote}
               unsharePrivateNote={unsharePrivateNote}
               removePrivateNote={removePrivateNote}

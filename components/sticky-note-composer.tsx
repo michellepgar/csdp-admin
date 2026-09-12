@@ -36,12 +36,36 @@ const FONT_SIZES = [
    to stay a small sticky-note composer, not a document editor. Every
    major browser (Chrome, Edge, Safari, Firefox) still implements it
    for exactly this case. */
-export function StickyNoteComposer({ placeholder }: { placeholder: string }) {
+export function StickyNoteComposer({
+  placeholder,
+  defaultText,
+  defaultPadColor,
+}: {
+  placeholder: string;
+  /** Pre-fills the editor with existing sanitized HTML and starts the
+   *  hidden `text` input at that same value -- used when this same
+   *  composer is reused to EDIT a note instead of creating a new one
+   *  (see general-notes-list.tsx/private-notes-list.tsx's own edit
+   *  rows). Only applied once, on mount -- this component's callers
+   *  always mount a fresh instance per edit (toggling into/out of
+   *  edit remounts it), so there's no "the note changed underneath
+   *  it" case to keep in sync with. */
+  defaultText?: string;
+  defaultPadColor?: string;
+}) {
   const editorRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
-  const [padColor, setPadColor] = useState(NOTE_PAD_COLORS[0].value);
+  const [padColor, setPadColor] = useState(defaultPadColor || NOTE_PAD_COLORS[0].value);
   const [fontFamilyIndex, setFontFamilyIndex] = useState(0);
   const [fontSizeIndex, setFontSizeIndex] = useState(1);
+
+  // contentEditable's own content can't be set via React children/
+  // dangerouslySetInnerHTML (React warns about mixing that with
+  // contentEditable), so this sets it once, directly, on mount.
+  useEffect(() => {
+    if (editorRef.current && defaultText) editorRef.current.innerHTML = defaultText;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const form = editorRef.current?.closest("form");

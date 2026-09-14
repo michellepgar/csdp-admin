@@ -38,7 +38,7 @@ export default async function TeamPage() {
       <PageHeader title="Team" />
       <PageBody gap={10}>
       <div className="space-y-8">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">VAs</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team</div>
 
         {/* Add/Remove, Login Email, VA Colors, and Access used to be
             four separate lists, each repeating every VA's name on its
@@ -60,13 +60,13 @@ export default async function TeamPage() {
             (see app/(app)/team/actions.ts) so a crafted request
             bypassing this UI still can't remove it either. */}
         <section className="space-y-3">
-          <h2 className="font-semibold">VAs</h2>
+          <h2 className="font-semibold">Team</h2>
           <form action={addVa} className="flex gap-2 max-w-sm">
-            <Input name="name" placeholder="VA name" required />
+            <Input name="name" placeholder="Team name" required />
             <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
           </form>
           <div className="space-y-2">
-            {sortedVas.length === 0 && <p className="text-sm text-muted-foreground">No VAs added yet.</p>}
+            {sortedVas.length === 0 && <p className="text-sm text-muted-foreground">No team members added yet.</p>}
             {sortedVas.map((va) => {
               const isSuperadmin = va.name === SUPERADMIN_NAME;
               return (

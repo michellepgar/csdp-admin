@@ -71,7 +71,7 @@ export default async function PrivateNotesPage() {
           </div>
 
           <div>
-            <h2 className="mb-2">Pinboard</h2>
+            <h2 className="mb-2">My Priority Board</h2>
             <PrivateNotesBoard
               notes={boardNotes}
               currentUserName={me.name}

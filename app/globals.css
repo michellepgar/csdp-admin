@@ -415,6 +415,30 @@
   margin-top: 0.1875rem;
 }
 
+/* A pinned note on the priority board can get its own internal scroll
+   once it has an explicit height shorter than its content (see
+   components/private-notes-board.tsx) -- Michelle asked for that
+   scrollbar itself to not be so thick/visible, since the browser's
+   default one looked heavy sitting inside a small sticky note.
+   scrollbar-width covers Firefox; the ::-webkit- rules cover Chrome/
+   Edge/Safari. Thumb-only color (no visible track) so it reads as a
+   subtle hint that content continues, not its own UI element. */
+.note-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+.note-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.note-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.note-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+  border-radius: 9999px;
+}
+
 /* Sidebar "you have something to acknowledge" dot (Private Notes/
    General Notes nav links, components/sidebar.tsx) -- keeps blinking
    until the thing it's flagging is actually acked, not just glanced

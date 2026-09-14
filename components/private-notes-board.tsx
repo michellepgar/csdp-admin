@@ -145,7 +145,7 @@ function BoardNote({
       onDragEnd={reorderMode ? onDragEnd : undefined}
       className={`note-card relative shrink-0 rounded-md border p-3 shadow-md ${!note.padColor ? "bg-record-background" : ""} ${
         isDragging ? "opacity-40" : ""
-      } ${reorderMode ? "cursor-grab active:cursor-grabbing" : ""} ${height != null ? "overflow-y-auto" : ""}`}
+      } ${reorderMode ? "cursor-grab active:cursor-grabbing" : ""} ${height != null ? "note-scroll overflow-y-auto" : ""}`}
       style={{
         width,
         height,

@@ -61,7 +61,21 @@ export default function LoginPage() {
     setError(null);
     setCanResend(false);
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      // Without this, Supabase falls back to the project's own
+      // dashboard-configured Site URL to build the confirmation
+      // email's link -- which was still set to the OLD tracker's URL
+      // (https://csdp-tracker.csdp-team.workers.dev, a separate app
+      // entirely) from before this app existed. Every new signup's
+      // confirmation email was sending people there instead of here.
+      // Same fix as handleForgotPassword's own redirectTo below --
+      // window.location.origin so this is always correct regardless
+      // of what the dashboard setting says, in local dev, preview
+      // deploys, and production alike.
+      options: { emailRedirectTo: `${window.location.origin}/login` },
+    });
     if (error) {
       setError(error.message);
       if (error.message.toLowerCase().includes("already registered")) {
@@ -82,7 +96,13 @@ export default function LoginPage() {
     setError(null);
     setResent(false);
     const supabase = createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email });
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      // Same reason as handleSignUp's own options above -- a resent
+      // confirmation link needs this too, not just the original one.
+      options: { emailRedirectTo: `${window.location.origin}/login` },
+    });
     if (error) { setError(error.message); return; }
     setCanResend(false);
     setResent(true);

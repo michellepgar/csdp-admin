@@ -7,4 +7,5 @@ test("keeps task drag and edit controls compact, muted, and separated from the f
 
   assert.match(source, /GripVertical className="h-3 w-3[^"\n]*text-muted-foreground\/60/);
   assert.match(source, /size="icon-xs"[^>]*className="[^"]*ml-1[^"]*text-muted-foreground\/60/);
+  assert.match(source, /<span className="min-w-0 text-sm font-bold break-words">\{task\.fileName\}<\/span>/);
 });

@@ -174,7 +174,7 @@ function TaskRow({
           </form>
         ) : (
           <>
-            <span className="min-w-0 flex-1 text-sm font-bold break-words">{task.fileName}</span>
+            <span className="min-w-0 text-sm font-bold break-words">{task.fileName}</span>
             {canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60 hover:text-muted-foreground" aria-label={`Edit ${task.fileName}`} onClick={() => setEditingFileName(true)}><Pencil className="h-3 w-3" /></Button>}
           </>
         )}

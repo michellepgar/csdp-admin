@@ -25,3 +25,8 @@ test("school page filters shared and current-school category data", () => {
   assert.match(source, /visibleSchoolItems\(state\.taskCategories \|\| \[\], schoolId\)/);
   assert.match(source, /visibleSchoolItems\(state\.checklistTemplate \|\| \[\], schoolId\)/);
 });
+
+test("category reorder validates only the categories visible on the school page", () => {
+  const source = readFileSync("app/(app)/schools/[id]/actions.ts", "utf8");
+  assert.match(source, /from\("task_categories"\)\.select\("id"\)\.in\("id", orderedIds\)/);
+});

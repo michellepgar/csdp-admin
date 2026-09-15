@@ -544,7 +544,7 @@ export async function reorderTaskCategories(orderedIds: string[]) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: categories, error: categoriesError } = await supabase.from("task_categories").select("id");
+  const { data: categories, error: categoriesError } = await supabase.from("task_categories").select("id").in("id", orderedIds);
   orThrow(categoriesError);
   if (!hasExactIds((categories ?? []).map((category) => category.id), orderedIds)) return;
   const results = await Promise.all(

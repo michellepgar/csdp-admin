@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { School, SchoolDataEntry, ChecklistTemplateItem, ChecklistProgressEntry } from "@/lib/app-state";
+import { visibleSchoolItems, type School, type SchoolDataEntry, type ChecklistTemplateItem, type ChecklistProgressEntry } from "@/lib/app-state";
 
 // Wraps a value in double quotes and escapes any inside it, per the
 // plain CSV convention every spreadsheet app (Excel, Sheets, Numbers)
@@ -58,7 +58,7 @@ export function ExportAllSchoolsButton({
 
     const checklistRows: string[][] = [];
     for (const school of sortedSchools) {
-      for (const item of checklistTemplate) {
+      for (const item of visibleSchoolItems(checklistTemplate, school.id)) {
         const entry = checklistProgress[`${school.id}:${item.id}`];
         checklistRows.push([school.name, item.description, entry?.status || "Not Done", entry?.checkedBy || ""]);
       }

@@ -135,7 +135,7 @@ export function ChecklistCard({
           {editorOpen && (
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-xs text-muted-foreground">Editing this list changes the checklist for every school. Drag by the handle to reorder.</p>
-              {orderedItems.map((item) => (
+              {orderedItems.filter((item) => !item.taskCategoryId).map((item) => (
                 <div
                   key={item.id}
                   draggable

@@ -121,6 +121,10 @@ export async function removeChecklistTemplateItem(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
+  const { data: templateItem, error: templateItemError } = await supabase.from("checklist_template").select("task_category_id").eq("id", id).maybeSingle();
+  orThrow(templateItemError);
+  if (templateItem?.task_category_id) throw new Error("This checklist item is managed by its school-only category.");
+
   const { error } = await supabase.from("checklist_template").delete().eq("id", id);
   orThrow(error);
   revalidatePath("/", "layout");
@@ -466,7 +470,7 @@ export async function addTaskCategory(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: duplicate, error: duplicateError } = await supabase.from("task_categories").select("id").ilike("name", name).maybeSingle();
+  const { data: duplicate, error: duplicateError } = await supabase.from("task_categories").select("id").is("school_id", null).ilike("name", name).maybeSingle();
   orThrow(duplicateError);
   if (duplicate) throw new Error("A task category already uses that name.");
 

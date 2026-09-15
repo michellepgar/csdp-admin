@@ -737,7 +737,7 @@ export function visiblePrivateNotes(state: AppState, currentName: string): Priva
 /* Same percentage the HTML app's Overview page shows: how much of the
    shared checklist template each school has marked "Done" for. */
 export function checklistCompletion(state: AppState, schoolId: string): number {
-  const tmpl = state.checklistTemplate || [];
+  const tmpl = visibleSchoolItems(state.checklistTemplate || [], schoolId);
   if (!tmpl.length) return 0;
   let done = 0;
   for (const item of tmpl) {

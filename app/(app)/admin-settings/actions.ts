@@ -381,13 +381,13 @@ export async function restoreBackup(formData: FormData) {
      delete-then-insert is safe -- no security definer function needed. */
   const { error: delCatError } = await supabase.from("task_categories").delete().neq("id", "");
   orThrow(delCatError);
-  const catRows = backup.taskCategories!.map((c, index) => ({ id: c.id, name: c.name, sort_order: index }));
+  const catRows = backup.taskCategories!.map((c, index) => ({ id: c.id, name: c.name, school_id: c.schoolId ?? null, sort_order: index }));
   const { error: insCatError } = await supabase.from("task_categories").insert(catRows);
   orThrow(insCatError);
 
   const { error: delTemplateError } = await supabase.from("checklist_template").delete().neq("id", "");
   orThrow(delTemplateError);
-  const templateRows = backup.checklistTemplate.map((t, index) => ({ id: t.id, description: t.description, sort_order: index }));
+  const templateRows = backup.checklistTemplate.map((t, index) => ({ id: t.id, description: t.description, school_id: t.schoolId ?? null, task_category_id: t.taskCategoryId ?? null, sort_order: index }));
   const { error: insTemplateError } = await supabase.from("checklist_template").insert(templateRows);
   orThrow(insTemplateError);
 

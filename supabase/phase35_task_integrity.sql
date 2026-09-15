@@ -2,6 +2,19 @@
 -- project jqsqstjmfsqqrnoxpuvn, after phase34_task_sort_order.sql and
 -- before deploying the task-ordering UI.
 
+do $$
+begin
+  if exists (
+    select 1
+    from task_categories
+    group by lower(name)
+    having count(*) > 1
+  ) then
+    raise exception 'Duplicate task category names exist. Rename or remove duplicates before applying phase35.';
+  end if;
+end;
+$$;
+
 create unique index if not exists task_categories_lower_name_unique_idx
 on task_categories (lower(name));
 

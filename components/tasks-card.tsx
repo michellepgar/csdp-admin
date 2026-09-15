@@ -165,11 +165,14 @@ function TaskRow({
       <div className="flex min-w-40 flex-1 items-center gap-0.5">
         {draggable && <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60 hover:text-muted-foreground active:cursor-grabbing" aria-label="Drag to reorder task" />}
         {editingFileName ? (
-          <form action={updateTaskFileName} className="flex flex-1 items-center gap-1">
+          <form action={async (formData) => {
+            await updateTaskFileName(formData);
+            setEditingFileName(false);
+          }} className="flex flex-1 items-center gap-1">
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="taskId" value={task.id} />
             <Input name="fileName" defaultValue={task.fileName} required autoFocus className="h-7 min-w-0 flex-1" />
-            <SubmitButton pendingLabel="Saving…" size="xs" onClick={() => setEditingFileName(false)}>Save</SubmitButton>
+            <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton>
             <Button type="button" variant="ghost" size="xs" onClick={() => setEditingFileName(false)}>Cancel</Button>
           </form>
         ) : (

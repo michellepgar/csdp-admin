@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getRecoveryError, isPasswordRecoveryEvent, updatePassword } from "../lib/password-reset.ts";
+import { getRecoveryError, isPasswordRecoveryEvent, scheduleLoginRedirect, updatePassword } from "../lib/password-reset.ts";
 import { isPublicAuthRoute } from "../lib/auth-routes.ts";
 
 test("allows recovery links through the server-side auth guard", () => {
@@ -19,6 +19,24 @@ test("turns an expired recovery-link fragment into a helpful error", () => {
 test("does not treat an unrelated signed-in session as password recovery", () => {
   assert.equal(isPasswordRecoveryEvent("PASSWORD_RECOVERY", { access_token: "recovery-token" }), true);
   assert.equal(isPasswordRecoveryEvent("INITIAL_SESSION", { access_token: "existing-session" }), false);
+});
+
+test("keeps the success confirmation visible before returning to login", () => {
+  let scheduledDelay: number | undefined;
+  let scheduledCallback: (() => void) | undefined;
+  let destination: string | undefined;
+
+  scheduleLoginRedirect(
+    (callback, delay) => {
+      scheduledCallback = callback;
+      scheduledDelay = delay;
+    },
+    () => { destination = "/login"; },
+  );
+
+  assert.equal(scheduledDelay, 3000);
+  scheduledCallback?.();
+  assert.equal(destination, "/login");
 });
 
 test("saves a confirmed password through the supplied auth update", async () => {

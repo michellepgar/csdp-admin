@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getRecoveryError, isPasswordRecoveryEvent, updatePassword } from "@/lib/password-reset";
+import { getRecoveryError, isPasswordRecoveryEvent, scheduleLoginRedirect, updatePassword } from "@/lib/password-reset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,9 +60,13 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    setMessage("Password updated. You can now sign in with your new password.");
+    setMessage("Password reset successful. Redirecting you to sign in…");
     setPassword("");
     setConfirmation("");
+    scheduleLoginRedirect(
+      (callback, delay) => window.setTimeout(callback, delay),
+      () => { window.location.href = "/login"; },
+    );
   }
 
   return (

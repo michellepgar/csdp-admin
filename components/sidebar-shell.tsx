@@ -31,6 +31,7 @@ const DESKTOP_BREAKPOINT_QUERY = "(min-width: 768px)";
 export function SidebarShell({
   currentName,
   currentMember,
+  presenceEnabled,
   schools,
   isAdmin,
   vas,
@@ -43,6 +44,7 @@ export function SidebarShell({
 }: {
   currentName: string;
   currentMember: CurrentPresenceMember;
+  presenceEnabled: boolean;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
   vas: Va[];
@@ -156,6 +158,7 @@ export function SidebarShell({
         <Sidebar
           currentName={currentName}
           currentMember={currentMember}
+          presenceEnabled={presenceEnabled}
           schools={schools}
           isAdmin={isAdmin}
           vas={vas}

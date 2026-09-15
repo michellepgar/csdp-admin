@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { aggregatePresence, initialsForName, visiblePresence, type PresenceStatus, type TeamPresenceMember } from "@/lib/team-presence";
 import { cn } from "@/lib/utils";
+import { HoverLabel } from "@/components/hover-label";
 
 const IDLE_AFTER_MS = 5 * 60 * 1000;
 
@@ -25,6 +26,7 @@ function tabPresenceKey() {
 
 export function TeamPresence({ currentMember, collapsed }: { currentMember: CurrentPresenceMember; collapsed: boolean }) {
   const [members, setMembers] = useState<TeamPresenceMember[]>([]);
+  const [unavailable, setUnavailable] = useState(false);
   const statusRef = useRef<PresenceStatus>("active");
 
   useEffect(() => {
@@ -67,13 +69,17 @@ export function TeamPresence({ currentMember, collapsed }: { currentMember: Curr
     channel
       .on("presence", { event: "sync" }, () => setMembers(aggregatePresence(channel.presenceState())))
       .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setUnavailable(true);
+          return;
+        }
         if (status !== "SUBSCRIBED") return;
         joined = true;
         void channel.track(payload(statusRef.current === "active"));
         resetIdleTimer();
       });
 
-    const activityEvents: (keyof WindowEventMap)[] = ["pointerdown", "keydown", "scroll", "touchstart", "focus"];
+    const activityEvents: (keyof WindowEventMap)[] = ["pointerdown", "pointermove", "keydown", "scroll", "touchstart", "focus"];
     for (const event of activityEvents) window.addEventListener(event, becomeActive, { passive: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -87,24 +93,27 @@ export function TeamPresence({ currentMember, collapsed }: { currentMember: Curr
 
   const roster = visiblePresence(members, collapsed ? 3 : 5);
 
+  if (unavailable) return null;
+
   return (
     <section className={cn(collapsed ? "px-1 py-3" : "px-3 py-3")} aria-label="Online now">
       {!collapsed && <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Online now</div>}
-      <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "-space-x-2")}> 
+      <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "-space-x-2")}>
         {roster.members.map((member) => (
-          <div
-            key={member.memberId}
+          <HoverLabel key={member.memberId} label={`${member.name} · ${member.status === "active" ? "Online" : "Inactive"}`} side={collapsed ? "right" : "left"}>
+            <button
+              type="button"
             className={cn("relative flex h-8 w-8 flex-none items-center justify-center rounded-full border-2 border-sidebar text-[10px] font-semibold text-white shadow-sm", member.status === "idle" && "opacity-45 grayscale")}
             style={{ backgroundColor: member.color || "#64748b" }}
             aria-label={`${member.name} is ${member.status}`}
-            title={`${member.name} · ${member.status === "active" ? "Online" : "Inactive"}`}
           >
             {initialsForName(member.name)}
             <span
               aria-hidden="true"
               className={cn("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-sidebar", member.status === "active" ? "bg-emerald-500" : "bg-slate-400")}
             />
-          </div>
+            </button>
+          </HoverLabel>
         ))}
         {roster.overflow > 0 && (
           <div

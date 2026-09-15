@@ -36,10 +36,27 @@ test("sidebar renders presence above Account and keeps the signed-in name out of
 test("presence renders a compact collapsed avatar stack", () => {
   const presence = readFileSync("components/team-presence.tsx", "utf8");
   assert.match(presence, /visiblePresence\(members, collapsed \? 3 : 5\)/);
-  assert.match(presence, /aria-label=/);
+  assert.match(presence, /HoverLabel/);
+  assert.match(presence, /"pointermove"/);
 });
 
 test("layout and sidebar shell pass the signed-in VA identity to the sidebar", () => {
   assert.match(readFileSync("app/(app)/layout.tsx", "utf8"), /currentMember=\{\{ id: me\.id, name: me\.name, color: me\.color \}\}/);
   assert.match(readFileSync("components/sidebar-shell.tsx", "utf8"), /currentMember=\{currentMember\}/);
+});
+
+test("demo mode does not subscribe to production presence and the migration documents realtime authorization", () => {
+  const layout = readFileSync("app/(app)/layout.tsx", "utf8");
+  const sidebar = readFileSync("components/sidebar.tsx", "utf8");
+  const migration = readFileSync("supabase/phase36_team_presence.sql", "utf8");
+  assert.match(layout, /presenceEnabled=\{!isDemo\}/);
+  assert.match(sidebar, /presenceEnabled && <TeamPresence/);
+  assert.match(migration, /Enable Realtime Authorization in Supabase Dashboard/i);
+});
+
+test("presence quietly hides its roster when the private channel cannot subscribe", () => {
+  const presence = readFileSync("components/team-presence.tsx", "utf8");
+  assert.match(presence, /"CHANNEL_ERROR"/);
+  assert.match(presence, /"TIMED_OUT"/);
+  assert.match(presence, /if \(unavailable\) return null/);
 });

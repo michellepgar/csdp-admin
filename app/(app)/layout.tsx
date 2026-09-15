@@ -88,6 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <SidebarShell
       currentName={me.name}
       currentMember={{ id: me.id, name: me.name, color: me.color }}
+      presenceEnabled={!isDemo}
       schools={state.schools}
       isAdmin={isAdmin(me)}
       vas={state.vas}

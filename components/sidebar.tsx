@@ -35,6 +35,7 @@ import { TeamPresence, type CurrentPresenceMember } from "@/components/team-pres
 export function Sidebar({
   currentName,
   currentMember,
+  presenceEnabled,
   schools,
   isAdmin,
   vas,
@@ -47,6 +48,7 @@ export function Sidebar({
 }: {
   currentName: string;
   currentMember: CurrentPresenceMember;
+  presenceEnabled: boolean;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
   vas: Va[];
@@ -411,7 +413,7 @@ export function Sidebar({
         )}
 
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
-        <TeamPresence currentMember={currentMember} collapsed={collapsed} />
+        {presenceEnabled && <TeamPresence currentMember={currentMember} collapsed={collapsed} />}
         <div className={cn("border-t", collapsed ? "mx-2" : "mx-3")} />
         {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Account</div>}
         {!collapsed && <div className="px-3 pb-1 pt-2 text-sm text-muted-foreground">{currentName} · Signed in</div>}

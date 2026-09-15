@@ -32,8 +32,8 @@ export const DEMO_APP_STATE: AppState = {
     [SCHOOL_ANGELO]: {
       vaAssigned: DEMO_USER_NAME,
       tasks: [
-        { id: "t1", category: "Initial", fileName: "Q3-enrollment-report.xlsx", status: "In Progress", vaAssigned: [DEMO_USER_NAME], createdAt: new Date().toISOString() },
-        { id: "t2", category: "Encoding & Uploading (Consent & SDF)", fileName: "consent-forms-batch-1.pdf", count: "42", status: "In Progress", vaAssigned: ["John"], createdAt: new Date().toISOString() },
+        { id: "t1", category: "Initial", fileName: "Q3-enrollment-report.xlsx", sortOrder: 0, status: "In Progress", vaAssigned: [DEMO_USER_NAME], createdAt: new Date().toISOString() },
+        { id: "t2", category: "Encoding & Uploading (Consent & SDF)", fileName: "consent-forms-batch-1.pdf", sortOrder: 0, count: "42", status: "In Progress", vaAssigned: ["John"], createdAt: new Date().toISOString() },
       ],
       emailTracker: [
         { id: "e1", description: "Waiting on updated enrollment counts from front desk", status: "Waiting on Them", addedBy: DEMO_USER_NAME, createdAt: new Date().toISOString() },
@@ -42,7 +42,7 @@ export const DEMO_APP_STATE: AppState = {
     [SCHOOL_BAKER]: {
       vaAssigned: "John",
       tasks: [
-        { id: "t3", category: "Follow up", fileName: "follow-up-visit-notes.docx", status: "In Progress", vaAssigned: ["Alex"], createdAt: new Date().toISOString() },
+        { id: "t3", category: "Follow up", fileName: "follow-up-visit-notes.docx", sortOrder: 0, status: "In Progress", vaAssigned: ["Alex"], createdAt: new Date().toISOString() },
       ],
     },
   },

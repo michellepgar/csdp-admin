@@ -22,6 +22,10 @@ import {
   removeTask,
   addTaskCategory,
   removeTaskCategory,
+  reorderTaskCategories,
+  renameTaskCategory,
+  reorderTasks,
+  updateTaskFileName,
   setCommsStatus,
   signComms,
   removeVaFromComms,
@@ -170,6 +174,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             removeTask={removeTask}
             addTaskCategory={addTaskCategory}
             removeTaskCategory={removeTaskCategory}
+            reorderTaskCategories={reorderTaskCategories}
+            renameTaskCategory={renameTaskCategory}
+            reorderTasks={reorderTasks}
+            updateTaskFileName={updateTaskFileName}
             setCommsStatus={setCommsStatus}
             signComms={signComms}
             removeVaFromComms={removeVaFromComms}

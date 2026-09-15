@@ -83,6 +83,7 @@ type TaskRow = {
   school_id: string;
   category: string;
   file_name: string;
+  sort_order: number;
   count: string | null;
   status: string;
   va_assigned: string[];
@@ -96,6 +97,7 @@ function mapTaskRow(r: TaskRow): Task {
     id: r.id,
     category: r.category,
     fileName: r.file_name,
+    sortOrder: r.sort_order,
     count: r.count ?? undefined,
     status: r.status,
     vaAssigned: r.va_assigned,
@@ -514,7 +516,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("task_categories").select("id, name").order("sort_order"),
     supabase.from("checklist_template").select("id, description").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by"),
-    supabase.from("tasks").select("id, school_id, category, file_name, count, status, va_assigned, created_at, comms_status, comms_va_assigned").order("created_at"),
+    supabase.from("tasks").select("id, school_id, category, file_name, sort_order, count, status, va_assigned, created_at, comms_status, comms_va_assigned").order("sort_order"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
     supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at, pad_color").order("created_at"),

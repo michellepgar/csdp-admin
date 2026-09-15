@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { GripVertical, Pencil } from "lucide-react";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -102,6 +103,13 @@ function TaskRow({
   setCommsStatus,
   signComms,
   removeVaFromComms,
+  updateTaskFileName,
+  draggable,
+  dragged,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: {
   schoolId: string;
   task: Task;
@@ -116,12 +124,20 @@ function TaskRow({
   setCommsStatus: (formData: FormData) => void;
   signComms: (formData: FormData) => void;
   removeVaFromComms: (formData: FormData) => void;
+  updateTaskFileName: (formData: FormData) => void;
+  draggable: boolean;
+  dragged: boolean;
+  onDragStart: () => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
 }) {
   const needsCount = COUNT_CATEGORIES.includes(task.category);
   const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(task.category);
+  const [editingFileName, setEditingFileName] = useState(false);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 bg-record-background px-1 py-1">
+    <div draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd} className={`flex flex-wrap items-center gap-3 bg-record-background px-1 py-1 ${dragged ? "opacity-40" : ""}`}>
       {/* Count comes first (fixed width, so it lines up row to row),
           then the file name gets whatever space is left and wraps
           rather than truncating -- file names run long sometimes.
@@ -146,7 +162,23 @@ function TaskRow({
         )}
       </div>
 
-      <span className="min-w-40 flex-1 text-sm font-bold break-words">{task.fileName}</span>
+      <div className="flex min-w-40 flex-1 items-center gap-1">
+        {draggable && <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing" aria-label="Drag to reorder task" />}
+        {editingFileName ? (
+          <form action={updateTaskFileName} className="flex flex-1 items-center gap-1">
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <input type="hidden" name="taskId" value={task.id} />
+            <Input name="fileName" defaultValue={task.fileName} required autoFocus className="h-7 min-w-0 flex-1" />
+            <SubmitButton pendingLabel="Saving…" size="xs" onClick={() => setEditingFileName(false)}>Save</SubmitButton>
+            <Button type="button" variant="ghost" size="xs" onClick={() => setEditingFileName(false)}>Cancel</Button>
+          </form>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 text-sm font-bold break-words">{task.fileName}</span>
+            {canEdit && <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${task.fileName}`} onClick={() => setEditingFileName(true)}><Pencil className="h-3.5 w-3.5" /></Button>}
+          </>
+        )}
+      </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-4">
         <SignAndStatus
@@ -213,6 +245,10 @@ export function TasksCard({
   signComms,
   removeVaFromComms,
   setNoRecheck,
+  reorderTaskCategories,
+  renameTaskCategory,
+  reorderTasks,
+  updateTaskFileName,
 }: {
   schoolId: string;
   categories: TaskCategory[];
@@ -233,9 +269,20 @@ export function TasksCard({
   signComms: (formData: FormData) => void;
   removeVaFromComms: (formData: FormData) => void;
   setNoRecheck: (formData: FormData) => void;
+  reorderTaskCategories: (orderedIds: string[]) => void;
+  renameTaskCategory: (formData: FormData) => void;
+  reorderTasks: (schoolId: string, category: string, orderedIds: string[]) => void;
+  updateTaskFileName: (formData: FormData) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
-  const catNames = categories.map((c) => c.name);
+  const [orderedCategories, setOrderedCategories] = useState(categories);
+  const [orderedTasks, setOrderedTasks] = useState(tasks);
+  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  useEffect(() => setOrderedCategories(categories), [categories]);
+  useEffect(() => setOrderedTasks(tasks), [tasks]);
+  const catNames = orderedCategories.map((c) => c.name);
   const openCount = tasks.filter((t) => t.status !== "Completed").length;
   const inProgressCount = tasks.filter((t) => t.status === "In Progress").length;
   const pausedCount = tasks.filter((t) => t.status === "Paused").length;
@@ -254,7 +301,38 @@ export function TasksCard({
     setCommsStatus,
     signComms,
     removeVaFromComms,
+    updateTaskFileName,
   };
+
+  function moveItem<T extends { id: string }>(items: T[], draggedId: string, targetId: string): T[] | null {
+    const from = items.findIndex((item) => item.id === draggedId);
+    const to = items.findIndex((item) => item.id === targetId);
+    if (from < 0 || to < 0 || from === to) return null;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  }
+
+  function dropCategory(targetId: string) {
+    if (!draggedCategoryId) return;
+    const next = moveItem(orderedCategories, draggedCategoryId, targetId);
+    setDraggedCategoryId(null);
+    if (!next) return;
+    setOrderedCategories(next);
+    reorderTaskCategories(next.map((category) => category.id));
+  }
+
+  function dropTask(category: string, targetId: string) {
+    if (!draggedTaskId) return;
+    const categoryTasks = orderedTasks.filter((task) => task.category === category);
+    const nextCategoryTasks = moveItem(categoryTasks, draggedTaskId, targetId);
+    setDraggedTaskId(null);
+    if (!nextCategoryTasks) return;
+    const ranks = new Map(nextCategoryTasks.map((task, index) => [task.id, index]));
+    setOrderedTasks((current) => current.map((task) => ranks.has(task.id) ? { ...task, sortOrder: ranks.get(task.id)! } : task));
+    reorderTasks(schoolId, category, nextCategoryTasks.map((task) => task.id));
+  }
 
   return (
     <div className="rounded-md border bg-card">
@@ -274,10 +352,20 @@ export function TasksCard({
       <div className="space-y-3 p-3">
         {editorOpen && (
           <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs text-muted-foreground">Editing this list changes the categories for every school. Existing files keep their category name even if it&apos;s later removed here.</p>
-            {categories.map((c) => (
-              <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
-                <span>{c.name}</span>
+            <p className="text-xs text-muted-foreground">Changes here apply to every school. Drag by the handle to reorder; renaming also updates existing files.</p>
+            {orderedCategories.map((c) => (
+              <div key={c.id} draggable onDragStart={() => setDraggedCategoryId(c.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropCategory(c.id)} onDragEnd={() => setDraggedCategoryId(null)} className={`flex items-center justify-between gap-2 rounded-md text-sm ${draggedCategoryId === c.id ? "opacity-40" : ""}`}>
+                <div className="flex min-w-0 flex-1 items-center gap-1">
+                  <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing" />
+                  {editingCategoryId === c.id ? (
+                    <form action={renameTaskCategory} className="flex flex-1 items-center gap-1">
+                      <input type="hidden" name="id" value={c.id} />
+                      <Input name="name" defaultValue={c.name} required autoFocus className="h-7" />
+                      <SubmitButton pendingLabel="Saving…" size="xs" onClick={() => setEditingCategoryId(null)}>Save</SubmitButton>
+                      <Button type="button" variant="ghost" size="xs" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
+                    </form>
+                  ) : <><span>{c.name}</span><Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${c.name}`} onClick={() => setEditingCategoryId(c.id)}><Pencil className="h-3.5 w-3.5" /></Button></>}
+                </div>
                 <form action={removeTaskCategory}>
                   <input type="hidden" name="id" value={c.id} />
                   <ConfirmDeleteButton confirmMessage={`Remove the "${c.name}" category? Existing files keep this category name.`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
@@ -306,15 +394,15 @@ export function TasksCard({
           <Dropdown
             name="category"
             defaultValue={categories[0]?.name}
-            options={categories.map((c) => ({ value: c.name, label: c.name }))}
+            options={orderedCategories.map((c) => ({ value: c.name, label: c.name }))}
             className="w-full truncate rounded-md border px-2 py-1.5 text-left text-sm sm:w-auto"
           />
           <Input name="fileName" placeholder="File name" required className="w-full sm:max-w-md sm:flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>
 
-        {categories.map((c) => {
-          const items = tasks.filter((t) => t.category === c.name);
+        {orderedCategories.map((c) => {
+          const items = orderedTasks.filter((t) => t.category === c.name).sort((a, b) => a.sortOrder - b.sortOrder);
           const total = COUNT_CATEGORIES.includes(c.name) ? items.reduce((sum, t) => sum + (parseInt(t.count || "0", 10) || 0), 0) : null;
           const isFollowUp = c.name === "Follow up";
           return (
@@ -338,7 +426,7 @@ export function TasksCard({
                 <p className="text-xs text-muted-foreground">No files yet in this category.</p>
               ) : (
                 <div className="divide-y rounded-md border">
-                  {items.map((t) => <TaskRow key={t.id} task={t} {...rowProps} />)}
+                  {items.map((t) => <TaskRow key={t.id} task={t} {...rowProps} draggable={canEdit} dragged={draggedTaskId === t.id} onDragStart={() => setDraggedTaskId(t.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropTask(c.name, t.id)} onDragEnd={() => setDraggedTaskId(null)} />)}
                 </div>
               )}
             </div>
@@ -349,7 +437,7 @@ export function TasksCard({
           <div className="space-y-2">
             <div className="text-sm font-medium">Other</div>
             <div className="divide-y rounded-md border">
-              {tasks.filter((t) => !catNames.includes(t.category)).map((t) => <TaskRow key={t.id} task={t} {...rowProps} />)}
+              {orderedTasks.filter((t) => !catNames.includes(t.category)).sort((a, b) => a.sortOrder - b.sortOrder).map((t) => <TaskRow key={t.id} task={t} {...rowProps} draggable={false} dragged={false} onDragStart={() => {}} onDragOver={() => {}} onDrop={() => {}} onDragEnd={() => {}} />)}
             </div>
           </div>
         )}

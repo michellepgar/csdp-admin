@@ -78,6 +78,7 @@ export interface Task {
   status: string;
   vaAssigned: string[];
   createdAt: string;
+  sortOrder: number;
   /* Initial/Follow up files often need a separate "we reached out about
      this record" trail, tracked against the SAME file name rather than
      as a second task row -- its own status/signatures, independent of

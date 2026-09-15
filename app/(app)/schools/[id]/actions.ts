@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
+import { getOrderedItems, hasExactIds, nextSortOrder } from "@/lib/task-ordering";
 
 /* Every action in this file used to start with a helper that ran
    fetchAppState() -- the whole app's ~25-table Promise.all -- just to
@@ -163,7 +164,8 @@ export async function addTask(formData: FormData) {
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
-      (sd.tasks ??= []).push({ id: `demo-${Date.now()}`, category, fileName, status: "", vaAssigned: [], createdAt: new Date().toISOString() });
+      const tasks = (sd.tasks ??= []);
+      tasks.push({ id: `demo-${Date.now()}`, category, fileName, sortOrder: nextSortOrder(tasks.filter((task) => task.category === category)), status: "", vaAssigned: [], createdAt: new Date().toISOString() });
     });
     revalidateSchool(schoolId);
     return;
@@ -171,14 +173,75 @@ export async function addTask(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
+  const { data: lastTask, error: lastTaskError } = await supabase
+    .from("tasks")
+    .select("sort_order")
+    .eq("school_id", schoolId)
+    .eq("category", category)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  orThrow(lastTaskError);
+
   const { error } = await supabase.from("tasks").insert({
     id: crypto.randomUUID(),
     school_id: schoolId,
     category,
     file_name: fileName,
+    sort_order: (lastTask?.sort_order ?? -1) + 1,
     status: "",
     va_assigned: [],
   });
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+export async function reorderTasks(schoolId: string, category: string, orderedIds: string[]) {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const tasks = state.schoolData[schoolId]?.tasks ?? [];
+      const categoryTasks = tasks.filter((task) => task.category === category);
+      if (!hasExactIds(categoryTasks.map((task) => task.id), orderedIds)) return;
+      const sortOrderById = new Map(orderedIds.map((id, index) => [id, index]));
+      for (const task of categoryTasks) task.sortOrder = sortOrderById.get(task.id)!;
+    });
+    revalidateSchool(schoolId);
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const { data: tasks, error: tasksError } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("category", category);
+  orThrow(tasksError);
+  if (!hasExactIds((tasks ?? []).map((task) => task.id), orderedIds)) return;
+
+  const results = await Promise.all(
+    orderedIds.map((id, sortOrder) => supabase.from("tasks").update({ sort_order: sortOrder }).eq("id", id).eq("school_id", schoolId).eq("category", category))
+  );
+  results.forEach(({ error }) => orThrow(error));
+  revalidateSchool(schoolId);
+}
+
+export async function updateTaskFileName(formData: FormData) {
+  const schoolId = formData.get("schoolId") as string;
+  const taskId = formData.get("taskId") as string;
+  const fileName = ((formData.get("fileName") as string) || "").trim();
+  if (!fileName) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const task = state.schoolData[schoolId]?.tasks?.find((item) => item.id === taskId);
+      if (task) task.fileName = fileName;
+    });
+    revalidateSchool(schoolId);
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const { error } = await supabase.from("tasks").update({ file_name: fileName }).eq("id", taskId).eq("school_id", schoolId);
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -445,6 +508,61 @@ export async function removeTaskCategory(formData: FormData) {
 
   const { error } = await supabase.from("task_categories").delete().eq("id", id);
   orThrow(error);
+  revalidatePath("/", "layout");
+}
+
+export async function reorderTaskCategories(orderedIds: string[]) {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const categories = state.taskCategories ?? [];
+      if (!hasExactIds(categories.map((category) => category.id), orderedIds)) return;
+      state.taskCategories = getOrderedItems(categories, orderedIds);
+    });
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const { data: categories, error: categoriesError } = await supabase.from("task_categories").select("id");
+  orThrow(categoriesError);
+  if (!hasExactIds((categories ?? []).map((category) => category.id), orderedIds)) return;
+  const results = await Promise.all(
+    orderedIds.map((id, sortOrder) => supabase.from("task_categories").update({ sort_order: sortOrder }).eq("id", id))
+  );
+  results.forEach(({ error }) => orThrow(error));
+  revalidatePath("/", "layout");
+}
+
+export async function renameTaskCategory(formData: FormData) {
+  const id = formData.get("id") as string;
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!name) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const category = state.taskCategories?.find((item) => item.id === id);
+      if (!category || category.name === name || state.taskCategories?.some((item) => item.id !== id && item.name === name)) return;
+      const previousName = category.name;
+      category.name = name;
+      for (const schoolData of Object.values(state.schoolData)) {
+        for (const task of schoolData.tasks ?? []) if (task.category === previousName) task.category = name;
+      }
+    });
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const { data: category, error: categoryError } = await supabase.from("task_categories").select("name").eq("id", id).maybeSingle();
+  orThrow(categoryError);
+  if (!category || category.name === name) return;
+  const { data: duplicate, error: duplicateError } = await supabase.from("task_categories").select("id").eq("name", name).maybeSingle();
+  orThrow(duplicateError);
+  if (duplicate) throw new Error("A task category already uses that name.");
+  const { error: renameError } = await supabase.from("task_categories").update({ name }).eq("id", id);
+  orThrow(renameError);
+  const { error: taskError } = await supabase.from("tasks").update({ category: name }).eq("category", category.name);
+  orThrow(taskError);
   revalidatePath("/", "layout");
 }
 

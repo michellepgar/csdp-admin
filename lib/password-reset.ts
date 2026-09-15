@@ -17,6 +17,13 @@ export function isPasswordRecoveryEvent(event: string, session: unknown) {
   return event === "PASSWORD_RECOVERY" && session !== null;
 }
 
+export function scheduleLoginRedirect(
+  schedule: (callback: () => void, delay: number) => unknown,
+  redirectToLogin: () => void,
+) {
+  schedule(redirectToLogin, 3000);
+}
+
 export async function updatePassword(
   updateUser: UpdateUser,
   password: string,

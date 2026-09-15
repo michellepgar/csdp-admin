@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
-import { getOrderedItems, hasExactIds, nextSortOrder } from "@/lib/task-ordering";
+import { getOrderedItems, hasExactIds, nextSortOrder, normalizedCategoryName } from "@/lib/task-ordering";
 
 /* Every action in this file used to start with a helper that ran
    fetchAppState() -- the whole app's ~25-table Promise.all -- just to
@@ -173,24 +173,11 @@ export async function addTask(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: lastTask, error: lastTaskError } = await supabase
-    .from("tasks")
-    .select("sort_order")
-    .eq("school_id", schoolId)
-    .eq("category", category)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  orThrow(lastTaskError);
-
-  const { error } = await supabase.from("tasks").insert({
-    id: crypto.randomUUID(),
-    school_id: schoolId,
-    category,
-    file_name: fileName,
-    sort_order: (lastTask?.sort_order ?? -1) + 1,
-    status: "",
-    va_assigned: [],
+  const { error } = await supabase.rpc("add_task_at_end", {
+    p_id: crypto.randomUUID(),
+    p_school_id: schoolId,
+    p_category: category,
+    p_file_name: fileName,
   });
   orThrow(error);
   revalidateSchool(schoolId);
@@ -470,6 +457,7 @@ export async function addTaskCategory(formData: FormData) {
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      if (state.taskCategories?.some((category) => normalizedCategoryName(category.name) === normalizedCategoryName(name))) return;
       (state.taskCategories ??= []).push({ id: `demo-${Date.now()}`, name });
     });
     revalidatePath("/", "layout");
@@ -477,6 +465,10 @@ export async function addTaskCategory(formData: FormData) {
   }
 
   const { supabase } = await requireTeamMember();
+
+  const { data: duplicate, error: duplicateError } = await supabase.from("task_categories").select("id").ilike("name", name).maybeSingle();
+  orThrow(duplicateError);
+  if (duplicate) throw new Error("A task category already uses that name.");
 
   const { data: maxRow } = await supabase
     .from("task_categories")
@@ -523,6 +515,7 @@ export async function reorderTaskCategories(orderedIds: string[]) {
   }
 
   const { supabase } = await requireTeamMember();
+
   const { data: categories, error: categoriesError } = await supabase.from("task_categories").select("id");
   orThrow(categoriesError);
   if (!hasExactIds((categories ?? []).map((category) => category.id), orderedIds)) return;
@@ -541,7 +534,7 @@ export async function renameTaskCategory(formData: FormData) {
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const category = state.taskCategories?.find((item) => item.id === id);
-      if (!category || category.name === name || state.taskCategories?.some((item) => item.id !== id && item.name === name)) return;
+      if (!category || category.name === name || state.taskCategories?.some((item) => item.id !== id && normalizedCategoryName(item.name) === normalizedCategoryName(name))) return;
       const previousName = category.name;
       category.name = name;
       for (const schoolData of Object.values(state.schoolData)) {
@@ -556,13 +549,11 @@ export async function renameTaskCategory(formData: FormData) {
   const { data: category, error: categoryError } = await supabase.from("task_categories").select("name").eq("id", id).maybeSingle();
   orThrow(categoryError);
   if (!category || category.name === name) return;
-  const { data: duplicate, error: duplicateError } = await supabase.from("task_categories").select("id").eq("name", name).maybeSingle();
+  const { data: duplicate, error: duplicateError } = await supabase.from("task_categories").select("id").ilike("name", name).maybeSingle();
   orThrow(duplicateError);
   if (duplicate) throw new Error("A task category already uses that name.");
-  const { error: renameError } = await supabase.from("task_categories").update({ name }).eq("id", id);
+  const { error: renameError } = await supabase.rpc("rename_task_category", { p_id: id, p_name: name });
   orThrow(renameError);
-  const { error: taskError } = await supabase.from("tasks").update({ category: name }).eq("category", category.name);
-  orThrow(taskError);
   revalidatePath("/", "layout");
 }
 

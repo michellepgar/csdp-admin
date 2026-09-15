@@ -13,3 +13,7 @@ export function getOrderedItems<T extends { id: string }>(items: T[], orderedIds
 export function nextSortOrder(items: Array<{ sortOrder: number }>): number {
   return items.reduce((highest, item) => Math.max(highest, item.sortOrder), -1) + 1;
 }
+
+export function normalizedCategoryName(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}

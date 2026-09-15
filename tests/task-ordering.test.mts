@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getOrderedItems, hasExactIds, nextSortOrder } from "../lib/task-ordering.ts";
+import { getOrderedItems, hasExactIds, nextSortOrder, normalizedCategoryName } from "../lib/task-ordering.ts";
 
 test("orders task rows by the submitted IDs", () => {
   const tasks = [
@@ -19,4 +19,8 @@ test("rejects a task order containing an ID outside the current category", () =>
 test("assigns the next position after the largest current sort order", () => {
   assert.equal(nextSortOrder([{ sortOrder: 0 }, { sortOrder: 4 }]), 5);
   assert.equal(nextSortOrder([]), 0);
+});
+
+test("normalizes category names before duplicate checks", () => {
+  assert.equal(normalizedCategoryName("  Follow Up  "), "follow up");
 });

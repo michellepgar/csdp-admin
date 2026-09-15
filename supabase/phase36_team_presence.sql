@@ -16,7 +16,7 @@ on realtime.messages for select
 to authenticated
 using (
   realtime.topic() = 'team-presence'
-  and realtime.messages.extension() = 'presence'
+  and realtime.messages.extension in ('presence')
   and public.is_team_member()
 );
 
@@ -25,6 +25,6 @@ on realtime.messages for insert
 to authenticated
 with check (
   realtime.topic() = 'team-presence'
-  and realtime.messages.extension() = 'presence'
+  and realtime.messages.extension in ('presence')
   and public.is_team_member()
 );

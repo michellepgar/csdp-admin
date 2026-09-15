@@ -52,6 +52,8 @@ test("demo mode does not subscribe to production presence and the migration docu
   assert.match(layout, /presenceEnabled=\{!isDemo\}/);
   assert.match(sidebar, /presenceEnabled && <TeamPresence/);
   assert.match(migration, /Enable Realtime Authorization in Supabase Dashboard/i);
+  assert.match(migration, /realtime\.messages\.extension in \('presence'\)/);
+  assert.doesNotMatch(migration, /realtime\.messages\.extension\(\)/);
 });
 
 test("presence quietly hides its roster when the private channel cannot subscribe", () => {

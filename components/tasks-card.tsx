@@ -162,8 +162,8 @@ function TaskRow({
         )}
       </div>
 
-      <div className="flex min-w-40 flex-1 items-center gap-1">
-        {draggable && <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing" aria-label="Drag to reorder task" />}
+      <div className="flex min-w-40 flex-1 items-center gap-0.5">
+        {draggable && <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60 hover:text-muted-foreground active:cursor-grabbing" aria-label="Drag to reorder task" />}
         {editingFileName ? (
           <form action={updateTaskFileName} className="flex flex-1 items-center gap-1">
             <input type="hidden" name="schoolId" value={schoolId} />
@@ -175,7 +175,7 @@ function TaskRow({
         ) : (
           <>
             <span className="min-w-0 flex-1 text-sm font-bold break-words">{task.fileName}</span>
-            {canEdit && <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${task.fileName}`} onClick={() => setEditingFileName(true)}><Pencil className="h-3.5 w-3.5" /></Button>}
+            {canEdit && <Button type="button" variant="ghost" size="icon-xs" className="-ml-0.5 text-muted-foreground/60 hover:text-muted-foreground" aria-label={`Edit ${task.fileName}`} onClick={() => setEditingFileName(true)}><Pencil className="h-3 w-3" /></Button>}
           </>
         )}
       </div>
@@ -356,7 +356,7 @@ export function TasksCard({
             {orderedCategories.map((c) => (
               <div key={c.id} draggable onDragStart={() => setDraggedCategoryId(c.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropCategory(c.id)} onDragEnd={() => setDraggedCategoryId(null)} className={`flex items-center justify-between gap-2 rounded-md text-sm ${draggedCategoryId === c.id ? "opacity-40" : ""}`}>
                 <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing" />
+                  <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60 hover:text-muted-foreground active:cursor-grabbing" />
                   {editingCategoryId === c.id ? (
                     <form action={renameTaskCategory} className="flex flex-1 items-center gap-1">
                       <input type="hidden" name="id" value={c.id} />
@@ -364,7 +364,7 @@ export function TasksCard({
                       <SubmitButton pendingLabel="Saving…" size="xs" onClick={() => setEditingCategoryId(null)}>Save</SubmitButton>
                       <Button type="button" variant="ghost" size="xs" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
                     </form>
-                  ) : <><span>{c.name}</span><Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${c.name}`} onClick={() => setEditingCategoryId(c.id)}><Pencil className="h-3.5 w-3.5" /></Button></>}
+                  ) : <><span>{c.name}</span><Button type="button" variant="ghost" size="icon-xs" className="-ml-0.5 text-muted-foreground/60 hover:text-muted-foreground" aria-label={`Edit ${c.name}`} onClick={() => setEditingCategoryId(c.id)}><Pencil className="h-3 w-3" /></Button></>}
                 </div>
                 <form action={removeTaskCategory}>
                   <input type="hidden" name="id" value={c.id} />

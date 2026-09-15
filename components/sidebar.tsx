@@ -30,9 +30,11 @@ import { cn } from "@/lib/utils";
 import { IconTooltip } from "@/components/icon-tooltip";
 import { SignOutButton } from "@/components/sign-out-button";
 import { SchoolsFlyout } from "@/components/schools-flyout";
+import { TeamPresence, type CurrentPresenceMember } from "@/components/team-presence";
 
 export function Sidebar({
   currentName,
+  currentMember,
   schools,
   isAdmin,
   vas,
@@ -44,6 +46,7 @@ export function Sidebar({
   needsGeneralNoteAck,
 }: {
   currentName: string;
+  currentMember: CurrentPresenceMember;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
   vas: Va[];
@@ -121,15 +124,6 @@ export function Sidebar({
         {!collapsed && (
           <div>
             <div className="text-lg font-bold">CSDP Tracker</div>
-            {/* Plain white, no VA color here -- a background pill
-                behind the color-tinted name was tried first, but
-                Michelle said it still wasn't reliably readable (some
-                VA colors are just too pale against teal no matter
-                what sits behind them). This is the one spot that only
-                needs to answer "whose account is this," so it doesn't
-                need the color-coding every other name in the app
-                uses -- plain white always reads clearly here. */}
-            <div className="mt-1 text-sm text-white/80">{currentName}</div>
           </div>
         )}
         <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "gap-1")}>
@@ -417,8 +411,11 @@ export function Sidebar({
         )}
 
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
+        <TeamPresence currentMember={currentMember} collapsed={collapsed} />
+        <div className={cn("border-t", collapsed ? "mx-2" : "mx-3")} />
         {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Account</div>}
-        <div>
+        {!collapsed && <div className="px-3 pb-1 pt-2 text-sm text-muted-foreground">{currentName} · Signed in</div>}
+        <div className={!collapsed ? "pb-2" : undefined}>
           <SignOutButton collapsed={collapsed} />
         </div>
       </nav>

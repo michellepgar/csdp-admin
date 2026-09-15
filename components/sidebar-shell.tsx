@@ -6,6 +6,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import type { Va } from "@/lib/app-state";
+import type { CurrentPresenceMember } from "@/components/team-presence";
 
 const COOKIE_NAME = "sidebar-collapsed";
 /* Tailwind's default "md" breakpoint -- kept in sync with the md:
@@ -29,6 +30,8 @@ const DESKTOP_BREAKPOINT_QUERY = "(min-width: 768px)";
    separate, always starts closed, and isn't persisted. */
 export function SidebarShell({
   currentName,
+  currentMember,
+  presenceEnabled,
   schools,
   isAdmin,
   vas,
@@ -40,6 +43,8 @@ export function SidebarShell({
   children,
 }: {
   currentName: string;
+  currentMember: CurrentPresenceMember;
+  presenceEnabled: boolean;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
   vas: Va[];
@@ -152,6 +157,8 @@ export function SidebarShell({
       >
         <Sidebar
           currentName={currentName}
+          currentMember={currentMember}
+          presenceEnabled={presenceEnabled}
           schools={schools}
           isAdmin={isAdmin}
           vas={vas}

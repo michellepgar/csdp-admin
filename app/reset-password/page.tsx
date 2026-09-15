@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getRecoveryError, updatePassword } from "@/lib/password-reset";
+import { getRecoveryError, isPasswordRecoveryEvent, updatePassword } from "@/lib/password-reset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,15 +25,13 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const recoveryLinkWasOpened = new URLSearchParams(window.location.search).has("code")
-      || new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery";
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" && session) setHasRecoverySession(true);
+      if (isPasswordRecoveryEvent(event, session)) setHasRecoverySession(true);
+      if (event === "PASSWORD_RECOVERY" || event === "INITIAL_SESSION") setIsCheckingRecoverySession(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (recoveryLinkWasOpened && session) setHasRecoverySession(true);
+    supabase.auth.getSession().then(() => {
       setIsCheckingRecoverySession(false);
     });
 

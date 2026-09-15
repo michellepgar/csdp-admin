@@ -13,6 +13,10 @@ export function getRecoveryError(hash: string) {
   return params.get("error_description")?.replace(/\+/g, " ") ?? "This password-reset link is invalid. Request a new one from the sign-in page.";
 }
 
+export function isPasswordRecoveryEvent(event: string, session: unknown) {
+  return event === "PASSWORD_RECOVERY" && session !== null;
+}
+
 export async function updatePassword(
   updateUser: UpdateUser,
   password: string,

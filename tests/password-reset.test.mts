@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getRecoveryError, updatePassword } from "../lib/password-reset.ts";
+import { getRecoveryError, isPasswordRecoveryEvent, updatePassword } from "../lib/password-reset.ts";
 import { isPublicAuthRoute } from "../lib/auth-routes.ts";
 
 test("allows recovery links through the server-side auth guard", () => {
@@ -14,6 +14,11 @@ test("turns an expired recovery-link fragment into a helpful error", () => {
     getRecoveryError("#error=access_denied&error_code=otp_expired&error_description=Link+expired"),
     "That password-reset link expired before it was clicked. Request a new one from the sign-in page.",
   );
+});
+
+test("does not treat an unrelated signed-in session as password recovery", () => {
+  assert.equal(isPasswordRecoveryEvent("PASSWORD_RECOVERY", { access_token: "recovery-token" }), true);
+  assert.equal(isPasswordRecoveryEvent("INITIAL_SESSION", { access_token: "existing-session" }), false);
 });
 
 test("saves a confirmed password through the supplied auth update", async () => {

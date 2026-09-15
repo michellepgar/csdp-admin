@@ -51,7 +51,7 @@ test("demo mode does not subscribe to production presence and the migration docu
   const migration = readFileSync("supabase/phase36_team_presence.sql", "utf8");
   assert.match(layout, /presenceEnabled=\{!isDemo\}/);
   assert.match(sidebar, /presenceEnabled && <TeamPresence/);
-  assert.match(migration, /Enable Realtime Authorization in Supabase Dashboard/i);
+  assert.match(migration, /disable the[\s\S]*'Allow public access' setting/i);
   assert.match(migration, /realtime\.messages\.extension in \('presence'\)/);
   assert.doesNotMatch(migration, /realtime\.messages\.extension\(\)/);
 });

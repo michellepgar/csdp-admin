@@ -20,7 +20,7 @@ The roster groups tab entries by team-member ID. A member is active when any of 
 
 ## Authorization
 
-Realtime Presence is enabled only for the private `team-presence` channel. A Supabase migration grants authenticated users who satisfy the existing `is_team_member()` check permission to send and receive Presence messages for that exact topic. Realtime Authorization must also be enabled in the Supabase Dashboard before those private-channel policies take effect. Other users cannot join or observe the roster.
+Realtime Presence is enabled only for the private `team-presence` channel. A Supabase migration grants authenticated users who satisfy the existing `is_team_member()` check permission to send and receive Presence messages for that exact topic. In Supabase Dashboard Realtime Settings, `Allow public access` must be disabled before those private-channel policies take effect. Other users cannot join or observe the roster.
 
 ## Sidebar experience
 

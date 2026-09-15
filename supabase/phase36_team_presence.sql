@@ -1,8 +1,8 @@
 -- phase36_team_presence.sql — run once in Supabase's SQL Editor for
 -- project jqsqstjmfsqqrnoxpuvn before the team-presence UI is deployed.
--- After running this script, enable Realtime Authorization in Supabase Dashboard:
--- Database > Replication > Realtime Authorization. This app uses a private
--- channel, so the dashboard setting is required for these policies to apply.
+-- After running this script, open Realtime > Settings and disable the
+-- 'Allow public access' setting. This app uses a private channel, so that
+-- dashboard setting is required for these policies to apply.
 --
 -- This permits only an authenticated CSDP team member to subscribe to
 -- and publish Supabase Presence state for the single private channel.

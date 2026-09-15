@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isPublicAuthRoute } from "@/lib/auth-routes";
 
 /* Named to match Next.js 16's "Proxy" convention (the file that used to be
    called middleware.ts/middleware() is now proxy.ts/proxy() — same
@@ -36,9 +37,10 @@ export async function updateSession(request: NextRequest) {
   // lib/demo-app-state.ts's own comment for the rest of this path.
   const isDemo = request.cookies.get("demo-mode")?.value === "1";
 
-  const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
+  const isPublicRoute = isPublicAuthRoute(request.nextUrl.pathname);
+  const isLoginRoute = request.nextUrl.pathname === "/login";
 
-  if (!user && !isDemo && !isLoginRoute) {
+  if (!user && !isDemo && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

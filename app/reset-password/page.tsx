@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { updatePassword } from "@/lib/password-reset";
+import { getRecoveryError, updatePassword } from "@/lib/password-reset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,15 +14,27 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
+  const [isCheckingRecoverySession, setIsCheckingRecoverySession] = useState(true);
 
   useEffect(() => {
+    const recoveryError = getRecoveryError(window.location.hash);
+    if (recoveryError) {
+      setError(recoveryError);
+      setIsCheckingRecoverySession(false);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      return;
+    }
+
+    const recoveryLinkWasOpened = new URLSearchParams(window.location.search).has("code")
+      || new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery";
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) setHasRecoverySession(true);
+      if (event === "PASSWORD_RECOVERY" && session) setHasRecoverySession(true);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setHasRecoverySession(true);
+      if (recoveryLinkWasOpened && session) setHasRecoverySession(true);
+      setIsCheckingRecoverySession(false);
     });
 
     return () => subscription.unsubscribe();
@@ -73,7 +85,12 @@ export default function ResetPasswordPage() {
               <Label htmlFor="confirmation">Confirm new password</Label>
               <Input id="confirmation" type="password" required minLength={6} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
             </div>
-            <Button type="submit" className="w-full">Update password</Button>
+            <Button type="submit" className="w-full" disabled={!hasRecoverySession}>
+              {isCheckingRecoverySession ? "Verifying reset link…" : "Update password"}
+            </Button>
+            {!isCheckingRecoverySession && !hasRecoverySession && !error && (
+              <p className="text-sm text-destructive">This password-reset link is invalid or has expired. Request a new link from the sign-in page.</p>
+            )}
             <Button type="button" variant="link" className="w-full" onClick={() => { window.location.href = "/login"; }}>
               Back to sign in
             </Button>

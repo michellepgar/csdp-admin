@@ -36,14 +36,15 @@ export function SchoolsFlyout({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const iconRef = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<DOMRect>();
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function show() {
+  function show(event?: React.SyntheticEvent<HTMLDivElement>) {
     if (closeTimer.current) {
       clearTimeout(closeTimer.current);
       closeTimer.current = null;
     }
+    if (!open && event) setRect(event.currentTarget.getBoundingClientRect());
     setOpen(true);
   }
 
@@ -51,13 +52,12 @@ export function SchoolsFlyout({
     closeTimer.current = setTimeout(() => setOpen(false), 200);
   }
 
-  const rect = open ? iconRef.current?.getBoundingClientRect() : undefined;
   const filtered = [...schools]
     .sort((a, b) => a.name.localeCompare(b.name))
     .filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   return (
-    <div ref={iconRef} onMouseEnter={show} onMouseLeave={scheduleHide}>
+    <div onMouseEnter={show} onMouseLeave={scheduleHide}>
       <div
         role="button"
         tabIndex={0}

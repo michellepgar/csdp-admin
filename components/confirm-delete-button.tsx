@@ -17,6 +17,7 @@ export function ConfirmDeleteButton({
   variant: _variant,
   ...props
 }: ComponentProps<typeof SubmitButton> & { confirmMessage: string }) {
+  void _variant;
   return (
     <SubmitButton
       {...props}

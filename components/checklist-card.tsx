@@ -60,6 +60,7 @@ export function ChecklistCard({
   const [orderedItems, setOrderedItems] = useState(template);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- This is the intentional server-data refresh for an optimistic drag order.
     setOrderedItems(template);
   }, [template]);
 

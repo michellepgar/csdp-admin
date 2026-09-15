@@ -283,8 +283,14 @@ export function TasksCard({
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  useEffect(() => setOrderedCategories(categories), [categories]);
-  useEffect(() => setOrderedTasks(tasks), [tasks]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Server data refreshes the optimistic category order.
+    setOrderedCategories(categories);
+  }, [categories]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Server data refreshes the optimistic task order.
+    setOrderedTasks(tasks);
+  }, [tasks]);
   const catNames = orderedCategories.map((c) => c.name);
   const openCount = tasks.filter((t) => t.status !== "Completed").length;
   const inProgressCount = tasks.filter((t) => t.status === "In Progress").length;

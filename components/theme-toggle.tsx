@@ -16,7 +16,10 @@ export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Theme resolution exists only after the client has mounted.
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
     return <Button type="button" variant="ghost" size="icon-sm" aria-label="Toggle theme" disabled />;

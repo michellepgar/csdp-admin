@@ -124,9 +124,10 @@ export function StickyNoteComposer({
     const draft = draftKey ? loadDraft(draftKey) : null;
     if (draft?.html) {
       editorRef.current.innerHTML = draft.html;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- A browser-only saved draft restores its companion color after hydration.
       setPadColor(draft.padColor);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The editor intentionally loads its initial props and draft only once per mount.
   }, []);
 
   // Saves the draft on every keystroke and pad-color change -- cheap
@@ -145,7 +146,6 @@ export function StickyNoteComposer({
     }
     editor.addEventListener("input", persist);
     return () => editor.removeEventListener("input", persist);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey, padColor]);
 
   useEffect(() => {
@@ -178,7 +178,7 @@ export function StickyNoteComposer({
     const form = editorRef.current?.closest("form");
     form?.addEventListener("submit", clearOnSuccessfulSubmit);
     return () => form?.removeEventListener("submit", clearOnSuccessfulSubmit);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The submit listener is deliberately attached once to this component's owning form.
   }, []);
 
   function exec(command: string, value?: string) {

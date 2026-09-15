@@ -76,9 +76,11 @@ function BoardNote({
   const [width, setWidth] = useState(note.boardWidth ?? DEFAULT_BOARD_NOTE_WIDTH);
   const [height, setHeight] = useState<number | undefined>(note.boardHeight);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Saved dimensions refresh an optimistic local resize.
     setWidth(note.boardWidth ?? DEFAULT_BOARD_NOTE_WIDTH);
   }, [note.boardWidth]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Saved dimensions refresh an optimistic local resize.
     setHeight(note.boardHeight);
   }, [note.boardHeight]);
   const widthDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -240,6 +242,7 @@ export function PrivateNotesBoard({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Saved notes refresh the optimistic drag order.
     setOrderedNotes(sorted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notes]);

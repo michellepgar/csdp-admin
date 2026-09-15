@@ -29,6 +29,7 @@ export function SignOutButton({ collapsed }: { collapsed: boolean }) {
     for (let i = 0; i < 8; i++) document.cookie = `demo-state-${i}=; path=/; max-age=0`;
     const supabase = createClient();
     await supabase.auth.signOut();
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- The cleared auth cookies must be observed by the server-rendered sign-in page.
     window.location.href = "/login";
   }
 

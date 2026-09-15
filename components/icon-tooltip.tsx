@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, useRef, useState, type ReactElement, type AnchorHTMLAttributes } from "react";
+import { cloneElement, useState, type ReactElement, type AnchorHTMLAttributes } from "react";
 import { TooltipBubble } from "@/components/tooltip-bubble";
 
 /* A small, stylish hover label for the sidebar's icon-only mode
@@ -31,23 +31,21 @@ export function IconTooltip({
   active: boolean;
   children: ReactElement<AnchorHTMLAttributes<HTMLAnchorElement>>;
 }) {
-  const nodeRef = useRef<HTMLAnchorElement | null>(null);
-  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect>();
 
   if (!active) return children;
 
-  const rect = open ? nodeRef.current?.getBoundingClientRect() : undefined;
+  function show(event: React.SyntheticEvent<HTMLAnchorElement>) {
+    setRect(event.currentTarget.getBoundingClientRect());
+  }
 
   return (
     <>
       {cloneElement(children, {
-        ref: (node: HTMLAnchorElement | null) => {
-          nodeRef.current = node;
-        },
-        onMouseEnter: () => setOpen(true),
-        onMouseLeave: () => setOpen(false),
-        onFocus: () => setOpen(true),
-        onBlur: () => setOpen(false),
+        onMouseEnter: show,
+        onMouseLeave: () => setRect(undefined),
+        onFocus: show,
+        onBlur: () => setRect(undefined),
         "aria-label": label,
       } as AnchorHTMLAttributes<HTMLAnchorElement>)}
       <TooltipBubble label={label} rect={rect} />

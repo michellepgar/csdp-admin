@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { TooltipBubble } from "@/components/tooltip-bubble";
 import { cn } from "@/lib/utils";
 
@@ -25,19 +25,19 @@ export function HoverLabel({
   className?: string;
   side?: "left" | "right";
 }) {
-  const wrapperRef = useRef<HTMLSpanElement>(null);
-  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect>();
 
-  const rect = open ? wrapperRef.current?.getBoundingClientRect() : undefined;
+  function show(event: React.SyntheticEvent<HTMLSpanElement>) {
+    setRect(event.currentTarget.getBoundingClientRect());
+  }
 
   return (
     <span
-      ref={wrapperRef}
       className={cn("inline-flex", className)}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
+      onMouseEnter={show}
+      onMouseLeave={() => setRect(undefined)}
+      onFocus={show}
+      onBlur={() => setRect(undefined)}
     >
       {children}
       <TooltipBubble label={label} rect={rect} side={side} />

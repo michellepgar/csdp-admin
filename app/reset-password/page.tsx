@@ -19,6 +19,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const recoveryError = getRecoveryError(window.location.hash);
     if (recoveryError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- The recovery error exists only in the browser URL after hydration.
       setError(recoveryError);
       setIsCheckingRecoverySession(false);
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -65,7 +66,10 @@ export default function ResetPasswordPage() {
     setConfirmation("");
     scheduleLoginRedirect(
       (callback, delay) => window.setTimeout(callback, delay),
-      () => { window.location.href = "/login"; },
+      () => {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Auth state is intentionally reloaded before returning to sign in.
+        window.location.href = "/login";
+      },
     );
   }
 
@@ -93,7 +97,10 @@ export default function ResetPasswordPage() {
             {!isCheckingRecoverySession && !hasRecoverySession && !error && (
               <p className="text-sm text-destructive">This password-reset link is invalid or has expired. Request a new link from the sign-in page.</p>
             )}
-            <Button type="button" variant="link" className="w-full" onClick={() => { window.location.href = "/login"; }}>
+            <Button type="button" variant="link" className="w-full" onClick={() => {
+              // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Auth state is intentionally reloaded before returning to sign in.
+              window.location.href = "/login";
+            }}>
               Back to sign in
             </Button>
           </form>

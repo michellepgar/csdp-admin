@@ -8,6 +8,7 @@ export default function NotOnTeamPage() {
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- The sign-in page must reload after the Supabase session is cleared.
     window.location.href = "/login";
   }
 

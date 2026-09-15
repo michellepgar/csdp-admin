@@ -61,6 +61,7 @@ export function SidebarShell({
 
   // Close the mobile drawer whenever the route changes (tapping a nav link).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Navigation is the external event that must close the mobile drawer.
     setMobileOpen(false);
   }, [pathname]);
 

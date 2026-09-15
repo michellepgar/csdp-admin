@@ -149,6 +149,9 @@ export interface SchoolDataEntry {
    components/email-tracker-card.tsx, app/(app)/schools/[id]/page.tsx
    and .../actions.ts) needs no changes. */
 export function canEditSchoolRecords(sd: SchoolDataEntry | undefined, currentName: string, currentIsAdmin: boolean): boolean {
+  void sd;
+  void currentName;
+  void currentIsAdmin;
   return true;
 }
 

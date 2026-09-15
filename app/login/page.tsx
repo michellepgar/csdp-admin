@@ -16,7 +16,6 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [canResend, setCanResend] = useState(false);
-  const [resent, setResent] = useState(false);
 
   /* Supabase redirects a confirmation/reset link straight back here
      with the outcome in the URL's hash fragment (not a normal query
@@ -33,6 +32,7 @@ export default function LoginPage() {
     const code = params.get("error_code");
     const description = params.get("error_description");
     if (code === "otp_expired") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- The browser-only hash is not available until after hydration.
       setError("That link expired before it was clicked. Enter your email below and request a new one.");
       setCanResend(true);
     } else if (description) {
@@ -53,6 +53,7 @@ export default function LoginPage() {
       if (error.message.toLowerCase().includes("email not confirmed")) setCanResend(true);
       return;
     }
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- A full reload ensures the new auth cookie is available to server-rendered pages.
     window.location.href = "/overview";
   }
 
@@ -89,12 +90,12 @@ export default function LoginPage() {
       setMessage("Account created — check your email to confirm it, then sign in here.");
       return;
     }
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- A full reload ensures the new auth cookie is available to server-rendered pages.
     window.location.href = "/overview";
   }
 
   async function handleResendConfirmation() {
     setError(null);
-    setResent(false);
     const supabase = createClient();
     const { error } = await supabase.auth.resend({
       type: "signup",
@@ -105,7 +106,6 @@ export default function LoginPage() {
     });
     if (error) { setError(error.message); return; }
     setCanResend(false);
-    setResent(true);
     setMessage("Confirmation email sent — check your inbox (and spam folder), then click it right away before it expires.");
   }
 
@@ -119,6 +119,7 @@ export default function LoginPage() {
      too, see components/sign-out-button.tsx). */
   function startDemo() {
     document.cookie = "demo-mode=1; path=/; max-age=2592000; samesite=lax";
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Demo mode is established by a cookie that server-rendered pages must read.
     window.location.href = "/overview";
   }
 

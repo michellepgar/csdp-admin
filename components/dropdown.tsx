@@ -44,6 +44,7 @@ export function Dropdown({
   const currentOption = options.find((o) => o.value === current);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Controlled callers can replace the selected value after mount.
     if (value !== undefined) setInternalValue(value);
   }, [value]);
 

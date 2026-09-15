@@ -21,10 +21,10 @@ export function ConfirmDeleteButton({
   return (
     <SubmitButton
       {...props}
-      variant="destructive"
+      variant="ghost"
       onClick={(e) => {
         if (!window.confirm(confirmMessage)) e.preventDefault();
       }}
-    />
+    ><span className="text-destructive">{props.children}</span></SubmitButton>
   );
 }

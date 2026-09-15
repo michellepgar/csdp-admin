@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import { findVaByEmail, isAdmin, canEditSchoolRecords, CONTACT_POSITION_GROUPS } from "@/lib/app-state";
+import { findVaByEmail, isAdmin, canEditSchoolRecords, CONTACT_POSITION_GROUPS, visibleSchoolItems } from "@/lib/app-state";
 import { ChecklistCard } from "@/components/checklist-card";
 import { TasksCard } from "@/components/tasks-card";
 import { EmailTrackerCard } from "@/components/email-tracker-card";
@@ -21,6 +21,7 @@ import {
   removeVaFromTask,
   removeTask,
   addTaskCategory,
+  addSchoolTaskCategory,
   removeTaskCategory,
   reorderTaskCategories,
   renameTaskCategory,
@@ -68,8 +69,10 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
 
   const sd = state.schoolData[schoolId] || { vaAssigned: "" };
   const canEdit = canEditSchoolRecords(sd, me.name, isAdmin(me));
+  const categories = visibleSchoolItems(state.taskCategories || [], schoolId);
+  const checklistTemplate = visibleSchoolItems(state.checklistTemplate || [], schoolId);
   const checklistProgressForSchool: Record<string, { status: string; checkedBy?: string }> = {};
-  for (const item of state.checklistTemplate || []) {
+  for (const item of checklistTemplate) {
     const p = state.checklistProgress[`${schoolId}:${item.id}`];
     if (p) checklistProgressForSchool[item.id] = p;
   }
@@ -160,7 +163,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:basis-0">
           <TasksCard
             schoolId={schoolId}
-            categories={state.taskCategories || []}
+            categories={categories}
             tasks={sd.tasks || []}
             vas={state.vas}
             canEdit={canEdit}
@@ -173,6 +176,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             removeVaFromTask={removeVaFromTask}
             removeTask={removeTask}
             addTaskCategory={addTaskCategory}
+            addSchoolTaskCategory={addSchoolTaskCategory}
             removeTaskCategory={removeTaskCategory}
             reorderTaskCategories={reorderTaskCategories}
             renameTaskCategory={renameTaskCategory}
@@ -186,7 +190,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
         </div>
         <ChecklistCard
           schoolId={schoolId}
-          template={state.checklistTemplate || []}
+          template={checklistTemplate}
           progress={checklistProgressForSchool}
           vas={state.vas}
           initialHidden={checklistCollapsed}

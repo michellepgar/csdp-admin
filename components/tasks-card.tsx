@@ -243,6 +243,7 @@ export function TasksCard({
   removeVaFromTask,
   removeTask,
   addTaskCategory,
+  addSchoolTaskCategory,
   removeTaskCategory,
   setCommsStatus,
   signComms,
@@ -267,6 +268,7 @@ export function TasksCard({
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
   addTaskCategory: (formData: FormData) => void;
+  addSchoolTaskCategory: (formData: FormData) => void;
   removeTaskCategory: (formData: FormData) => void;
   setCommsStatus: (formData: FormData) => void;
   signComms: (formData: FormData) => void;
@@ -373,7 +375,7 @@ export function TasksCard({
                       <SubmitButton pendingLabel="Saving…" size="xs" onClick={() => setEditingCategoryId(null)}>Save</SubmitButton>
                       <Button type="button" variant="ghost" size="xs" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
                     </form>
-                  ) : <><span>{c.name}</span><Button type="button" variant="ghost" size="icon-xs" className="-ml-0.5 text-muted-foreground/60 hover:text-muted-foreground" aria-label={`Edit ${c.name}`} onClick={() => setEditingCategoryId(c.id)}><Pencil className="h-3 w-3" /></Button></>}
+                  ) : <><span>{c.name}</span>{c.schoolId && <span className="text-xs text-muted-foreground">This school only</span>}<Button type="button" variant="ghost" size="icon-xs" className="-ml-0.5 text-muted-foreground/60 hover:text-muted-foreground" aria-label={`Edit ${c.name}`} onClick={() => setEditingCategoryId(c.id)}><Pencil className="h-3 w-3" /></Button></>}
                 </div>
                 <form action={removeTaskCategory}>
                   <input type="hidden" name="id" value={c.id} />
@@ -384,6 +386,11 @@ export function TasksCard({
             <form action={addTaskCategory} className="flex gap-2">
               <Input name="name" placeholder="New category" required />
               <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
+            </form>
+            <form action={addSchoolTaskCategory} className="flex gap-2 border-t pt-2">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <Input name="name" placeholder="Add for this school" required />
+              <SubmitButton pendingLabel="Adding…">Add for this school</SubmitButton>
             </form>
           </div>
         )}
@@ -418,7 +425,7 @@ export function TasksCard({
             <div key={c.id} className={`space-y-2 ${isFollowUp && noRecheck ? "opacity-40" : ""}`}>
               <div className="flex items-center gap-2 text-sm font-medium">
                 {total !== null && items.length > 0 && <span className="text-xs text-muted-foreground">Total: {total}</span>}
-                <span>{c.name}</span>
+                <span>{c.name}</span>{c.schoolId && <span className="text-xs text-muted-foreground">This school only</span>}
                 {isFollowUp && (
                   <form action={setNoRecheck} className="ml-auto">
                     <input type="hidden" name="schoolId" value={schoolId} />

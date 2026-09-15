@@ -68,6 +68,18 @@ export interface ChecklistProgressEntry {
 export interface TaskCategory {
   id: string;
   name: string;
+  schoolId?: string;
+}
+
+export interface ChecklistTemplateItem {
+  id: string;
+  description: string;
+  schoolId?: string;
+  taskCategoryId?: string;
+}
+
+export function visibleSchoolItems<T extends { schoolId?: string }>(items: T[], schoolId: string): T[] {
+  return items.filter((item) => !item.schoolId || item.schoolId === schoolId);
 }
 
 export interface Task {
@@ -308,11 +320,6 @@ export interface EodReport {
   totalHours?: string;
   tasks?: string[];
   createdAt: string;
-}
-
-export interface ChecklistTemplateItem {
-  id: string;
-  description: string;
 }
 
 export interface AccessRequest {

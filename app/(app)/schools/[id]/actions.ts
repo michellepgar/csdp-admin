@@ -485,19 +485,47 @@ export async function addTaskCategory(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+export async function addSchoolTaskCategory(formData: FormData) {
+  const schoolId = formData.get("schoolId") as string;
+  const name = ((formData.get("name") as string) || "").trim();
+  if (!schoolId || !name) return;
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      if (state.taskCategories?.some((item) => item.schoolId === schoolId && normalizedCategoryName(item.name) === normalizedCategoryName(name))) return;
+      const id = `demo-school-category-${Date.now()}`;
+      (state.taskCategories ??= []).push({ id, name, schoolId });
+      (state.checklistTemplate ??= []).push({ id: `demo-school-checklist-${Date.now()}`, description: name, schoolId, taskCategoryId: id });
+    });
+    revalidateSchool(schoolId);
+    return;
+  }
+  const { supabase } = await requireTeamMember();
+  const { error } = await supabase.rpc("create_school_task_category", { p_school_id: schoolId, p_name: name });
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
 export async function removeTaskCategory(formData: FormData) {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       state.taskCategories = (state.taskCategories || []).filter((c) => c.id !== id);
+      state.checklistTemplate = (state.checklistTemplate || []).filter((item) => item.taskCategoryId !== id);
     });
     revalidatePath("/", "layout");
     return;
   }
 
   const { supabase } = await requireTeamMember();
-
+  const { data: category, error: categoryError } = await supabase.from("task_categories").select("school_id").eq("id", id).maybeSingle();
+  orThrow(categoryError);
+  if (category?.school_id) {
+    const { error } = await supabase.rpc("delete_school_task_category", { p_id: id });
+    orThrow(error);
+    revalidateSchool(category.school_id);
+    return;
+  }
   const { error } = await supabase.from("task_categories").delete().eq("id", id);
   orThrow(error);
   revalidatePath("/", "layout");
@@ -537,22 +565,25 @@ export async function renameTaskCategory(formData: FormData) {
       if (!category || category.name === name || state.taskCategories?.some((item) => item.id !== id && normalizedCategoryName(item.name) === normalizedCategoryName(name))) return;
       const previousName = category.name;
       category.name = name;
-      for (const schoolData of Object.values(state.schoolData)) {
+      for (const [id, schoolData] of Object.entries(state.schoolData)) {
+        if (category.schoolId && id !== category.schoolId) continue;
         for (const task of schoolData.tasks ?? []) if (task.category === previousName) task.category = name;
       }
+      for (const item of state.checklistTemplate || []) if (item.taskCategoryId === category.id) item.description = name;
     });
     revalidatePath("/", "layout");
     return;
   }
 
   const { supabase } = await requireTeamMember();
-  const { data: category, error: categoryError } = await supabase.from("task_categories").select("name").eq("id", id).maybeSingle();
+  const { data: category, error: categoryError } = await supabase.from("task_categories").select("name, school_id").eq("id", id).maybeSingle();
   orThrow(categoryError);
   if (!category || category.name === name) return;
-  const { data: duplicate, error: duplicateError } = await supabase.from("task_categories").select("id").ilike("name", name).maybeSingle();
+  const duplicateQuery = supabase.from("task_categories").select("id").ilike("name", name).neq("id", id);
+  const { data: duplicate, error: duplicateError } = category.school_id ? await duplicateQuery.eq("school_id", category.school_id).maybeSingle() : await duplicateQuery.is("school_id", null).maybeSingle();
   orThrow(duplicateError);
   if (duplicate) throw new Error("A task category already uses that name.");
-  const { error: renameError } = await supabase.rpc("rename_task_category", { p_id: id, p_name: name });
+  const { error: renameError } = await supabase.rpc(category.school_id ? "rename_school_task_category" : "rename_task_category", { p_id: id, p_name: name });
   orThrow(renameError);
   revalidatePath("/", "layout");
 }

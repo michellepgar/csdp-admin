@@ -513,8 +513,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
     supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes, no_recheck").order("name"),
-    supabase.from("task_categories").select("id, name").order("sort_order"),
-    supabase.from("checklist_template").select("id, description").order("sort_order"),
+    supabase.from("task_categories").select("id, name, school_id").order("sort_order"),
+    supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by"),
     supabase.from("tasks").select("id, school_id, category, file_name, sort_order, count, status, va_assigned, created_at, comms_status, comms_va_assigned").order("sort_order"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
@@ -568,8 +568,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
   state.schools = (schoolsResult.data || []).map((r) => mapSchoolRow(r as SchoolRow));
-  state.taskCategories = (taskCategoriesResult.data || []) as TaskCategory[];
-  state.checklistTemplate = (checklistTemplateResult.data || []) as ChecklistTemplateItem[];
+  state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined })) as TaskCategory[];
+  state.checklistTemplate = (checklistTemplateResult.data || []).map((row) => ({ id: row.id, description: row.description, schoolId: row.school_id ?? undefined, taskCategoryId: row.task_category_id ?? undefined })) as ChecklistTemplateItem[];
   state.suggestions = (suggestionsResult.data || []).map((r) => mapSuggestionRow(r as SuggestionRow));
   state.generalNotes = (generalNotesResult.data || []).map((r) => mapGeneralNoteRow(r as GeneralNoteRow));
   state.privateNotes = (privateNotesResult.data || []).map((r) => mapPrivateNoteRow(r as PrivateNoteRow));

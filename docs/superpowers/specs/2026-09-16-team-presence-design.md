@@ -20,7 +20,7 @@ The roster groups tab entries by team-member ID. A member is active when any of 
 
 ## Authorization
 
-Realtime Presence is enabled only for the private `team-presence` channel. A Supabase migration grants authenticated users who satisfy the existing `is_team_member()` check permission to send and receive Presence messages for that exact topic. Other users cannot join or observe the roster.
+Realtime Presence is enabled only for the private `team-presence` channel. A Supabase migration grants authenticated users who satisfy the existing `is_team_member()` check permission to send and receive Presence messages for that exact topic. Realtime Authorization must also be enabled in the Supabase Dashboard before those private-channel policies take effect. Other users cannot join or observe the roster.
 
 ## Sidebar experience
 
@@ -30,7 +30,7 @@ The bottom area contains an **Online now** section immediately above **Account**
 
 In the collapsed sidebar, the same section displays up to three initials avatars plus `+N`; dots remain visible and names remain available through accessible labels/tooltips. The Account section shows the signed-in member as `<name> · Signed in`, followed by the Sign out button.
 
-If realtime data is still connecting or is unavailable, the app keeps the sidebar usable and displays no remote roster rather than an error. The current signed-in member is still shown in Account.
+If realtime data is still connecting or is unavailable, the app keeps the sidebar usable and displays no remote roster rather than an error. Demo sessions never subscribe to the production presence channel. The current signed-in member is still shown in Account.
 
 ## Components and data flow
 

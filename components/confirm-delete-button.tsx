@@ -15,13 +15,16 @@ import { SubmitButton } from "@/components/submit-button";
 export function ConfirmDeleteButton({
   confirmMessage,
   variant: _variant,
+  size: _size,
   ...props
 }: ComponentProps<typeof SubmitButton> & { confirmMessage: string }) {
   void _variant;
+  void _size;
   return (
     <SubmitButton
       {...props}
       variant="ghost"
+      size="icon-xs"
       onClick={(e) => {
         if (!window.confirm(confirmMessage)) e.preventDefault();
       }}

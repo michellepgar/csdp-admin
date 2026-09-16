@@ -16,3 +16,8 @@ test("submits the file-name update before closing its editor", async () => {
   assert.match(source, /action=\{async \(formData\) => \{[\s\S]*await updateTaskFileName\(formData\);[\s\S]*setEditingFileName\(false\);[\s\S]*\}\}/);
   assert.doesNotMatch(source, /pendingLabel="Saving…" size="xs" onClick=\{\(\) => setEditingFileName\(false\)\}/);
 });
+
+test("keeps delete controls at the smallest visible icon size", async () => {
+  const source = await readFile(new URL("../components/confirm-delete-button.tsx", import.meta.url), "utf8");
+  assert.match(source, /variant="ghost"\s+size="icon-xs"/);
+});

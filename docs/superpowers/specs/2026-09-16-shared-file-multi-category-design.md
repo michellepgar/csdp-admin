@@ -2,30 +2,44 @@
 
 ## Goal
 
-Show each file name once in a compact Tasks table, even when the same file needs work in multiple categories. Each category assignment has its own VA signatures and status on the same table row.
+Show one file name once even when that file has work in more than one category. Each category assignment keeps its own VA(s), status, count, and communication details, while the existing school-page layout and the collapsible Yearly Checklist stay familiar.
 
-## User experience
+## Category model
 
-The Tasks page renders no empty category sections. A category becomes a visible table column only after at least one file has been assigned to it at that school; categories with no files do not appear in Tasks at all.
+Task categories are one shared list available to every school. There is no longer an "only for this school" category option.
 
-When adding a file, the user selects a primary category and can add one or more additional categories. The new file becomes one shared row. Each selected category receives an independent task cell.
+When adding a file at a school, the existing add-task flow begins with the category dropdown. The user chooses one category, may add more categories for the same file, and then enters the file name and the usual task details. A category only becomes visible in that school's Tasks table after at least one file uses it. Categories without files do not render as empty sections or columns.
 
-Each cell shows the assigned VA(s) first, followed on the same line by the status, for example `Michelle · In Progress`. File name editing remains attached to the single shared file row.
+Existing school-only categories will be promoted into the shared list without losing their tasks or checklist links. If a shared category with the same normalized name already exists, the migration will merge the scoped category into it rather than create a duplicate.
 
-## Data model
+## Tasks table
 
-Add a `task_files` table containing the school, file name, sort order, and creation metadata. Add a `task_file_categories` table linking a file to one or more task categories, with per-category status, VA assignments, count, communication fields, and sort order.
+The school page shows one compact Tasks table instead of separate category sections:
 
-Existing `tasks` rows are migrated one-for-one into a `task_files` record plus its linked `task_file_categories` record, preserving all existing visible data.
+- one row per file;
+- one column for each category currently used by a file at that school;
+- a category cell contains its own VA(s) followed by its status on the same line, for example `Michelle · In Progress`;
+- one file can have one or multiple category cells;
+- file-name editing stays on the shared file row;
+- removing a category assignment removes only that category cell; removing a file removes all of its assignments;
+- drag-and-drop reorders the shared file rows while preserving the existing discreet drag/edit/delete controls.
 
-## Behavior
+## Data and migration
 
-Adding a file with multiple categories creates one file record and one linked category task record per chosen category transactionally. Dragging reorders files within a category without duplicating the shared filename. Removing a category assignment removes only that category cell; removing the file removes every linked category task.
+Introduce `task_files` for the shared school/file identity and `task_file_categories` for each category-specific task assignment. The assignment row contains the fields currently stored on `tasks`, including VA, status, count, communication status, communication VA, and ordering metadata.
 
-Existing category management remains the source of available categories. School-only categories remain scoped to their school and keep their matching checklist behavior.
+The database migration will convert each legacy `tasks` record into one file record plus one linked category assignment, retaining visible values and timestamps. Records that refer to the same school and normalized file name will be grouped into one file with multiple assignments. The migration is idempotent, validates duplicate category links, and leaves the old data available until conversion is verified before it is retired.
 
-The yearly checklist remains independent from whether a category has files. If a category is not needed for that school year, the team can check off its checklist item normally, so it counts as complete in the school percentage without requiring a file to be added.
+## Yearly Checklist
 
-## Verification
+The Yearly Checklist remains in its current right-side collapsible panel. It is independent from whether a category has files.
 
-Add tests for one file with multiple categories, independent statuses/VAs, hidden unused columns, legacy task migration, category-only deletion, and file deletion. Run lint, the complete test suite, production build, migration application, and a deployment smoke check.
+Every checklist row has a small, discreet `×` action. Choosing it marks that item **Not needed** for that school: its label is struck through, the decision remains visible, and it is excluded from that school's completion-percentage denominator. An Undo action restores it. Normal completed items continue to count as completed, and a relevant item can still be completed even when the school has no matching file.
+
+The implementation records this per school/checklist item as an explicit not-needed state, rather than changing the shared checklist template. Exports and overview calculations use the same applicable-item rule.
+
+## Safety and verification
+
+- Preserve all legacy tasks, category labels, category checklist links, assignments, statuses, counts, and sort order during migration.
+- Add tests for multi-category files, independent category cells, category-first adding, unused-category hiding, school-category promotion/merge, checklist not-needed percentage behavior, undo, and deletion behavior.
+- Run lint, the complete test suite, a production build, migration application against Supabase, and a deployed smoke check for a one-category file, multi-category file, and a not-needed checklist item.

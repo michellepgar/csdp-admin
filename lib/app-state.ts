@@ -193,8 +193,29 @@ export interface EmailTrackerItem {
   createdAt: string;
 }
 
-export const TASK_STATUS_OPTIONS = ["", "In Progress", "Paused", "Completed"];
+export const TASK_STATUS_OPTIONS = ["", "In Progress", "Paused", "Completed", "Review"];
 export const EMAIL_STATUS_OPTIONS = ["Needs My Response", "Waiting on Them", "Done"];
+
+/* One row per pending "plan for tomorrow" item -- resolving one (the
+   VA clicks Start/Review, or converts a priority into a real task)
+   deletes its row; plan_items only ever holds items nobody has acted
+   on yet, there's no history table. kind:"task" links to a real school
+   task (taskFileCategoryId) or General Task (generalTaskId); kind:
+   "priority" is a boss-authored note with neither set yet -- acting on
+   it creates the real task then deletes this row. vaName is who it's
+   for; undefined means shared/unassigned (priority only -- a task-kind
+   item is always someone's own planned pickup). */
+export interface PlanItem {
+  id: string;
+  kind: "task" | "priority";
+  vaName?: string;
+  schoolId?: string;
+  taskFileCategoryId?: string;
+  generalTaskId?: string;
+  label: string;
+  createdBy: string;
+  createdAt: string;
+}
 
 export interface SchoolDataEntry {
   vaAssigned: string;
@@ -424,6 +445,12 @@ export interface AppState {
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];
   generalTaskCategories?: GeneralTaskCategory[];
+  planItems?: PlanItem[];
+  /* Keyed by task id (school task_file_categories row id) or General
+     Task id -- when its status was last changed, per the DB trigger
+     added in phase43. Used by todayActivityByVa (lib/shared-task-files.ts)
+     to tell "completed today" apart from "completed a while ago". */
+  statusChangedAt?: Record<string, string>;
 }
 
 /* ---------- Distribution List ----------

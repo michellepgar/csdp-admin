@@ -29,6 +29,7 @@ import type {
   AccessRequest,
   GeneralTask,
   GeneralTaskCategory,
+  PlanItem,
 } from "@/lib/app-state";
 
 type SchoolRow = {
@@ -344,6 +345,32 @@ function mapGeneralTaskRow(r: GeneralTaskRow): GeneralTask {
   };
 }
 
+type PlanItemRow = {
+  id: string;
+  kind: "task" | "priority";
+  va_name: string | null;
+  school_id: string | null;
+  task_file_category_id: string | null;
+  general_task_id: string | null;
+  label: string;
+  created_by: string;
+  created_at: string;
+};
+
+function mapPlanItemRow(r: PlanItemRow): PlanItem {
+  return {
+    id: r.id,
+    kind: r.kind,
+    vaName: r.va_name ?? undefined,
+    schoolId: r.school_id ?? undefined,
+    taskFileCategoryId: r.task_file_category_id ?? undefined,
+    generalTaskId: r.general_task_id ?? undefined,
+    label: r.label,
+    createdBy: r.created_by,
+    createdAt: r.created_at,
+  };
+}
+
 type IssueRow = {
   id: string;
   type: string;
@@ -502,6 +529,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     otherContactsResult,
     generalTasksResult,
     generalTaskCategoriesResult,
+    planItemsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -510,7 +538,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),
     supabase.from("task_files").select("id, school_id, table_id, file_name, sort_order, created_at").order("sort_order"),
-    supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order, created_at").order("sort_order"),
+    supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order, created_at, status_changed_at").order("sort_order"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
     supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at, pad_color").order("created_at"),
@@ -528,8 +556,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, name, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
-    supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at").order("created_at"),
+    supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at, status_changed_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
+    supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -663,6 +692,12 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
 
   state.generalTasks = (generalTasksResult.data || []).map((r) => mapGeneralTaskRow(r as GeneralTaskRow));
   state.generalTaskCategories = (generalTaskCategoriesResult.data || []) as GeneralTaskCategory[];
+
+  state.planItems = (planItemsResult.data || []).map((r) => mapPlanItemRow(r as PlanItemRow));
+  state.statusChangedAt = {
+    ...Object.fromEntries((taskFileCategoriesResult.data || []).map((r) => [(r as { id: string }).id, (r as { status_changed_at: string }).status_changed_at])),
+    ...Object.fromEntries((generalTasksResult.data || []).map((r) => [(r as { id: string }).id, (r as { status_changed_at: string }).status_changed_at])),
+  };
 
   const distributionGroupsById = new Map<string, DistributionGroup>();
   for (const g of (distributionGroupsResult.data || []) as DistributionGroupRow[]) {

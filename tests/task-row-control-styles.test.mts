@@ -10,12 +10,8 @@ test("keeps task drag and edit controls compact, muted, and separated from the f
   assert.match(source, /<span className="font-bold break-words">\{file\.fileName\}<\/span>/);
 });
 
-test("submits the file-name update before closing its editor", async () => {
-  const source = await readFile(new URL("../components/tasks-card.tsx", import.meta.url), "utf8");
-
-  assert.match(source, /action=\{async \(formData\) => \{ await props\.updateTaskFileName\(formData\); setEditingFileId\(null\); \}\}/);
-  assert.doesNotMatch(source, /pendingLabel="Saving…" size="xs" onClick=\{\(\) => setEditingFileId\(null\)\}/);
-});
+// Editor save ordering and failure handling are exercised behaviorally in
+// category-filename-rules.test.mts, rather than matching handler source text.
 
 test("keeps delete controls at the smallest visible icon size", async () => {
   const source = await readFile(new URL("../components/confirm-delete-button.tsx", import.meta.url), "utf8");

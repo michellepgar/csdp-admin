@@ -6,7 +6,7 @@ import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
-import { normalizeSelectedCategoryIds } from "@/lib/shared-task-files";
+import { fileNameConflicts, normalizeSelectedCategoryIds, saveTaskFile, type TaskFileActionResult } from "@/lib/shared-task-files";
 import { nextChecklistNotNeededEntry } from "@/lib/app-state";
 import type { AppState, TaskFileCategory } from "@/lib/app-state";
 
@@ -166,16 +166,16 @@ export async function reorderChecklistTemplate(orderedIds: string[]) {
 
 /* ---------- Tasks ---------- */
 
-export async function addTask(formData: FormData) {
+export async function addTask(formData: FormData): Promise<TaskFileActionResult> {
   const schoolId = formData.get("schoolId") as string;
   const categoryIds = normalizeSelectedCategoryIds(formData.getAll("categoryIds").map(String));
   const fileName = ((formData.get("fileName") as string) || "").trim();
-  if (!fileName || categoryIds.length === 0) return;
+  if (!fileName || categoryIds.length === 0) return { error: "Enter a file name and choose at least one category." };
 
   if (await isDemoMode()) {
-    await demoMutate((state) => {
+    const result = await saveTaskFile(() => demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
-      if ((sd.taskFiles || []).some((file) => normalizedCategoryName(file.fileName) === normalizedCategoryName(fileName))) throw new Error("That file name already exists for this school");
+      if (fileNameConflicts(sd.taskFiles || [], fileName, categoryIds)) throw { code: "23505" };
       const fileId = `demo-file-${Date.now()}`;
       const createdAt = new Date().toISOString();
       const selected = categoryIds.map((categoryId, index) => {
@@ -184,21 +184,24 @@ export async function addTask(formData: FormData) {
       });
       (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: selected });
       for (const assignment of selected) (sd.tasks ??= []).push({ id: assignment.id, category: assignment.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
-    });
-    revalidateSchool(schoolId);
-    return;
+    }));
+    if (!result.error) revalidateSchool(schoolId);
+    return result;
   }
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.rpc("add_task_file", {
-    p_id: crypto.randomUUID(),
-    p_school_id: schoolId,
-    p_file_name: fileName,
-    p_category_ids: categoryIds,
+  const result = await saveTaskFile(async () => {
+    const { error } = await supabase.rpc("add_task_file", {
+      p_id: crypto.randomUUID(),
+      p_school_id: schoolId,
+      p_file_name: fileName,
+      p_category_ids: categoryIds,
+    });
+    if (error) throw error;
   });
-  orThrow(error);
-  revalidateSchool(schoolId);
+  if (!result.error) revalidateSchool(schoolId);
+  return result;
 }
 
 export async function reorderTasks(schoolId: string, orderedIds: string[]) {
@@ -218,30 +221,34 @@ export async function reorderTasks(schoolId: string, orderedIds: string[]) {
   revalidateSchool(schoolId);
 }
 
-export async function updateTaskFileName(formData: FormData) {
+export async function updateTaskFileName(formData: FormData): Promise<TaskFileActionResult> {
   const schoolId = formData.get("schoolId") as string;
   const taskFileId = formData.get("taskFileId") as string;
   const fileName = ((formData.get("fileName") as string) || "").trim();
-  if (!fileName) return;
+  if (!fileName) return { error: "Enter a file name." };
 
   if (await isDemoMode()) {
-    await demoMutate((state) => {
+    const result = await saveTaskFile(() => demoMutate((state) => {
       const sd = state.schoolData[schoolId];
       const file = sd?.taskFiles?.find((item) => item.id === taskFileId);
       if (file) {
-        const oldName = file.fileName;
+        if (fileNameConflicts(sd.taskFiles || [], fileName, file.categories.map((item) => item.categoryId), taskFileId)) throw { code: "23505" };
         file.fileName = fileName;
-        for (const task of sd.tasks || []) if (task.fileName === oldName) task.fileName = fileName;
+        const assignmentIds = new Set(file.categories.map((item) => item.id));
+        for (const task of sd.tasks || []) if (assignmentIds.has(task.id)) task.fileName = fileName;
       }
-    });
-    revalidateSchool(schoolId);
-    return;
+    }));
+    if (!result.error) revalidateSchool(schoolId);
+    return result;
   }
 
   const { supabase } = await requireTeamMember();
-  const { error } = await supabase.from("task_files").update({ file_name: fileName }).eq("id", taskFileId).eq("school_id", schoolId);
-  orThrow(error);
-  revalidateSchool(schoolId);
+  const result = await saveTaskFile(async () => {
+    const { error } = await supabase.from("task_files").update({ file_name: fileName }).eq("id", taskFileId).eq("school_id", schoolId);
+    if (error) throw error;
+  });
+  if (!result.error) revalidateSchool(schoolId);
+  return result;
 }
 
 export async function setTaskStatus(formData: FormData) {

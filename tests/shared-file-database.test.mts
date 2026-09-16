@@ -31,6 +31,116 @@ async function database() {
 }
 const migration = () => readFileSync("supabase/phase38_shared_file_multi_category.sql", "utf8");
 
+async function filenameRules(db: PGlite) {
+  await db.exec(migration());
+  const path = "supabase/phase39_category_filename_rules.sql";
+  await db.exec(readFileSync(path, "utf8"));
+}
+
+test("same filename in different categories creates independent files and statuses", async () => {
+  const db = await database();
+  try {
+    await filenameRules(db);
+    await db.exec("insert into task_categories(id,name) values ('c3','Photos'),('c4','Initial')");
+    await db.query("select add_task_file('new','s1',' grade 1 ',array['c3'])");
+    await db.query("select add_task_file('shared','s1','Grade 2',array['c3','c4'])");
+    assert.equal((await db.query("select * from task_files where school_id='s1' and lower(btrim(file_name))='grade 1'")).rows.length, 2);
+    assert.deepEqual((await db.query("select category_id,status from task_file_categories where task_file_id='new'")).rows, [{category_id:'c3',status:''}]);
+    assert.equal((await db.query("select status from task_file_categories where id='t1'")).rows[0].status, 'Done');
+    assert.equal((await db.query("select * from task_file_categories where task_file_id='shared'")).rows.length, 2);
+  } finally { await db.close(); }
+});
+
+test("overlapping selected categories reject duplicate filenames atomically", async () => {
+  const db = await database();
+  try {
+    await filenameRules(db);
+    await db.exec("insert into task_categories(id,name) values ('c3','Photos')");
+    await assert.rejects(db.query("select add_task_file('bad','s1',' GRADE 1 ',array['c1','c3'])"), /selected category/i);
+    assert.equal((await db.query("select * from task_files where id='bad'")).rows.length, 0);
+    await db.query("select add_task_file('other-school','s2','Grade 1',array['c1'])");
+  } finally { await db.close(); }
+});
+
+test("filename rename permits different categories but rejects an overlapping category", async () => {
+  const db = await database();
+  try {
+    await filenameRules(db);
+    await db.exec("insert into task_categories(id,name) values ('c3','Photos')");
+    await db.query("select add_task_file('photos','s1','Photo file',array['c3'])");
+    await db.exec("update task_files set file_name='Grade 1' where id='photos'");
+    await db.query("select add_task_file('transactions','s1','Grade 2',array['c1'])");
+    await assert.rejects(db.exec("update task_files set file_name=' grade 1 ' where id='transactions'"), /selected category/i);
+    assert.equal((await db.query("select file_name from task_files where id='transactions'")).rows[0].file_name, 'Grade 2');
+    await assert.rejects(db.exec("insert into task_file_categories(id,task_file_id,category_id) values ('overlap','photos','c1')"), /selected category/i);
+  } finally { await db.close(); }
+});
+
+test("filename migration is repeatable and leaves all existing task data unchanged", async () => {
+  const db = await database();
+  try {
+    await db.exec(migration());
+    const files = (await db.query("select * from task_files order by id")).rows;
+    const assignments = (await db.query("select * from task_file_categories order by id")).rows;
+    const revised = readFileSync("supabase/phase39_category_filename_rules.sql", "utf8");
+    await db.exec(revised);
+    await db.exec(revised);
+    assert.deepEqual((await db.query("select * from task_files order by id")).rows, files);
+    assert.deepEqual((await db.query("select * from task_file_categories order by id")).rows, assignments);
+  } finally { await db.close(); }
+});
+
+test("legacy inserts no longer merge matching names and rename keeps newer assignment values", async () => {
+  const db = await database();
+  try {
+    await filenameRules(db);
+    await db.exec("insert into task_categories(id,name) values ('c3','Photos')");
+    await db.exec("insert into tasks(id,school_id,category,file_name,status) values ('legacy-new','s1','Photos','Grade 1','Open')");
+    assert.equal((await db.query("select * from task_files")).rows.length,2);
+    await db.query("select update_task_assignment('s1','t1','{\"status\":\"Open\",\"va_assigned\":[\"Owner\"]}')");
+    await db.exec("update task_files set file_name='Updated' where id=(select task_file_id from task_file_categories where id='t1')");
+    await db.query("select rename_task_category('c1','Renamed')");
+    assert.deepEqual((await db.query("select a.status,a.va_assigned,f.file_name from task_file_categories a join task_files f on f.id=a.task_file_id where a.id='t1'")).rows,
+      [{status:'Open',va_assigned:['Owner'],file_name:'Updated'}]);
+  } finally { await db.close(); }
+});
+
+test("backup restore preserves independent same-named files and rolls back category duplicates", async () => {
+  const db = await database();
+  const backup = {
+    vas:[{id:'va',name:'Owner',email:'owner@example.com',role:'owner'}],schools:[{id:'s1',name:'School 1'}],
+    taskCategories:[{id:'c1',name:'Transactions'},{id:'c2',name:'Homeroom'}],checklistTemplate:[],checklistProgress:{},
+    schoolData:{s1:{taskFiles:[
+      {id:'f1',fileName:'Grade 1',categories:[{id:'a1',categoryId:'c1',status:'Done',vaAssigned:['Owner']}]},
+      {id:'f2',fileName:'Grade 1',categories:[{id:'a2',categoryId:'c2',status:'Open',vaAssigned:[]}]},
+    ]}},
+  };
+  try {
+    await filenameRules(db);
+    await db.query("select restore_school_task_backup($1)",[JSON.stringify(backup)]);
+    assert.deepEqual((await db.query("select id,file_name from task_files order by id")).rows,[{id:'f1',file_name:'Grade 1'},{id:'f2',file_name:'Grade 1'}]);
+    assert.deepEqual((await db.query("select id,status,va_assigned from task_file_categories order by id")).rows,[{id:'a1',status:'Done',va_assigned:['Owner']},{id:'a2',status:'Open',va_assigned:[]}]);
+    backup.schoolData.s1.taskFiles[1].categories[0].categoryId='c1';
+    await assert.rejects(db.query("select restore_school_task_backup($1)",[JSON.stringify(backup)]),/selected category/i);
+    assert.equal((await db.query("select category_id from task_file_categories where id='a2'")).rows[0].category_id,'c2');
+  } finally { await db.close(); }
+});
+
+test("legacy backup matching names restore independently without the retired unique index", async () => {
+  const db = await database();
+  const backup = {
+    vas:[{id:'va',name:'Owner',email:'owner@example.com',role:'owner'}],schools:[{id:'s1',name:'School 1'}],
+    taskCategories:[{id:'c1',name:'Transactions'},{id:'c2',name:'Homeroom'}],checklistTemplate:[],checklistProgress:{},
+    schoolData:{s1:{tasks:[{id:'l1',category:'Transactions',fileName:'Grade 1',status:'Done',vaAssigned:['Owner']},{id:'l2',category:'Homeroom',fileName:'Grade 1',status:'Open',vaAssigned:[]}]}},
+  };
+  try {
+    await filenameRules(db);
+    await db.query("select restore_school_task_backup($1)",[JSON.stringify(backup)]);
+    assert.equal((await db.query("select * from task_files")).rows.length,2);
+    assert.deepEqual((await db.query("select id,status from task_file_categories order by id")).rows,[{id:'l1',status:'Done'},{id:'l2',status:'Open'}]);
+  } finally { await db.close(); }
+});
+
 test("migration groups files, preserves task dates, and can run twice", async () => {
   const db = await database();
   try {

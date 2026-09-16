@@ -1,5 +1,42 @@
 import type { Task, TaskCategory, TaskFile } from "@/lib/app-state";
 
+export type TaskFileActionResult = { error: string | null };
+
+export async function submitTaskFileForm(
+  action: (formData: FormData) => Promise<TaskFileActionResult>, formData: FormData,
+  onError: (error: string | null) => void, onSuccess: () => void,
+): Promise<void> {
+  onError(null);
+  try {
+    const result = await action(formData);
+    onError(result.error);
+    if (!result.error) onSuccess();
+  } catch {
+    onError("The file could not be saved. Please refresh and try again.");
+  }
+}
+
+export function fileNameConflicts(files: TaskFile[], fileName: string, categoryIds: string[], excludeId?: string): boolean {
+  const name = fileName.trim().toLowerCase();
+  const selected = new Set(categoryIds);
+  return files.some((file) => file.id !== excludeId && file.fileName.trim().toLowerCase() === name
+    && file.categories.some((assignment) => selected.has(assignment.categoryId)));
+}
+
+// Only return safe, actionable messages; raw database errors stay on the server.
+export async function saveTaskFile(operation: () => Promise<void>): Promise<TaskFileActionResult> {
+  try {
+    await operation();
+    return { error: null };
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+      return { error: "That file name already exists in a selected category. Choose a different category or file name." };
+    }
+    console.error("Task file save failed", error);
+    return { error: "The file could not be saved. Please try again." };
+  }
+}
+
 export function normalizeSelectedCategoryIds(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }

@@ -12,7 +12,7 @@ import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { groupTaskTables } from "@/lib/shared-task-files";
+import { groupTaskTables, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
   COUNT_CATEGORIES,
@@ -130,7 +130,7 @@ type TasksCardProps = {
   canEdit: boolean;
   currentUserName: string;
   noRecheck: boolean;
-  addTask: (formData: FormData) => void;
+  addTask: (formData: FormData) => Promise<TaskFileActionResult>;
   setTaskStatus: (formData: FormData) => void;
   setTaskCount: (formData: FormData) => void;
   signTask: (formData: FormData) => void;
@@ -146,7 +146,7 @@ type TasksCardProps = {
   reorderTaskCategories: (orderedIds: string[]) => void;
   renameTaskCategory: (formData: FormData) => void;
   reorderTasks: (schoolId: string, orderedIds: string[]) => void;
-  updateTaskFileName: (formData: FormData) => void;
+  updateTaskFileName: (formData: FormData) => Promise<TaskFileActionResult>;
 };
 
 export function TasksCard(props: TasksCardProps) {
@@ -159,6 +159,10 @@ export function TasksCard(props: TasksCardProps) {
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [categoryPickers, setCategoryPickers] = useState([0]);
+  const [newFileName, setNewFileName] = useState("");
+  const [addFileError, setAddFileError] = useState<string | null>(null);
+  const [editFileError, setEditFileError] = useState<string | null>(null);
+  const [editedFileName, setEditedFileName] = useState("");
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Refresh optimistic category order after server mutations.
@@ -246,7 +250,7 @@ export function TasksCard(props: TasksCardProps) {
           </div>
         )}
 
-        <form action={props.addTask} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <form action={(formData) => submitTaskFileForm(props.addTask, formData, setAddFileError, () => setNewFileName(""))} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <input type="hidden" name="schoolId" value={schoolId} />
           <div className="flex min-w-56 flex-1 flex-wrap gap-2">
             {categoryPickers.map((picker, index) => (
@@ -257,9 +261,10 @@ export function TasksCard(props: TasksCardProps) {
             ))}
             <Button type="button" variant="ghost" size="sm" onClick={() => setCategoryPickers((items) => [...items, Math.max(...items) + 1])}><Plus className="h-3.5 w-3.5" /> Add category</Button>
           </div>
-          <Input name="fileName" placeholder="File name" required className="w-full sm:max-w-md sm:flex-1" />
+          <Input name="fileName" placeholder="File name" required value={newFileName} onChange={(event) => setNewFileName(event.target.value)} className="w-full sm:max-w-md sm:flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
         </form>
+        {addFileError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{addFileError}</p>}
 
         {orderedFiles.length === 0 ? (
           <p className="text-sm text-muted-foreground">No files yet.</p>
@@ -274,12 +279,13 @@ export function TasksCard(props: TasksCardProps) {
                       <div className="flex min-w-48 items-center gap-1">
                         {canEdit && <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60" aria-label="Drag to reorder file" />}
                         {editingFileId === file.id ? (
-                          <form action={async (formData) => { await props.updateTaskFileName(formData); setEditingFileId(null); }} className="flex items-center gap-1">
+                          <form action={(formData) => submitTaskFileForm(props.updateTaskFileName, formData, setEditFileError, () => setEditingFileId(null))} className="flex flex-wrap items-center gap-1">
                             <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskFileId" value={file.id} />
-                            <Input name="fileName" defaultValue={file.fileName} required autoFocus className="h-7 min-w-40" />
+                            <Input name="fileName" value={editedFileName} onChange={(event) => setEditedFileName(event.target.value)} required autoFocus className="h-7 min-w-40" />
                             <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton><Button type="button" variant="ghost" size="xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
+                            {editFileError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{editFileError}</p>}
                           </form>
-                        ) : <><span className="font-bold break-words">{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => setEditingFileId(file.id)}><Pencil className="h-3 w-3" /></Button>}<DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></>}
+                        ) : <><span className="font-bold break-words">{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}<DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></>}
                       </div>
                     </td>
                     {group.categories.map((category) => {

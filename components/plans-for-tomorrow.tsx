@@ -11,11 +11,12 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
   planItems: PlanItem[];
   vas: Va[];
   isCurrentUserAdmin: boolean;
-  addPriority: (formData: FormData) => void;
+  addPriority: (formData: FormData) => Promise<void>;
   removePlanItem: (formData: FormData) => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [assignedTo, setAssignedTo] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const byVa = new Map<string, PlanItem[]>();
   const shared: PlanItem[] = [];
@@ -32,10 +33,23 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
         {isCurrentUserAdmin && <Button type="button" size="xs" variant="outline" onClick={() => setAddOpen((v) => !v)}>+ Add priority</Button>}
       </div>
       {isCurrentUserAdmin && addOpen && (
-        <form action={(formData) => { addPriority(formData); setAddOpen(false); setAssignedTo(""); }} className="mb-3 flex flex-wrap items-center gap-2 rounded-md border p-2">
+        <form
+          action={async (formData) => {
+            setError(null);
+            try {
+              await addPriority(formData);
+              setAddOpen(false);
+              setAssignedTo("");
+            } catch {
+              setError("Couldn't add that priority — please try again.");
+            }
+          }}
+          className="mb-3 flex flex-wrap items-center gap-2 rounded-md border p-2"
+        >
           <input name="label" required placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border px-2 text-sm" />
           <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Anyone (shared)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
           <SubmitButton size="xs" pendingLabel="Adding…">Add</SubmitButton>
+          {error && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
       {planItems.length === 0 && <p className="text-sm text-muted-foreground">Nothing planned yet.</p>}

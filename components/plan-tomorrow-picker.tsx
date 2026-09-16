@@ -14,10 +14,11 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
   schoolData: Record<string, SchoolDataEntry>;
   generalTasks: GeneralTask[];
   myPlanItems: PlanItem[];
-  savePlan: (formData: FormData) => void;
+  savePlan: (formData: FormData) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [schoolId, setSchoolId] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const schoolCarryOver: OpenItem[] = schools.flatMap((school) =>
     (schoolData[school.id]?.tasks || [])
@@ -87,17 +88,23 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
             </label>
           ))}
           <form
-            action={(formData) => {
+            action={async (formData) => {
+              setError(null);
               for (const id of checked) formData.append(isSchoolId(id) ? "taskFileCategoryIds" : "generalTaskIds", id);
               formData.set("labels", JSON.stringify(buildLabels()));
-              savePlan(formData);
-              setOpen(false);
+              try {
+                await savePlan(formData);
+                setOpen(false);
+              } catch {
+                setError("Couldn't save your plan. Please try again.");
+              }
             }}
             className="mt-2 flex gap-2"
           >
             <SubmitButton size="sm" pendingLabel="Saving…">Save Plan</SubmitButton>
             <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
           </form>
+          {error && <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>
       )}
     </div>

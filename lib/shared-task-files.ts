@@ -16,11 +16,14 @@ export async function submitTaskFileForm(
   }
 }
 
-export function fileNameConflicts(files: TaskFile[], fileName: string, categoryIds: string[], excludeId?: string): boolean {
-  const name = fileName.trim().toLowerCase();
-  const selected = new Set(categoryIds);
-  return files.some((file) => file.id !== excludeId && file.fileName.trim().toLowerCase() === name
-    && file.categories.some((assignment) => selected.has(assignment.categoryId)));
+export function taskTableColumns(categories: TaskCategory[], countCategories: string[]): (
+  {kind: "file"} | {kind: "count" | "task"; category: TaskCategory}
+)[] {
+  return [
+    ...categories.filter((category) => countCategories.includes(category.name)).map((category) => ({kind: "count" as const, category})),
+    {kind: "file"},
+    ...categories.map((category) => ({kind: "task" as const, category})),
+  ];
 }
 
 // Only return safe, actionable messages; raw database errors stay on the server.
@@ -29,9 +32,6 @@ export async function saveTaskFile(operation: () => Promise<void>): Promise<Task
     await operation();
     return { error: null };
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
-      return { error: "That file name already exists in a selected category. Choose a different category or file name." };
-    }
     console.error("Task file save failed", error);
     return { error: "The file could not be saved. Please try again." };
   }

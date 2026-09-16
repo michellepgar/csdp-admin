@@ -6,7 +6,7 @@ import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
-import { fileNameConflicts, normalizeSelectedCategoryIds, saveTaskFile, type TaskFileActionResult } from "@/lib/shared-task-files";
+import { normalizeSelectedCategoryIds, saveTaskFile, type TaskFileActionResult } from "@/lib/shared-task-files";
 import { nextChecklistNotNeededEntry } from "@/lib/app-state";
 import type { AppState, TaskFileCategory } from "@/lib/app-state";
 
@@ -175,7 +175,6 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
   if (await isDemoMode()) {
     const result = await saveTaskFile(() => demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
-      if (fileNameConflicts(sd.taskFiles || [], fileName, categoryIds)) throw { code: "23505" };
       const fileId = `demo-file-${Date.now()}`;
       const createdAt = new Date().toISOString();
       const selected = categoryIds.map((categoryId, index) => {
@@ -232,7 +231,6 @@ export async function updateTaskFileName(formData: FormData): Promise<TaskFileAc
       const sd = state.schoolData[schoolId];
       const file = sd?.taskFiles?.find((item) => item.id === taskFileId);
       if (file) {
-        if (fileNameConflicts(sd.taskFiles || [], fileName, file.categories.map((item) => item.categoryId), taskFileId)) throw { code: "23505" };
         file.fileName = fileName;
         const assignmentIds = new Set(file.categories.map((item) => item.id));
         for (const task of sd.tasks || []) if (assignmentIds.has(task.id)) task.fileName = fileName;

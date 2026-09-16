@@ -37,6 +37,32 @@ async function filenameRules(db: PGlite) {
   await db.exec(readFileSync(path, "utf8"));
 }
 
+test("filenames may repeat within one category without merging entries or status", async () => {
+  const db=await database();
+  try {
+    await filenameRules(db);
+    const path='supabase/phase40_unrestricted_file_names.sql';
+    const originalFiles=(await db.query("select * from task_files order by id")).rows;
+    const originalAssignments=(await db.query("select * from task_file_categories order by id")).rows;
+    await db.exec(readFileSync(path,'utf8'));
+    await db.exec(readFileSync(path,'utf8'));
+    assert.deepEqual((await db.query("select * from task_files order by id")).rows,originalFiles);
+    assert.deepEqual((await db.query("select * from task_file_categories order by id")).rows,originalAssignments);
+    await db.query("select add_task_file('repeat','s1','Grade 1',array['c1'])");
+    assert.equal((await db.query("select * from task_files")).rows.length,2);
+    assert.equal((await db.query("select status from task_file_categories where id='t1'")).rows[0].status,'Done');
+    assert.deepEqual((await db.query("select category_id,status from task_file_categories where task_file_id='repeat'")).rows,[{category_id:'c1',status:''}]);
+    await db.query("select add_task_file('rename','s1','Grade 2',array['c1','c2'])");
+    await db.exec("update task_files set file_name='Grade 1' where id='rename'");
+    assert.equal((await db.query("select * from task_files where file_name='Grade 1'")).rows.length,3);
+    await db.query("select remove_task_file('s1','repeat')");
+    assert.equal((await db.query("select * from task_files")).rows.length,2);
+    assert.equal((await db.query("select status from task_file_categories where id='t1'")).rows[0].status,'Done');
+    await db.exec("create or replace function auth.uid() returns uuid language sql as $$select null::uuid$$");
+    await assert.rejects(db.query("select add_task_file('unauthorized','s1','Grade 1',array['c1'])"), /Not authorized/);
+  } finally {await db.close();}
+});
+
 test("same filename in different categories creates independent files and statuses", async () => {
   const db = await database();
   try {

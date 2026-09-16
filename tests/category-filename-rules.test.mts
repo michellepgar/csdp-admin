@@ -2,19 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as rules from "../lib/shared-task-files.ts";
 
-const existing = [{id:'f1',fileName:'Grade 1',sortOrder:0,createdAt:'2026-09-16',categories:[{id:'a1',taskFileId:'f1',categoryId:'c1',category:'Transactions',status:'Done',vaAssigned:['Owner'],sortOrder:0}]}];
-
-test("filename collision only applies to overlapping categories and excludes the edited file", () => {
-  assert.equal(typeof rules.fileNameConflicts, 'function');
-  assert.equal(rules.fileNameConflicts(existing, ' grade 1 ', ['c2']), false);
-  assert.equal(rules.fileNameConflicts(existing, ' GRADE 1 ', ['c2','c1']), true);
-  assert.equal(rules.fileNameConflicts(existing, 'Grade 1', ['c1'], 'f1'), false);
-});
-
-test("duplicate filename errors return a form result instead of throwing", async () => {
+test("save errors return a generic form result without filename restrictions", async (t) => {
+  t.mock.method(console, 'error', () => {});
   assert.equal(typeof rules.saveTaskFile, 'function');
   const result = await rules.saveTaskFile(async () => {throw Object.assign(new Error('duplicate filename'), {code:'23505'});});
-  assert.match(result.error || '', /selected category/i);
+  assert.match(result.error || '', /try again/i);
+  assert.doesNotMatch(result.error || '', /file name already exists|different category/i);
 });
 
 test("failed file mutations hide internal details and successful saves clear the error", async (t) => {

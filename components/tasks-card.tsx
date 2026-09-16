@@ -12,7 +12,7 @@ import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { groupTaskTables, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
+import { groupTaskTables, taskTableColumns, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
   COUNT_CATEGORIES,
@@ -82,18 +82,10 @@ function AssignmentCell({ schoolId, assignment, vas, currentUserName, canEdit, a
   canEdit: boolean;
   actions: Pick<TasksCardProps, "setTaskStatus" | "setTaskCount" | "signTask" | "removeVaFromTask" | "setCommsStatus" | "signComms" | "removeVaFromComms" | "removeTaskAssignment">;
 }) {
-  const needsCount = COUNT_CATEGORIES.includes(assignment.category);
   const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(assignment.category);
   return (
     <div className="min-w-52 space-y-2">
       <div className="flex items-center gap-2">
-        {needsCount && (
-          <AutoSubmitForm action={actions.setTaskCount}>
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <input type="hidden" name="taskId" value={assignment.id} />
-            <input key={assignment.count || ""} type="number" min={0} name="count" defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit} className="w-14 rounded-md border px-1.5 py-0.5 text-sm" />
-          </AutoSubmitForm>
-        )}
         <SignAndStatus schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={canEdit} signTask={actions.signTask} removeVaFromTask={actions.removeVaFromTask} setTaskStatus={actions.setTaskStatus} />
         {canEdit && (
           <form action={actions.removeTaskAssignment} className="ml-auto">
@@ -268,14 +260,30 @@ export function TasksCard(props: TasksCardProps) {
 
         {orderedFiles.length === 0 ? (
           <p className="text-sm text-muted-foreground">No files yet.</p>
-        ) : taskTables.map((group) => (
+        ) : taskTables.map((group) => {
+          const columns = taskTableColumns(group.categories, COUNT_CATEGORIES);
+          const countColumnTotal = columns.filter((column) => column.kind === "count").length;
+          return (
           <div key={group.key} className="overflow-x-auto rounded-md border">
             <table className="w-full min-w-max border-collapse text-sm">
-              <thead><tr className="border-b bg-muted/40"><th className="px-2 py-2 text-left font-medium">File name</th>{group.categories.map((category) => <th key={category.id} className="px-2 py-2 text-left font-medium">{category.name}{category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</th>)}</tr></thead>
+              <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "file" ? "file" : `${column.kind}:${column.category.id}`} className="px-2 py-2 text-left font-medium">{column.kind === "file" ? "File name" : column.kind === "count" ? (countColumnTotal === 1 ? "Count" : `${column.category.name} count`) : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file) => (
                   <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
-                    <td className="px-2 py-2 align-top">
+                    {columns.map((column) => {
+                      if (column.kind !== "file") {
+                        const category = column.category;
+                        const assignment = file.categories.find((item) => item.categoryId === category.id);
+                        const editable = canEdit && !(category.name === "Follow up" && noRecheck);
+                        return <td key={`${column.kind}:${category.id}`} className={`px-2 py-2 align-top ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>
+                          {assignment ? column.kind === "count" ? <AutoSubmitForm action={props.setTaskCount}>
+                            <input type="hidden" name="schoolId" value={schoolId} />
+                            <input type="hidden" name="taskId" value={assignment.id} />
+                            <input key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!editable} className="w-14 rounded-md border px-1.5 py-0.5 text-sm" />
+                          </AutoSubmitForm> : <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={editable} actions={props} /> : <span className="text-muted-foreground">—</span>}
+                        </td>;
+                      }
+                      return <td key="file" className="px-2 py-2 align-top">
                       <div className="flex min-w-48 items-center gap-1">
                         {canEdit && <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60" aria-label="Drag to reorder file" />}
                         {editingFileId === file.id ? (
@@ -287,17 +295,14 @@ export function TasksCard(props: TasksCardProps) {
                           </form>
                         ) : <><span className="font-bold break-words">{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}<DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></>}
                       </div>
-                    </td>
-                    {group.categories.map((category) => {
-                      const assignment = file.categories.find((item) => item.categoryId === category.id);
-                      return <td key={category.id} className={`px-2 py-2 align-top ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>{assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={canEdit && !(category.name === "Follow up" && noRecheck)} actions={props} /> : <span className="text-muted-foreground">—</span>}</td>;
+                    </td>;
                     })}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ))}
+        ); })}
       </div>
     </div>
   );

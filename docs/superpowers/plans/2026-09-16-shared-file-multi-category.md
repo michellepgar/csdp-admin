@@ -223,5 +223,6 @@ Run: `vercel --prod`
 - Admin school/task/checklist restore and task reset now use transactional RPCs; unrelated backup tables keep their existing flow.
 - Migration backfills only on initial table creation, so rerunning cannot resurrect removed tasks.
 - The old school-only category API is retired. Categories with existing tasks cannot be deleted until those tasks are removed.
-- Production preflight: 23 legacy tasks, zero scoped categories, zero ambiguous groups; schema not yet migrated.
-- Hosting CLI currently connects to a different account (maiava); user sign-in to the csdp-admin owner is required before hosting changes.
+- Production migration applied and verified: 23 legacy tasks became 23 assignments in 22 shared-file rows; zero missing task IDs and zero mismatched filenames/status/VA/count/date values.
+- Merged main verification: all 53 tests pass, lint passes, production build passes.
+- Hosting access verified in the csdp Vercel team; the existing csdp-admin project is connected to michellepgar/csdp-admin. Production deployment uses that Git integration instead of the CLI's unrelated account.

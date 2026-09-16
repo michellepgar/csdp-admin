@@ -16,11 +16,11 @@ export async function submitTaskFileForm(
   }
 }
 
-export function taskTableColumns(categories: TaskCategory[], countCategories: string[]): (
+export function taskTableColumns(categories: TaskCategory[]): (
   {kind: "file"} | {kind: "remove"} | {kind: "count"; categories: TaskCategory[]} | {kind: "task"; category: TaskCategory}
 )[] {
   return [
-    {kind: "count", categories: categories.filter((category) => countCategories.includes(category.name))},
+    {kind: "count", categories: categories.filter((category) => category.hasCount)},
     {kind: "file"},
     ...categories.map((category) => ({kind: "task" as const, category})),
     {kind: "remove"},

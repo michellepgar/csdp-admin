@@ -633,37 +633,76 @@ export async function reorderTaskCategories(orderedIds: string[]) {
   revalidatePath("/", "layout");
 }
 
-export async function renameTaskCategory(formData: FormData) {
+/* Returns a result instead of throwing bare -- the old void-returning
+   version's caller (tasks-card.tsx's rename form) closed its own edit
+   box on click, before the Server Action even resolved, so a rename
+   that failed (e.g. the duplicate-name check below) looked exactly
+   like a rename that quietly did nothing: the box vanished either
+   way, no error ever reached the screen. Now the caller awaits this
+   and only closes on an actual empty error. */
+export async function renameTaskCategory(formData: FormData): Promise<TaskFileActionResult> {
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
+  if (!name) return { error: "Name is required." };
+
+  try {
+    if (await isDemoMode()) {
+      await demoMutate((state) => {
+        const category = state.taskCategories?.find((item) => item.id === id);
+        if (!category) throw new Error("That category no longer exists. Refresh and try again.");
+        if (category.name === name) return;
+        if (state.taskCategories?.some((item) => item.id !== id && normalizedCategoryName(item.name) === normalizedCategoryName(name))) {
+          throw new Error("A task category already uses that name.");
+        }
+        const previousName = category.name;
+        category.name = name;
+        for (const schoolData of Object.values(state.schoolData)) {
+          for (const task of schoolData.tasks ?? []) if (task.category === previousName) task.category = name;
+          for (const file of schoolData.taskFiles ?? []) for (const assignment of file.categories) if (assignment.categoryId === id) assignment.category = name;
+        }
+        for (const item of state.checklistTemplate || []) if (item.taskCategoryId === category.id) item.description = name;
+      });
+      revalidatePath("/", "layout");
+      return { error: null };
+    }
+
+    const { supabase } = await requireTeamMember();
+    const { data: category, error: categoryError } = await supabase.from("task_categories").select("name").eq("id", id).maybeSingle();
+    orThrow(categoryError);
+    if (!category) return { error: "That category no longer exists. Refresh and try again." };
+    if (category.name !== name) {
+      const duplicateQuery = supabase.from("task_categories").select("id").ilike("name", name).neq("id", id);
+      const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
+      orThrow(duplicateError);
+      if (duplicate) return { error: "A task category already uses that name." };
+      const { error: renameError } = await supabase.rpc("rename_task_category", { p_id: id, p_name: name });
+      orThrow(renameError);
+    }
+    revalidatePath("/", "layout");
+    return { error: null };
+  } catch (error) {
+    console.error("Task category rename failed", error);
+    return { error: error instanceof Error ? error.message : "The category could not be renamed. Please try again." };
+  }
+}
+
+export async function setTaskCategoryHasCount(formData: FormData) {
+  const id = formData.get("id") as string;
+  const hasCount = formData.get("hasCount") === "on";
+  if (!id) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const category = state.taskCategories?.find((item) => item.id === id);
-      if (!category || category.name === name || state.taskCategories?.some((item) => item.id !== id && normalizedCategoryName(item.name) === normalizedCategoryName(name))) return;
-      const previousName = category.name;
-      category.name = name;
-      for (const schoolData of Object.values(state.schoolData)) {
-        for (const task of schoolData.tasks ?? []) if (task.category === previousName) task.category = name;
-        for (const file of schoolData.taskFiles ?? []) for (const assignment of file.categories) if (assignment.categoryId === id) assignment.category = name;
-      }
-      for (const item of state.checklistTemplate || []) if (item.taskCategoryId === category.id) item.description = name;
+      if (category) category.hasCount = hasCount;
     });
     revalidatePath("/", "layout");
     return;
   }
 
   const { supabase } = await requireTeamMember();
-  const { data: category, error: categoryError } = await supabase.from("task_categories").select("name").eq("id", id).maybeSingle();
-  orThrow(categoryError);
-  if (!category || category.name === name) return;
-  const duplicateQuery = supabase.from("task_categories").select("id").ilike("name", name).neq("id", id);
-  const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
-  orThrow(duplicateError);
-  if (duplicate) throw new Error("A task category already uses that name.");
-  const { error: renameError } = await supabase.rpc("rename_task_category", { p_id: id, p_name: name });
-  orThrow(renameError);
+  const { error } = await supabase.from("task_categories").update({ has_count: hasCount }).eq("id", id);
+  orThrow(error);
   revalidatePath("/", "layout");
 }
 

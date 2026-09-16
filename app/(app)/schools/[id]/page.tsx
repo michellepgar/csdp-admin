@@ -28,6 +28,7 @@ import {
   removeTaskCategory,
   reorderTaskCategories,
   renameTaskCategory,
+  setTaskCategoryHasCount,
   reorderTasks,
   updateTaskFileName,
   setCommsStatus,
@@ -185,6 +186,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             removeTaskCategory={removeTaskCategory}
             reorderTaskCategories={reorderTaskCategories}
             renameTaskCategory={renameTaskCategory}
+            setTaskCategoryHasCount={setTaskCategoryHasCount}
             reorderTasks={reorderTasks}
             updateTaskFileName={updateTaskFileName}
             setCommsStatus={setCommsStatus}

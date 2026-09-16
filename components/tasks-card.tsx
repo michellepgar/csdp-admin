@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { groupTaskTables, taskTableColumns, taskTableLayout, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
-  COUNT_CATEGORIES,
   vaColorByName,
   type TaskFile,
   type TaskFileCategory,
@@ -121,7 +120,8 @@ type TasksCardProps = {
   removeVaFromComms: (formData: FormData) => void;
   setNoRecheck: (formData: FormData) => void;
   reorderTaskCategories: (orderedIds: string[]) => void;
-  renameTaskCategory: (formData: FormData) => void;
+  renameTaskCategory: (formData: FormData) => Promise<TaskFileActionResult>;
+  setTaskCategoryHasCount: (formData: FormData) => void;
   reorderTasks: (schoolId: string, orderedIds: string[]) => void;
   updateTaskFileName: (formData: FormData) => Promise<TaskFileActionResult>;
 };
@@ -134,6 +134,7 @@ export function TasksCard(props: TasksCardProps) {
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
   const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editCategoryError, setEditCategoryError] = useState<string | null>(null);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [newFileName, setNewFileName] = useState("");
   const [addFileError, setAddFileError] = useState<string | null>(null);
@@ -202,16 +203,29 @@ export function TasksCard(props: TasksCardProps) {
             <p className="text-xs text-muted-foreground">Changes here apply to every school. Drag to reorder; renaming updates every school.</p>
             {orderedCategories.map((category) => (
               <div key={category.id} draggable onDragStart={() => setDraggedCategoryId(category.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropCategory(category.id)} onDragEnd={() => setDraggedCategoryId(null)} className={`flex items-center justify-between gap-2 text-sm ${draggedCategoryId === category.id ? "opacity-40" : ""}`}>
-                <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60" />
-                  {editingCategoryId === category.id ? (
-                    <form action={props.renameTaskCategory} className="flex flex-1 items-center gap-1">
-                      <input type="hidden" name="id" value={category.id} />
-                      <Input name="name" defaultValue={category.name} required autoFocus className="h-7" />
-                      <SubmitButton pendingLabel="Saving…" size="xs" onClick={() => setEditingCategoryId(null)}>Save</SubmitButton>
-                      <Button type="button" variant="ghost" size="xs" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
-                    </form>
-                  ) : <><span>{category.name}</span><Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${category.name}`} onClick={() => setEditingCategoryId(category.id)}><Pencil className="h-3 w-3" /></Button></>}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60" />
+                    {editingCategoryId === category.id ? (
+                      <form
+                        action={(formData) => submitTaskFileForm(props.renameTaskCategory, formData, setEditCategoryError, () => setEditingCategoryId(null))}
+                        className="flex flex-1 items-center gap-1"
+                      >
+                        <input type="hidden" name="id" value={category.id} />
+                        <Input name="name" defaultValue={category.name} required autoFocus className="h-7" />
+                        <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton>
+                        <Button type="button" variant="ghost" size="xs" onClick={() => { setEditingCategoryId(null); setEditCategoryError(null); }}>Cancel</Button>
+                      </form>
+                    ) : <><span>{category.name}</span><Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${category.name}`} onClick={() => { setEditingCategoryId(category.id); setEditCategoryError(null); }}><Pencil className="h-3 w-3" /></Button></>}
+                  </div>
+                  {editingCategoryId === category.id && editCategoryError && <p role="alert" className="pl-4 text-xs text-red-600 dark:text-red-400">{editCategoryError}</p>}
+                  <AutoSubmitForm action={props.setTaskCategoryHasCount} className="pl-4">
+                    <input type="hidden" name="id" value={category.id} />
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <input key={String(!!category.hasCount)} type="checkbox" name="hasCount" defaultChecked={!!category.hasCount} />
+                      Show a Count column for this category
+                    </label>
+                  </AutoSubmitForm>
                 </div>
                 <form action={props.removeTaskCategory}>
                   <input type="hidden" name="id" value={category.id} />
@@ -239,7 +253,7 @@ export function TasksCard(props: TasksCardProps) {
         {orderedFiles.length === 0 ? (
           <p className="text-sm text-muted-foreground">No files yet.</p>
         ) : taskTables.map((group) => {
-          const columns = taskTableColumns(group.categories, COUNT_CATEGORIES);
+          const columns = taskTableColumns(group.categories);
           const layout = taskTableLayout(columns);
           return (
           <div key={group.key} className="rounded-md border">

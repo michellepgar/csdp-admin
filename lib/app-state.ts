@@ -70,6 +70,14 @@ export interface TaskCategory {
   id: string;
   name: string;
   schoolId?: string;
+  /** Whether this category's column gets a Count input -- toggled per
+   *  category from the "Edit categories" panel (tasks-card.tsx)
+   *  instead of being fixed to a hardcoded list of category names.
+   *  Michelle: "we wont know when we need it" -- the Count column
+   *  space is already always reserved on every table, blank where
+   *  unused, so this just decides which categories actually get an
+   *  input in it. */
+  hasCount?: boolean;
 }
 
 export interface ChecklistTemplateItem {
@@ -192,7 +200,6 @@ export interface EmailTrackerItem {
 
 export const TASK_STATUS_OPTIONS = ["", "In Progress", "Paused", "Completed"];
 export const EMAIL_STATUS_OPTIONS = ["Needs My Response", "Waiting on Them", "Done"];
-export const COUNT_CATEGORIES = ["Encoding & Uploading (Consent & SDF)", "Initial", "Follow up"];
 
 export interface SchoolDataEntry {
   vaAssigned: string;

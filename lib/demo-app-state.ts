@@ -72,9 +72,9 @@ export const DEMO_APP_STATE: AppState = {
   taskCategories: [
     {id:"demo-initial-comms",name:"Initial Communications"},
     {id:"demo-recheck-comms",name:"Recheck Communications"},
-    { id: "cat1", name: "Encoding & Uploading (Consent & SDF)" },
-    { id: "cat2", name: "Initial" },
-    { id: "cat3", name: "Follow up" },
+    { id: "cat1", name: "Encoding & Uploading (Consent & SDF)", hasCount: true },
+    { id: "cat2", name: "Initial", hasCount: true },
+    { id: "cat3", name: "Follow up", hasCount: true },
   ],
   contactGroups: [
     {

@@ -508,7 +508,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
     supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes, no_recheck").order("name"),
-    supabase.from("task_categories").select("id, name, school_id").order("sort_order"),
+    supabase.from("task_categories").select("id, name, school_id, has_count").order("sort_order"),
     supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),
     supabase.from("task_files").select("id, school_id, table_id, file_name, sort_order, created_at").order("sort_order"),
@@ -565,7 +565,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
   state.schools = (schoolsResult.data || []).map((r) => mapSchoolRow(r as SchoolRow));
-  state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined })) as TaskCategory[];
+  state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined, hasCount: !!row.has_count })) as TaskCategory[];
   state.checklistTemplate = (checklistTemplateResult.data || []).map((row) => ({ id: row.id, description: row.description, schoolId: row.school_id ?? undefined, taskCategoryId: row.task_category_id ?? undefined })) as ChecklistTemplateItem[];
   state.suggestions = (suggestionsResult.data || []).map((r) => mapSuggestionRow(r as SuggestionRow));
   state.generalNotes = (generalNotesResult.data || []).map((r) => mapGeneralNoteRow(r as GeneralNoteRow));

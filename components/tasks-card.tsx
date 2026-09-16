@@ -12,7 +12,7 @@ import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { visibleTaskCategories } from "@/lib/shared-task-files";
+import { groupTaskTables } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
   COUNT_CATEGORIES,
@@ -169,7 +169,7 @@ export function TasksCard(props: TasksCardProps) {
     setOrderedFiles(taskFiles);
   }, [taskFiles]);
 
-  const visibleCategories = visibleTaskCategories(orderedCategories, orderedFiles);
+  const taskTables = groupTaskTables(orderedCategories, orderedFiles);
   const assignments = orderedFiles.flatMap((file) => file.categories);
   const openCount = assignments.filter((item) => item.status !== "Completed").length;
   const inProgressCount = assignments.filter((item) => item.status === "In Progress").length;
@@ -263,12 +263,12 @@ export function TasksCard(props: TasksCardProps) {
 
         {orderedFiles.length === 0 ? (
           <p className="text-sm text-muted-foreground">No files yet.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-md border">
+        ) : taskTables.map((group) => (
+          <div key={group.key} className="overflow-x-auto rounded-md border">
             <table className="w-full min-w-max border-collapse text-sm">
-              <thead><tr className="border-b bg-muted/40"><th className="px-2 py-2 text-left font-medium">File name</th>{visibleCategories.map((category) => <th key={category.id} className="px-2 py-2 text-left font-medium">{category.name}{category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</th>)}</tr></thead>
+              <thead><tr className="border-b bg-muted/40"><th className="px-2 py-2 text-left font-medium">File name</th>{group.categories.map((category) => <th key={category.id} className="px-2 py-2 text-left font-medium">{category.name}{category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</th>)}</tr></thead>
               <tbody>
-                {orderedFiles.map((file) => (
+                {group.files.map((file) => (
                   <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
                     <td className="px-2 py-2 align-top">
                       <div className="flex min-w-48 items-center gap-1">
@@ -282,7 +282,7 @@ export function TasksCard(props: TasksCardProps) {
                         ) : <><span className="font-bold break-words">{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => setEditingFileId(file.id)}><Pencil className="h-3 w-3" /></Button>}<DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></>}
                       </div>
                     </td>
-                    {visibleCategories.map((category) => {
+                    {group.categories.map((category) => {
                       const assignment = file.categories.find((item) => item.categoryId === category.id);
                       return <td key={category.id} className={`px-2 py-2 align-top ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>{assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={canEdit && !(category.name === "Follow up" && noRecheck)} actions={props} /> : <span className="text-muted-foreground">—</span>}</td>;
                     })}
@@ -291,7 +291,7 @@ export function TasksCard(props: TasksCardProps) {
               </tbody>
             </table>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

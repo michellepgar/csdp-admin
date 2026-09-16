@@ -9,6 +9,36 @@ export function visibleTaskCategories(categories: TaskCategory[], files: TaskFil
   return categories.filter((category) => used.has(category.id));
 }
 
+export function groupTaskTables(categories: TaskCategory[], files: TaskFile[]): {
+  key: string; categories: TaskCategory[]; files: TaskFile[];
+}[] {
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  for (const file of files) for (const assignment of file.categories) {
+    if (!categoryById.has(assignment.categoryId)) categoryById.set(assignment.categoryId, { id: assignment.categoryId, name: assignment.category });
+  }
+  const categoryOrder = new Map([...categoryById.keys()].map((id, index) => [id, index]));
+  const groups = new Map<string, { key: string; categories: TaskCategory[]; files: TaskFile[] }>();
+  for (const file of files) {
+    const ids = [...new Set(file.categories.map((assignment) => assignment.categoryId))];
+    if (ids.length === 0) continue;
+    const key = JSON.stringify([...ids].sort());
+    let group = groups.get(key);
+    if (!group) {
+      ids.sort((a, b) => categoryOrder.get(a)! - categoryOrder.get(b)!);
+      group = { key, categories: ids.map((id) => categoryById.get(id)!), files: [] };
+      groups.set(key, group);
+    }
+    group.files.push(file);
+  }
+  return [...groups.values()].sort((a, b) => {
+    for (let i = 0; i < Math.min(a.categories.length, b.categories.length); i++) {
+      const difference = categoryOrder.get(a.categories[i].id)! - categoryOrder.get(b.categories[i].id)!;
+      if (difference) return difference;
+    }
+    return a.categories.length - b.categories.length;
+  });
+}
+
 export function legacyTasksToTaskFiles(tasks: Task[], categories: TaskCategory[]): TaskFile[] {
   const categoryByName = new Map(categories.map((category) => [category.name.trim().toLowerCase(), category.id]));
   const byName = new Map<string, TaskFile>();

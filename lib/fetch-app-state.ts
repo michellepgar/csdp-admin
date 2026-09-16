@@ -7,7 +7,7 @@ import type {
   Va,
   School,
   SchoolContact,
-  Task,
+  TaskFileCategory,
   EmailTrackerItem,
   ChecklistTemplateItem,
   TaskCategory,
@@ -28,6 +28,7 @@ import type {
   AccessRequest,
   GeneralTask,
   GeneralTaskCategory,
+  groupTaskFileRows,
 } from "@/lib/app-state";
 
 type SchoolRow = {
@@ -78,34 +79,25 @@ function mapVaRow(r: VaRow): Va {
   };
 }
 
-type TaskRow = {
+type TaskFileRow = {
   id: string;
   school_id: string;
-  category: string;
   file_name: string;
   sort_order: number;
-  count: string | null;
+  created_at: string;
+};
+
+type TaskFileCategoryRow = {
+  id: string;
+  task_file_id: string;
+  category_id: string;
   status: string;
   va_assigned: string[];
-  created_at: string;
+  sort_order: number;
+  count: string | null;
   comms_status: string | null;
   comms_va_assigned: string[] | null;
 };
-
-function mapTaskRow(r: TaskRow): Task {
-  return {
-    id: r.id,
-    category: r.category,
-    fileName: r.file_name,
-    sortOrder: r.sort_order,
-    count: r.count ?? undefined,
-    status: r.status,
-    vaAssigned: r.va_assigned,
-    createdAt: r.created_at,
-    commsStatus: r.comms_status ?? undefined,
-    commsVaAssigned: r.comms_va_assigned ?? undefined,
-  };
-}
 
 type EmailTrackerRow = {
   id: string;
@@ -489,7 +481,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     taskCategoriesResult,
     checklistTemplateResult,
     checklistProgressResult,
-    tasksResult,
+    taskFilesResult,
+    taskFileCategoriesResult,
     emailTrackerResult,
     suggestionsResult,
     generalNotesResult,
@@ -515,8 +508,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes, no_recheck").order("name"),
     supabase.from("task_categories").select("id, name, school_id").order("sort_order"),
     supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
-    supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by"),
-    supabase.from("tasks").select("id, school_id, category, file_name, sort_order, count, status, va_assigned, created_at, comms_status, comms_va_assigned").order("sort_order"),
+    supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),
+    supabase.from("task_files").select("id, school_id, file_name, sort_order, created_at").order("sort_order"),
+    supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order").order("sort_order"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
     supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at, pad_color").order("created_at"),
@@ -544,7 +538,8 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (taskCategoriesResult.error) return null;
   if (checklistTemplateResult.error) return null;
   if (checklistProgressResult.error) return null;
-  if (tasksResult.error) return null;
+  if (taskFilesResult.error) return null;
+  if (taskFileCategoriesResult.error) return null;
   if (emailTrackerResult.error) return null;
   if (suggestionsResult.error) return null;
   if (generalNotesResult.error) return null;
@@ -579,6 +574,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     state.checklistProgress[`${row.school_id}:${row.template_item_id}`] = {
       status: row.status,
       checkedBy: row.checked_by ?? undefined,
+      notNeeded: row.not_needed ?? false,
     };
   }
 
@@ -591,13 +587,56 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   state.schoolData = state.schoolData || {};
   for (const sd of Object.values(state.schoolData)) {
     sd.tasks = [];
+    sd.taskFiles = [];
     sd.emailTracker = [];
   }
-  for (const t of tasksResult.data || []) {
-    if (!state.schoolData[t.school_id]) state.schoolData[t.school_id] = { vaAssigned: "" };
-    const sd = state.schoolData[t.school_id];
-    sd.tasks = sd.tasks || [];
-    sd.tasks.push(mapTaskRow(t as unknown as TaskRow));
+  const categoryNames = new Map((taskCategoriesResult.data || []).map((row) => [row.id, row.name]));
+  const assignments = (taskFileCategoriesResult.data || []).map((row) => {
+    const item = row as TaskFileCategoryRow;
+    return {
+      id: item.id,
+      taskFileId: item.task_file_id,
+      categoryId: item.category_id,
+      category: categoryNames.get(item.category_id) || "Uncategorized",
+      status: item.status,
+      vaAssigned: item.va_assigned || [],
+      sortOrder: item.sort_order,
+      count: item.count ?? undefined,
+      commsStatus: item.comms_status ?? undefined,
+      commsVaAssigned: item.comms_va_assigned ?? undefined,
+    } satisfies TaskFileCategory;
+  });
+  const assignmentsByFile = new Map<string, TaskFileCategory[]>();
+  for (const assignment of assignments) {
+    const items = assignmentsByFile.get(assignment.taskFileId) || [];
+    items.push(assignment);
+    assignmentsByFile.set(assignment.taskFileId, items);
+  }
+  for (const row of taskFilesResult.data || []) {
+    const fileRow = row as TaskFileRow;
+    if (!state.schoolData[fileRow.school_id]) state.schoolData[fileRow.school_id] = { vaAssigned: "" };
+    const sd = state.schoolData[fileRow.school_id];
+    const file = groupTaskFileRows([{
+      id: fileRow.id,
+      fileName: fileRow.file_name,
+      sortOrder: fileRow.sort_order,
+      createdAt: fileRow.created_at,
+    }], assignmentsByFile.get(fileRow.id) || [])[0];
+    (sd.taskFiles ??= []).push(file);
+    for (const assignment of file.categories) {
+      (sd.tasks ??= []).push({
+        id: assignment.id,
+        category: assignment.category,
+        fileName: file.fileName,
+        count: assignment.count,
+        status: assignment.status,
+        vaAssigned: assignment.vaAssigned,
+        createdAt: file.createdAt,
+        sortOrder: file.sortOrder,
+        commsStatus: assignment.commsStatus,
+        commsVaAssigned: assignment.commsVaAssigned,
+      });
+    }
   }
   for (const e of emailTrackerResult.data || []) {
     if (!state.schoolData[e.school_id]) state.schoolData[e.school_id] = { vaAssigned: "" };

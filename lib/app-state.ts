@@ -63,6 +63,7 @@ export interface ChecklistProgressEntry {
      next to the item. Anyone on the team can check a checklist item off
      (not just the assigned VA), so this records who actually did it. */
   checkedBy?: string;
+  notNeeded?: boolean;
 }
 
 export interface TaskCategory {
@@ -98,6 +99,38 @@ export interface Task {
      other category. */
   commsStatus?: string;
   commsVaAssigned?: string[];
+}
+
+export interface TaskFileCategory {
+  id: string;
+  taskFileId: string;
+  categoryId: string;
+  category: string;
+  status: string;
+  vaAssigned: string[];
+  sortOrder: number;
+  count?: string;
+  commsStatus?: string;
+  commsVaAssigned?: string[];
+}
+
+export interface TaskFile {
+  id: string;
+  fileName: string;
+  sortOrder: number;
+  createdAt: string;
+  categories: TaskFileCategory[];
+}
+
+export function groupTaskFileRows(
+  files: Omit<TaskFile, "categories">[],
+  assignments: TaskFileCategory[],
+): TaskFile[] {
+  const byFile = new Map(files.map((file) => [file.id, { ...file, categories: [] as TaskFileCategory[] }]));
+  for (const assignment of assignments) byFile.get(assignment.taskFileId)?.categories.push(assignment);
+  return Array.from(byFile.values())
+    .map((file) => ({ ...file, categories: file.categories.sort((a, b) => a.sortOrder - b.sortOrder || a.category.localeCompare(b.category)) }))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.fileName.localeCompare(b.fileName));
 }
 
 /* Categories where a task also gets its own parallel Communications
@@ -142,6 +175,7 @@ export const COUNT_CATEGORIES = ["Encoding & Uploading (Consent & SDF)", "Initia
 export interface SchoolDataEntry {
   vaAssigned: string;
   tasks?: Task[];
+  taskFiles?: TaskFile[];
   emailTracker?: EmailTrackerItem[];
   /* School Notes not ported yet — kept loose so "Reset all tasks"
      (Backup & School Year) can clear tasks/checklist without touching
@@ -738,11 +772,12 @@ export function visiblePrivateNotes(state: AppState, currentName: string): Priva
    shared checklist template each school has marked "Done" for. */
 export function checklistCompletion(state: AppState, schoolId: string): number {
   const tmpl = visibleSchoolItems(state.checklistTemplate || [], schoolId);
-  if (!tmpl.length) return 0;
+  const applicable = tmpl.filter((item) => !state.checklistProgress[`${schoolId}:${item.id}`]?.notNeeded);
+  if (!applicable.length) return 0;
   let done = 0;
-  for (const item of tmpl) {
+  for (const item of applicable) {
     const entry = state.checklistProgress[`${schoolId}:${item.id}`];
     if (entry && entry.status === "Done") done++;
   }
-  return Math.round((done / tmpl.length) * 100);
+  return Math.round((done / applicable.length) * 100);
 }

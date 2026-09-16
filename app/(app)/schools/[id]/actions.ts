@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
-import { getOrderedItems, hasExactIds, nextSortOrder, normalizedCategoryName } from "@/lib/task-ordering";
+import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
+import { normalizeSelectedCategoryIds } from "@/lib/shared-task-files";
+import type { AppState, TaskFileCategory } from "@/lib/app-state";
 
 /* Every action in this file used to start with a helper that ran
    fetchAppState() -- the whole app's ~25-table Promise.all -- just to
@@ -38,6 +40,10 @@ function orThrow(error: { message: string } | null) {
 
 function revalidateSchool(schoolId: string) {
   revalidatePath(`/schools/${schoolId}`);
+}
+
+function findDemoAssignment(state: AppState, schoolId: string, taskId: string): TaskFileCategory | undefined {
+  return state.schoolData[schoolId]?.taskFiles?.flatMap((file) => file.categories).find((item) => item.id === taskId);
 }
 
 /* ---------- Yearly Checklist ---------- */
@@ -161,15 +167,21 @@ export async function reorderChecklistTemplate(orderedIds: string[]) {
 
 export async function addTask(formData: FormData) {
   const schoolId = formData.get("schoolId") as string;
-  const category = (formData.get("category") as string) || "";
+  const categoryIds = normalizeSelectedCategoryIds(formData.getAll("categoryIds").map(String));
   const fileName = ((formData.get("fileName") as string) || "").trim();
-  if (!fileName) return;
+  if (!fileName || categoryIds.length === 0) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
-      const tasks = (sd.tasks ??= []);
-      tasks.push({ id: `demo-${Date.now()}`, category, fileName, sortOrder: nextSortOrder(tasks.filter((task) => task.category === category)), status: "", vaAssigned: [], createdAt: new Date().toISOString() });
+      const fileId = `demo-file-${Date.now()}`;
+      const createdAt = new Date().toISOString();
+      const selected = categoryIds.map((categoryId, index) => {
+        const category = state.taskCategories?.find((item) => item.id === categoryId)?.name || "Uncategorized";
+        return { id: `${fileId}-${index}`, taskFileId: fileId, categoryId, category, status: "", vaAssigned: [], sortOrder: index };
+      });
+      (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: selected });
+      for (const assignment of selected) (sd.tasks ??= []).push({ id: assignment.id, category: assignment.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
     });
     revalidateSchool(schoolId);
     return;
@@ -177,62 +189,55 @@ export async function addTask(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.rpc("add_task_at_end", {
+  const { error } = await supabase.rpc("add_task_file", {
     p_id: crypto.randomUUID(),
     p_school_id: schoolId,
-    p_category: category,
     p_file_name: fileName,
+    p_category_ids: categoryIds,
   });
   orThrow(error);
   revalidateSchool(schoolId);
 }
 
-export async function reorderTasks(schoolId: string, category: string, orderedIds: string[]) {
+export async function reorderTasks(schoolId: string, orderedIds: string[]) {
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      const tasks = state.schoolData[schoolId]?.tasks ?? [];
-      const categoryTasks = tasks.filter((task) => task.category === category);
-      if (!hasExactIds(categoryTasks.map((task) => task.id), orderedIds)) return;
-      const sortOrderById = new Map(orderedIds.map((id, index) => [id, index]));
-      for (const task of categoryTasks) task.sortOrder = sortOrderById.get(task.id)!;
+      const files = state.schoolData[schoolId]?.taskFiles ?? [];
+      if (!hasExactIds(files.map((file) => file.id), orderedIds)) return;
+      state.schoolData[schoolId].taskFiles = getOrderedItems(files, orderedIds).map((file, sortOrder) => ({ ...file, sortOrder }));
     });
     revalidateSchool(schoolId);
     return;
   }
 
   const { supabase } = await requireTeamMember();
-  const { data: tasks, error: tasksError } = await supabase
-    .from("tasks")
-    .select("id")
-    .eq("school_id", schoolId)
-    .eq("category", category);
-  orThrow(tasksError);
-  if (!hasExactIds((tasks ?? []).map((task) => task.id), orderedIds)) return;
-
-  const results = await Promise.all(
-    orderedIds.map((id, sortOrder) => supabase.from("tasks").update({ sort_order: sortOrder }).eq("id", id).eq("school_id", schoolId).eq("category", category))
-  );
-  results.forEach(({ error }) => orThrow(error));
+  const { error } = await supabase.rpc("reorder_task_files", { p_school_id: schoolId, p_ordered_ids: orderedIds });
+  orThrow(error);
   revalidateSchool(schoolId);
 }
 
 export async function updateTaskFileName(formData: FormData) {
   const schoolId = formData.get("schoolId") as string;
-  const taskId = formData.get("taskId") as string;
+  const taskFileId = formData.get("taskFileId") as string;
   const fileName = ((formData.get("fileName") as string) || "").trim();
   if (!fileName) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      const task = state.schoolData[schoolId]?.tasks?.find((item) => item.id === taskId);
-      if (task) task.fileName = fileName;
+      const sd = state.schoolData[schoolId];
+      const file = sd?.taskFiles?.find((item) => item.id === taskFileId);
+      if (file) {
+        const oldName = file.fileName;
+        file.fileName = fileName;
+        for (const task of sd.tasks || []) if (task.fileName === oldName) task.fileName = fileName;
+      }
     });
     revalidateSchool(schoolId);
     return;
   }
 
   const { supabase } = await requireTeamMember();
-  const { error } = await supabase.from("tasks").update({ file_name: fileName }).eq("id", taskId).eq("school_id", schoolId);
+  const { error } = await supabase.from("task_files").update({ file_name: fileName }).eq("id", taskFileId).eq("school_id", schoolId);
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -246,6 +251,8 @@ export async function setTaskStatus(formData: FormData) {
     await demoMutate((state) => {
       const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
       if (task) task.status = status;
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment) assignment.status = status;
     });
     revalidateSchool(schoolId);
     return;
@@ -253,7 +260,7 @@ export async function setTaskStatus(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("tasks").update({ status }).eq("id", taskId);
+  const { error } = await supabase.from("task_file_categories").update({ status }).eq("id", taskId);
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -267,6 +274,8 @@ export async function setTaskCount(formData: FormData) {
     await demoMutate((state) => {
       const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
       if (task) task.count = count;
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment) assignment.count = count;
     });
     revalidateSchool(schoolId);
     return;
@@ -274,7 +283,7 @@ export async function setTaskCount(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("tasks").update({ count }).eq("id", taskId);
+  const { error } = await supabase.from("task_file_categories").update({ count }).eq("id", taskId);
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -287,6 +296,8 @@ export async function signTask(formData: FormData) {
     await demoMutate((state) => {
       const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
       if (task && !task.vaAssigned.includes("Jane")) task.vaAssigned.push("Jane");
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment && !assignment.vaAssigned.includes("Jane")) assignment.vaAssigned.push("Jane");
     });
     revalidateSchool(schoolId);
     return;
@@ -294,11 +305,11 @@ export async function signTask(formData: FormData) {
 
   const { supabase, me } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("tasks").select("va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("va_assigned").eq("id", taskId).maybeSingle();
   if (!task || task.va_assigned.includes(me.name)) return;
 
   const { error } = await supabase
-    .from("tasks")
+    .from("task_file_categories")
     .update({ va_assigned: [...task.va_assigned, me.name] })
     .eq("id", taskId);
   orThrow(error);
@@ -314,6 +325,8 @@ export async function removeVaFromTask(formData: FormData) {
     await demoMutate((state) => {
       const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
       if (task) task.vaAssigned = task.vaAssigned.filter((n) => n !== vaName);
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment) assignment.vaAssigned = assignment.vaAssigned.filter((name) => name !== vaName);
     });
     revalidateSchool(schoolId);
     return;
@@ -321,11 +334,11 @@ export async function removeVaFromTask(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("tasks").select("va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("va_assigned").eq("id", taskId).maybeSingle();
   if (!task) return;
 
   const { error } = await supabase
-    .from("tasks")
+    .from("task_file_categories")
     .update({ va_assigned: (task.va_assigned as string[]).filter((n) => n !== vaName) })
     .eq("id", taskId);
   orThrow(error);
@@ -334,12 +347,14 @@ export async function removeVaFromTask(formData: FormData) {
 
 export async function removeTask(formData: FormData) {
   const schoolId = formData.get("schoolId") as string;
-  const taskId = formData.get("taskId") as string;
+  const taskFileId = formData.get("taskFileId") as string;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const sd = state.schoolData[schoolId];
-      if (sd?.tasks) sd.tasks = sd.tasks.filter((t) => t.id !== taskId);
+      const file = sd?.taskFiles?.find((item) => item.id === taskFileId);
+      if (sd?.taskFiles) sd.taskFiles = sd.taskFiles.filter((item) => item.id !== taskFileId);
+      if (sd?.tasks && file) sd.tasks = sd.tasks.filter((item) => item.fileName !== file.fileName);
     });
     revalidateSchool(schoolId);
     return;
@@ -347,8 +362,37 @@ export async function removeTask(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  const { error } = await supabase.from("task_files").delete().eq("id", taskFileId).eq("school_id", schoolId);
   orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+export async function removeTaskAssignment(formData: FormData) {
+  const schoolId = formData.get("schoolId") as string;
+  const taskId = formData.get("taskId") as string;
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const sd = state.schoolData[schoolId];
+      for (const file of sd?.taskFiles || []) file.categories = file.categories.filter((item) => item.id !== taskId);
+      if (sd?.tasks) sd.tasks = sd.tasks.filter((item) => item.id !== taskId);
+      if (sd?.taskFiles) sd.taskFiles = sd.taskFiles.filter((file) => file.categories.length > 0);
+    });
+    revalidateSchool(schoolId);
+    return;
+  }
+  const { supabase } = await requireTeamMember();
+  const { data: assignment, error: assignmentError } = await supabase.from("task_file_categories").select("task_file_id").eq("id", taskId).maybeSingle();
+  orThrow(assignmentError);
+  const { error } = await supabase.from("task_file_categories").delete().eq("id", taskId);
+  orThrow(error);
+  if (assignment) {
+    const { count, error: countError } = await supabase.from("task_file_categories").select("id", { count: "exact", head: true }).eq("task_file_id", assignment.task_file_id);
+    orThrow(countError);
+    if (count === 0) {
+      const { error: fileError } = await supabase.from("task_files").delete().eq("id", assignment.task_file_id).eq("school_id", schoolId);
+      orThrow(fileError);
+    }
+  }
   revalidateSchool(schoolId);
 }
 
@@ -363,6 +407,8 @@ export async function setCommsStatus(formData: FormData) {
     await demoMutate((state) => {
       const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
       if (task) task.commsStatus = status;
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment) assignment.commsStatus = status;
     });
     revalidateSchool(schoolId);
     return;
@@ -370,7 +416,7 @@ export async function setCommsStatus(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("tasks").update({ comms_status: status }).eq("id", taskId);
+  const { error } = await supabase.from("task_file_categories").update({ comms_status: status }).eq("id", taskId);
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -386,6 +432,11 @@ export async function signComms(formData: FormData) {
         task.commsVaAssigned ??= [];
         if (!task.commsVaAssigned.includes("Jane")) task.commsVaAssigned.push("Jane");
       }
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment) {
+        assignment.commsVaAssigned ??= [];
+        if (!assignment.commsVaAssigned.includes("Jane")) assignment.commsVaAssigned.push("Jane");
+      }
     });
     revalidateSchool(schoolId);
     return;
@@ -393,13 +444,13 @@ export async function signComms(formData: FormData) {
 
   const { supabase, me } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("tasks").select("comms_va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("comms_va_assigned").eq("id", taskId).maybeSingle();
   if (!task) return;
   const commsVaAssigned: string[] = task.comms_va_assigned || [];
   if (commsVaAssigned.includes(me.name)) return;
 
   const { error } = await supabase
-    .from("tasks")
+    .from("task_file_categories")
     .update({ comms_va_assigned: [...commsVaAssigned, me.name] })
     .eq("id", taskId);
   orThrow(error);
@@ -415,6 +466,8 @@ export async function removeVaFromComms(formData: FormData) {
     await demoMutate((state) => {
       const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
       if (task?.commsVaAssigned) task.commsVaAssigned = task.commsVaAssigned.filter((n) => n !== vaName);
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment?.commsVaAssigned) assignment.commsVaAssigned = assignment.commsVaAssigned.filter((name) => name !== vaName);
     });
     revalidateSchool(schoolId);
     return;
@@ -422,11 +475,11 @@ export async function removeVaFromComms(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("tasks").select("comms_va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("comms_va_assigned").eq("id", taskId).maybeSingle();
   if (!task) return;
 
   const { error } = await supabase
-    .from("tasks")
+    .from("task_file_categories")
     .update({ comms_va_assigned: ((task.comms_va_assigned as string[]) || []).filter((n) => n !== vaName) })
     .eq("id", taskId);
   orThrow(error);

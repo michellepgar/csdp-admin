@@ -4,7 +4,8 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import { findVaByEmail, isAdmin, canEditSchoolRecords, CONTACT_POSITION_GROUPS, visibleSchoolItems } from "@/lib/app-state";
+import { findVaByEmail, isAdmin, canEditSchoolRecords, CONTACT_POSITION_GROUPS } from "@/lib/app-state";
+import { legacyTasksToTaskFiles } from "@/lib/shared-task-files";
 import { ChecklistCard } from "@/components/checklist-card";
 import { TasksCard } from "@/components/tasks-card";
 import { EmailTrackerCard } from "@/components/email-tracker-card";
@@ -20,8 +21,8 @@ import {
   signTask,
   removeVaFromTask,
   removeTask,
+  removeTaskAssignment,
   addTaskCategory,
-  addSchoolTaskCategory,
   removeTaskCategory,
   reorderTaskCategories,
   renameTaskCategory,
@@ -69,8 +70,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
 
   const sd = state.schoolData[schoolId] || { vaAssigned: "" };
   const canEdit = canEditSchoolRecords(sd, me.name, isAdmin(me));
-  const categories = visibleSchoolItems(state.taskCategories || [], schoolId);
-  const checklistTemplate = visibleSchoolItems(state.checklistTemplate || [], schoolId);
+  const categories = state.taskCategories || [];
+  const checklistTemplate = state.checklistTemplate || [];
+  const taskFiles = sd.taskFiles || legacyTasksToTaskFiles(sd.tasks || [], categories);
   const checklistProgressForSchool: Record<string, { status: string; checkedBy?: string }> = {};
   for (const item of checklistTemplate) {
     const p = state.checklistProgress[`${schoolId}:${item.id}`];
@@ -164,7 +166,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           <TasksCard
             schoolId={schoolId}
             categories={categories}
-            tasks={sd.tasks || []}
+            taskFiles={taskFiles}
             vas={state.vas}
             canEdit={canEdit}
             currentUserName={me.name}
@@ -175,8 +177,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             signTask={signTask}
             removeVaFromTask={removeVaFromTask}
             removeTask={removeTask}
+            removeTaskAssignment={removeTaskAssignment}
             addTaskCategory={addTaskCategory}
-            addSchoolTaskCategory={addSchoolTaskCategory}
             removeTaskCategory={removeTaskCategory}
             reorderTaskCategories={reorderTaskCategories}
             renameTaskCategory={renameTaskCategory}

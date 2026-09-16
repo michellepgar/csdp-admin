@@ -35,6 +35,14 @@ export const DEMO_APP_STATE: AppState = {
         { id: "t1", category: "Initial", fileName: "Q3-enrollment-report.xlsx", sortOrder: 0, status: "In Progress", vaAssigned: [DEMO_USER_NAME], createdAt: new Date().toISOString() },
         { id: "t2", category: "Encoding & Uploading (Consent & SDF)", fileName: "consent-forms-batch-1.pdf", sortOrder: 0, count: "42", status: "In Progress", vaAssigned: ["John"], createdAt: new Date().toISOString() },
       ],
+      taskFiles: [
+        { id: "demo-file-t1", fileName: "Q3-enrollment-report.xlsx", sortOrder: 0, createdAt: new Date().toISOString(), categories: [
+          { id: "t1", taskFileId: "demo-file-t1", categoryId: "cat2", category: "Initial", sortOrder: 0, status: "In Progress", vaAssigned: [DEMO_USER_NAME] },
+        ] },
+        { id: "demo-file-t2", fileName: "consent-forms-batch-1.pdf", sortOrder: 1, createdAt: new Date().toISOString(), categories: [
+          { id: "t2", taskFileId: "demo-file-t2", categoryId: "cat1", category: "Encoding & Uploading (Consent & SDF)", sortOrder: 0, count: "42", status: "In Progress", vaAssigned: ["John"] },
+        ] },
+      ],
       emailTracker: [
         { id: "e1", description: "Waiting on updated enrollment counts from front desk", status: "Waiting on Them", addedBy: DEMO_USER_NAME, createdAt: new Date().toISOString() },
       ],
@@ -43,6 +51,11 @@ export const DEMO_APP_STATE: AppState = {
       vaAssigned: "John",
       tasks: [
         { id: "t3", category: "Follow up", fileName: "follow-up-visit-notes.docx", sortOrder: 0, status: "In Progress", vaAssigned: ["Alex"], createdAt: new Date().toISOString() },
+      ],
+      taskFiles: [
+        { id: "demo-file-t3", fileName: "follow-up-visit-notes.docx", sortOrder: 0, createdAt: new Date().toISOString(), categories: [
+          { id: "t3", taskFileId: "demo-file-t3", categoryId: "cat3", category: "Follow up", sortOrder: 0, status: "In Progress", vaAssigned: ["Alex"] },
+        ] },
       ],
     },
   },

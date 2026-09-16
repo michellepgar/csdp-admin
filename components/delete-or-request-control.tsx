@@ -18,7 +18,7 @@ export function DeleteOrRequestControl({
 }: {
   canDelete: boolean;
   schoolId: string;
-  idFieldName: "taskId" | "itemId";
+  idFieldName: "taskId" | "taskFileId" | "itemId";
   targetId: string;
   label: string;
   removeAction: (formData: FormData) => void;

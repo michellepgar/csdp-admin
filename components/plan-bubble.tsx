@@ -1,0 +1,70 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
+import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
+import type { PlanItem, TaskCategory } from "@/lib/app-state";
+
+export function PlanBubble({ myPlanItems, schools, taskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, startedOpen }: {
+  myPlanItems: PlanItem[];
+  schools: { id: string; name: string }[];
+  taskCategories: TaskCategory[];
+  resolveTaskPlanItem: (formData: FormData) => void;
+  resolvePriorityPlanItem: (formData: FormData) => void;
+  startedOpen: boolean;
+}) {
+  const [expanded, setExpanded] = useState(startedOpen);
+  const [startingPriorityId, setStartingPriorityId] = useState<string | null>(null);
+
+  if (myPlanItems.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50">
+      {expanded ? (
+        <div className="w-72 overflow-hidden rounded-md border bg-card shadow-lg">
+          <button type="button" onClick={() => setExpanded(false)} className="flex w-full items-center justify-between bg-header-background px-3 py-2 text-sm font-semibold text-white">
+            <span>Your Plan</span><span>▾</span>
+          </button>
+          <div className="max-h-80 space-y-2 overflow-y-auto p-2">
+            {myPlanItems.map((item) => (
+              <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                <span>{item.label}</span>
+                {item.kind === "priority" ? (
+                  <Button type="button" size="xs" onClick={() => setStartingPriorityId(item.id)}>Start</Button>
+                ) : (
+                  <form action={resolveTaskPlanItem}>
+                    <input type="hidden" name="id" value={item.id} />
+                    {item.taskFileCategoryId ? (
+                      <>
+                        <input type="hidden" name="taskFileCategoryId" value={item.taskFileCategoryId} />
+                        <input type="hidden" name="schoolId" value={item.schoolId} />
+                      </>
+                    ) : (
+                      <input type="hidden" name="generalTaskId" value={item.generalTaskId} />
+                    )}
+                    <SubmitButton size="xs" pendingLabel="…">Start</SubmitButton>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setExpanded(true)} className="relative flex h-14 w-14 items-center justify-center rounded-full bg-header-background text-white shadow-lg" aria-label="Your plan">
+          📋
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-status-danger-foreground text-[11px] font-bold">{myPlanItems.length}</span>
+        </button>
+      )}
+      {startingPriorityId && (
+        <PlanPriorityStartForm
+          planItemId={startingPriorityId}
+          schools={schools}
+          taskCategories={taskCategories}
+          resolvePriorityPlanItem={resolvePriorityPlanItem}
+          onClose={() => setStartingPriorityId(null)}
+        />
+      )}
+    </div>
+  );
+}

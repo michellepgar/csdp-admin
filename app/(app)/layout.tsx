@@ -5,6 +5,7 @@ import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { SidebarShell } from "@/components/sidebar-shell";
 import { addSchool } from "./layout-actions";
+import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overview/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Demo mode has no real Supabase session for is_team_member() to check
@@ -84,6 +85,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     (n) => n.urgency === "Urgent" && n.author !== me.name && !(n.ackBy || []).includes(me.name)
   );
 
+  const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name || (p.kind === "priority" && !p.vaName));
+  const planBubbleStartedOpen = (await cookies()).get(`plan-bubble-open-${me.id}`)?.value === "1";
+
   return (
     <SidebarShell
       currentName={me.name}
@@ -97,6 +101,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       initialCollapsed={sidebarCollapsed}
       needsPrivateNoteAck={needsPrivateNoteAck}
       needsGeneralNoteAck={needsGeneralNoteAck}
+      myPlanItems={myPlanItems}
+      taskCategories={state.taskCategories || []}
+      resolveTaskPlanItem={resolveTaskPlanItem}
+      resolvePriorityPlanItem={resolvePriorityPlanItem}
+      planBubbleStartedOpen={planBubbleStartedOpen}
     >
       {children}
     </SidebarShell>

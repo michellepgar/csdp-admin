@@ -245,6 +245,12 @@ export async function resolvePriorityPlanItem(formData: FormData) {
    app/(app)/layout.tsx). No other state changes: the bubble's actual
    content is always just this VA's current pending plan_items rows. */
 export async function startNewDay() {
+  if (await isDemoMode()) {
+    (await cookies()).set("plan-bubble-open-demo-jane", "1", { maxAge: 60 * 60 * 24 });
+    revalidatePath("/overview");
+    return;
+  }
+
   const { me } = await requireTeamMember();
   (await cookies()).set(`plan-bubble-open-${me.id}`, "1", { maxAge: 60 * 60 * 24 });
   revalidatePath("/overview");

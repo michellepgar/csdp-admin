@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
-import type { Va } from "@/lib/app-state";
+import { PlanBubble } from "@/components/plan-bubble";
+import type { PlanItem, TaskCategory, Va } from "@/lib/app-state";
 import type { CurrentPresenceMember } from "@/components/team-presence";
 
 const COOKIE_NAME = "sidebar-collapsed";
@@ -40,6 +41,11 @@ export function SidebarShell({
   initialCollapsed,
   needsPrivateNoteAck,
   needsGeneralNoteAck,
+  myPlanItems,
+  taskCategories,
+  resolveTaskPlanItem,
+  resolvePriorityPlanItem,
+  planBubbleStartedOpen,
   children,
 }: {
   currentName: string;
@@ -53,6 +59,11 @@ export function SidebarShell({
   initialCollapsed: boolean;
   needsPrivateNoteAck: boolean;
   needsGeneralNoteAck: boolean;
+  myPlanItems: PlanItem[];
+  taskCategories: TaskCategory[];
+  resolveTaskPlanItem: (formData: FormData) => void;
+  resolvePriorityPlanItem: (formData: FormData) => void;
+  planBubbleStartedOpen: boolean;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -215,6 +226,15 @@ export function SidebarShell({
           Michelle ended up preferring no transition at all, so this
           is back to plain, un-keyed content with no animation. */}
       <main className="min-w-0 flex-1">{children}</main>
+
+      <PlanBubble
+        myPlanItems={myPlanItems}
+        schools={schools}
+        taskCategories={taskCategories}
+        resolveTaskPlanItem={resolveTaskPlanItem}
+        resolvePriorityPlanItem={resolvePriorityPlanItem}
+        startedOpen={planBubbleStartedOpen}
+      />
     </div>
   );
 }

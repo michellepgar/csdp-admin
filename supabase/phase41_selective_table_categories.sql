@@ -2,8 +2,20 @@
 -- Additive: existing file/assignment identity and fields are preserved.
 begin;
 lock table task_files, task_file_categories in share row exclusive mode;
-create temporary table phase41_original_files on commit drop as select id,to_jsonb(f)-'table_id' as original from task_files f;
-create temporary table phase41_original_assignments on commit drop as select id,to_jsonb(a) as original from task_file_categories a;
+-- Plain (non-temporary) snapshot tables, dropped explicitly at the end --
+-- a TEMPORARY table is scoped to the current session/connection, and
+-- Supabase's web SQL editor doesn't reliably run one pasted script over
+-- a single session (confirmed directly: running this migration failed
+-- with "relation phase41_original_files does not exist" partway
+-- through, meaning the editor had already moved to a new session by
+-- the time the final preservation check ran). A real table has no such
+-- scoping, so it survives regardless of how the editor chunks
+-- execution. Dropped up front too, so a prior failed attempt (like the
+-- one that hit this exact bug) can't leave stale rows behind.
+drop table if exists phase41_original_files;
+drop table if exists phase41_original_assignments;
+create table phase41_original_files as select id,to_jsonb(f)-'table_id' as original from task_files f;
+create table phase41_original_assignments as select id,to_jsonb(a) as original from task_file_categories a;
 alter table task_files add column if not exists table_id text;
 update task_files f set table_id=(select array_to_json(array_agg(a.category_id order by a.category_id))::text
   from task_file_categories a where a.task_file_id=f.id) where f.table_id is null;
@@ -219,4 +231,6 @@ begin
     then raise exception 'Preservation check failed: migration rolled back'; end if;
 end;
 $$;
+drop table phase41_original_files;
+drop table phase41_original_assignments;
 commit;

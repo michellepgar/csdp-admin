@@ -246,7 +246,7 @@ export function TasksCard(props: TasksCardProps) {
             <div className="overflow-x-auto">
             <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
               <colgroup>{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
-              <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className="px-2 py-2 text-left font-medium break-words">{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
+              <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 text-left font-medium break-words ${column.kind === "task" ? "px-4" : "px-2"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file) => (
                   <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
@@ -265,7 +265,7 @@ export function TasksCard(props: TasksCardProps) {
                         const category = column.category;
                         const assignment = file.categories.find((item) => item.categoryId === category.id);
                         const editable = canEdit && !(category.name === "Follow up" && noRecheck);
-                        return <td key={`${column.kind}:${category.id}`} className={`px-2 py-2 align-top ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>
+                        return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>
                           {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={editable} actions={props} /> : null}
                         </td>;
                       }

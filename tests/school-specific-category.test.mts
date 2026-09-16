@@ -20,10 +20,11 @@ test("migration provides atomic school-category operations", () => {
   assert.match(sql, /create or replace function delete_school_task_category\(p_id text\)/);
 });
 
-test("school page filters shared and current-school category data", () => {
+test("school page uses the shared category and checklist lists", () => {
   const source = readFileSync("app/(app)/schools/[id]/page.tsx", "utf8");
-  assert.match(source, /visibleSchoolItems\(state\.taskCategories \|\| \[\], schoolId\)/);
-  assert.match(source, /visibleSchoolItems\(state\.checklistTemplate \|\| \[\], schoolId\)/);
+  assert.match(source, /const categories = state\.taskCategories \|\| \[\]/);
+  assert.match(source, /const checklistTemplate = state\.checklistTemplate \|\| \[\]/);
+  assert.doesNotMatch(source, /addSchoolTaskCategory/);
 });
 
 test("category reorder validates only the categories visible on the school page", () => {

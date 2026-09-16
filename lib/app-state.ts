@@ -101,6 +101,26 @@ export interface Task {
   commsVaAssigned?: string[];
 }
 
+export function checklistSummary(
+  template: ChecklistTemplateItem[],
+  progress: Record<string, ChecklistProgressEntry>,
+): { done: number; total: number } {
+  const applicable = template.filter((item) => !progress[item.id]?.notNeeded);
+  return {
+    done: applicable.filter((item) => progress[item.id]?.status === "Done").length,
+    total: applicable.length,
+  };
+}
+
+export function nextChecklistNotNeededEntry(
+  current: ChecklistProgressEntry | undefined,
+  notNeeded: boolean,
+): ChecklistProgressEntry {
+  return notNeeded
+    ? { status: "Open", notNeeded: true }
+    : { status: current?.status === "Done" ? "Done" : "Open", ...(current?.checkedBy ? { checkedBy: current.checkedBy } : {}), notNeeded: false };
+}
+
 export interface TaskFileCategory {
   id: string;
   taskFileId: string;
@@ -772,12 +792,7 @@ export function visiblePrivateNotes(state: AppState, currentName: string): Priva
    shared checklist template each school has marked "Done" for. */
 export function checklistCompletion(state: AppState, schoolId: string): number {
   const tmpl = visibleSchoolItems(state.checklistTemplate || [], schoolId);
-  const applicable = tmpl.filter((item) => !state.checklistProgress[`${schoolId}:${item.id}`]?.notNeeded);
-  if (!applicable.length) return 0;
-  let done = 0;
-  for (const item of applicable) {
-    const entry = state.checklistProgress[`${schoolId}:${item.id}`];
-    if (entry && entry.status === "Done") done++;
-  }
-  return Math.round((done / applicable.length) * 100);
+  const progress = Object.fromEntries(tmpl.map((item) => [item.id, state.checklistProgress[`${schoolId}:${item.id}`]]).filter((entry) => entry[1]));
+  const summary = checklistSummary(tmpl, progress);
+  return summary.total ? Math.round((summary.done / summary.total) * 100) : 0;
 }

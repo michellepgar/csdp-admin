@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, X } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HoverLabel } from "@/components/hover-label";
-import { vaColorByName, type ChecklistTemplateItem, type ChecklistProgressEntry, type Va } from "@/lib/app-state";
+import { checklistSummary, vaColorByName, type ChecklistTemplateItem, type ChecklistProgressEntry, type Va } from "@/lib/app-state";
 
 const COLLAPSED_COOKIE_NAME = "checklist-collapsed";
 
@@ -19,6 +19,7 @@ export function ChecklistCard({
   vas,
   initialHidden,
   toggleChecklistItem,
+  setChecklistNotNeeded,
   addChecklistTemplateItem,
   removeChecklistTemplateItem,
   reorderChecklistTemplate,
@@ -41,13 +42,14 @@ export function ChecklistCard({
      collapse is a single app-wide setting rather than per-page. */
   initialHidden: boolean;
   toggleChecklistItem: (formData: FormData) => void;
+  setChecklistNotNeeded: (formData: FormData) => void;
   addChecklistTemplateItem: (formData: FormData) => void;
   removeChecklistTemplateItem: (formData: FormData) => void;
   reorderChecklistTemplate: (orderedIds: string[]) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [hidden, setHidden] = useState(initialHidden);
-  const doneCount = template.filter((t) => progress[t.id]?.status === "Done").length;
+  const summary = checklistSummary(template, progress);
 
   // A local copy the drag handlers below reorder instantly (dragging
   // an item several places at once shouldn't wait on a round trip to
@@ -116,7 +118,7 @@ export function ChecklistCard({
     <div className="ml-auto w-fit max-w-full rounded-md border bg-card sm:max-w-xs">
       <div className="flex items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
         <h2 className="font-semibold whitespace-nowrap">
-          Yearly Checklist {template.length > 0 && <span className="ml-1 text-sm font-normal text-white/70">{doneCount}/{template.length}</span>}
+          Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/70">{summary.done}/{summary.total}</span>}
         </h2>
         <div className="flex items-center gap-2">
           <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
@@ -169,18 +171,39 @@ export function ChecklistCard({
           {template.map((item) => {
             const entry = progress[item.id];
             const done = entry?.status === "Done";
+            const notNeeded = !!entry?.notNeeded;
             return (
-              <form key={item.id} action={toggleChecklistItem} className="flex items-center gap-2 rounded-md bg-record-background px-2 py-1">
-                <input type="hidden" name="schoolId" value={schoolId} />
-                <input type="hidden" name="itemId" value={item.id} />
-                <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"}>
-                  {done ? "✓" : " "}
-                </SubmitButton>
-                <span className="min-w-0 flex-1 text-sm">{item.description}</span>
-                {done && entry?.checkedBy && (
-                  <SignatureChip name={entry.checkedBy} color={vaColorByName(vas, entry.checkedBy)} small />
+              <div key={item.id} className="flex items-center gap-2 rounded-md bg-record-background px-2 py-1">
+                {notNeeded ? (
+                  <span className="w-9 text-center text-muted-foreground">—</span>
+                ) : (
+                  <form action={toggleChecklistItem}>
+                    <input type="hidden" name="schoolId" value={schoolId} />
+                    <input type="hidden" name="itemId" value={item.id} />
+                    <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"}>{done ? "✓" : " "}</SubmitButton>
+                  </form>
                 )}
-              </form>
+                <span className={`min-w-0 flex-1 text-sm ${notNeeded ? "text-muted-foreground line-through" : ""}`}>{item.description}</span>
+                {notNeeded ? (
+                  <form action={setChecklistNotNeeded} className="flex items-center gap-1">
+                    <input type="hidden" name="schoolId" value={schoolId} />
+                    <input type="hidden" name="itemId" value={item.id} />
+                    <input type="hidden" name="notNeeded" value="false" />
+                    <span className="text-xs text-muted-foreground">Not needed</span>
+                    <SubmitButton pendingLabel="…" variant="ghost" size="xs">Undo</SubmitButton>
+                  </form>
+                ) : (
+                  <>
+                    {done && entry?.checkedBy && <SignatureChip name={entry.checkedBy} color={vaColorByName(vas, entry.checkedBy)} small />}
+                    <form action={setChecklistNotNeeded}>
+                      <input type="hidden" name="schoolId" value={schoolId} />
+                      <input type="hidden" name="itemId" value={item.id} />
+                      <input type="hidden" name="notNeeded" value="true" />
+                      <SubmitButton pendingLabel="…" variant="ghost" size="icon-xs"><span className="text-destructive/70"><X className="h-3 w-3" /><span className="sr-only">Mark {item.description} not needed</span></span></SubmitButton>
+                    </form>
+                  </>
+                )}
+              </div>
             );
           })}
         </div>

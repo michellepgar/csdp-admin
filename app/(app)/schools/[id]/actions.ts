@@ -7,6 +7,7 @@ import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
 import { normalizeSelectedCategoryIds } from "@/lib/shared-task-files";
+import { nextChecklistNotNeededEntry } from "@/lib/app-state";
 import type { AppState, TaskFileCategory } from "@/lib/app-state";
 
 /* Every action in this file used to start with a helper that ran
@@ -56,7 +57,7 @@ export async function toggleChecklistItem(formData: FormData) {
     await demoMutate((state) => {
       const key = `${schoolId}:${itemId}`;
       const isDone = state.checklistProgress[key]?.status === "Done";
-      state.checklistProgress[key] = isDone ? { status: "Open" } : { status: "Done", checkedBy: "Jane" };
+      state.checklistProgress[key] = isDone ? { status: "Open", notNeeded: false } : { status: "Done", checkedBy: "Jane", notNeeded: false };
     });
     revalidateSchool(schoolId);
     return;
@@ -78,7 +79,7 @@ export async function toggleChecklistItem(formData: FormData) {
   const { error } = await supabase
     .from("checklist_progress")
     .upsert(
-      { school_id: schoolId, template_item_id: itemId, status: isDone ? "Open" : "Done", checked_by: isDone ? null : me.name },
+      { school_id: schoolId, template_item_id: itemId, status: isDone ? "Open" : "Done", checked_by: isDone ? null : me.name, not_needed: false },
       { onConflict: "school_id,template_item_id" }
     );
   orThrow(error);
@@ -363,6 +364,33 @@ export async function removeTask(formData: FormData) {
   const { supabase } = await requireTeamMember();
 
   const { error } = await supabase.from("task_files").delete().eq("id", taskFileId).eq("school_id", schoolId);
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+export async function setChecklistNotNeeded(formData: FormData) {
+  const schoolId = formData.get("schoolId") as string;
+  const itemId = formData.get("itemId") as string;
+  const notNeeded = formData.get("notNeeded") === "true";
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const key = `${schoolId}:${itemId}`;
+      state.checklistProgress[key] = nextChecklistNotNeededEntry(state.checklistProgress[key], notNeeded);
+    });
+    revalidateSchool(schoolId);
+    return;
+  }
+  const { supabase } = await requireTeamMember();
+  const { data: current, error: currentError } = await supabase.from("checklist_progress").select("status, checked_by, not_needed").eq("school_id", schoolId).eq("template_item_id", itemId).maybeSingle();
+  orThrow(currentError);
+  const next = nextChecklistNotNeededEntry(current ? { status: current.status, checkedBy: current.checked_by ?? undefined, notNeeded: current.not_needed } : undefined, notNeeded);
+  const { error } = await supabase.from("checklist_progress").upsert({
+    school_id: schoolId,
+    template_item_id: itemId,
+    status: next.status,
+    checked_by: next.checkedBy ?? null,
+    not_needed: !!next.notNeeded,
+  }, { onConflict: "school_id,template_item_id" });
   orThrow(error);
   revalidateSchool(schoolId);
 }

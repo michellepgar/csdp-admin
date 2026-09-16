@@ -60,7 +60,7 @@ export function ExportAllSchoolsButton({
     for (const school of sortedSchools) {
       for (const item of visibleSchoolItems(checklistTemplate, school.id)) {
         const entry = checklistProgress[`${school.id}:${item.id}`];
-        checklistRows.push([school.name, item.description, entry?.status || "Not Done", entry?.checkedBy || ""]);
+        checklistRows.push([school.name, item.description, entry?.notNeeded ? "Not Needed" : entry?.status || "Not Done", entry?.checkedBy || ""]);
       }
     }
 

@@ -2,6 +2,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getDemoState } from "@/lib/demo-session";
+import { groupTaskFileRows } from "@/lib/app-state";
 import type {
   AppState,
   Va,
@@ -28,7 +29,6 @@ import type {
   AccessRequest,
   GeneralTask,
   GeneralTaskCategory,
-  groupTaskFileRows,
 } from "@/lib/app-state";
 
 type SchoolRow = {
@@ -94,7 +94,7 @@ type TaskFileCategoryRow = {
   status: string;
   va_assigned: string[];
   sort_order: number;
-  count: string | null;
+  count: string | number | null;
   comms_status: string | null;
   comms_va_assigned: string[] | null;
 };
@@ -601,7 +601,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
       status: item.status,
       vaAssigned: item.va_assigned || [],
       sortOrder: item.sort_order,
-      count: item.count ?? undefined,
+      count: item.count == null ? undefined : String(item.count),
       commsStatus: item.comms_status ?? undefined,
       commsVaAssigned: item.comms_va_assigned ?? undefined,
     } satisfies TaskFileCategory;

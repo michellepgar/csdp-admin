@@ -1,4 +1,4 @@
-import type { Task, TaskCategory, TaskFile } from "@/lib/app-state";
+import type { Task, TaskCategory, TaskFile, School, SchoolDataEntry, GeneralTask } from "@/lib/app-state";
 
 export type TaskFileActionResult = { error: string | null };
 
@@ -126,4 +126,78 @@ export function legacyTasksToTaskFiles(tasks: Task[], categories: TaskCategory[]
     });
   }
   return Array.from(byName.values());
+}
+
+export interface TodayActivityItem {
+  schoolId?: string;
+  schoolName: string;
+  category: string;
+  fileName: string;
+  state: "in-progress" | "completed-today";
+}
+
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
+/* Same per-VA grouping Overview's old "Currently Working On" used, but
+   each VA's list now also carries anything they completed today (status
+   Completed or Review, per the new status_changed_at column) alongside
+   what's still In Progress -- statusChangedAt is keyed by task id (school
+   tasks) or general task id, matching Task.id/GeneralTask.id. */
+export function todayActivityByVa(
+  schools: School[],
+  schoolData: Record<string, SchoolDataEntry>,
+  generalTasks: GeneralTask[],
+  statusChangedAt: Record<string, string>,
+): Map<string, TodayActivityItem[]> {
+  const byVa = new Map<string, TodayActivityItem[]>();
+  const push = (vaName: string, item: TodayActivityItem) => {
+    if (!byVa.has(vaName)) byVa.set(vaName, []);
+    byVa.get(vaName)!.push(item);
+  };
+
+  for (const school of schools) {
+    for (const task of schoolData[school.id]?.tasks || []) {
+      const changedAt = statusChangedAt[task.id];
+      const state: TodayActivityItem["state"] | null =
+        task.status === "In Progress" ? "in-progress" :
+        (task.status === "Completed" || task.status === "Review") && changedAt && isToday(changedAt) ? "completed-today" :
+        null;
+      if (!state) continue;
+      for (const vaName of task.vaAssigned) push(vaName, { schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName, state });
+    }
+  }
+
+  for (const task of generalTasks) {
+    const changedAt = statusChangedAt[task.id];
+    const state: TodayActivityItem["state"] | null =
+      task.status === "In Progress" ? "in-progress" :
+      (task.status === "Completed" || task.status === "Review") && changedAt && isToday(changedAt) ? "completed-today" :
+      null;
+    if (!state) continue;
+    for (const vaName of task.vaAssigned) push(vaName, { schoolName: "General", category: task.category, fileName: task.description, state });
+  }
+
+  return byVa;
+}
+
+/* Used by "Save Plan" (app/(app)/overview/actions.ts) to turn a VA's
+   freshly-checked set of ids into the minimal set of plan_items writes:
+   rows to insert for newly-checked ids, and existing rows to delete for
+   ids that got unchecked. Generic over refId so the same helper covers
+   both task_file_category_id and general_task_id -- the caller maps
+   whichever one a plan_items row actually has into `refId` first. */
+export function diffPlanSelection(
+  existing: { id: string; refId?: string }[],
+  checkedIds: string[],
+): { toInsert: string[]; toDeleteIds: string[] } {
+  const existingIds = new Set(existing.map((row) => row.refId).filter(Boolean));
+  const checkedSet = new Set(checkedIds);
+  return {
+    toInsert: checkedIds.filter((id) => !existingIds.has(id)),
+    toDeleteIds: existing.filter((row) => row.refId && !checkedSet.has(row.refId)).map((row) => row.id),
+  };
 }

@@ -17,19 +17,19 @@ test("count and filename widths stay compact across separate task tables", () =>
   assert.equal(typeof tables.taskTableLayout, 'function');
   const initial=tables.taskTableLayout(tables.taskTableColumns([{id:'i',name:'Initial',hasCount:true}]));
   const encoding=tables.taskTableLayout(tables.taskTableColumns([{id:'e',name:'Encoding & Uploading (Consent & SDF)',hasCount:true}]));
-  assert.deepEqual(initial.columnWidths, [72,undefined,240,28]);
+  assert.deepEqual(initial.columnWidths, [72,undefined,340,28]);
   assert.deepEqual(encoding.columnWidths, initial.columnWidths);
-  assert.equal(initial.minWidth,596);
+  assert.equal(initial.minWidth,696);
 });
 
 test("shared task layout budgets space for each independent count and task column", () => {
   assert.equal(typeof tables.taskTableLayout, 'function');
   const shared=tables.taskTableLayout(tables.taskTableColumns([{id:'i',name:'Initial',hasCount:true},{id:'f',name:'Follow up',hasCount:true}]));
-  assert.deepEqual(shared.columnWidths,[72,undefined,240,240,28]);
-  assert.equal(shared.minWidth,836);
+  assert.deepEqual(shared.columnWidths,[72,undefined,340,340,28]);
+  assert.equal(shared.minWidth,1036);
   const photos=tables.taskTableLayout(tables.taskTableColumns([{id:'p',name:'Photos'}]));
-  assert.deepEqual(photos.columnWidths,[72,undefined,240,28]);
-  assert.equal(photos.minWidth,596);
+  assert.deepEqual(photos.columnWidths,[72,undefined,340,28]);
+  assert.equal(photos.minWidth,696);
 });
 
 test("a category's Count column can be toggled on independently of any fixed name list", () => {

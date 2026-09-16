@@ -75,7 +75,7 @@ function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, si
             <input type="hidden" name="taskId" value={assignment.id} />
             <input type="hidden" name="vaName" value={name} />
             <SignatureChip name={name} color={vaColorByName(vas, name)} small />
-            <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
+            <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
           </form>
         ))}
       </div>
@@ -282,16 +282,24 @@ export function TasksCard(props: TasksCardProps) {
         ) : taskTables.map((group) => {
           const columns = taskTableColumns(group.categories);
           const layout = taskTableLayout(columns);
+          // A very light left border between two category columns
+          // sitting side by side in the same table -- just enough to
+          // see where one category ends and the next begins, not a
+          // heavy rule. Only between two TASK columns specifically
+          // (never before the first one, right after File name/Count,
+          // which already has its own row/column structure to tell
+          // them apart).
+          const dividerClass = (index: number) => columns[index - 1]?.kind === "task" ? "border-l border-border/40" : "";
           return (
           <div key={group.key} className="rounded-md border">
             <div className="overflow-x-auto">
             <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
               <colgroup>{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
-              <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 text-left font-medium break-words ${column.kind === "task" ? "px-4" : "px-2"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
+              <thead><tr className="border-b bg-muted/40">{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 text-left font-medium break-words ${column.kind === "task" ? `px-4 ${dividerClass(index)}` : "px-2"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file) => (
                   <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 hover:bg-muted/40 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
-                    {columns.map((column) => {
+                    {columns.map((column, index) => {
                       if (column.kind === "remove") return <td key="remove" className="px-1 py-2 align-top"><DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} icon={<Trash2 className="h-3 w-3" />} /></td>;
                       if (column.kind === "count") return <td key="count" className="px-2 py-2 align-top"><div className="space-y-1">{column.categories.map(category => {
                         const assignment=file.categories.find(a => a.categoryId === category.id);
@@ -306,7 +314,7 @@ export function TasksCard(props: TasksCardProps) {
                         const category = column.category;
                         const assignment = file.categories.find((item) => item.categoryId === category.id);
                         const editable = canEdit && !(category.name === "Follow up" && noRecheck);
-                        return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>
+                        return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${dividerClass(index)} ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>
                           {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={editable} actions={props} /> : null}
                         </td>;
                       }

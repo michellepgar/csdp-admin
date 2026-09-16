@@ -13,7 +13,8 @@ test("keeps task drag and edit controls compact, muted, and separated from the f
 // Editor save ordering and failure handling are exercised behaviorally in
 // category-filename-rules.test.mts, rather than matching handler source text.
 
-test("keeps delete controls at the smallest visible icon size", async () => {
+test("keeps delete controls at the smallest visible icon size, ignoring any size a caller passes", async () => {
   const source = await readFile(new URL("../components/confirm-delete-button.tsx", import.meta.url), "utf8");
-  assert.match(source, /variant="ghost"\s+size="icon-xs"/);
+  assert.match(source, /iconSize = "icon-xs"/);
+  assert.match(source, /variant="ghost"\s+size=\{iconSize\}/);
 });

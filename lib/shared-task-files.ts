@@ -30,7 +30,12 @@ export function taskTableColumns(categories: TaskCategory[]): (
 export function taskTableLayout(columns: ReturnType<typeof taskTableColumns>): {
   columnWidths: (number | undefined)[]; minWidth: number;
 } {
-  const columnWidths = columns.map((column) => column.kind === "count" ? 72 : column.kind === "task" ? 240 : column.kind === "remove" ? 28 : undefined);
+  // 340px per task column -- wide enough for two SignatureChips (the
+  // usual max: "we just usually have 2 VAs working on a file") side by
+  // side in the VA/sign area alongside the fixed-width Status and
+  // remove tracks (see SignAndStatus in components/tasks-card.tsx),
+  // without wrapping to a second line the way the previous 240px did.
+  const columnWidths = columns.map((column) => column.kind === "count" ? 72 : column.kind === "task" ? 340 : column.kind === "remove" ? 28 : undefined);
   return {columnWidths, minWidth: columnWidths.reduce<number>((total, width) => total + (width ?? 256), 0)};
 }
 

@@ -42,7 +42,7 @@ assert.match(sql, /not_needed boolean not null default false/i);
 
 - [ ] **Step 2: Run it and expect failure**
 
-Run: `node --import tsx --test tests/phase38-shared-file-migration.test.mts`
+Run: `node --test tests/phase38-shared-file-migration.test.mts`
 
 Expected: FAIL because the migration does not exist.
 
@@ -52,7 +52,7 @@ Create `task_files(id, school_id, file_name, sort_order, created_at)` and `task_
 
 - [ ] **Step 4: Run focused tests**
 
-Run: `node --import tsx --test tests/phase38-shared-file-migration.test.mts tests/school-specific-category.test.mts`
+Run: `node --test tests/phase38-shared-file-migration.test.mts tests/school-specific-category.test.mts`
 
 Expected: PASS.
 
@@ -80,7 +80,7 @@ assert.equal(taskFile.categories.length, 2);
 
 - [ ] **Step 2: Run it and expect failure**
 
-Run: `node --import tsx --test tests/shared-file-app-state.test.mts`
+Run: `node --test tests/shared-file-app-state.test.mts`
 
 Expected: FAIL because the new types and calculation do not exist.
 
@@ -90,7 +90,7 @@ Fetch `task_files`, `task_file_categories`, and their category names in `fetchAp
 
 - [ ] **Step 4: Run focused tests**
 
-Run: `node --import tsx --test tests/shared-file-app-state.test.mts tests/task-ordering.test.mts`
+Run: `node --test tests/shared-file-app-state.test.mts tests/task-ordering.test.mts`
 
 Expected: PASS.
 
@@ -120,7 +120,7 @@ assert.match(source, /taskFiles\.filter/);
 
 - [ ] **Step 2: Run it and expect failure**
 
-Run: `node --import tsx --test tests/shared-file-tasks-card.test.mts`
+Run: `node --test tests/shared-file-tasks-card.test.mts`
 
 Expected: FAIL because TasksCard renders separate category sections.
 
@@ -130,7 +130,7 @@ Select one category first and optionally add more category IDs before entering t
 
 - [ ] **Step 4: Run focused tests**
 
-Run: `node --import tsx --test tests/shared-file-tasks-card.test.mts tests/task-row-control-styles.test.mts tests/task-ordering.test.mts`
+Run: `node --test tests/shared-file-tasks-card.test.mts tests/task-row-control-styles.test.mts tests/task-ordering.test.mts`
 
 Expected: PASS.
 
@@ -161,7 +161,7 @@ assert.match(source, /line-through/);
 
 - [ ] **Step 2: Run it and expect failure**
 
-Run: `node --import tsx --test tests/checklist-not-needed.test.mts`
+Run: `node --test tests/checklist-not-needed.test.mts`
 
 Expected: FAIL because no not-needed action exists.
 
@@ -171,7 +171,7 @@ Upsert `{ school_id, template_item_id, status: "Open", checked_by: null, not_nee
 
 - [ ] **Step 4: Run focused tests**
 
-Run: `node --import tsx --test tests/checklist-not-needed.test.mts tests/shared-file-app-state.test.mts`
+Run: `node --test tests/checklist-not-needed.test.mts tests/shared-file-app-state.test.mts`
 
 Expected: PASS.
 
@@ -188,7 +188,7 @@ Run: `git commit -m "feat: exclude not-needed checklist items"`
 
 - [ ] **Step 1: Run all automated tests**
 
-Run: `node --import tsx --test tests/*.test.mts`
+Run: `node --test tests/*.test.mts`
 
 Expected: PASS.
 
@@ -215,3 +215,13 @@ Run: `git commit -m "docs: record shared file task rollout"`
 Run: `git push origin main`
 
 Run: `vercel --prod`
+
+
+## Review hardening before rollout
+
+- Added PostgreSQL execution tests using PGlite (development only), including rollback, duplicate/blank legacy guards, shared assignment timestamps, legacy-write compatibility, old category rename, school-scoped mutations, backup collisions, and reset.
+- Admin school/task/checklist restore and task reset now use transactional RPCs; unrelated backup tables keep their existing flow.
+- Migration backfills only on initial table creation, so rerunning cannot resurrect removed tasks.
+- The old school-only category API is retired. Categories with existing tasks cannot be deleted until those tasks are removed.
+- Production preflight: 23 legacy tasks, zero scoped categories, zero ambiguous groups; schema not yet migrated.
+- Hosting CLI currently connects to a different account (maiava); user sign-in to the csdp-admin owner is required before hosting changes.

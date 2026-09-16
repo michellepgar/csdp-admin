@@ -89,6 +89,7 @@ type TaskFileRow = {
 
 type TaskFileCategoryRow = {
   id: string;
+  created_at: string;
   task_file_id: string;
   category_id: string;
   status: string;
@@ -510,7 +511,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),
     supabase.from("task_files").select("id, school_id, file_name, sort_order, created_at").order("sort_order"),
-    supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order").order("sort_order"),
+    supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order, created_at").order("sort_order"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
     supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at, pad_color").order("created_at"),
@@ -596,6 +597,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     return {
       id: item.id,
       taskFileId: item.task_file_id,
+      createdAt: item.created_at,
       categoryId: item.category_id,
       category: categoryNames.get(item.category_id) || "Uncategorized",
       status: item.status,
@@ -631,7 +633,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
         count: assignment.count,
         status: assignment.status,
         vaAssigned: assignment.vaAssigned,
-        createdAt: file.createdAt,
+        createdAt: assignment.createdAt || file.createdAt,
         sortOrder: file.sortOrder,
         commsStatus: assignment.commsStatus,
         commsVaAssigned: assignment.commsVaAssigned,

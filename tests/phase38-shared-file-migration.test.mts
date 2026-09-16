@@ -25,3 +25,20 @@ test("phase 38 adds per-school checklist applicability", () => {
   const sql = migration();
   assert.match(sql, /add column if not exists not_needed boolean not null default false/i);
 });
+
+test("migration refuses ambiguous legacy assignments instead of discarding rows", () => {
+  const sql = migration();
+  assert.match(sql, /Ambiguous legacy tasks/);
+  assert.match(sql, /having count\(\*\) > 1/i);
+  assert.doesNotMatch(sql, /select distinct on \(f.id, c.id\)/i);
+});
+
+test("reorder requires each file exactly once", () => {
+  assert.match(migration(), /count\(distinct id\) from unnest\(p_ordered_ids\)/i);
+});
+
+test("backfill preserves each assignment's original timestamp", () => {
+  assert.match(migration(), /t\.sort_order, t\.created_at/);
+  const fetch = readFileSync("lib/fetch-app-state.ts", "utf8");
+  assert.match(fetch, /createdAt: assignment\.createdAt \|\| file\.createdAt/);
+});

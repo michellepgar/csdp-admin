@@ -356,69 +356,9 @@ export async function restoreBackup(formData: FormData) {
 
   const backup = parsed as AppState;
 
-  /* vas and schools now live in their own tables (Phase 1) -- see
-     restore_vas_and_schools() in supabase/phase1_relational_team_schools.sql
-     for why this has to go through a security definer function rather
-     than a plain delete-then-insert. */
-  const vasRows = backup.vas.map((v) => ({
-    id: v.id,
-    name: v.name,
-    email: v.email,
-    admin: v.admin,
-    role: v.role,
-    color: v.color,
-  }));
-  const schoolRows = backup.schools.map((s) => ({ id: s.id, name: s.name }));
-  const { error: restoreError } = await supabase.rpc("restore_vas_and_schools", {
-    new_vas: vasRows,
-    new_schools: schoolRows,
-  });
+  // Restore related school/task/checklist records together, or roll back all of them.
+  const { error: restoreError } = await supabase.rpc("restore_school_task_backup", { p_backup: backup });
   orThrow(restoreError);
-
-  /* Task categories, checklist template/progress, tasks, and email
-     tracker items now live in their own tables too (Phase 2). None of
-     these gate a security policy the way vas does, so plain
-     delete-then-insert is safe -- no security definer function needed. */
-  const { error: delCatError } = await supabase.from("task_categories").delete().neq("id", "");
-  orThrow(delCatError);
-  const catRows = backup.taskCategories!.map((c, index) => ({ id: c.id, name: c.name, school_id: c.schoolId ?? null, sort_order: index }));
-  const { error: insCatError } = await supabase.from("task_categories").insert(catRows);
-  orThrow(insCatError);
-
-  const { error: delTemplateError } = await supabase.from("checklist_template").delete().neq("id", "");
-  orThrow(delTemplateError);
-  const templateRows = backup.checklistTemplate.map((t, index) => ({ id: t.id, description: t.description, school_id: t.schoolId ?? null, task_category_id: t.taskCategoryId ?? null, sort_order: index }));
-  const { error: insTemplateError } = await supabase.from("checklist_template").insert(templateRows);
-  orThrow(insTemplateError);
-
-  const { error: delProgressError } = await supabase.from("checklist_progress").delete().neq("school_id", "");
-  orThrow(delProgressError);
-  const progressRows = Object.entries(backup.checklistProgress || {}).map(([key, entry]) => {
-    const [schoolId, templateItemId] = key.split(":");
-    return { school_id: schoolId, template_item_id: templateItemId, status: entry.status };
-  });
-  if (progressRows.length) {
-    const { error: insProgressError } = await supabase.from("checklist_progress").insert(progressRows);
-    orThrow(insProgressError);
-  }
-
-  const { error: delTasksError } = await supabase.from("tasks").delete().neq("id", "");
-  orThrow(delTasksError);
-  const taskRows = Object.entries(backup.schoolData || {}).flatMap(([schoolId, sd]) =>
-    (sd.tasks || []).map((t) => ({
-      id: t.id,
-      school_id: schoolId,
-      category: t.category,
-      file_name: t.fileName,
-      count: t.count,
-      status: t.status,
-      va_assigned: t.vaAssigned,
-    }))
-  );
-  if (taskRows.length) {
-    const { error: insTasksError } = await supabase.from("tasks").insert(taskRows);
-    orThrow(insTasksError);
-  }
 
   const { error: delEmailError } = await supabase.from("email_tracker_items").delete().neq("id", "");
   orThrow(delEmailError);
@@ -658,18 +598,8 @@ export async function resetAllTasks(formData: FormData) {
   const confirm = (formData.get("confirm") as string) || "";
   if (confirm !== "RESET") return;
 
-  /* Tasks/Checklist Progress now live in their own tables (Phase 2 of
-     the relational backend migration) -- this used to just clear
-     sd.tasks/checklistProgress on the in-memory blob object. Neither
-     of these deletes empties a table that gates a security policy
-     (unlike vas in Phase 1's restore), so plain client calls are safe
-     here -- no security definer function needed. The explicit filter
-     on each delete is still required: every Supabase project blocks a
-     bare DELETE with no WHERE at all. */
-  const { error: delTasksError } = await supabase.from("tasks").delete().neq("id", "");
-  orThrow(delTasksError);
-  const { error: delProgressError } = await supabase.from("checklist_progress").delete().neq("school_id", "");
-  orThrow(delProgressError);
+  const { error } = await supabase.rpc("reset_school_task_data");
+  orThrow(error);
 
   revalidatePath("/", "layout");
 }

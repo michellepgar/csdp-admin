@@ -175,11 +175,12 @@ export async function addTask(formData: FormData) {
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
+      if ((sd.taskFiles || []).some((file) => normalizedCategoryName(file.fileName) === normalizedCategoryName(fileName))) throw new Error("That file name already exists for this school");
       const fileId = `demo-file-${Date.now()}`;
       const createdAt = new Date().toISOString();
       const selected = categoryIds.map((categoryId, index) => {
         const category = state.taskCategories?.find((item) => item.id === categoryId)?.name || "Uncategorized";
-        return { id: `${fileId}-${index}`, taskFileId: fileId, categoryId, category, status: "", vaAssigned: [], sortOrder: index };
+        return { id: `${fileId}-${index}`, taskFileId: fileId, categoryId, category, status: "", vaAssigned: [], sortOrder: index, createdAt };
       });
       (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: selected });
       for (const assignment of selected) (sd.tasks ??= []).push({ id: assignment.id, category: assignment.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
@@ -261,7 +262,7 @@ export async function setTaskStatus(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("task_file_categories").update({ status }).eq("id", taskId);
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { status } });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -284,7 +285,7 @@ export async function setTaskCount(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("task_file_categories").update({ count }).eq("id", taskId);
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { count } });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -306,13 +307,10 @@ export async function signTask(formData: FormData) {
 
   const { supabase, me } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("task_file_categories").select("va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("va_assigned, task_files!inner(school_id)").eq("id", taskId).eq("task_files.school_id", schoolId).maybeSingle();
   if (!task || task.va_assigned.includes(me.name)) return;
 
-  const { error } = await supabase
-    .from("task_file_categories")
-    .update({ va_assigned: [...task.va_assigned, me.name] })
-    .eq("id", taskId);
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: [...task.va_assigned, me.name] } });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -335,13 +333,10 @@ export async function removeVaFromTask(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("task_file_categories").select("va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("va_assigned, task_files!inner(school_id)").eq("id", taskId).eq("task_files.school_id", schoolId).maybeSingle();
   if (!task) return;
 
-  const { error } = await supabase
-    .from("task_file_categories")
-    .update({ va_assigned: (task.va_assigned as string[]).filter((n) => n !== vaName) })
-    .eq("id", taskId);
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: (task.va_assigned as string[]).filter((n) => n !== vaName) } });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -363,7 +358,7 @@ export async function removeTask(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("task_files").delete().eq("id", taskFileId).eq("school_id", schoolId);
+  const { error } = await supabase.rpc("remove_task_file", { p_school_id: schoolId, p_file_id: taskFileId });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -409,18 +404,8 @@ export async function removeTaskAssignment(formData: FormData) {
     return;
   }
   const { supabase } = await requireTeamMember();
-  const { data: assignment, error: assignmentError } = await supabase.from("task_file_categories").select("task_file_id").eq("id", taskId).maybeSingle();
-  orThrow(assignmentError);
-  const { error } = await supabase.from("task_file_categories").delete().eq("id", taskId);
+  const { error } = await supabase.rpc("remove_task_assignment", { p_school_id: schoolId, p_task_id: taskId });
   orThrow(error);
-  if (assignment) {
-    const { count, error: countError } = await supabase.from("task_file_categories").select("id", { count: "exact", head: true }).eq("task_file_id", assignment.task_file_id);
-    orThrow(countError);
-    if (count === 0) {
-      const { error: fileError } = await supabase.from("task_files").delete().eq("id", assignment.task_file_id).eq("school_id", schoolId);
-      orThrow(fileError);
-    }
-  }
   revalidateSchool(schoolId);
 }
 
@@ -444,7 +429,7 @@ export async function setCommsStatus(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("task_file_categories").update({ comms_status: status }).eq("id", taskId);
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { comms_status: status } });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -472,15 +457,12 @@ export async function signComms(formData: FormData) {
 
   const { supabase, me } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("task_file_categories").select("comms_va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("comms_va_assigned, task_files!inner(school_id)").eq("id", taskId).eq("task_files.school_id", schoolId).maybeSingle();
   if (!task) return;
   const commsVaAssigned: string[] = task.comms_va_assigned || [];
   if (commsVaAssigned.includes(me.name)) return;
 
-  const { error } = await supabase
-    .from("task_file_categories")
-    .update({ comms_va_assigned: [...commsVaAssigned, me.name] })
-    .eq("id", taskId);
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { comms_va_assigned: [...commsVaAssigned, me.name] } });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -503,13 +485,10 @@ export async function removeVaFromComms(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: task } = await supabase.from("task_file_categories").select("comms_va_assigned").eq("id", taskId).maybeSingle();
+  const { data: task } = await supabase.from("task_file_categories").select("comms_va_assigned, task_files!inner(school_id)").eq("id", taskId).eq("task_files.school_id", schoolId).maybeSingle();
   if (!task) return;
 
-  const { error } = await supabase
-    .from("task_file_categories")
-    .update({ comms_va_assigned: ((task.comms_va_assigned as string[]) || []).filter((n) => n !== vaName) })
-    .eq("id", taskId);
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { comms_va_assigned: ((task.comms_va_assigned as string[]) || []).filter((n) => n !== vaName) } });
   orThrow(error);
   revalidateSchool(schoolId);
 }
@@ -570,31 +549,12 @@ export async function addTaskCategory(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-export async function addSchoolTaskCategory(formData: FormData) {
-  const schoolId = formData.get("schoolId") as string;
-  const name = ((formData.get("name") as string) || "").trim();
-  if (!schoolId || !name) return;
-  if (await isDemoMode()) {
-    await demoMutate((state) => {
-      if (state.taskCategories?.some((item) => item.schoolId === schoolId && normalizedCategoryName(item.name) === normalizedCategoryName(name))) return;
-      const id = `demo-school-category-${Date.now()}`;
-      (state.taskCategories ??= []).push({ id, name, schoolId });
-      (state.checklistTemplate ??= []).push({ id: `demo-school-checklist-${Date.now()}`, description: name, schoolId, taskCategoryId: id });
-    });
-    revalidateSchool(schoolId);
-    return;
-  }
-  const { supabase } = await requireTeamMember();
-  const { error } = await supabase.rpc("create_school_task_category", { p_school_id: schoolId, p_name: name });
-  orThrow(error);
-  revalidateSchool(schoolId);
-}
-
 export async function removeTaskCategory(formData: FormData) {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      if (Object.values(state.schoolData).some((sd) => sd.taskFiles?.some((file) => file.categories.some((assignment) => assignment.categoryId === id)))) throw new Error("This category still has files. Remove its tasks before deleting the category.");
       state.taskCategories = (state.taskCategories || []).filter((c) => c.id !== id);
       state.checklistTemplate = (state.checklistTemplate || []).filter((item) => item.taskCategoryId !== id);
     });
@@ -603,14 +563,9 @@ export async function removeTaskCategory(formData: FormData) {
   }
 
   const { supabase } = await requireTeamMember();
-  const { data: category, error: categoryError } = await supabase.from("task_categories").select("school_id").eq("id", id).maybeSingle();
-  orThrow(categoryError);
-  if (category?.school_id) {
-    const { error } = await supabase.rpc("delete_school_task_category", { p_id: id });
-    orThrow(error);
-    revalidateSchool(category.school_id);
-    return;
-  }
+  const { count, error: countError } = await supabase.from("task_file_categories").select("id", { count: "exact", head: true }).eq("category_id", id);
+  orThrow(countError);
+  if (count) throw new Error("This category still has files. Remove its tasks before deleting the category.");
   const { error } = await supabase.from("task_categories").delete().eq("id", id);
   orThrow(error);
   revalidatePath("/", "layout");
@@ -650,9 +605,9 @@ export async function renameTaskCategory(formData: FormData) {
       if (!category || category.name === name || state.taskCategories?.some((item) => item.id !== id && normalizedCategoryName(item.name) === normalizedCategoryName(name))) return;
       const previousName = category.name;
       category.name = name;
-      for (const [id, schoolData] of Object.entries(state.schoolData)) {
-        if (category.schoolId && id !== category.schoolId) continue;
+      for (const schoolData of Object.values(state.schoolData)) {
         for (const task of schoolData.tasks ?? []) if (task.category === previousName) task.category = name;
+        for (const file of schoolData.taskFiles ?? []) for (const assignment of file.categories) if (assignment.categoryId === id) assignment.category = name;
       }
       for (const item of state.checklistTemplate || []) if (item.taskCategoryId === category.id) item.description = name;
     });
@@ -661,14 +616,14 @@ export async function renameTaskCategory(formData: FormData) {
   }
 
   const { supabase } = await requireTeamMember();
-  const { data: category, error: categoryError } = await supabase.from("task_categories").select("name, school_id").eq("id", id).maybeSingle();
+  const { data: category, error: categoryError } = await supabase.from("task_categories").select("name").eq("id", id).maybeSingle();
   orThrow(categoryError);
   if (!category || category.name === name) return;
   const duplicateQuery = supabase.from("task_categories").select("id").ilike("name", name).neq("id", id);
-  const { data: duplicate, error: duplicateError } = category.school_id ? await duplicateQuery.eq("school_id", category.school_id).maybeSingle() : await duplicateQuery.is("school_id", null).maybeSingle();
+  const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
   orThrow(duplicateError);
   if (duplicate) throw new Error("A task category already uses that name.");
-  const { error: renameError } = await supabase.rpc(category.school_id ? "rename_school_task_category" : "rename_task_category", { p_id: id, p_name: name });
+  const { error: renameError } = await supabase.rpc("rename_task_category", { p_id: id, p_name: name });
   orThrow(renameError);
   revalidatePath("/", "layout");
 }

@@ -123,6 +123,7 @@ export function nextChecklistNotNeededEntry(
 
 export interface TaskFileCategory {
   id: string;
+  createdAt?: string;
   taskFileId: string;
   categoryId: string;
   category: string;

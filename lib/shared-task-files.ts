@@ -21,6 +21,7 @@ export function legacyTasksToTaskFiles(tasks: Task[], categories: TaskCategory[]
     }
     file.categories.push({
       id: task.id,
+      createdAt: task.createdAt,
       taskFileId: file.id,
       categoryId: categoryByName.get(task.category.trim().toLowerCase()) || `legacy-category-${task.category.trim().toLowerCase()}`,
       category: task.category,

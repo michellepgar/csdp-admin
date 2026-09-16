@@ -17,20 +17,21 @@ export async function submitTaskFileForm(
 }
 
 export function taskTableColumns(categories: TaskCategory[], countCategories: string[]): (
-  {kind: "file"} | {kind: "count" | "task"; category: TaskCategory}
+  {kind: "file"} | {kind: "remove"} | {kind: "count"; categories: TaskCategory[]} | {kind: "task"; category: TaskCategory}
 )[] {
   return [
-    ...categories.filter((category) => countCategories.includes(category.name)).map((category) => ({kind: "count" as const, category})),
+    {kind: "count", categories: categories.filter((category) => countCategories.includes(category.name))},
     {kind: "file"},
     ...categories.map((category) => ({kind: "task" as const, category})),
+    {kind: "remove"},
   ];
 }
 
 export function taskTableLayout(columns: ReturnType<typeof taskTableColumns>): {
   columnWidths: (number | undefined)[]; minWidth: number;
 } {
-  const columnWidths = columns.map((column) => column.kind === "count" ? 72 : column.kind === "file" ? 256 : undefined);
-  return {columnWidths, minWidth: columnWidths.reduce<number>((total, width) => total + (width ?? 320), 0)};
+  const columnWidths = columns.map((column) => column.kind === "count" ? 72 : column.kind === "task" ? 240 : column.kind === "remove" ? 28 : undefined);
+  return {columnWidths, minWidth: columnWidths.reduce<number>((total, width) => total + (width ?? 256), 0)};
 }
 
 // Only return safe, actionable messages; raw database errors stay on the server.
@@ -46,6 +47,12 @@ export async function saveTaskFile(operation: () => Promise<void>): Promise<Task
 
 export function normalizeSelectedCategoryIds(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+export function selectedCategoryFiles(files: TaskFile[], selectedIds: string[], categoryId: string): TaskFile[] {
+  const ids = new Set(normalizeSelectedCategoryIds(selectedIds));
+  if ([...ids].some((id) => !files.some((file) => file.id === id))) throw new Error("File selection has changed. Please try again.");
+  return files.filter((file) => ids.has(file.id) && !file.categories.some((assignment) => assignment.categoryId === categoryId));
 }
 
 export function visibleTaskCategories(categories: TaskCategory[], files: TaskFile[]): TaskCategory[] {
@@ -65,7 +72,7 @@ export function groupTaskTables(categories: TaskCategory[], files: TaskFile[]): 
   for (const file of files) {
     const ids = [...new Set(file.categories.map((assignment) => assignment.categoryId))];
     if (ids.length === 0) continue;
-    const key = JSON.stringify([...ids].sort());
+    const key = file.tableId || JSON.stringify([...ids].sort());
     let group = groups.get(key);
     if (!group) {
       ids.sort((a, b) => categoryOrder.get(a)! - categoryOrder.get(b)!);
@@ -73,6 +80,12 @@ export function groupTaskTables(categories: TaskCategory[], files: TaskFile[]): 
       groups.set(key, group);
     }
     group.files.push(file);
+    for (const id of ids) if (!group.categories.some((category) => category.id === id)) group.categories.push(categoryById.get(id)!);
+  }
+  for (const group of groups.values()) if (group.files.some((file) => !!file.tableId)) {
+    const positions = new Map<string, number>();
+    for (const file of group.files) for (const assignment of file.categories) positions.set(assignment.categoryId, Math.min(positions.get(assignment.categoryId) ?? Infinity, assignment.sortOrder));
+    group.categories.sort((a,b) => positions.get(a.id)! - positions.get(b.id)! || categoryOrder.get(a.id)! - categoryOrder.get(b.id)!);
   }
   return [...groups.values()].sort((a, b) => {
     for (let i = 0; i < Math.min(a.categories.length, b.categories.length); i++) {

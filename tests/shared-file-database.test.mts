@@ -31,6 +31,162 @@ async function database() {
 }
 const migration = () => readFileSync("supabase/phase38_shared_file_multi_category.sql", "utf8");
 
+async function selectiveRules(db:PGlite) {
+  await filenameRules(db);
+  await db.exec(readFileSync('supabase/phase40_unrestricted_file_names.sql','utf8'));
+  const path='supabase/phase41_selective_table_categories.sql';
+  assert.equal(requireFile(path),true,'selective-category migration must exist');
+  await db.exec(readFileSync(path,'utf8'));
+}
+function requireFile(path:string) {try {readFileSync(path); return true;} catch {return false;}}
+
+test('selected category attachment preserves table membership and existing assignments atomically',async()=>{
+  const db=await database();
+  try {
+    await selectiveRules(db);
+    await db.exec("insert into task_categories(id,name) values('c3','Photos')");
+    await db.query("select add_task_file('a','s1','Same',array['c3'])");
+    await db.query("select add_task_file('b','s1','Same',array['c3'])");
+    const key=(await db.query<{table_id:string}>("select table_id from task_files where id='a'")).rows[0].table_id;
+    await db.exec("update task_file_categories set status='Completed',va_assigned=array['Owner'],count='7' where task_file_id='a'");
+    await db.query("select add_task_file_category('s1',$1,array['a'],'c2')",[key]);
+    await db.query("select add_task_file_category('s1',$1,array['a'],'c2')",[key]);
+    assert.deepEqual((await db.query("select category_id,status,va_assigned,count from task_file_categories where task_file_id='a' order by sort_order")).rows,[
+      {category_id:'c3',status:'Completed',va_assigned:['Owner'],count:'7'},
+      {category_id:'c2',status:'',va_assigned:[],count:null},
+    ]);
+    assert.equal((await db.query("select * from task_file_categories where task_file_id='b'")).rows.length,1);
+    assert.deepEqual((await db.query("select distinct table_id from task_files where id in('a','b')")).rows,[{table_id:key}]);
+    await assert.rejects(db.query("select add_task_file_category('s2',$1,array['a'],'c1')",[key]),/selection/i);
+    await assert.rejects(db.query("select add_task_file_category('s1','wrong',array['a'],'c1')"),/selection/i);
+    await assert.rejects(db.query("select add_task_file_category('s1',$1,array['a','missing'],'c1')",[key]),/selection/i);
+    assert.equal((await db.query("select * from task_file_categories where task_file_id='a'")).rows.length,2);
+    await assert.rejects(db.query("select add_task_file_category('s1',$1,array['a'],'missing')",[key]),/category/i);
+    await assert.rejects(db.query("select add_task_file_category('s1',$1,array[]::text[],'c1')",[key]),/select/i);
+    await db.exec("create or replace function auth.uid() returns uuid language sql as $$select null::uuid$$");
+    await assert.rejects(db.query("select add_task_file_category('s1',$1,array['a'],'c1')",[key]),/Not authorized/);
+  } finally {await db.close();}
+});
+
+test('communications migration copies meaningful work once and leaves sources untouched',async()=>{
+  const db=await database();
+  try {
+    await filenameRules(db);
+    await db.exec(readFileSync('supabase/phase40_unrestricted_file_names.sql','utf8'));
+    await db.exec("insert into task_categories(id,name) values('initial','Initial'),('follow','Follow up')");
+    await db.query("select add_task_file('initial-file','s1','Initial file',array['initial'])");
+    await db.query("select add_task_file('empty-file','s1','Empty file',array['follow'])");
+    await db.exec("update task_file_categories set comms_status='In Progress',comms_va_assigned=array['Owner'] where task_file_id='initial-file'");
+    const before=(await db.query("select * from task_file_categories order by id")).rows;
+    await selectiveRules(db);
+    await db.exec(readFileSync('supabase/phase41_selective_table_categories.sql','utf8'));
+    const original=(await db.query("select * from task_file_categories where category_id in('c1','c2','initial','follow') order by id")).rows;
+    assert.deepEqual(original,before);
+    const copied=(await db.query("select c.name,a.status,a.va_assigned from task_file_categories a join task_categories c on c.id=a.category_id where a.task_file_id='initial-file' and c.name='Initial Communications'")).rows;
+    assert.deepEqual(copied,[{name:'Initial Communications',status:'In Progress',va_assigned:['Owner']}]);
+    assert.equal((await db.query("select * from task_file_categories where task_file_id='empty-file'")).rows.length,1);
+    assert.equal((await db.query("select * from checklist_template where description in('Initial Communications','Recheck Communications')")).rows.length,2);
+  } finally {await db.close();}
+});
+
+test('backup restore preserves selected and unselected files in their stable table',async()=>{
+  const db=await database();
+  try {
+    await selectiveRules(db);
+    const backup={vas:[{id:'va',name:'Owner',email:'owner@example.com',role:'owner'}],schools:[{id:'s1',name:'School 1'}],
+      taskCategories:[{id:'c1',name:'Transactions'},{id:'c2',name:'Homeroom'}],checklistTemplate:[],checklistProgress:{},schoolData:{s1:{taskFiles:[
+        {id:'f1',tableId:'shared-table',fileName:'Same',categories:[{id:'a1',categoryId:'c1',status:'Completed',vaAssigned:['Owner']},{id:'a2',categoryId:'c2',status:'',vaAssigned:[],sortOrder:1}]},
+        {id:'f2',tableId:'shared-table',fileName:'Same',categories:[{id:'a3',categoryId:'c1',status:'',vaAssigned:[]}]},
+      ]}}};
+    await db.query('select restore_school_task_backup($1)',[JSON.stringify(backup)]);
+    assert.deepEqual((await db.query('select id,table_id from task_files order by id')).rows,[{id:'f1',table_id:'shared-table'},{id:'f2',table_id:'shared-table'}]);
+    assert.equal((await db.query("select status from task_file_categories where id='a1'")).rows[0].status,'Completed');
+    await db.exec("create or replace function auth.uid() returns uuid language sql as $$select null::uuid$$");
+    await assert.rejects(db.query('select restore_school_task_backup($1)',[JSON.stringify(backup)]),/Not authorized/);
+  } finally {await db.close();}
+});
+
+test('normalized existing communications category is reused and copied work stays visible',async()=>{
+  const db=await database();
+  try {
+    await filenameRules(db);
+    await db.exec(readFileSync('supabase/phase40_unrestricted_file_names.sql','utf8'));
+    await db.exec("insert into task_categories(id,name) values('initial','Initial'),('custom-comms',' initial communications ')");
+    await db.query("select add_task_file('source','s1','File',array['initial'])");
+    await db.exec("update task_file_categories set comms_status='Completed',comms_va_assigned=array['Owner'] where task_file_id='source'");
+    await db.exec(readFileSync('supabase/phase41_selective_table_categories.sql','utf8'));
+    assert.deepEqual((await db.query("select status,va_assigned from task_file_categories where task_file_id='source' and category_id='custom-comms'")).rows,[{status:'Completed',va_assigned:['Owner']}]);
+    assert.equal((await db.query("select * from checklist_template where task_category_id='custom-comms'")).rows.length,1);
+  } finally {await db.close();}
+});
+
+test('older backups and legacy communications edits convert without overwriting newer independent status',async()=>{
+  const db=await database();
+  try {
+    await selectiveRules(db);
+    const backup={vas:[{id:'va',name:'Owner',email:'owner@example.com',role:'owner'}],schools:[{id:'s1',name:'School 1'}],taskCategories:[{id:'initial',name:'Initial'},{id:'follow',name:'Follow up'}],checklistTemplate:[],checklistProgress:{},schoolData:{s1:{tasks:[
+      {id:'source',category:'Initial',fileName:'File',status:'In Progress',vaAssigned:[],commsStatus:'Completed',commsVaAssigned:['Owner']},
+      {id:'follow-source',category:'Follow up',fileName:'File',status:'',vaAssigned:[],commsStatus:'Paused',commsVaAssigned:['Owner']},
+    ]}}};
+    await db.query('select restore_school_task_backup($1)',[JSON.stringify(backup)]);
+    assert.deepEqual((await db.query("select a.status,a.va_assigned from task_file_categories a join task_categories c on c.id=a.category_id where c.name='Initial Communications'")).rows,[{status:'Completed',va_assigned:['Owner']}]);
+    assert.deepEqual((await db.query("select a.status,a.va_assigned from task_file_categories a join task_categories c on c.id=a.category_id where c.name='Recheck Communications'")).rows,[{status:'Paused',va_assigned:['Owner']}]);
+    assert.equal((await db.query("select * from checklist_template where description in('Initial Communications','Recheck Communications')")).rows.length,2);
+    await db.exec("update task_file_categories set status='Paused' where id='phase41-comms-source'");
+    await db.exec("update task_file_categories set status='Completed' where id='source'");
+    assert.equal((await db.query("select status from task_file_categories where id='phase41-comms-source'")).rows[0].status,'Paused');
+    await db.exec("update task_file_categories set comms_status='In Progress' where id='source'");
+    assert.equal((await db.query("select status from task_file_categories where id='phase41-comms-source'")).rows[0].status,'In Progress');
+  } finally {await db.close();}
+});
+
+test('older backup with one manually created communications category still converts recheck work',async()=>{
+  const db=await database();
+  try {
+    await selectiveRules(db);
+    const backup={vas:[{id:'va',name:'Owner',email:'owner@example.com',role:'owner'}],schools:[{id:'s1',name:'School 1'}],taskCategories:[{id:'follow',name:'Follow up'},{id:'manual',name:'Initial Communications'}],checklistTemplate:[],checklistProgress:{},schoolData:{s1:{tasks:[
+      {id:'source',category:'Follow up',fileName:'File',status:'',vaAssigned:[],commsStatus:'Completed',commsVaAssigned:['Owner']},
+    ]}}};
+    await db.query('select restore_school_task_backup($1)',[JSON.stringify(backup)]);
+    assert.deepEqual((await db.query("select a.status,a.va_assigned from task_file_categories a join task_categories c on c.id=a.category_id where c.name='Recheck Communications'")).rows,[{status:'Completed',va_assigned:['Owner']}]);
+  } finally {await db.close();}
+});
+
+test('ambiguous communications sources or conflicting existing target abort rather than hide work',async()=>{
+  const db=await database();
+  try {
+    await filenameRules(db);
+    await db.exec(readFileSync('supabase/phase40_unrestricted_file_names.sql','utf8'));
+    await db.exec("insert into task_categories(id,name) values('follow','Follow up'),('recheck','Recheck'),('comms','Recheck Communications')");
+    await db.query("select add_task_file('source','s1','File',array['follow','recheck'])");
+    await db.exec("update task_file_categories set comms_status='Completed',comms_va_assigned=array['Owner'] where task_file_id='source'");
+    const before=(await db.query('select * from task_file_categories order by id')).rows;
+    await assert.rejects(db.exec(readFileSync('supabase/phase41_selective_table_categories.sql','utf8')),/Ambiguous communications/);
+    await db.exec('rollback');
+    assert.deepEqual((await db.query('select * from task_file_categories order by id')).rows,before);
+    await db.exec("update task_file_categories set comms_status='',comms_va_assigned='{}' where category_id='recheck'");
+    await db.exec("insert into task_file_categories(id,task_file_id,category_id,status) values('target','source','comms','Paused')");
+    await assert.rejects(db.exec(readFileSync('supabase/phase41_selective_table_categories.sql','utf8')),/Conflicting communications/);
+    await db.exec('rollback');
+    assert.equal((await db.query("select status from task_file_categories where id='target'")).rows[0].status,'Paused');
+  } finally {await db.close();}
+});
+
+test('legacy cutover rejects a second meaningful recheck source without overwriting copied work',async()=>{
+  const db=await database();
+  try {
+    await filenameRules(db);
+    await db.exec(readFileSync('supabase/phase40_unrestricted_file_names.sql','utf8'));
+    await db.exec("insert into task_categories(id,name) values('follow','Follow up'),('recheck','Recheck')");
+    await db.query("select add_task_file('file','s1','File',array['follow','recheck'])");
+    await db.exec("update task_file_categories set comms_status='Completed',comms_va_assigned=array['Owner'] where category_id='follow'");
+    await db.exec(readFileSync('supabase/phase41_selective_table_categories.sql','utf8'));
+    await assert.rejects(db.exec("update task_file_categories set comms_status='Paused' where category_id='recheck'"),/Ambiguous communications/);
+    assert.equal((await db.query("select comms_status from task_file_categories where category_id='recheck'")).rows[0].comms_status,null);
+    assert.equal((await db.query("select a.status from task_file_categories a join task_categories c on c.id=a.category_id where c.name='Recheck Communications'")).rows[0].status,'Completed');
+  } finally {await db.close();}
+});
+
 async function filenameRules(db: PGlite) {
   await db.exec(migration());
   const path = "supabase/phase39_category_filename_rules.sql";

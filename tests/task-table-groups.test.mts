@@ -46,3 +46,26 @@ test("table order follows category order and empty categories never appear",()=>
   assert.deepEqual(result[0].files.map((f)=>f.id),["e1","e2"]);
   assert.deepEqual(groups([]),[]);
 });
+
+test("adding a category to selected files keeps unselected files in the same table",()=>{
+  const selected={...file('a','Same.xlsx',['treatment','teacher']),tableId:'stable'};
+  const unselected={...file('b','Same.xlsx',['treatment']),tableId:'stable'};
+  const result=groups([selected,unselected]);
+  assert.equal(result.length,1);
+  assert.deepEqual(result[0].files.map(f=>f.id),['a','b']);
+  assert.deepEqual(result[0].categories.map(c=>c.id),['treatment','teacher']);
+  assert.equal(result[0].files[1].categories.length,1);
+});
+
+test("new category is appended after existing categories regardless of catalog order",()=>{
+  const selected={...file('a','File',['treatment','encoding']),tableId:'stable'};
+  assert.deepEqual(groups([selected])[0].categories.map(c=>c.id),['treatment','encoding']);
+});
+
+test("picker targets only checked unassigned file IDs and rejects stale selections",()=>{
+  assert.equal(typeof taskFiles.selectedCategoryFiles,'function');
+  const rows=[file('a','Same',['treatment']),file('b','Same',['teacher'])];
+  assert.deepEqual(taskFiles.selectedCategoryFiles(rows,['b','b'],'treatment').map(f=>f.id),['b']);
+  assert.deepEqual(taskFiles.selectedCategoryFiles(rows,['a'],'treatment'),[]);
+  assert.throws(()=>taskFiles.selectedCategoryFiles(rows,['missing'],'treatment'),/selection/i);
+});

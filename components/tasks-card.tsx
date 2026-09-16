@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GripVertical, Pencil, Plus, X } from "lucide-react";
+import { GripVertical, Pencil, X } from "lucide-react";
+import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -16,7 +17,6 @@ import { groupTaskTables, taskTableColumns, taskTableLayout, submitTaskFileForm,
 import {
   TASK_STATUS_OPTIONS,
   COUNT_CATEGORIES,
-  CATEGORIES_WITH_COMMUNICATIONS,
   vaColorByName,
   type TaskFile,
   type TaskFileCategory,
@@ -82,9 +82,8 @@ function AssignmentCell({ schoolId, assignment, vas, currentUserName, canEdit, a
   canEdit: boolean;
   actions: Pick<TasksCardProps, "setTaskStatus" | "setTaskCount" | "signTask" | "removeVaFromTask" | "setCommsStatus" | "signComms" | "removeVaFromComms" | "removeTaskAssignment">;
 }) {
-  const hasComms = CATEGORIES_WITH_COMMUNICATIONS.includes(assignment.category);
   return (
-    <div className="min-w-52 space-y-2">
+    <div className="min-w-0">
       <div className="flex items-center gap-2">
         <SignAndStatus schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={canEdit} signTask={actions.signTask} removeVaFromTask={actions.removeVaFromTask} setTaskStatus={actions.setTaskStatus} />
         {canEdit && (
@@ -95,21 +94,6 @@ function AssignmentCell({ schoolId, assignment, vas, currentUserName, canEdit, a
           </form>
         )}
       </div>
-      {hasComms && (
-        <div className="flex flex-wrap items-center gap-2 border-t pt-2">
-          <span className="text-xs font-medium text-muted-foreground">Communications</span>
-          <SignAndStatus
-            schoolId={schoolId}
-            assignment={{ ...assignment, vaAssigned: assignment.commsVaAssigned || [], status: assignment.commsStatus || "" }}
-            vas={vas}
-            currentUserName={currentUserName}
-            canEdit={canEdit}
-            signTask={actions.signComms}
-            removeVaFromTask={actions.removeVaFromComms}
-            setTaskStatus={actions.setCommsStatus}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -123,6 +107,7 @@ type TasksCardProps = {
   currentUserName: string;
   noRecheck: boolean;
   addTask: (formData: FormData) => Promise<TaskFileActionResult>;
+  addCategoryToFiles: (formData: FormData) => Promise<TaskFileActionResult>;
   setTaskStatus: (formData: FormData) => void;
   setTaskCount: (formData: FormData) => void;
   signTask: (formData: FormData) => void;
@@ -150,7 +135,6 @@ export function TasksCard(props: TasksCardProps) {
   const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
-  const [categoryPickers, setCategoryPickers] = useState([0]);
   const [newFileName, setNewFileName] = useState("");
   const [addFileError, setAddFileError] = useState<string | null>(null);
   const [editFileError, setEditFileError] = useState<string | null>(null);
@@ -245,13 +229,7 @@ export function TasksCard(props: TasksCardProps) {
         <form action={(formData) => submitTaskFileForm(props.addTask, formData, setAddFileError, () => setNewFileName(""))} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <input type="hidden" name="schoolId" value={schoolId} />
           <div className="flex min-w-56 flex-1 flex-wrap gap-2">
-            {categoryPickers.map((picker, index) => (
-              <div key={picker} className="flex items-center gap-1">
-                <Dropdown name="categoryIds" defaultValue={orderedCategories[Math.min(index, orderedCategories.length - 1)]?.id} options={orderedCategories.map((category) => ({ value: category.id, label: category.name }))} className="max-w-72 truncate rounded-md border px-2 py-1.5 text-left text-sm" />
-                {index > 0 && <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove category selection" onClick={() => setCategoryPickers((items) => items.filter((item) => item !== picker))}><X className="h-3 w-3" /></Button>}
-              </div>
-            ))}
-            <Button type="button" variant="ghost" size="sm" onClick={() => setCategoryPickers((items) => [...items, Math.max(...items) + 1])}><Plus className="h-3.5 w-3.5" /> Add category</Button>
+            <Dropdown name="categoryIds" defaultValue={orderedCategories[0]?.id} options={orderedCategories.map((category) => ({ value: category.id, label: category.name }))} className="max-w-72 truncate rounded-md border px-2 py-1.5 text-left text-sm" />
           </div>
           <Input name="fileName" placeholder="File name" required value={newFileName} onChange={(event) => setNewFileName(event.target.value)} className="w-full sm:max-w-md sm:flex-1" />
           <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
@@ -263,26 +241,32 @@ export function TasksCard(props: TasksCardProps) {
         ) : taskTables.map((group) => {
           const columns = taskTableColumns(group.categories, COUNT_CATEGORIES);
           const layout = taskTableLayout(columns);
-          const countColumnTotal = columns.filter((column) => column.kind === "count").length;
           return (
-          <div key={group.key} className="overflow-x-auto rounded-md border">
+          <div key={group.key} className="rounded-md border">
+            <div className="overflow-x-auto">
             <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
-              <colgroup>{columns.map((column, index) => <col key={column.kind === "file" ? "file" : `${column.kind}:${column.category.id}`} style={{width: layout.columnWidths[index]}} />)}</colgroup>
-              <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "file" ? "file" : `${column.kind}:${column.category.id}`} className="px-2 py-2 text-left font-medium">{column.kind === "file" ? "File name" : column.kind === "count" ? (countColumnTotal === 1 ? "Count" : `${column.category.name} count`) : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
+              <colgroup>{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
+              <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className="px-2 py-2 text-left font-medium break-words">{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file) => (
                   <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
                     {columns.map((column) => {
-                      if (column.kind !== "file") {
+                      if (column.kind === "remove") return <td key="remove" className="px-1 py-2 align-top"><DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></td>;
+                      if (column.kind === "count") return <td key="count" className="px-2 py-2 align-top"><div className="space-y-1">{column.categories.map(category => {
+                        const assignment=file.categories.find(a => a.categoryId === category.id);
+                        if (!assignment) return null;
+                        return <AutoSubmitForm key={assignment.id} action={props.setTaskCount}>
+                          <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskId" value={assignment.id} />
+                          {column.categories.length > 1 && <label htmlFor={`count-${assignment.id}`} className="block text-[10px] leading-tight text-muted-foreground break-words">{category.name}</label>}
+                          <input id={`count-${assignment.id}`} key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit || (category.name === "Follow up" && noRecheck)} className="h-7 w-14 rounded-md border px-1.5 py-0.5 text-sm" />
+                        </AutoSubmitForm>;
+                      })}</div></td>;
+                      if (column.kind === "task") {
                         const category = column.category;
                         const assignment = file.categories.find((item) => item.categoryId === category.id);
                         const editable = canEdit && !(category.name === "Follow up" && noRecheck);
                         return <td key={`${column.kind}:${category.id}`} className={`px-2 py-2 align-top ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>
-                          {assignment ? column.kind === "count" ? <AutoSubmitForm action={props.setTaskCount}>
-                            <input type="hidden" name="schoolId" value={schoolId} />
-                            <input type="hidden" name="taskId" value={assignment.id} />
-                            <input key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!editable} className="h-7 w-14 rounded-md border px-1.5 py-0.5 text-sm" />
-                          </AutoSubmitForm> : <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={editable} actions={props} /> : <span className="text-muted-foreground">—</span>}
+                          {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={editable} actions={props} /> : null}
                         </td>;
                       }
                       return <td key="file" className="px-2 py-2 align-top">
@@ -295,7 +279,7 @@ export function TasksCard(props: TasksCardProps) {
                             <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton><Button type="button" variant="ghost" size="xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
                             {editFileError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{editFileError}</p>}
                           </form>
-                        ) : <><span className="font-bold break-words" style={{minWidth: 0, overflowWrap: "anywhere"}}>{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}<DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></>}
+                        ) : <><span className="font-bold break-words" style={{minWidth: 0, overflowWrap: "anywhere"}}>{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}</>}
                       </div>
                     </td>;
                     })}
@@ -303,6 +287,8 @@ export function TasksCard(props: TasksCardProps) {
                 ))}
               </tbody>
             </table>
+            </div>
+            {canEdit && <TaskTableCategoryPicker schoolId={schoolId} tableId={group.key} files={group.files} categories={orderedCategories} action={props.addCategoryToFiles} />}
           </div>
         ); })}
       </div>

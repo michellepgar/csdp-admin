@@ -60,6 +60,8 @@ export const DEMO_APP_STATE: AppState = {
     },
   },
   checklistTemplate: [
+    {id:"demo-initial-comms-checklist",description:"Initial Communications",taskCategoryId:"demo-initial-comms"},
+    {id:"demo-recheck-comms-checklist",description:"Recheck Communications",taskCategoryId:"demo-recheck-comms"},
     { id: "c1", description: "Beginning Of Year Email" },
     { id: "c2", description: "Drop Off Email" },
     { id: "c3", description: "Pick Up Form Email" },
@@ -68,6 +70,8 @@ export const DEMO_APP_STATE: AppState = {
     [`${SCHOOL_ANGELO}:c1`]: { status: "Done", checkedBy: DEMO_USER_NAME },
   },
   taskCategories: [
+    {id:"demo-initial-comms",name:"Initial Communications"},
+    {id:"demo-recheck-comms",name:"Recheck Communications"},
     { id: "cat1", name: "Encoding & Uploading (Consent & SDF)" },
     { id: "cat2", name: "Initial" },
     { id: "cat3", name: "Follow up" },

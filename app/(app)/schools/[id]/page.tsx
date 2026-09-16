@@ -17,6 +17,7 @@ import {
   removeChecklistTemplateItem,
   reorderChecklistTemplate,
   addTask,
+  addCategoryToFiles,
   setTaskStatus,
   setTaskCount,
   signTask,
@@ -173,6 +174,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             currentUserName={me.name}
             noRecheck={!!school.noRecheck}
             addTask={addTask}
+            addCategoryToFiles={addCategoryToFiles}
             setTaskStatus={setTaskStatus}
             setTaskCount={setTaskCount}
             signTask={signTask}

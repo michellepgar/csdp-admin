@@ -6,7 +6,7 @@ import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
-import { normalizeSelectedCategoryIds, saveTaskFile, type TaskFileActionResult } from "@/lib/shared-task-files";
+import { groupTaskTables, selectedCategoryFiles, normalizeSelectedCategoryIds, saveTaskFile, type TaskFileActionResult } from "@/lib/shared-task-files";
 import { nextChecklistNotNeededEntry } from "@/lib/app-state";
 import type { AppState, TaskFileCategory } from "@/lib/app-state";
 
@@ -197,6 +197,40 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
       p_file_name: fileName,
       p_category_ids: categoryIds,
     });
+    if (error) throw error;
+  });
+  if (!result.error) revalidateSchool(schoolId);
+  return result;
+}
+
+export async function addCategoryToFiles(formData: FormData): Promise<TaskFileActionResult> {
+  const schoolId=String(formData.get("schoolId") || "");
+  const tableId=String(formData.get("tableId") || "");
+  const categoryId=String(formData.get("categoryId") || "");
+  const fileIds=normalizeSelectedCategoryIds(formData.getAll("fileIds").map(String));
+  if (!schoolId || !tableId || !categoryId || fileIds.length === 0) return {error:"Choose a category and select at least one file."};
+  if (await isDemoMode()) {
+    const result=await saveTaskFile(() => demoMutate(state => {
+      const sd=state.schoolData[schoolId];
+      const group=groupTaskTables(state.taskCategories || [],sd?.taskFiles || []).find(group => group.key === tableId);
+      const category=state.taskCategories?.find(category => category.id === categoryId);
+      if (!group || !category) throw new Error("Invalid category or table");
+      const selected=selectedCategoryFiles(group.files,fileIds,categoryId);
+      const existing=group.files.flatMap(file => file.categories).filter(a => a.categoryId === categoryId);
+      const position=existing.length ? Math.min(...existing.map(a=>a.sortOrder)) : Math.max(-1,...group.files.flatMap(file=>file.categories).map(a=>a.sortOrder))+1;
+      for (const file of group.files) file.tableId=tableId;
+      for (const file of selected) {
+        const assignment={id:crypto.randomUUID(),taskFileId:file.id,categoryId,category:category.name,status:"",vaAssigned:[],sortOrder:position,createdAt:new Date().toISOString()};
+        file.categories.push(assignment);
+        (sd.tasks ??= []).push({...assignment,fileName:file.fileName});
+      }
+    }));
+    if (!result.error) revalidateSchool(schoolId);
+    return result;
+  }
+  const {supabase}=await requireTeamMember();
+  const result=await saveTaskFile(async()=>{
+    const {error}=await supabase.rpc("add_task_file_category",{p_school_id:schoolId,p_table_id:tableId,p_file_ids:fileIds,p_category_id:categoryId});
     if (error) throw error;
   });
   if (!result.error) revalidateSchool(schoolId);

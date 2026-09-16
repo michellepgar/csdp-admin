@@ -137,6 +137,7 @@ export interface TaskFileCategory {
 
 export interface TaskFile {
   id: string;
+  tableId?: string;
   fileName: string;
   sortOrder: number;
   createdAt: string;

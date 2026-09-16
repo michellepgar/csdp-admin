@@ -81,6 +81,7 @@ function mapVaRow(r: VaRow): Va {
 
 type TaskFileRow = {
   id: string;
+  table_id: string | null;
   school_id: string;
   file_name: string;
   sort_order: number;
@@ -510,7 +511,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("task_categories").select("id, name, school_id").order("sort_order"),
     supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),
-    supabase.from("task_files").select("id, school_id, file_name, sort_order, created_at").order("sort_order"),
+    supabase.from("task_files").select("id, school_id, table_id, file_name, sort_order, created_at").order("sort_order"),
     supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order, created_at").order("sort_order"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
@@ -620,6 +621,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     const sd = state.schoolData[fileRow.school_id];
     const file = groupTaskFileRows([{
       id: fileRow.id,
+      tableId: fileRow.table_id ?? undefined,
       fileName: fileRow.file_name,
       sortOrder: fileRow.sort_order,
       createdAt: fileRow.created_at,

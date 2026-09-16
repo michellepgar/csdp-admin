@@ -14,7 +14,7 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
   schoolData: Record<string, SchoolDataEntry>;
   generalTasks: GeneralTask[];
   myPlanItems: PlanItem[];
-  savePlan: (formData: FormData) => Promise<void>;
+  savePlan: (formData: FormData) => Promise<{ error: string | null }>;
 }) {
   const [open, setOpen] = useState(false);
   const [schoolId, setSchoolId] = useState("");
@@ -92,12 +92,9 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
               setError(null);
               for (const id of checked) formData.append(isSchoolId(id) ? "taskFileCategoryIds" : "generalTaskIds", id);
               formData.set("labels", JSON.stringify(buildLabels()));
-              try {
-                await savePlan(formData);
-                setOpen(false);
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Couldn't save your plan. Please try again.");
-              }
+              const result = await savePlan(formData);
+              if (result.error) setError(result.error);
+              else setOpen(false);
             }}
             className="mt-2 flex gap-2"
           >

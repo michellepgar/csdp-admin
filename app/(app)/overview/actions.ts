@@ -7,6 +7,8 @@ import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { isAdmin } from "@/lib/app-state";
 import { diffPlanSelection } from "@/lib/shared-task-files";
 
+type PlanActionResult = { error: string | null };
+
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
@@ -15,6 +17,24 @@ async function requireAdmin() {
   const { supabase, me } = await requireTeamMember();
   if (!isAdmin(me)) throw new Error("Not authorized");
   return { supabase, me };
+}
+
+/* Thrown errors inside a Server Action get redacted to a generic
+   "Minified React error #441" in production (React/Next.js's
+   safety default for anything NOT explicitly returned as data) --
+   every mutation here goes through this so a real failure reaches the
+   client's error UI intact instead of vanishing into that redaction.
+   TODO once the current daily-plan rollout stabilizes: switch to a
+   fixed safe message here (matching lib/shared-task-files.ts's
+   saveTaskFile()) instead of forwarding the raw DB error text. */
+async function runPlanAction(operation: () => Promise<void>): Promise<PlanActionResult> {
+  try {
+    await operation();
+    return { error: null };
+  } catch (error) {
+    console.error("Daily plan action failed", error);
+    return { error: error instanceof Error ? error.message : "Something went wrong. Please try again." };
+  }
 }
 
 /* Save/edit a VA's own plan for tomorrow -- formData carries every id
@@ -26,7 +46,7 @@ async function requireAdmin() {
    converges instead of duplicating rows. `labels` covers both kinds of
    id in one map, keyed by whichever id it is, since ids never collide
    across the two tables in practice (both are app-generated uuids). */
-export async function savePlan(formData: FormData) {
+export async function savePlan(formData: FormData): Promise<PlanActionResult> {
   const checkedTaskIds = formData.getAll("taskFileCategoryIds").map(String);
   const checkedGeneralIds = formData.getAll("generalTaskIds").map(String);
   const labelsJson = formData.get("labels") as string; // { [id]: { label, schoolId? } } -- schoolId absent for General Tasks
@@ -52,61 +72,65 @@ export async function savePlan(formData: FormData) {
       }
     });
     revalidatePath("/overview");
-    return;
+    return { error: null };
   }
 
-  const { supabase, me } = await requireTeamMember();
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
 
-  const { data: existingRows, error: selectError } = await supabase.from("plan_items").select("id, task_file_category_id, general_task_id").eq("kind", "task").eq("va_name", me.name);
-  orThrow(selectError);
-  const existingTask = (existingRows || []).filter((r) => r.task_file_category_id).map((r) => ({ id: r.id, refId: r.task_file_category_id as string }));
-  const existingGeneral = (existingRows || []).filter((r) => r.general_task_id).map((r) => ({ id: r.id, refId: r.general_task_id as string }));
-  const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);
-  const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds);
+    const { data: existingRows, error: selectError } = await supabase.from("plan_items").select("id, task_file_category_id, general_task_id").eq("kind", "task").eq("va_name", me.name);
+    orThrow(selectError);
+    const existingTask = (existingRows || []).filter((r) => r.task_file_category_id).map((r) => ({ id: r.id, refId: r.task_file_category_id as string }));
+    const existingGeneral = (existingRows || []).filter((r) => r.general_task_id).map((r) => ({ id: r.id, refId: r.general_task_id as string }));
+    const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);
+    const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds);
 
-  const toDeleteIds = [...taskDiff.toDeleteIds, ...generalDiff.toDeleteIds];
-  if (toDeleteIds.length > 0) {
-    const { error } = await supabase.from("plan_items").delete().in("id", toDeleteIds);
-    orThrow(error);
-  }
+    const toDeleteIds = [...taskDiff.toDeleteIds, ...generalDiff.toDeleteIds];
+    if (toDeleteIds.length > 0) {
+      const { error } = await supabase.from("plan_items").delete().in("id", toDeleteIds);
+      orThrow(error);
+    }
 
-  const rows = [
-    ...taskDiff.toInsert.map((id) => ({ kind: "task" as const, va_name: me.name, school_id: labels[id]?.schoolId, task_file_category_id: id, label: labels[id]?.label || "", created_by: me.name })),
-    ...generalDiff.toInsert.map((id) => ({ kind: "task" as const, va_name: me.name, general_task_id: id, label: labels[id]?.label || "", created_by: me.name })),
-  ];
-  if (rows.length > 0) {
-    const { error } = await supabase.from("plan_items").insert(rows);
-    orThrow(error);
-  }
-  revalidatePath("/overview");
+    const rows = [
+      ...taskDiff.toInsert.map((id) => ({ kind: "task" as const, va_name: me.name, school_id: labels[id]?.schoolId, task_file_category_id: id, label: labels[id]?.label || "", created_by: me.name })),
+      ...generalDiff.toInsert.map((id) => ({ kind: "task" as const, va_name: me.name, general_task_id: id, label: labels[id]?.label || "", created_by: me.name })),
+    ];
+    if (rows.length > 0) {
+      const { error } = await supabase.from("plan_items").insert(rows);
+      orThrow(error);
+    }
+    revalidatePath("/overview");
+  });
 }
 
 /* Boss-only: add a freeform priority note, optionally targeted at one
    VA (leave assignedTo blank for a shared/unassigned item anyone can
    pick up). Not linked to any real task yet -- see resolvePriorityPlanItem. */
-export async function addPriority(formData: FormData) {
+export async function addPriority(formData: FormData): Promise<PlanActionResult> {
   const label = ((formData.get("label") as string) || "").trim();
   const assignedTo = ((formData.get("assignedTo") as string) || "").trim() || undefined;
-  if (!label) return;
+  if (!label) return { error: "Enter what should be worked on." };
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       (state.planItems ??= []).push({ id: `demo-priority-${Date.now()}`, kind: "priority", vaName: assignedTo, label, createdBy: "Jane", createdAt: new Date().toISOString() });
     });
     revalidatePath("/overview");
-    return;
+    return { error: null };
   }
 
-  const { supabase, me } = await requireAdmin();
-  const { error } = await supabase.from("plan_items").insert({ kind: "priority", va_name: assignedTo ?? null, label, created_by: me.name });
-  orThrow(error);
-  revalidatePath("/overview");
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireAdmin();
+    const { error } = await supabase.from("plan_items").insert({ kind: "priority", va_name: assignedTo ?? null, label, created_by: me.name });
+    orThrow(error);
+    revalidatePath("/overview");
+  });
 }
 
 /* Either VA can remove any pending plan item -- matches this app's
    existing team-wide trust model (no per-row ownership enforcement
    anywhere else either, see plan_items' own RLS policy). */
-export async function removePlanItem(formData: FormData) {
+export async function removePlanItem(formData: FormData): Promise<PlanActionResult> {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
@@ -114,13 +138,15 @@ export async function removePlanItem(formData: FormData) {
       state.planItems = (state.planItems || []).filter((p) => p.id !== id);
     });
     revalidatePath("/overview");
-    return;
+    return { error: null };
   }
 
-  const { supabase } = await requireTeamMember();
-  const { error } = await supabase.from("plan_items").delete().eq("id", id);
-  orThrow(error);
-  revalidatePath("/overview");
+  return runPlanAction(async () => {
+    const { supabase } = await requireTeamMember();
+    const { error } = await supabase.from("plan_items").delete().eq("id", id);
+    orThrow(error);
+    revalidatePath("/overview");
+  });
 }
 
 /* Resolve a kind:"task" plan item -- signs the current VA onto the
@@ -133,7 +159,7 @@ export async function removePlanItem(formData: FormData) {
    generalTaskId (General Tasks, plain table update -- mirrors
    app/(app)/general-tasks/actions.ts's own setGeneralTaskStatus/
    signGeneralTask) is present. */
-export async function resolveTaskPlanItem(formData: FormData) {
+export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActionResult> {
   const id = formData.get("id") as string;
   const taskFileCategoryId = (formData.get("taskFileCategoryId") as string) || "";
   const schoolId = (formData.get("schoolId") as string) || "";
@@ -161,52 +187,54 @@ export async function resolveTaskPlanItem(formData: FormData) {
     revalidatePath("/overview");
     if (schoolId) revalidatePath(`/schools/${schoolId}`);
     else revalidatePath("/general-tasks");
-    return;
+    return { error: null };
   }
 
-  const { supabase, me } = await requireTeamMember();
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
 
-  if (taskFileCategoryId) {
-    const { data: task } = await supabase.from("task_file_categories").select("status, va_assigned").eq("id", taskFileCategoryId).maybeSingle();
-    if (!task) {
+    if (taskFileCategoryId) {
+      const { data: task } = await supabase.from("task_file_categories").select("status, va_assigned").eq("id", taskFileCategoryId).maybeSingle();
+      if (!task) {
+        await supabase.from("plan_items").delete().eq("id", id);
+        revalidatePath("/overview");
+        return;
+      }
+      const nextStatus = task.status === "Completed" ? "Review" : "In Progress";
+      const nextVaAssigned = task.va_assigned.includes(me.name) ? task.va_assigned : [...task.va_assigned, me.name];
+      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskFileCategoryId, p_patch: { status: nextStatus, va_assigned: nextVaAssigned } });
+      orThrow(error);
+      await supabase.from("plan_items").delete().eq("id", id);
+      revalidatePath("/overview");
+      revalidatePath(`/schools/${schoolId}`);
+      return;
+    }
+
+    const { data: generalTask } = await supabase.from("general_tasks").select("status, va_assigned").eq("id", generalTaskId).maybeSingle();
+    if (!generalTask) {
       await supabase.from("plan_items").delete().eq("id", id);
       revalidatePath("/overview");
       return;
     }
-    const nextStatus = task.status === "Completed" ? "Review" : "In Progress";
-    const nextVaAssigned = task.va_assigned.includes(me.name) ? task.va_assigned : [...task.va_assigned, me.name];
-    const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskFileCategoryId, p_patch: { status: nextStatus, va_assigned: nextVaAssigned } });
+    const nextStatus = generalTask.status === "Completed" ? "Review" : "In Progress";
+    const nextVaAssigned = generalTask.va_assigned.includes(me.name) ? generalTask.va_assigned : [...generalTask.va_assigned, me.name];
+    const { error } = await supabase.from("general_tasks").update({ status: nextStatus, va_assigned: nextVaAssigned }).eq("id", generalTaskId);
     orThrow(error);
     await supabase.from("plan_items").delete().eq("id", id);
     revalidatePath("/overview");
-    revalidatePath(`/schools/${schoolId}`);
-    return;
-  }
-
-  const { data: generalTask } = await supabase.from("general_tasks").select("status, va_assigned").eq("id", generalTaskId).maybeSingle();
-  if (!generalTask) {
-    await supabase.from("plan_items").delete().eq("id", id);
-    revalidatePath("/overview");
-    return;
-  }
-  const nextStatus = generalTask.status === "Completed" ? "Review" : "In Progress";
-  const nextVaAssigned = generalTask.va_assigned.includes(me.name) ? generalTask.va_assigned : [...generalTask.va_assigned, me.name];
-  const { error } = await supabase.from("general_tasks").update({ status: nextStatus, va_assigned: nextVaAssigned }).eq("id", generalTaskId);
-  orThrow(error);
-  await supabase.from("plan_items").delete().eq("id", id);
-  revalidatePath("/overview");
-  revalidatePath("/general-tasks");
+    revalidatePath("/general-tasks");
+  });
 }
 
 /* Resolve a kind:"priority" item -- creates the real task (school +
    category + file name, reusing add_task_file), signs the VA, sets it
    In Progress, then deletes the plan_items row. */
-export async function resolvePriorityPlanItem(formData: FormData) {
+export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanActionResult> {
   const id = formData.get("id") as string;
   const schoolId = formData.get("schoolId") as string;
   const categoryId = formData.get("categoryId") as string;
   const fileName = ((formData.get("fileName") as string) || "").trim();
-  if (!fileName) throw new Error("Enter a file name");
+  if (!fileName) return { error: "Enter a file name" };
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -221,24 +249,26 @@ export async function resolvePriorityPlanItem(formData: FormData) {
     });
     revalidatePath("/overview");
     revalidatePath(`/schools/${schoolId}`);
-    return;
+    return { error: null };
   }
 
-  const { supabase, me } = await requireTeamMember();
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
 
-  const fileId = crypto.randomUUID();
-  const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
-  orThrow(createError);
+    const fileId = crypto.randomUUID();
+    const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
+    orThrow(createError);
 
-  const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
-  if (!created) throw new Error("Task was created but could not be started — open the school page to sign it manually.");
+    const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
+    if (!created) throw new Error("Task was created but could not be started — open the school page to sign it manually.");
 
-  const { error: startError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: created.id, p_patch: { status: "In Progress", va_assigned: [me.name] } });
-  orThrow(startError);
+    const { error: startError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: created.id, p_patch: { status: "In Progress", va_assigned: [me.name] } });
+    orThrow(startError);
 
-  await supabase.from("plan_items").delete().eq("id", id);
-  revalidatePath("/overview");
-  revalidatePath(`/schools/${schoolId}`);
+    await supabase.from("plan_items").delete().eq("id", id);
+    revalidatePath("/overview");
+    revalidatePath(`/schools/${schoolId}`);
+  });
 }
 
 /* "Start a New Day" -- opens the floating plan bubble for this VA on

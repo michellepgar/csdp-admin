@@ -62,7 +62,7 @@ export function SidebarShell({
   myPlanItems: PlanItem[];
   taskCategories: TaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
-  resolvePriorityPlanItem: (formData: FormData) => Promise<void>;
+  resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   planBubbleStartedOpen: boolean;
   children: React.ReactNode;
 }) {

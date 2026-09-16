@@ -11,7 +11,7 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
   planItems: PlanItem[];
   vas: Va[];
   isCurrentUserAdmin: boolean;
-  addPriority: (formData: FormData) => Promise<void>;
+  addPriority: (formData: FormData) => Promise<{ error: string | null }>;
   removePlanItem: (formData: FormData) => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -36,13 +36,9 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
         <form
           action={async (formData) => {
             setError(null);
-            try {
-              await addPriority(formData);
-              setAddOpen(false);
-              setAssignedTo("");
-            } catch {
-              setError("Couldn't add that priority — please try again.");
-            }
+            const result = await addPriority(formData);
+            if (result.error) setError(result.error);
+            else { setAddOpen(false); setAssignedTo(""); }
           }}
           className="mb-3 flex flex-wrap items-center gap-2 rounded-md border p-2"
         >

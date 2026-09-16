@@ -11,7 +11,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, resolveTaskPl
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
-  resolvePriorityPlanItem: (formData: FormData) => Promise<void>;
+  resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   startedOpen: boolean;
 }) {
   const [expanded, setExpanded] = useState(startedOpen);

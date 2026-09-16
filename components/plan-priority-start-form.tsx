@@ -11,7 +11,7 @@ export function PlanPriorityStartForm({ planItemId, schools, taskCategories, res
   planItemId: string;
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
-  resolvePriorityPlanItem: (formData: FormData) => Promise<void>;
+  resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   onClose: () => void;
 }) {
   const [schoolId, setSchoolId] = useState("");
@@ -25,12 +25,9 @@ export function PlanPriorityStartForm({ planItemId, schools, taskCategories, res
       <form
         action={async (formData) => {
           setError(null);
-          try {
-            await resolvePriorityPlanItem(formData);
-            onClose();
-          } catch {
-            setError("Couldn't start this — please try again.");
-          }
+          const result = await resolvePriorityPlanItem(formData);
+          if (result.error) setError(result.error);
+          else onClose();
         }}
         className="space-y-2"
       >

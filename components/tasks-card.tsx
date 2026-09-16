@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GripVertical, Pencil, X } from "lucide-react";
+import { GripVertical, Pencil, Trash2, X } from "lucide-react";
 import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
@@ -29,7 +29,25 @@ const TASK_STATUS_TONE: Record<string, StatusTone> = {
   Completed: "success",
 };
 
-function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, signTask, removeVaFromTask, setTaskStatus }: {
+/* Three fixed-width grid tracks -- [VA/sign area][Status][Remove] --
+   instead of a flex row, so Status and the assignment-remove icon
+   always start at the same x offset in every row of a category
+   column, regardless of how many people have signed or how long any
+   one VA's name is. A flex row couldn't guarantee this: its Status
+   badge and remove icon just got pushed further right (or wrapped
+   onto a second line entirely) as the signed-VA area grew, which is
+   exactly what Michelle's screenshot showed -- rows with 0 vs. 2
+   signatures had their Status badges landing in completely different
+   places, and a long name wrapped the whole row to two lines with the
+   badge dropping underneath instead of staying beside it. Grid tracks
+   don't reflow based on a sibling's content the way flex-wrap does:
+   the VA/sign area (first track) can wrap or overflow internally
+   without ever moving the Status/Remove tracks after it.
+   "+ Sign" now renders FIRST in that track, before any existing
+   signatures -- Michelle asked for this specifically so the first
+   person who signed always lands in the same spot, right after where
+   "+ Sign" would have been. */
+function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, signTask, removeVaFromTask, setTaskStatus, removeTaskAssignment }: {
   schoolId: string;
   assignment: TaskFileCategory;
   vas: Va[];
@@ -38,11 +56,19 @@ function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, si
   signTask: (formData: FormData) => void;
   removeVaFromTask: (formData: FormData) => void;
   setTaskStatus: (formData: FormData) => void;
+  removeTaskAssignment: (formData: FormData) => void;
 }) {
   const iSigned = assignment.vaAssigned.includes(currentUserName);
   return (
-    <div className="flex min-h-7 flex-wrap items-center gap-2">
-      <div className="flex flex-wrap items-center gap-1">
+    <div className="grid grid-cols-[1fr_88px_24px] items-start gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-1">
+        {!iSigned && (
+          <form action={signTask}>
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <input type="hidden" name="taskId" value={assignment.id} />
+            <SubmitButton pendingLabel="…" variant="outline" size="xs">+ Sign</SubmitButton>
+          </form>
+        )}
         {assignment.vaAssigned.map((name) => (
           <form key={name} action={removeVaFromTask} className="inline-flex items-center gap-1">
             <input type="hidden" name="schoolId" value={schoolId} />
@@ -52,13 +78,6 @@ function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, si
             <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
           </form>
         ))}
-        {!iSigned && (
-          <form action={signTask}>
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <input type="hidden" name="taskId" value={assignment.id} />
-            <SubmitButton pendingLabel="…" variant="outline" size="xs">+ Sign</SubmitButton>
-          </form>
-        )}
       </div>
       <StatusSelect
         action={setTaskStatus}
@@ -69,6 +88,13 @@ function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, si
         optionToneClassName={(status) => TONE_CLASSES[TASK_STATUS_TONE[status] ?? "neutral"]}
         disabled={!canEdit}
       />
+      {canEdit && (
+        <form action={removeTaskAssignment}>
+          <input type="hidden" name="schoolId" value={schoolId} />
+          <input type="hidden" name="taskId" value={assignment.id} />
+          <ConfirmDeleteButton confirmMessage={`Remove only the ${assignment.category} task from this file?`} pendingLabel="…" variant="ghost" size="icon-xs"><X className="h-3 w-3" /></ConfirmDeleteButton>
+        </form>
+      )}
     </div>
   );
 }
@@ -83,16 +109,17 @@ function AssignmentCell({ schoolId, assignment, vas, currentUserName, canEdit, a
 }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-2">
-        <SignAndStatus schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={canEdit} signTask={actions.signTask} removeVaFromTask={actions.removeVaFromTask} setTaskStatus={actions.setTaskStatus} />
-        {canEdit && (
-          <form action={actions.removeTaskAssignment} className="ml-auto">
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <input type="hidden" name="taskId" value={assignment.id} />
-            <ConfirmDeleteButton confirmMessage={`Remove only the ${assignment.category} task from this file?`} pendingLabel="…" variant="ghost" size="icon-xs"><X className="h-3 w-3" /></ConfirmDeleteButton>
-          </form>
-        )}
-      </div>
+      <SignAndStatus
+        schoolId={schoolId}
+        assignment={assignment}
+        vas={vas}
+        currentUserName={currentUserName}
+        canEdit={canEdit}
+        signTask={actions.signTask}
+        removeVaFromTask={actions.removeVaFromTask}
+        setTaskStatus={actions.setTaskStatus}
+        removeTaskAssignment={actions.removeTaskAssignment}
+      />
     </div>
   );
 }
@@ -263,9 +290,9 @@ export function TasksCard(props: TasksCardProps) {
               <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 text-left font-medium break-words ${column.kind === "task" ? "px-4" : "px-2"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file) => (
-                  <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
+                  <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 hover:bg-muted/40 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
                     {columns.map((column) => {
-                      if (column.kind === "remove") return <td key="remove" className="px-1 py-2 align-top"><DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></td>;
+                      if (column.kind === "remove") return <td key="remove" className="px-1 py-2 align-top"><DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} icon={<Trash2 className="h-3 w-3" />} /></td>;
                       if (column.kind === "count") return <td key="count" className="px-2 py-2 align-top"><div className="space-y-1">{column.categories.map(category => {
                         const assignment=file.categories.find(a => a.categoryId === category.id);
                         if (!assignment) return null;

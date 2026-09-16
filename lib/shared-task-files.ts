@@ -136,10 +136,22 @@ export interface TodayActivityItem {
   state: "in-progress" | "completed-today";
 }
 
+/* This runs server-side (Vercel functions default to UTC), so
+   comparing calendar dates with the server's own local getters would
+   put the day boundary at UTC midnight instead of the team's actual
+   midnight -- something finished late in the evening Eastern time
+   could already read as "tomorrow" in UTC, or something from
+   yesterday evening Eastern could still read as "today" in UTC's
+   early morning. The whole team works Eastern, so pin the comparison
+   to that zone explicitly instead of relying on the server's own. */
+const TEAM_TIME_ZONE = "America/New_York";
+
+function calendarDateInTeamZone(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TEAM_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
 function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return calendarDateInTeamZone(new Date(iso)) === calendarDateInTeamZone(new Date());
 }
 
 /* Same per-VA grouping Overview's old "Currently Working On" used, but

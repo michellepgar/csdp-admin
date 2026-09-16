@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { checklistCompletion, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { checklistCompletion, findVaByEmail, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { getCurrentUser } from "@/lib/supabase/server";
+import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -40,32 +42,11 @@ export default async function OverviewPage() {
     .map((type) => ({ type, label: ISSUE_TYPE_LABELS[type], count: openIssues.filter((i) => i.type === type).length }))
     .filter((t) => t.count > 0);
 
-  /* Who's actively signed onto what right now -- every "In Progress"
-     task, grouped by each VA it's assigned to (a task can have more
-     than one VA signed on, so it can appear under more than one name
-     here). Only VAs with at least one such task show up; an idle VA
-     just doesn't get a row. General Tasks (not tied to any school) mix
-     into the same list -- schoolId stays undefined for those, so the
-     render below links to General Tasks instead of a school page and
-     shows "General" instead of a school name. */
-  const inProgressByVa = new Map<string, { schoolId?: string; schoolName: string; category: string; fileName: string }[]>();
-  for (const school of state.schools) {
-    for (const task of state.schoolData[school.id]?.tasks || []) {
-      if (task.status !== "In Progress") continue;
-      for (const vaName of task.vaAssigned) {
-        if (!inProgressByVa.has(vaName)) inProgressByVa.set(vaName, []);
-        inProgressByVa.get(vaName)!.push({ schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName });
-      }
-    }
-  }
-  for (const task of state.generalTasks || []) {
-    if (task.status !== "In Progress") continue;
-    for (const vaName of task.vaAssigned) {
-      if (!inProgressByVa.has(vaName)) inProgressByVa.set(vaName, []);
-      inProgressByVa.get(vaName)!.push({ schoolName: "General", category: task.category, fileName: task.description });
-    }
-  }
-  const vaNamesWithProgress = Array.from(inProgressByVa.keys()).sort((a, b) => a.localeCompare(b));
+  const user = await getCurrentUser();
+  const me = user?.email ? findVaByEmail(state, user.email) : undefined;
+
+  const todayByVa = todayActivityByVa(state.schools, state.schoolData, state.generalTasks || [], state.statusChangedAt || {});
+  const vaNamesWithActivity = Array.from(todayByVa.keys()).sort((a, b) => a.localeCompare(b));
 
   return (
     <div>
@@ -94,12 +75,12 @@ export default async function OverviewPage() {
 
       <PageBody>
       <div>
-        <h2 className="mb-3 font-semibold">Currently Working On</h2>
-        {vaNamesWithProgress.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No one has anything marked &quot;In Progress&quot; right now.</p>
+        <h2 className="mb-3 font-semibold">Today</h2>
+        {vaNamesWithActivity.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No activity today yet.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {vaNamesWithProgress.map((vaName) => {
+            {vaNamesWithActivity.map((vaName) => {
               const va = state.vas.find((v) => v.name === vaName);
               return (
                 <div key={vaName} className="rounded-md border bg-record-background p-3">
@@ -107,12 +88,13 @@ export default async function OverviewPage() {
                     {vaName}
                   </div>
                   <ul className="space-y-1.5">
-                    {inProgressByVa.get(vaName)!.map((t, i) => (
+                    {todayByVa.get(vaName)!.map((t, i) => (
                       <li key={i} className="text-sm">
                         <Link href={t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"} className="font-bold underline-offset-2 hover:underline">
                           {t.fileName}
                         </Link>
                         <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
+                        {t.state === "completed-today" && <span className="text-status-success-foreground"> (completed today)</span>}
                       </li>
                     ))}
                   </ul>

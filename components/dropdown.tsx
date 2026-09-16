@@ -25,6 +25,7 @@ export function Dropdown({
   required,
   className,
   onChange,
+  openUpward,
 }: {
   name: string;
   defaultValue?: string;
@@ -35,6 +36,11 @@ export function Dropdown({
   required?: boolean;
   className?: string;
   onChange?: (value: string) => void;
+  /** Opens the option list above the trigger instead of below it -- for
+   *  callers rendered near the bottom of the viewport (e.g. inside the
+   *  floating plan bubble), where the default downward list gets
+   *  clipped by the window edge. */
+  openUpward?: boolean;
 }) {
   const [internalValue, setInternalValue] = useState(value ?? defaultValue ?? "");
   const [open, setOpen] = useState(false);
@@ -93,7 +99,7 @@ export function Dropdown({
         {currentOption?.label ?? placeholder ?? current ?? "—"}
       </button>
       {open && !disabled && (
-        <div className="absolute top-full left-0 z-20 mt-1 max-h-64 min-w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+        <div className={`absolute left-0 z-20 max-h-64 min-w-full overflow-y-auto rounded-md border bg-background shadow-lg ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}>
           {options.map((o) => (
             <button
               key={o.value || "none"}

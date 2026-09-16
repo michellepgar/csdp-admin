@@ -4,12 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
-import type { PlanItem, TaskCategory } from "@/lib/app-state";
+import type { PlanItem, TaskCategory, GeneralTaskCategory } from "@/lib/app-state";
 
-export function PlanBubble({ myPlanItems, schools, taskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, startedOpen }: {
+export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, startedOpen }: {
   myPlanItems: PlanItem[];
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
+  generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   startedOpen: boolean;
@@ -61,6 +62,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, resolveTaskPl
           planItemId={startingPriorityId}
           schools={schools}
           taskCategories={taskCategories}
+          generalTaskCategories={generalTaskCategories}
           resolvePriorityPlanItem={resolvePriorityPlanItem}
           onClose={() => setStartingPriorityId(null)}
         />

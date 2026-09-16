@@ -231,10 +231,32 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
    In Progress, then deletes the plan_items row. */
 export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanActionResult> {
   const id = formData.get("id") as string;
-  const schoolId = formData.get("schoolId") as string;
+  const destination = (formData.get("destination") as string) || "school";
+  const schoolId = (formData.get("schoolId") as string) || "";
   const categoryId = formData.get("categoryId") as string;
   const fileName = ((formData.get("fileName") as string) || "").trim();
   if (!fileName) return { error: "Enter a file name" };
+
+  if (destination === "general") {
+    if (await isDemoMode()) {
+      await demoMutate((state) => {
+        (state.generalTasks ??= []).push({ id: `demo-priority-general-${Date.now()}`, category: categoryId, description: fileName, status: "In Progress", vaAssigned: ["Jane"], createdAt: new Date().toISOString() });
+        state.planItems = (state.planItems || []).filter((p) => p.id !== id);
+      });
+      revalidatePath("/overview");
+      revalidatePath("/general-tasks");
+      return { error: null };
+    }
+
+    return runPlanAction(async () => {
+      const { supabase, me } = await requireTeamMember();
+      const { error } = await supabase.from("general_tasks").insert({ id: crypto.randomUUID(), category: categoryId, description: fileName, status: "In Progress", va_assigned: [me.name] });
+      orThrow(error);
+      await supabase.from("plan_items").delete().eq("id", id);
+      revalidatePath("/overview");
+      revalidatePath("/general-tasks");
+    });
+  }
 
   if (await isDemoMode()) {
     await demoMutate((state) => {

@@ -103,6 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       needsGeneralNoteAck={needsGeneralNoteAck}
       myPlanItems={myPlanItems}
       taskCategories={state.taskCategories || []}
+      generalTaskCategories={state.generalTaskCategories || []}
       resolveTaskPlanItem={resolveTaskPlanItem}
       resolvePriorityPlanItem={resolvePriorityPlanItem}
       planBubbleStartedOpen={planBubbleStartedOpen}

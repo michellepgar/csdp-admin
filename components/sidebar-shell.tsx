@@ -6,7 +6,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import { PlanBubble } from "@/components/plan-bubble";
-import type { PlanItem, TaskCategory, Va } from "@/lib/app-state";
+import type { PlanItem, TaskCategory, GeneralTaskCategory, Va } from "@/lib/app-state";
 import type { CurrentPresenceMember } from "@/components/team-presence";
 
 const COOKIE_NAME = "sidebar-collapsed";
@@ -43,6 +43,7 @@ export function SidebarShell({
   needsGeneralNoteAck,
   myPlanItems,
   taskCategories,
+  generalTaskCategories,
   resolveTaskPlanItem,
   resolvePriorityPlanItem,
   planBubbleStartedOpen,
@@ -61,6 +62,7 @@ export function SidebarShell({
   needsGeneralNoteAck: boolean;
   myPlanItems: PlanItem[];
   taskCategories: TaskCategory[];
+  generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   planBubbleStartedOpen: boolean;
@@ -231,6 +233,7 @@ export function SidebarShell({
         myPlanItems={myPlanItems}
         schools={schools}
         taskCategories={taskCategories}
+        generalTaskCategories={generalTaskCategories}
         resolveTaskPlanItem={resolveTaskPlanItem}
         resolvePriorityPlanItem={resolvePriorityPlanItem}
         startedOpen={planBubbleStartedOpen}

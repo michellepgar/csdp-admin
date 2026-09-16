@@ -8,6 +8,22 @@ function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+type GeneralTaskActionResult = { error: string | null };
+
+/* Thrown errors inside a Server Action get redacted to a generic
+   "Minified React error #441" in production (see app/(app)/overview/
+   actions.ts's runPlanAction for the same fix, discovered this
+   session) -- both new actions below return {error} instead. */
+async function runResultAction(operation: () => Promise<void>): Promise<GeneralTaskActionResult> {
+  try {
+    await operation();
+    return { error: null };
+  } catch (error) {
+    console.error("General task action failed", error);
+    return { error: error instanceof Error ? error.message : "Something went wrong. Please try again." };
+  }
+}
+
 export async function addGeneralTask(formData: FormData) {
   const category = (formData.get("category") as string) || "";
   const description = ((formData.get("description") as string) || "").trim();
@@ -39,6 +55,28 @@ export async function addGeneralTask(formData: FormData) {
   });
   orThrow(error);
   revalidatePath("/general-tasks");
+}
+
+export async function updateGeneralTaskDescription(formData: FormData): Promise<GeneralTaskActionResult> {
+  const taskId = formData.get("taskId") as string;
+  const description = ((formData.get("description") as string) || "").trim();
+  if (!description) return { error: "Enter a description." };
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const task = (state.generalTasks || []).find((t) => t.id === taskId);
+      if (task) task.description = description;
+    });
+    revalidatePath("/general-tasks");
+    return { error: null };
+  }
+
+  return runResultAction(async () => {
+    const { supabase } = await requireTeamMember();
+    const { error } = await supabase.from("general_tasks").update({ description }).eq("id", taskId);
+    orThrow(error);
+    revalidatePath("/general-tasks");
+  });
 }
 
 export async function setGeneralTaskStatus(formData: FormData) {
@@ -128,6 +166,63 @@ export async function removeGeneralTask(formData: FormData) {
   const { error } = await supabase.from("general_tasks").delete().eq("id", taskId);
   orThrow(error);
   revalidatePath("/general-tasks");
+}
+
+/* Converts a General Task into a real school task -- creates the file
+   + category via the same add_task_file RPC the priority-note flow
+   uses (app/(app)/overview/actions.ts's resolvePriorityPlanItem), then
+   carries the General Task's CURRENT status and every signed VA over
+   (not just the current user -- a bulk carry-over, unlike
+   resolvePriorityPlanItem's single-VA sign), then deletes the
+   original general_tasks row. */
+export async function moveGeneralTaskToSchool(formData: FormData): Promise<GeneralTaskActionResult> {
+  const taskId = formData.get("taskId") as string;
+  const schoolId = formData.get("schoolId") as string;
+  const categoryId = formData.get("categoryId") as string;
+  const fileName = ((formData.get("fileName") as string) || "").trim();
+  if (!fileName) return { error: "Enter a file name." };
+  if (!schoolId || !categoryId) return { error: "Choose a school and a category." };
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const task = (state.generalTasks || []).find((t) => t.id === taskId);
+      if (!task) return;
+      const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
+      const fileId = `demo-moved-file-${Date.now()}`;
+      const category = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
+      const createdAt = new Date().toISOString();
+      const assignmentId = `${fileId}-0`;
+      (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category, status: task.status, vaAssigned: task.vaAssigned, sortOrder: 0, createdAt }] });
+      (sd.tasks ??= []).push({ id: assignmentId, category, fileName, sortOrder: sd.taskFiles.length - 1, status: task.status, vaAssigned: task.vaAssigned, createdAt });
+      state.generalTasks = (state.generalTasks || []).filter((t) => t.id !== taskId);
+    });
+    revalidatePath("/general-tasks");
+    revalidatePath(`/schools/${schoolId}`);
+    return { error: null };
+  }
+
+  return runResultAction(async () => {
+    const { supabase } = await requireTeamMember();
+
+    const { data: task } = await supabase.from("general_tasks").select("status, va_assigned").eq("id", taskId).maybeSingle();
+    if (!task) throw new Error("That task no longer exists.");
+
+    const fileId = crypto.randomUUID();
+    const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
+    orThrow(createError);
+
+    const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
+    if (!created) throw new Error("The task was created but could not be carried over — open the school page to finish it manually.");
+
+    const { error: carryOverError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: created.id, p_patch: { status: task.status, va_assigned: task.va_assigned } });
+    orThrow(carryOverError);
+
+    const { error: deleteError } = await supabase.from("general_tasks").delete().eq("id", taskId);
+    orThrow(deleteError);
+
+    revalidatePath("/general-tasks");
+    revalidatePath(`/schools/${schoolId}`);
+  });
 }
 
 export async function addGeneralTaskCategory(formData: FormData) {

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { checklistCompletion, findVaByEmail, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { checklistCompletion, findVaByEmail, isAdmin, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
-import { savePlan } from "./actions";
+import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
+import { savePlan, addPriority, removePlanItem } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -119,6 +120,14 @@ export default async function OverviewPage() {
           savePlan={savePlan}
         />
       )}
+
+      <PlansForTomorrow
+        planItems={state.planItems || []}
+        vas={state.vas}
+        isCurrentUserAdmin={!!me && isAdmin(me)}
+        addPriority={addPriority}
+        removePlanItem={removePlanItem}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left: alerts -- what needs attention right now. */}

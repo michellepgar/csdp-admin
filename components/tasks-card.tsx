@@ -12,7 +12,7 @@ import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { groupTaskTables, taskTableColumns, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
+import { groupTaskTables, taskTableColumns, taskTableLayout, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
   COUNT_CATEGORIES,
@@ -42,7 +42,7 @@ function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, si
 }) {
   const iSigned = assignment.vaAssigned.includes(currentUserName);
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex min-h-7 flex-wrap items-center gap-2">
       <div className="flex flex-wrap items-center gap-1">
         {assignment.vaAssigned.map((name) => (
           <form key={name} action={removeVaFromTask} className="inline-flex items-center gap-1">
@@ -262,10 +262,12 @@ export function TasksCard(props: TasksCardProps) {
           <p className="text-sm text-muted-foreground">No files yet.</p>
         ) : taskTables.map((group) => {
           const columns = taskTableColumns(group.categories, COUNT_CATEGORIES);
+          const layout = taskTableLayout(columns);
           const countColumnTotal = columns.filter((column) => column.kind === "count").length;
           return (
           <div key={group.key} className="overflow-x-auto rounded-md border">
-            <table className="w-full min-w-max border-collapse text-sm">
+            <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
+              <colgroup>{columns.map((column, index) => <col key={column.kind === "file" ? "file" : `${column.kind}:${column.category.id}`} style={{width: layout.columnWidths[index]}} />)}</colgroup>
               <thead><tr className="border-b bg-muted/40">{columns.map((column) => <th key={column.kind === "file" ? "file" : `${column.kind}:${column.category.id}`} className="px-2 py-2 text-left font-medium">{column.kind === "file" ? "File name" : column.kind === "count" ? (countColumnTotal === 1 ? "Count" : `${column.category.name} count`) : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file) => (
@@ -279,21 +281,21 @@ export function TasksCard(props: TasksCardProps) {
                           {assignment ? column.kind === "count" ? <AutoSubmitForm action={props.setTaskCount}>
                             <input type="hidden" name="schoolId" value={schoolId} />
                             <input type="hidden" name="taskId" value={assignment.id} />
-                            <input key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!editable} className="w-14 rounded-md border px-1.5 py-0.5 text-sm" />
+                            <input key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!editable} className="h-7 w-14 rounded-md border px-1.5 py-0.5 text-sm" />
                           </AutoSubmitForm> : <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={editable} actions={props} /> : <span className="text-muted-foreground">—</span>}
                         </td>;
                       }
                       return <td key="file" className="px-2 py-2 align-top">
-                      <div className="flex min-w-48 items-center gap-1">
+                      <div className="flex min-h-7 min-w-0 items-center gap-1">
                         {canEdit && <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/60" aria-label="Drag to reorder file" />}
                         {editingFileId === file.id ? (
-                          <form action={(formData) => submitTaskFileForm(props.updateTaskFileName, formData, setEditFileError, () => setEditingFileId(null))} className="flex flex-wrap items-center gap-1">
+                          <form action={(formData) => submitTaskFileForm(props.updateTaskFileName, formData, setEditFileError, () => setEditingFileId(null))} className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                             <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskFileId" value={file.id} />
-                            <Input name="fileName" value={editedFileName} onChange={(event) => setEditedFileName(event.target.value)} required autoFocus className="h-7 min-w-40" />
+                            <Input name="fileName" value={editedFileName} onChange={(event) => setEditedFileName(event.target.value)} required autoFocus className="h-7 min-w-0" />
                             <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton><Button type="button" variant="ghost" size="xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
                             {editFileError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{editFileError}</p>}
                           </form>
-                        ) : <><span className="font-bold break-words">{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}<DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></>}
+                        ) : <><span className="font-bold break-words" style={{minWidth: 0, overflowWrap: "anywhere"}}>{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}<DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} /></>}
                       </div>
                     </td>;
                     })}

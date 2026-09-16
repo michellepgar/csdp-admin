@@ -26,6 +26,13 @@ export function taskTableColumns(categories: TaskCategory[], countCategories: st
   ];
 }
 
+export function taskTableLayout(columns: ReturnType<typeof taskTableColumns>): {
+  columnWidths: (number | undefined)[]; minWidth: number;
+} {
+  const columnWidths = columns.map((column) => column.kind === "count" ? 72 : column.kind === "file" ? 256 : undefined);
+  return {columnWidths, minWidth: columnWidths.reduce<number>((total, width) => total + (width ?? 320), 0)};
+}
+
 // Only return safe, actionable messages; raw database errors stay on the server.
 export async function saveTaskFile(operation: () => Promise<void>): Promise<TaskFileActionResult> {
   try {

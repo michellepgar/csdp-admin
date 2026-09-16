@@ -95,8 +95,8 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
               try {
                 await savePlan(formData);
                 setOpen(false);
-              } catch {
-                setError("Couldn't save your plan. Please try again.");
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Couldn't save your plan. Please try again.");
               }
             }}
             className="mt-2 flex gap-2"

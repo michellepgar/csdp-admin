@@ -57,7 +57,8 @@ export async function savePlan(formData: FormData) {
 
   const { supabase, me } = await requireTeamMember();
 
-  const { data: existingRows } = await supabase.from("plan_items").select("id, task_file_category_id, general_task_id").eq("kind", "task").eq("va_name", me.name);
+  const { data: existingRows, error: selectError } = await supabase.from("plan_items").select("id, task_file_category_id, general_task_id").eq("kind", "task").eq("va_name", me.name);
+  orThrow(selectError);
   const existingTask = (existingRows || []).filter((r) => r.task_file_category_id).map((r) => ({ id: r.id, refId: r.task_file_category_id as string }));
   const existingGeneral = (existingRows || []).filter((r) => r.general_task_id).map((r) => ({ id: r.id, refId: r.general_task_id as string }));
   const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);

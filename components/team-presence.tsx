@@ -36,6 +36,7 @@ export function TeamPresence({ currentMember, collapsed }: { currentMember: Curr
     });
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
     let joined = false;
+    let cancelled = false;
 
     const payload = (active: boolean) => ({
       memberId: currentMember.id,
@@ -66,24 +67,40 @@ export function TeamPresence({ currentMember, collapsed }: { currentMember: Curr
       else updateStatus("idle");
     };
 
-    channel
-      .on("presence", { event: "sync" }, () => setMembers(aggregatePresence(channel.presenceState())))
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setUnavailable(true);
-          return;
-        }
-        if (status !== "SUBSCRIBED") return;
-        joined = true;
-        void channel.track(payload(statusRef.current === "active"));
-        resetIdleTimer();
-      });
+    /* Private channels authorize against the JWT already attached to
+       the realtime socket -- supabase-js sets that from onAuthStateChange,
+       which fires asynchronously and can lose the race against this
+       effect's own subscribe() on first mount, so the join gets checked
+       with no session and is rejected ("Unauthorized ... team-presence")
+       even though the user is really signed in. Explicitly fetching the
+       session and calling realtime.setAuth() right before subscribing
+       closes that race instead of relying on timing. */
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
+      if (cancelled) return;
+
+      channel
+        .on("presence", { event: "sync" }, () => setMembers(aggregatePresence(channel.presenceState())))
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            setUnavailable(true);
+            return;
+          }
+          if (status !== "SUBSCRIBED") return;
+          joined = true;
+          void channel.track(payload(statusRef.current === "active"));
+          resetIdleTimer();
+        });
+    })();
 
     const activityEvents: (keyof WindowEventMap)[] = ["pointerdown", "pointermove", "keydown", "scroll", "touchstart", "focus"];
     for (const event of activityEvents) window.addEventListener(event, becomeActive, { passive: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
+      cancelled = true;
       if (idleTimer) clearTimeout(idleTimer);
       for (const event of activityEvents) window.removeEventListener(event, becomeActive);
       document.removeEventListener("visibilitychange", onVisibilityChange);

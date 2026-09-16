@@ -34,6 +34,16 @@ export function TaskTableCategoryPicker({ schoolId, tableId, files, categories, 
       <Dropdown name="categoryId" value={categoryId} onChange={value => {setCategoryId(value); setSelectedIds([]); setError(null);}} placeholder="Choose category" options={available.map(c => ({value:c.id,label:c.name}))} />
       {categoryId && <fieldset className="max-h-48 space-y-1 overflow-y-auto">
         <legend className="mb-1 text-xs text-muted-foreground">Select files for this category</legend>
+        {eligible.length > 1 && (
+          <label className="flex items-center gap-2 border-b pb-1 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={eligible.length > 0 && eligible.every(file => selectedIds.includes(file.id))}
+              onChange={event => setSelectedIds(event.target.checked ? eligible.map(file => file.id) : [])}
+            />
+            <span>Select all</span>
+          </label>
+        )}
         {eligible.map(file => <label key={file.id} className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="fileIds" value={file.id} checked={selectedIds.includes(file.id)} onChange={event => setSelectedIds(ids => event.target.checked ? [...ids,file.id] : ids.filter(id => id !== file.id))} />
           <span className="break-words">{file.fileName}</span>

@@ -131,7 +131,6 @@ type TasksCardProps = {
   vas: Va[];
   canEdit: boolean;
   currentUserName: string;
-  noRecheck: boolean;
   addTask: (formData: FormData) => Promise<TaskFileActionResult>;
   addCategoryToFiles: (formData: FormData) => Promise<TaskFileActionResult>;
   setTaskStatus: (formData: FormData) => void;
@@ -145,7 +144,6 @@ type TasksCardProps = {
   setCommsStatus: (formData: FormData) => void;
   signComms: (formData: FormData) => void;
   removeVaFromComms: (formData: FormData) => void;
-  setNoRecheck: (formData: FormData) => void;
   reorderTaskCategories: (orderedIds: string[]) => void;
   renameTaskCategory: (formData: FormData) => Promise<TaskFileActionResult>;
   setTaskCategoryHasCount: (formData: FormData) => void;
@@ -154,7 +152,7 @@ type TasksCardProps = {
 };
 
 export function TasksCard(props: TasksCardProps) {
-  const { schoolId, categories, taskFiles, vas, canEdit, currentUserName, noRecheck } = props;
+  const { schoolId, categories, taskFiles, vas, canEdit, currentUserName } = props;
   const [editorOpen, setEditorOpen] = useState(false);
   const [orderedCategories, setOrderedCategories] = useState(categories);
   const [orderedFiles, setOrderedFiles] = useState(taskFiles);
@@ -295,7 +293,16 @@ export function TasksCard(props: TasksCardProps) {
             <div className="overflow-x-auto">
             <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
               <colgroup>{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
-              <thead><tr className="border-b bg-muted/40">{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 text-left font-medium break-words ${column.kind === "task" ? `px-4 ${dividerClass(index)}` : "px-2"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : <>{column.category.name}{column.category.name === "Follow up" && <form action={props.setNoRecheck} className="mt-1"><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="noRecheck" value={noRecheck ? "false" : "true"} /><SubmitButton pendingLabel="…" variant="ghost" size="xs">{noRecheck ? "Undo no follow up" : "No follow up"}</SubmitButton></form>}</>}</th>)}</tr></thead>
+              {/* Category header cells get their own bg-title-background
+                  (the same token used for every other section heading
+                  in this app, e.g. "Other Contacts" -- already
+                  theme-aware, no separate dark: override needed)
+                  layered OVER the row's own bg-muted/40, alternating
+                  full strength / 60% opacity per category column so
+                  adjacent categories read as their own distinctly
+                  colored band next to the plainer Count/File name
+                  headers beside them. */}
+              <thead><tr className="border-b bg-muted/40">{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 break-words ${column.kind === "task" ? `px-4 text-center text-sm font-bold ${columns.slice(0, index + 1).filter((c) => c.kind === "task").length % 2 === 1 ? "bg-title-background" : "bg-title-background/60"} ${dividerClass(index)}` : "px-2 text-left font-medium"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : column.category.name}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file) => (
                   <tr key={file.id} draggable={canEdit} onDragStart={() => setDraggedFileId(file.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropFile(file.id)} onDragEnd={() => setDraggedFileId(null)} className={`border-b last:border-b-0 hover:bg-muted/40 ${draggedFileId === file.id ? "opacity-40" : ""}`}>
@@ -307,15 +314,14 @@ export function TasksCard(props: TasksCardProps) {
                         return <AutoSubmitForm key={assignment.id} action={props.setTaskCount}>
                           <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskId" value={assignment.id} />
                           {column.categories.length > 1 && <label htmlFor={`count-${assignment.id}`} className="block text-[10px] leading-tight text-muted-foreground break-words">{category.name}</label>}
-                          <input id={`count-${assignment.id}`} key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit || (category.name === "Follow up" && noRecheck)} className="h-7 w-14 rounded-md border px-1.5 py-0.5 text-sm" />
+                          <input id={`count-${assignment.id}`} key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit} className="h-7 w-14 rounded-md border px-1.5 py-0.5 text-sm" />
                         </AutoSubmitForm>;
                       })}</div></td>;
                       if (column.kind === "task") {
                         const category = column.category;
                         const assignment = file.categories.find((item) => item.categoryId === category.id);
-                        const editable = canEdit && !(category.name === "Follow up" && noRecheck);
-                        return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${dividerClass(index)} ${category.name === "Follow up" && noRecheck ? "opacity-40" : ""}`}>
-                          {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={editable} actions={props} /> : null}
+                        return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${dividerClass(index)}`}>
+                          {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={canEdit} actions={props} /> : null}
                         </td>;
                       }
                       return <td key="file" className="px-2 py-2 align-top">

@@ -34,7 +34,6 @@ import {
   setCommsStatus,
   signComms,
   removeVaFromComms,
-  setNoRecheck,
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
@@ -173,7 +172,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             vas={state.vas}
             canEdit={canEdit}
             currentUserName={me.name}
-            noRecheck={!!school.noRecheck}
             addTask={addTask}
             addCategoryToFiles={addCategoryToFiles}
             setTaskStatus={setTaskStatus}
@@ -192,7 +190,6 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             setCommsStatus={setCommsStatus}
             signComms={signComms}
             removeVaFromComms={removeVaFromComms}
-            setNoRecheck={setNoRecheck}
           />
         </div>
         <ChecklistCard

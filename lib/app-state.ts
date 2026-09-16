@@ -38,11 +38,6 @@ export interface School {
      next to Email Tracker on the school page -- anyone on the team
      can edit it, no history kept (unlike, say, Issues & Concerns). */
   emailNotes?: string;
-  /* Some schools don't need a second pass after Initial -- clicking
-     "No Follow up" on the school page sets this so Follow up's section
-     shows as disabled/grayed-out there, instead of tracking files that
-     will never apply to this school. */
-  noRecheck?: boolean;
 }
 
 export interface SchoolContact {

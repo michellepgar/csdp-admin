@@ -532,28 +532,6 @@ export async function removeVaFromComms(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
-/* ---------- No Recheck ---------- */
-
-export async function setNoRecheck(formData: FormData) {
-  const schoolId = formData.get("schoolId") as string;
-  const noRecheck = formData.get("noRecheck") === "true";
-
-  if (await isDemoMode()) {
-    await demoMutate((state) => {
-      const school = state.schools.find((s) => s.id === schoolId);
-      if (school) school.noRecheck = noRecheck;
-    });
-    revalidateSchool(schoolId);
-    return;
-  }
-
-  const { supabase } = await requireTeamMember();
-
-  const { error } = await supabase.from("schools").update({ no_recheck: noRecheck }).eq("id", schoolId);
-  orThrow(error);
-  revalidateSchool(schoolId);
-}
-
 export async function addTaskCategory(formData: FormData) {
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;

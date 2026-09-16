@@ -40,7 +40,6 @@ type SchoolRow = {
   fax: string | null;
   hours: string | null;
   email_notes: string | null;
-  no_recheck: boolean | null;
 };
 
 function mapSchoolRow(r: SchoolRow): School {
@@ -53,7 +52,6 @@ function mapSchoolRow(r: SchoolRow): School {
     fax: r.fax ?? undefined,
     hours: r.hours ?? undefined,
     emailNotes: r.email_notes ?? undefined,
-    noRecheck: r.no_recheck ?? false,
   };
 }
 
@@ -507,7 +505,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
-    supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes, no_recheck").order("name"),
+    supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes").order("name"),
     supabase.from("task_categories").select("id, name, school_id, has_count").order("sort_order"),
     supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),

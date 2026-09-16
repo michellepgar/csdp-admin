@@ -6,6 +6,8 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
+import { savePlan } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -47,6 +49,8 @@ export default async function OverviewPage() {
 
   const todayByVa = todayActivityByVa(state.schools, state.schoolData, state.generalTasks || [], state.statusChangedAt || {});
   const vaNamesWithActivity = Array.from(todayByVa.keys()).sort((a, b) => a.localeCompare(b));
+
+  const myPlanItems = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === me?.name);
 
   return (
     <div>
@@ -104,6 +108,17 @@ export default async function OverviewPage() {
           </div>
         )}
       </div>
+
+      {me && (
+        <PlanTomorrowPicker
+          currentUserName={me.name}
+          schools={state.schools}
+          schoolData={state.schoolData}
+          generalTasks={state.generalTasks || []}
+          myPlanItems={myPlanItems}
+          savePlan={savePlan}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left: alerts -- what needs attention right now. */}

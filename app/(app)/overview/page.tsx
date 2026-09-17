@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { checklistCompletion, findVaByEmail, isAdmin, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { checklistCompletion, findVaByEmail, isAdmin, vaColorByName, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
+import { TaskPriorities } from "@/components/task-priorities";
 import { savePlan, addPriority, removePlanItem } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
@@ -88,7 +89,7 @@ export default async function OverviewPage() {
             {vaNamesWithActivity.map((vaName) => {
               const va = state.vas.find((v) => v.name === vaName);
               return (
-                <div key={vaName} className="rounded-md border border-l-4 border-l-plan-accent-secondary bg-record-background p-3">
+                <div key={vaName} className="rounded-md border border-l-4 bg-record-background p-3" style={{ borderLeftColor: va?.color || "var(--plan-accent-secondary)" }}>
                   <div className="mb-2 text-sm font-semibold" style={va?.color ? { color: va.color } : undefined}>
                     {vaName}
                   </div>
@@ -124,8 +125,6 @@ export default async function OverviewPage() {
       <PlansForTomorrow
         planItems={state.planItems || []}
         vas={state.vas}
-        isCurrentUserAdmin={!!me && isAdmin(me)}
-        addPriority={addPriority}
         removePlanItem={removePlanItem}
       />
 
@@ -191,38 +190,47 @@ export default async function OverviewPage() {
           </Card>
         </div>
 
-        {/* Right: how far along each school is. */}
+        {/* Right: boss-added priorities only -- the full plan for every
+            VA (including these same priorities) lives below. */}
         <div className="space-y-4">
-          <div>
-            <div className="mb-3 flex items-center justify-between bg-header-background px-2 py-1">
-              <h2 className="static bg-transparent px-0 py-0 font-semibold">Checklist Progress by School</h2>
-              <span className="text-sm font-medium text-white">{completedSchoolsCount}/{state.schools.length} completed</span>
-            </div>
-            <div className="space-y-3">
-              {state.schools.map((school) => {
-                const pct = checklistCompletion(state, school.id);
-                const tone = progressTone(pct);
-                return (
-                  <Link
-                    key={school.id}
-                    href={`/schools/${school.id}`}
-                    className="block rounded-md border bg-record-background p-3 hover:bg-[color-mix(in_oklch,var(--record-background),var(--primary)_8%)]"
-                  >
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span className="font-medium underline-offset-2 hover:underline">{school.name}</span>
-                      <span className="text-muted-foreground">{pct}%</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${PROGRESS_BAR_CLASSES[tone]}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+          <TaskPriorities
+            planItems={state.planItems || []}
+            vas={state.vas}
+            isCurrentUserAdmin={!!me && isAdmin(me)}
+            addPriority={addPriority}
+            removePlanItem={removePlanItem}
+          />
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-3 flex items-center justify-between bg-header-background px-2 py-1">
+          <h2 className="static bg-transparent px-0 py-0 font-semibold">Checklist Progress by School</h2>
+          <span className="text-sm font-medium text-white">{completedSchoolsCount}/{state.schools.length} completed</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {state.schools.map((school) => {
+            const pct = checklistCompletion(state, school.id);
+            const tone = progressTone(pct);
+            return (
+              <Link
+                key={school.id}
+                href={`/schools/${school.id}`}
+                className="block rounded-md border bg-record-background p-3 hover:bg-[color-mix(in_oklch,var(--record-background),var(--primary)_8%)]"
+              >
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="font-medium underline-offset-2 hover:underline">{school.name}</span>
+                  <span className="text-muted-foreground">{pct}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${PROGRESS_BAR_CLASSES[tone]}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
       </PageBody>

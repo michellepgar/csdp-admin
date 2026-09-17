@@ -1,23 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Dropdown } from "@/components/dropdown";
-import { Button } from "@/components/ui/button";
-import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import type { PlanItem, Va } from "@/lib/app-state";
+import { vaColorByName, type PlanItem, type Va } from "@/lib/app-state";
 
-export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriority, removePlanItem }: {
+/* Every VA's own plan for tomorrow, all in one place -- both their own
+   carried-over tasks (kind:"task") and any boss-added priorities
+   (kind:"priority") show up together here, grouped by VA. The same
+   priorities also show, on their own, in the compact Task Priorities
+   widget beside Alerts -- this is the full picture across everyone. */
+export function PlansForTomorrow({ planItems, vas, removePlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
-  isCurrentUserAdmin: boolean;
-  addPriority: (formData: FormData) => Promise<{ error: string | null }>;
   removePlanItem: (formData: FormData) => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [assignedTo, setAssignedTo] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
   const byVa = new Map<string, PlanItem[]>();
   const shared: PlanItem[] = [];
   for (const item of planItems) {
@@ -28,31 +23,12 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-semibold">Plans for Tomorrow</h2>
-        {isCurrentUserAdmin && <Button type="button" size="xs" variant="outline" onClick={() => setAddOpen((v) => !v)}>+ Add priority</Button>}
-      </div>
-      {isCurrentUserAdmin && addOpen && (
-        <form
-          action={async (formData) => {
-            setError(null);
-            const result = await addPriority(formData);
-            if (result.error) setError(result.error);
-            else { setAddOpen(false); setAssignedTo(""); }
-          }}
-          className="mb-3 flex flex-wrap items-center gap-2 rounded-md border p-2"
-        >
-          <input name="label" required placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border px-2 text-sm" />
-          <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Anyone (shared)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
-          <SubmitButton variant="plan" size="xs" pendingLabel="Adding…">Add</SubmitButton>
-          {error && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
-        </form>
-      )}
+      <h2 className="mb-3 font-semibold">Plans for Tomorrow</h2>
       {planItems.length === 0 && <p className="text-sm text-muted-foreground">Nothing planned yet.</p>}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {vaNames.map((vaName) => (
-          <div key={vaName} className="rounded-md border border-l-4 border-l-plan-accent bg-record-background p-3">
-            <div className="mb-2 text-sm font-semibold">{vaName}</div>
+          <div key={vaName} className="rounded-md border border-l-4 bg-record-background p-3" style={{ borderLeftColor: vaColorByName(vas, vaName) || "var(--plan-accent)" }}>
+            <div className="mb-2 text-sm font-semibold" style={vaColorByName(vas, vaName) ? { color: vaColorByName(vas, vaName) } : undefined}>{vaName}</div>
             <ul className="space-y-1.5">
               {byVa.get(vaName)!.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-2 text-sm">

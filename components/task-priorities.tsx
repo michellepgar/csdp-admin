@@ -12,12 +12,13 @@ import type { PlanItem, Va } from "@/lib/app-state";
    only UNASSIGNED/shared priorities show here (once a VA is attached,
    whether by the boss or by claiming, it's accounted for and shows in
    the full Plans for Tomorrow section below instead). */
-export function TaskPriorities({ planItems, vas, isCurrentUserAdmin, addPriority, removePlanItem }: {
+export function TaskPriorities({ planItems, vas, isCurrentUserAdmin, addPriority, removePlanItem, claimPriorityPlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
   isCurrentUserAdmin: boolean;
   addPriority: (formData: FormData) => Promise<{ error: string | null }>;
   removePlanItem: (formData: FormData) => void;
+  claimPriorityPlanItem: (formData: FormData) => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [assignedTo, setAssignedTo] = useState("");
@@ -56,7 +57,10 @@ export function TaskPriorities({ planItems, vas, isCurrentUserAdmin, addPriority
             {shared.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
                 <span>{item.label}</span>
-                <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}"?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
+                <div className="flex items-center gap-1">
+                  <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="plan" size="xs" pendingLabel="…">Claim</SubmitButton></form>
+                  <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}"?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
+                </div>
               </li>
             ))}
           </ul>

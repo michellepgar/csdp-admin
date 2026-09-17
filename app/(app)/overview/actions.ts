@@ -126,6 +126,33 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
   });
 }
 
+/* Any VA can claim an unassigned/shared priority for themselves --
+   matches this app's existing "no per-row ownership" trust model.
+   Guarded with .is("va_name", null) so two VAs racing to claim the
+   same item can't both succeed: the loser's update just matches zero
+   rows and its next revalidate shows the item already gone from the
+   unassigned list. Once claimed, the item has a vaName and shows up
+   in that VA's own Plans for Tomorrow section instead. */
+export async function claimPriorityPlanItem(formData: FormData): Promise<PlanActionResult> {
+  const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const item = (state.planItems || []).find((p) => p.id === id && p.kind === "priority" && !p.vaName);
+      if (item) item.vaName = "Jane";
+    });
+    revalidatePath("/overview");
+    return { error: null };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
+    const { error } = await supabase.from("plan_items").update({ va_name: me.name }).eq("id", id).eq("kind", "priority").is("va_name", null);
+    orThrow(error);
+    revalidatePath("/overview");
+  });
+}
+
 /* Either VA can remove any pending plan item -- matches this app's
    existing team-wide trust model (no per-row ownership enforcement
    anywhere else either, see plan_items' own RLS policy). */

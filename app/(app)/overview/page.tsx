@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
-import { savePlan, addPriority, removePlanItem } from "./actions";
+import { savePlan, addPriority, removePlanItem, claimPriorityPlanItem } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -199,6 +199,7 @@ export default async function OverviewPage() {
             isCurrentUserAdmin={!!me && isAdmin(me)}
             addPriority={addPriority}
             removePlanItem={removePlanItem}
+            claimPriorityPlanItem={claimPriorityPlanItem}
           />
         </div>
       </div>

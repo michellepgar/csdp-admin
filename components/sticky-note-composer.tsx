@@ -367,7 +367,7 @@ export function StickyNoteComposer({
         // uses (general-notes-list.tsx/private-notes-list.tsx).
         // .note-checklist-item is defined in globals.css (its indent
         // and checkbox alignment).
-        className="min-h-24 w-full overflow-x-auto rounded-md border p-3 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1"
+        className="min-h-24 w-full overflow-x-auto rounded-md border p-3 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline"
         style={{ backgroundColor: padColor }}
       />
       <input ref={textInputRef} type="hidden" name="text" />

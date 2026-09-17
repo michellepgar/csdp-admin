@@ -35,9 +35,19 @@ import sanitizeHtml from "sanitize-html";
    background-color joins the style allowlist for the same reason
    (cell highlight colors), scoped to "*" like the others since a
    pasted table can put it on the <table>, a <tr>, or an individual
-   <td>/<th> depending on the source. */
-const ALLOWED_TAGS = ["b", "strong", "i", "em", "u", "span", "font", "div", "br", "ul", "ol", "li", "input", "table", "thead", "tbody", "tr", "td", "th"];
-const ALLOWED_ATTR = ["style", "class", "color", "face", "size", "type", "checked", "disabled", "colspan", "rowspan"];
+   <td>/<th> depending on the source.
+
+   <a> is the same story again -- pasting a copied hyperlink (from a
+   webpage, an email, a Sheets cell with =HYPERLINK(), etc) brings its
+   own <a href> along for free; without allowing it here it degraded
+   to plain unlinked text on save. allowedSchemes below restricts href
+   to http/https/mailto so a pasted javascript: URL can't sneak an
+   attribute-based XSS through; transformTags then forces every link
+   to open in a new tab with rel="noopener noreferrer" regardless of
+   what the source pasted, same safe-external-link convention this
+   app already uses everywhere else. */
+const ALLOWED_TAGS = ["b", "strong", "i", "em", "u", "span", "font", "div", "br", "ul", "ol", "li", "input", "table", "thead", "tbody", "tr", "td", "th", "a"];
+const ALLOWED_ATTR = ["style", "class", "color", "face", "size", "type", "checked", "disabled", "colspan", "rowspan", "href", "target", "rel"];
 const ALLOWED_STYLES = {
   "*": {
     color: [/^.*$/],
@@ -57,6 +67,10 @@ export function sanitizeNoteHtml(html: string): string {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: { "*": ALLOWED_ATTR },
     allowedStyles: ALLOWED_STYLES,
+    allowedSchemes: ["http", "https", "mailto"],
+    transformTags: {
+      a: sanitizeHtml.simpleTransform("a", { target: "_blank", rel: "noopener noreferrer" }),
+    },
     // input[type=checkbox] is the only void/self-closing tag this
     // composer ever inserts.
     selfClosing: ["br", "input"],

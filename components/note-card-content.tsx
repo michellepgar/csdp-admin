@@ -29,7 +29,7 @@ export function NoteCardContent({
           before it's ever stored -- see private-notes/actions.ts's
           addPrivateNote -- so this is safe to render as-is. */}
       <div
-        className="overflow-x-auto text-sm [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1"
+        className="overflow-x-auto text-sm [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline"
         dangerouslySetInnerHTML={{ __html: note.text }}
       />
       <p className="mt-1 text-xs text-muted-foreground">

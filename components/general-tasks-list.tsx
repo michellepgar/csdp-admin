@@ -15,6 +15,7 @@ import { submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task
 import {
   TASK_STATUS_OPTIONS,
   vaColorByName,
+  visibleSchoolItems,
   type GeneralTask,
   type GeneralTaskCategory,
   type TaskCategory,
@@ -147,6 +148,73 @@ function GeneralTaskRow({
   );
 }
 
+/* Bulk move picker -- targets several selected General Tasks with one
+   shared destination (school, plus either a plain category or an
+   existing table + category mapping), each still becoming its own new
+   file (per Michelle: no combining several tasks onto one file in a
+   bulk move -- that's still a one-at-a-time GeneralTaskMoveForm case). */
+function BulkMoveForm({ taskIds, tasks, schools, taskCategories, schoolTables, moveGeneralTasksToSchool, onClose }: {
+  taskIds: string[];
+  tasks: GeneralTask[];
+  schools: { id: string; name: string }[];
+  taskCategories: TaskCategory[];
+  schoolTables: SchoolTables;
+  moveGeneralTasksToSchool: (formData: FormData) => Promise<{ error: string | null }>;
+  onClose: () => void;
+}) {
+  const [schoolId, setSchoolId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [existingTable, setExistingTable] = useState(false);
+  const [tableKey, setTableKey] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const categories = schoolId ? visibleSchoolItems(taskCategories, schoolId) : [];
+  const tables = schoolTables[schoolId] || [];
+  const selectedTable = tables.find((t) => t.key === tableKey);
+  const selectedTasks = tasks.filter((t) => taskIds.includes(t.id));
+
+  return (
+    <div className="rounded-md border bg-card p-3">
+      <p className="mb-2 text-sm font-semibold">Move {taskIds.length} tasks to which school?</p>
+      <form
+        action={async (formData) => {
+          setError(null);
+          taskIds.forEach((id) => formData.append("taskIds", id));
+          const fileNames = Object.fromEntries(selectedTasks.map((t) => [t.id, t.description]));
+          formData.set("fileNames", JSON.stringify(fileNames));
+          if (selectedTable) formData.set("tableCategoryIds", selectedTable.categoryIds.join(","));
+          const result = await moveGeneralTasksToSchool(formData);
+          if (result.error) setError(result.error);
+          else onClose();
+        }}
+        className="space-y-2"
+      >
+        <Dropdown name="schoolId" value={schoolId} onChange={(v) => { setSchoolId(v); setCategoryId(""); setTableKey(""); }} placeholder="Choose a school" options={schools.map((s) => ({ value: s.id, label: s.name }))} />
+        {schoolId && tables.length > 0 && (
+          <div className="flex gap-1">
+            <Button type="button" size="xs" variant={existingTable ? "outline" : "default"} onClick={() => { setExistingTable(false); setCategoryId(""); setTableKey(""); }}>New files</Button>
+            <Button type="button" size="xs" variant={existingTable ? "default" : "outline"} onClick={() => { setExistingTable(true); setCategoryId(""); }}>Add to existing table</Button>
+          </div>
+        )}
+        {existingTable ? (
+          <>
+            <Dropdown name="tableKey" value={tableKey} onChange={(v) => { setTableKey(v); setCategoryId(""); }} placeholder="Choose a table" options={tables.map((t) => ({ value: t.key, label: `${t.categoryNames.join(" + ")} (${t.fileCount} file${t.fileCount === 1 ? "" : "s"})` }))} />
+            {selectedTable && (
+              <Dropdown name="categoryId" value={categoryId} onChange={setCategoryId} placeholder="Which category is this?" options={selectedTable.categoryIds.map((id, i) => ({ value: id, label: selectedTable.categoryNames[i] }))} />
+            )}
+          </>
+        ) : (
+          <Dropdown name="categoryId" value={categoryId} onChange={setCategoryId} placeholder="Choose a category" options={categories.map((c) => ({ value: c.id, label: c.name }))} />
+        )}
+        <div className="flex gap-2">
+          <SubmitButton size="sm" pendingLabel="Moving…" disabled={!schoolId || !categoryId}>Move {taskIds.length}</SubmitButton>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+        </div>
+        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      </form>
+    </div>
+  );
+}
+
 /* Work that isn't tied to any school -- Admin, Training, Team Meeting,
    Payroll, etc. Same look as a school's own Tasks card
    (components/tasks-card.tsx), just without a schoolId, count, or
@@ -171,6 +239,7 @@ export function GeneralTasksList({
   removeGeneralTaskCategory,
   updateGeneralTaskDescription,
   moveGeneralTaskToSchool,
+  moveGeneralTasksToSchool,
   addTaskCategory,
 }: {
   tasks: GeneralTask[];
@@ -189,10 +258,17 @@ export function GeneralTasksList({
   removeGeneralTaskCategory: (formData: FormData) => void;
   updateGeneralTaskDescription: (formData: FormData) => Promise<TaskFileActionResult>;
   moveGeneralTaskToSchool: (formData: FormData) => Promise<{ error: string | null }>;
+  moveGeneralTasksToSchool: (formData: FormData) => Promise<{ error: string | null }>;
   addTaskCategory: (formData: FormData) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkMoving, setBulkMoving] = useState(false);
   const openCount = tasks.filter((t) => t.status === "In Progress").length;
+
+  function toggleSelected(id: string) {
+    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
 
   return (
     <div className="rounded-md border bg-card">
@@ -245,24 +321,46 @@ export function GeneralTasksList({
         ) : (
           <div className="divide-y rounded-md border">
             {[...tasks].reverse().map((task) => (
-              <GeneralTaskRow
-                key={task.id}
-                task={task}
-                vas={vas}
-                currentUserName={currentUserName}
-                schools={schools}
-                taskCategories={taskCategories}
-                schoolTables={schoolTables}
-                setGeneralTaskStatus={setGeneralTaskStatus}
-                signGeneralTask={signGeneralTask}
-                removeVaFromGeneralTask={removeVaFromGeneralTask}
-                removeGeneralTask={removeGeneralTask}
-                updateGeneralTaskDescription={updateGeneralTaskDescription}
-                moveGeneralTaskToSchool={moveGeneralTaskToSchool}
-                addTaskCategory={addTaskCategory}
-              />
+              <div key={task.id} className="flex items-start gap-2 bg-record-background px-1">
+                <input type="checkbox" className="mt-2" checked={selectedIds.includes(task.id)} onChange={() => toggleSelected(task.id)} />
+                <div className="flex-1">
+                  <GeneralTaskRow
+                    task={task}
+                    vas={vas}
+                    currentUserName={currentUserName}
+                    schools={schools}
+                    taskCategories={taskCategories}
+                    schoolTables={schoolTables}
+                    setGeneralTaskStatus={setGeneralTaskStatus}
+                    signGeneralTask={signGeneralTask}
+                    removeVaFromGeneralTask={removeVaFromGeneralTask}
+                    removeGeneralTask={removeGeneralTask}
+                    updateGeneralTaskDescription={updateGeneralTaskDescription}
+                    moveGeneralTaskToSchool={moveGeneralTaskToSchool}
+                    addTaskCategory={addTaskCategory}
+                  />
+                </div>
+              </div>
             ))}
           </div>
+        )}
+
+        {selectedIds.length > 0 && (
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 p-2 text-sm">
+            <span>{selectedIds.length} selected</span>
+            <Button type="button" size="xs" variant="outline" onClick={() => setBulkMoving(true)}>Move {selectedIds.length} to a school →</Button>
+          </div>
+        )}
+        {bulkMoving && (
+          <BulkMoveForm
+            taskIds={selectedIds}
+            tasks={tasks}
+            schools={schools}
+            taskCategories={taskCategories}
+            schoolTables={schoolTables}
+            moveGeneralTasksToSchool={moveGeneralTasksToSchool}
+            onClose={() => { setBulkMoving(false); setSelectedIds([]); }}
+          />
         )}
       </div>
     </div>

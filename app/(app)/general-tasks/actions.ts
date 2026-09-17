@@ -230,6 +230,34 @@ export async function moveGeneralTaskToSchool(formData: FormData): Promise<Gener
   });
 }
 
+/* Bulk version of moveGeneralTaskToSchool -- one destination (school,
+   plus either a plain category or an existing table + category
+   mapping) applied to every selected task, each still becoming its
+   own new file. Loops the same per-task logic; if one task in the
+   batch fails (e.g. deleted by someone else mid-flight), the error
+   names which one and the rest still complete. fileNames is a JSON
+   map keyed by task id (each task keeps its own file name, its
+   current description by default) since a bulk move has no single
+   shared file name to submit. */
+export async function moveGeneralTasksToSchool(formData: FormData): Promise<GeneralTaskActionResult> {
+  const taskIds = formData.getAll("taskIds").map(String);
+  if (taskIds.length === 0) return { error: "Select at least one task." };
+  const fileNamesJson = (formData.get("fileNames") as string) || "{}";
+  const fileNames: Record<string, string> = JSON.parse(fileNamesJson);
+
+  for (const taskId of taskIds) {
+    const single = new FormData();
+    single.set("taskId", taskId);
+    single.set("schoolId", formData.get("schoolId") as string);
+    single.set("categoryId", formData.get("categoryId") as string);
+    single.set("fileName", fileNames[taskId] || "");
+    single.set("tableCategoryIds", (formData.get("tableCategoryIds") as string) || "");
+    const result = await moveGeneralTaskToSchool(single);
+    if (result.error) return { error: `Failed on one task: ${result.error}` };
+  }
+  return { error: null };
+}
+
 export async function addGeneralTaskCategory(formData: FormData) {
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) return;

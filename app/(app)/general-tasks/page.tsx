@@ -17,6 +17,7 @@ import {
   removeGeneralTaskCategory,
   updateGeneralTaskDescription,
   moveGeneralTaskToSchool,
+  moveGeneralTasksToSchool,
 } from "./actions";
 
 export default async function GeneralTasksPage() {
@@ -66,6 +67,7 @@ export default async function GeneralTasksPage() {
           removeGeneralTaskCategory={removeGeneralTaskCategory}
           updateGeneralTaskDescription={updateGeneralTaskDescription}
           moveGeneralTaskToSchool={moveGeneralTaskToSchool}
+          moveGeneralTasksToSchool={moveGeneralTasksToSchool}
           addTaskCategory={addTaskCategory}
         />
       </PageBody>

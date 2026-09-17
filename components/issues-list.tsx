@@ -27,8 +27,16 @@ const ISSUE_STATUS_TONE: Record<string, StatusTone> = {
   Resolved: "success",
 };
 
+/* timeZone: "UTC" is deliberate, not a display preference -- this
+   component renders during SSR (Vercel's server runs in UTC) and then
+   hydrates in the viewer's browser (whatever timezone that is). Without
+   forcing both sides to agree, toLocaleDateString silently produces a
+   different string on the server vs. the client for roughly a third of
+   the day (whenever the two timezones' calendar dates differ), which
+   React treats as a hydration mismatch (React error #418) -- confirmed
+   directly on production. */
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 /* One add form for every issue type -- which fields show depends on

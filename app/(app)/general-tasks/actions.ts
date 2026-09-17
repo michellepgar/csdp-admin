@@ -79,6 +79,28 @@ export async function updateGeneralTaskDescription(formData: FormData): Promise<
   });
 }
 
+export async function updateGeneralTaskCategory(formData: FormData): Promise<GeneralTaskActionResult> {
+  const taskId = formData.get("taskId") as string;
+  const category = ((formData.get("category") as string) || "").trim();
+  if (!category) return { error: "Choose a category." };
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const task = (state.generalTasks || []).find((t) => t.id === taskId);
+      if (task) task.category = category;
+    });
+    revalidatePath("/general-tasks");
+    return { error: null };
+  }
+
+  return runResultAction(async () => {
+    const { supabase } = await requireTeamMember();
+    const { error } = await supabase.from("general_tasks").update({ category }).eq("id", taskId);
+    orThrow(error);
+    revalidatePath("/general-tasks");
+  });
+}
+
 export async function setGeneralTaskStatus(formData: FormData) {
   const taskId = formData.get("taskId") as string;
   const status = (formData.get("status") as string) || "";

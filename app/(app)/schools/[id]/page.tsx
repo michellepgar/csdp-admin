@@ -37,6 +37,7 @@ import {
   addEmailItem,
   setEmailStatus,
   removeEmailItem,
+  updateEmailItemDescription,
   setSchoolEmailNotes,
   renameSchool,
   removeSchool,
@@ -219,6 +220,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             addEmailItem={addEmailItem}
             setEmailStatus={setEmailStatus}
             removeEmailItem={removeEmailItem}
+            updateEmailItemDescription={updateEmailItemDescription}
           />
         </div>
         <EmailNotesCard schoolId={schoolId} emailNotes={school.emailNotes} setSchoolEmailNotes={setSchoolEmailNotes} />

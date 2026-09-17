@@ -713,6 +713,30 @@ export async function addEmailItem(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
+export async function updateEmailItemDescription(formData: FormData): Promise<TaskFileActionResult> {
+  const schoolId = formData.get("schoolId") as string;
+  const itemId = formData.get("itemId") as string;
+  const description = ((formData.get("description") as string) || "").trim();
+  if (!description) return { error: "Enter what the email is about." };
+
+  if (await isDemoMode()) {
+    const result = await saveTaskFile(() => demoMutate((state) => {
+      const item = state.schoolData[schoolId]?.emailTracker?.find((e) => e.id === itemId);
+      if (item) item.description = description;
+    }));
+    if (!result.error) revalidateSchool(schoolId);
+    return result;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const result = await saveTaskFile(async () => {
+    const { error } = await supabase.from("email_tracker_items").update({ description }).eq("id", itemId).eq("school_id", schoolId);
+    if (error) throw error;
+  });
+  if (!result.error) revalidateSchool(schoolId);
+  return result;
+}
+
 export async function setEmailStatus(formData: FormData) {
   const schoolId = formData.get("schoolId") as string;
   const itemId = formData.get("itemId") as string;

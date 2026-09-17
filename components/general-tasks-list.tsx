@@ -35,6 +35,7 @@ function GeneralTaskRow({
   vas,
   currentUserName,
   schools,
+  categories,
   taskCategories,
   schoolTables,
   setGeneralTaskStatus,
@@ -42,6 +43,7 @@ function GeneralTaskRow({
   removeVaFromGeneralTask,
   removeGeneralTask,
   updateGeneralTaskDescription,
+  updateGeneralTaskCategory,
   moveGeneralTaskToSchool,
   addTaskCategory,
 }: {
@@ -49,6 +51,7 @@ function GeneralTaskRow({
   vas: Va[];
   currentUserName: string;
   schools: { id: string; name: string }[];
+  categories: GeneralTaskCategory[];
   taskCategories: TaskCategory[];
   schoolTables: SchoolTables;
   setGeneralTaskStatus: (formData: FormData) => void;
@@ -56,6 +59,7 @@ function GeneralTaskRow({
   removeVaFromGeneralTask: (formData: FormData) => void;
   removeGeneralTask: (formData: FormData) => void;
   updateGeneralTaskDescription: (formData: FormData) => Promise<TaskFileActionResult>;
+  updateGeneralTaskCategory: (formData: FormData) => Promise<TaskFileActionResult>;
   moveGeneralTaskToSchool: (formData: FormData) => Promise<{ error: string | null }>;
   addTaskCategory: (formData: FormData) => void;
 }) {
@@ -63,12 +67,34 @@ function GeneralTaskRow({
   const [editingDescription, setEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(task.description);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [editedCategory, setEditedCategory] = useState(task.category);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
 
   return (
     <div className="flex flex-col gap-2 bg-record-background px-1 py-1">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-bold">{task.category}</span>
+        {editingCategory ? (
+          <form
+            action={(formData) => submitTaskFileForm(updateGeneralTaskCategory, formData, setCategoryError, () => setEditingCategory(false))}
+            className="flex items-center gap-1"
+          >
+            <input type="hidden" name="taskId" value={task.id} />
+            <Dropdown
+              name="category"
+              value={editedCategory}
+              onChange={setEditedCategory}
+              options={categories.map((c) => ({ value: c.name, label: c.name }))}
+              className="h-7 rounded-md border px-2 text-left text-sm"
+            />
+            <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton>
+            <Button type="button" variant="ghost" size="xs" onClick={() => { setEditedCategory(task.category); setCategoryError(null); setEditingCategory(false); }}>Cancel</Button>
+            {categoryError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{categoryError}</p>}
+          </form>
+        ) : (
+          <span className="text-sm font-bold">{task.category}</span>
+        )}
 
         {editingDescription ? (
           <form
@@ -116,6 +142,7 @@ function GeneralTaskRow({
             ariaLabel={`More actions for ${task.description}`}
             items={[
               { label: "Edit description", onClick: () => { setEditedDescription(task.description); setDescriptionError(null); setEditingDescription(true); } },
+              { label: "Edit category", onClick: () => { setEditedCategory(task.category); setCategoryError(null); setEditingCategory(true); } },
               { label: "Move to a school", onClick: () => setMoving(true) },
               {
                 label: "Remove",
@@ -238,6 +265,7 @@ export function GeneralTasksList({
   addGeneralTaskCategory,
   removeGeneralTaskCategory,
   updateGeneralTaskDescription,
+  updateGeneralTaskCategory,
   moveGeneralTaskToSchool,
   moveGeneralTasksToSchool,
   addTaskCategory,
@@ -257,6 +285,7 @@ export function GeneralTasksList({
   addGeneralTaskCategory: (formData: FormData) => void;
   removeGeneralTaskCategory: (formData: FormData) => void;
   updateGeneralTaskDescription: (formData: FormData) => Promise<TaskFileActionResult>;
+  updateGeneralTaskCategory: (formData: FormData) => Promise<TaskFileActionResult>;
   moveGeneralTaskToSchool: (formData: FormData) => Promise<{ error: string | null }>;
   moveGeneralTasksToSchool: (formData: FormData) => Promise<{ error: string | null }>;
   addTaskCategory: (formData: FormData) => void;
@@ -329,6 +358,7 @@ export function GeneralTasksList({
                     vas={vas}
                     currentUserName={currentUserName}
                     schools={schools}
+                    categories={categories}
                     taskCategories={taskCategories}
                     schoolTables={schoolTables}
                     setGeneralTaskStatus={setGeneralTaskStatus}
@@ -336,6 +366,7 @@ export function GeneralTasksList({
                     removeVaFromGeneralTask={removeVaFromGeneralTask}
                     removeGeneralTask={removeGeneralTask}
                     updateGeneralTaskDescription={updateGeneralTaskDescription}
+                    updateGeneralTaskCategory={updateGeneralTaskCategory}
                     moveGeneralTaskToSchool={moveGeneralTaskToSchool}
                     addTaskCategory={addTaskCategory}
                   />

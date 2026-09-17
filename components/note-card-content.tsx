@@ -28,7 +28,10 @@ export function NoteCardContent({
       {/* text is sanitized server-side (lib/sanitize-note-html.ts)
           before it's ever stored -- see private-notes/actions.ts's
           addPrivateNote -- so this is safe to render as-is. */}
-      <div className="text-sm [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: note.text }} />
+      <div
+        className="overflow-x-auto text-sm [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1"
+        dangerouslySetInnerHTML={{ __html: note.text }}
+      />
       <p className="mt-1 text-xs text-muted-foreground">
         {showAuthor && <>{note.author} · </>}
         {formatDateTime(note.createdAt)}

@@ -87,7 +87,10 @@ function GeneralNoteRow({
               before it's ever stored -- see notes/actions.ts's
               addGeneralNote/updateGeneralNote -- so this is safe to
               render as-is. */}
-          <div className="text-sm [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: n.text }} />
+          <div
+            className="overflow-x-auto text-sm [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1"
+            dangerouslySetInnerHTML={{ __html: n.text }}
+          />
           <p className="mt-1 text-xs text-muted-foreground">
             {n.author} · {formatDateTime(n.createdAt)}
             {n.urgency === "Urgent" && ackBy.length > 0 && ` · Seen by ${ackBy.join(", ")}`}

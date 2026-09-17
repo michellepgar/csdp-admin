@@ -254,6 +254,58 @@ export function StickyNoteComposer({
     e.preventDefault();
   }
 
+  // A copied TABLE or LINK (handled by the browser's own default paste
+  // -- lib/sanitize-note-html.ts is what keeps those alive on save) is
+  // real HTML on the clipboard already. A copied SCREENSHOT is not --
+  // it's raw image bytes with no HTML representation at all, and
+  // confirmed directly that the browser's default contentEditable
+  // paste does nothing visible with it left to itself. This is the
+  // one paste case that needs actual code: detect an image clipboard
+  // item, read it as a data URL, and insert it as a real <img> at the
+  // cursor ourselves. Every other paste (plain text, a copied table,
+  // a copied link) still falls through to the browser's own default
+  // handling untouched -- this only intercepts when an image is
+  // actually present.
+  function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    // Captured synchronously, before the FileReader's async read --
+    // by the time reader.onload fires the selection may have moved
+    // (or the editor may have lost focus entirely), so the insertion
+    // point has to be locked in now, not read again later.
+    const savedRange = selection && selection.rangeCount > 0 && editor?.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string" || !editor) return;
+      editor.focus();
+      const img = document.createElement("img");
+      img.src = reader.result;
+      const range = savedRange ?? document.createRange();
+      if (!savedRange) {
+        range.selectNodeContents(editor);
+        range.collapse(false);
+      }
+      range.deleteContents();
+      range.insertNode(img);
+      range.setStartAfter(img);
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted p-1.5">
@@ -359,6 +411,7 @@ export function StickyNoteComposer({
         suppressContentEditableWarning
         data-placeholder={placeholder}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         // [&_ul]/[&_ol] -- the app's own CSS reset otherwise zeroes
         // out list-style/padding on every <ul>/<li> globally, so a
         // Bullet list click looked like it did nothing while actually

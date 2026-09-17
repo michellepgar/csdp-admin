@@ -85,6 +85,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const needsGeneralNoteAck = (state.generalNotes || []).some(
     (n) => n.urgency === "Urgent" && n.author !== me.name && !(n.ackBy || []).includes(me.name)
   );
+  const needsIssueCommentAck = (state.issues || []).some(
+    (i) => (i.comments || []).length > 0 && !(i.commentAckBy || []).includes(me.name)
+  );
 
   const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name && !p.completedAt);
 
@@ -101,6 +104,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       initialCollapsed={sidebarCollapsed}
       needsPrivateNoteAck={needsPrivateNoteAck}
       needsGeneralNoteAck={needsGeneralNoteAck}
+      needsIssueCommentAck={needsIssueCommentAck}
       myPlanItems={myPlanItems}
       taskCategories={state.taskCategories || []}
       generalTaskCategories={state.generalTaskCategories || []}

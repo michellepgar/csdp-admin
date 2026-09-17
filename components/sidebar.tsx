@@ -45,6 +45,7 @@ export function Sidebar({
   collapsed = false,
   needsPrivateNoteAck,
   needsGeneralNoteAck,
+  needsIssueCommentAck,
 }: {
   currentName: string;
   currentMember: CurrentPresenceMember;
@@ -67,6 +68,10 @@ export function Sidebar({
      booleans. */
   needsPrivateNoteAck: boolean;
   needsGeneralNoteAck: boolean;
+  /** Same idea, for Issues & Concerns -- true when any issue has a
+   *  comment the current user hasn't seen yet (see
+   *  app/(app)/layout.tsx's own comment). */
+  needsIssueCommentAck: boolean;
   /* Icons-only mode -- Michelle asked to be able to jump between
      pages without the full labeled panel taking up space every time.
      Search/VA-filter/"+ Add school" all need room to type in, so
@@ -324,7 +329,12 @@ export function Sidebar({
             title={!collapsed ? "Issues & Concerns" : undefined}
             className={navLinkClass("/issues", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <AlertTriangle className="h-4 w-4 flex-none text-red-600 dark:text-red-400" />
+            <span className="relative flex-none">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              {needsIssueCommentAck && (
+                <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="A new comment was posted on an issue -- open it to clear this" />
+              )}
+            </span>
             {!collapsed && <span className="min-w-0 truncate">Issues & Concerns</span>}
           </Link>
         </IconTooltip>

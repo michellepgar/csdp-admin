@@ -41,6 +41,7 @@ export function SidebarShell({
   initialCollapsed,
   needsPrivateNoteAck,
   needsGeneralNoteAck,
+  needsIssueCommentAck,
   myPlanItems,
   taskCategories,
   generalTaskCategories,
@@ -60,6 +61,7 @@ export function SidebarShell({
   initialCollapsed: boolean;
   needsPrivateNoteAck: boolean;
   needsGeneralNoteAck: boolean;
+  needsIssueCommentAck: boolean;
   myPlanItems: PlanItem[];
   taskCategories: TaskCategory[];
   generalTaskCategories: GeneralTaskCategory[];
@@ -182,6 +184,7 @@ export function SidebarShell({
           collapsed={collapsed}
           needsPrivateNoteAck={needsPrivateNoteAck}
           needsGeneralNoteAck={needsGeneralNoteAck}
+          needsIssueCommentAck={needsIssueCommentAck}
         />
       </div>
 

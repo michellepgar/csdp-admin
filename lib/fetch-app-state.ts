@@ -26,6 +26,7 @@ import type {
   EodReport,
   Issue,
   IssueCategory,
+  IssueComment,
   AccessRequest,
   GeneralTask,
   GeneralTaskCategory,
@@ -409,6 +410,7 @@ type IssueRow = {
   question: string | null;
   fixed_by: string[];
   fix_note: string | null;
+  comment_ack_by: string[] | null;
 };
 
 function mapIssueRow(r: IssueRow): Issue {
@@ -440,7 +442,14 @@ function mapIssueRow(r: IssueRow): Issue {
     question: r.question ?? undefined,
     fixedBy: r.fixed_by,
     fixNote: r.fix_note ?? undefined,
+    commentAckBy: r.comment_ack_by ?? [],
   };
+}
+
+type IssueCommentRow = { id: string; issue_id: string; author: string; text: string; created_at: string };
+
+function mapIssueCommentRow(r: IssueCommentRow): IssueComment {
+  return { id: r.id, author: r.author, text: r.text, createdAt: r.created_at };
 }
 
 type SchoolContactRow = { id: string; school_id: string; position: string; name: string | null; email: string; created_at: string };
@@ -534,6 +543,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     issuesResult,
     issueCategoriesResult,
     issueSubcategoriesResult,
+    issueCommentsResult,
     accessRequestsResult,
     schoolContactsResult,
     otherContactsResult,
@@ -560,9 +570,10 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("distribution_rows").select("id, group_id, school, enrolled, distributed, classroom_regular, classroom_launch, classroom_crr, consent_packets, contact_person, remarks, breakdown").order("sort_order"),
     supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
     supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
-    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, subcategory, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note").order("created_at"),
+    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, subcategory, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note, comment_ack_by").order("created_at"),
     supabase.from("issue_categories").select("id, name").order("sort_order"),
     supabase.from("issue_subcategories").select("id, category_id, name").order("sort_order"),
+    supabase.from("issue_comments").select("id, issue_id, author, text, created_at").order("created_at"),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, name, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
@@ -592,6 +603,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (eodReportsResult.error) return null;
   if (issuesResult.error) return null;
   if (issueCategoriesResult.error) return null;
+  if (issueCommentsResult.error) return null;
   if (issueSubcategoriesResult.error) return null;
   if (accessRequestsResult.error) return null;
   if (schoolContactsResult.error) return null;
@@ -727,7 +739,16 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
 
   state.eodReports = (eodReportsResult.data || []).map((r) => mapEodReportRow(r as EodReportRow));
 
-  state.issues = (issuesResult.data || []).map((r) => mapIssueRow(r as unknown as IssueRow));
+  const issueCommentsByIssueId = new Map<string, IssueComment[]>();
+  for (const c of (issueCommentsResult.data || []) as IssueCommentRow[]) {
+    const list = issueCommentsByIssueId.get(c.issue_id) ?? [];
+    list.push(mapIssueCommentRow(c));
+    issueCommentsByIssueId.set(c.issue_id, list);
+  }
+  state.issues = (issuesResult.data || []).map((r) => ({
+    ...mapIssueRow(r as unknown as IssueRow),
+    comments: issueCommentsByIssueId.get((r as unknown as IssueRow).id) || [],
+  }));
 
   state.issueCategories = (issueCategoriesResult.data || []).map(
     (c): IssueCategory => ({

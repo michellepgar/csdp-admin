@@ -159,48 +159,59 @@ export async function removeIssue(formData: FormData) {
   revalidatePath("/issues");
 }
 
-/* Fix used to be a list of sign-off chips (fixed_by) -- replaced with
-   a free-text note anyone can type/update, same auto-save pattern as
-   other single-value fields (e.g. setIssueStatus above). */
-export async function setIssueFixNote(formData: FormData) {
-  const id = formData.get("id") as string;
-  const fixNote = (formData.get("fixNote") as string) || "";
+/* A comment thread per issue, replacing the old single free-text Note/
+   Fix field (see components/issue-comments.tsx) -- addIssueComment
+   resets comment_ack_by to just the poster's own name on every new
+   comment, which is what makes the "new comment" dot blink again for
+   everyone else; ackIssueComments (called when a VA opens the
+   dropdown) adds them to that list, clearing it for them. */
+export async function addIssueComment(formData: FormData) {
+  const issueId = formData.get("issueId") as string;
+  const text = ((formData.get("text") as string) || "").trim();
+  if (!text) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      const issue = (state.issues || []).find((i) => i.id === id);
-      if (issue) issue.fixNote = fixNote;
+      const issue = (state.issues || []).find((i) => i.id === issueId);
+      if (!issue) return;
+      (issue.comments ??= []).push({ id: `demo-${Date.now()}`, author: "Jane", text, createdAt: new Date().toISOString() });
+      issue.commentAckBy = ["Jane"];
     });
     revalidatePath("/issues");
     return;
   }
 
-  const { supabase } = await requireTeamMember();
+  const { supabase, me } = await requireTeamMember();
 
-  const { error } = await supabase.from("issues").update({ fix_note: fixNote }).eq("id", id);
+  const { error } = await supabase.from("issue_comments").insert({ id: crypto.randomUUID(), issue_id: issueId, author: me.name, text });
   orThrow(error);
+  const { error: ackError } = await supabase.from("issues").update({ comment_ack_by: [me.name] }).eq("id", issueId);
+  orThrow(ackError);
   revalidatePath("/issues");
 }
 
-/* Software Issue's own Note (issues.remarks), editable after the fact
-   the same way -- not to be confused with Correction/Charting's Fix
-   note above (a different column, different meaning). */
-export async function setIssueNote(formData: FormData) {
-  const id = formData.get("id") as string;
-  const note = (formData.get("note") as string) || "";
+export async function ackIssueComments(formData: FormData) {
+  const issueId = formData.get("issueId") as string;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      const issue = (state.issues || []).find((i) => i.id === id);
-      if (issue) issue.remarks = note;
+      const issue = (state.issues || []).find((i) => i.id === issueId);
+      if (!issue) return;
+      issue.commentAckBy ??= [];
+      if (!issue.commentAckBy.includes("Jane")) issue.commentAckBy.push("Jane");
     });
     revalidatePath("/issues");
     return;
   }
 
-  const { supabase } = await requireTeamMember();
+  const { supabase, me } = await requireTeamMember();
 
-  const { error } = await supabase.from("issues").update({ remarks: note }).eq("id", id);
+  const { data: issue } = await supabase.from("issues").select("comment_ack_by").eq("id", issueId).maybeSingle();
+  if (!issue) return;
+  const ackBy: string[] = issue.comment_ack_by || [];
+  if (ackBy.includes(me.name)) return;
+
+  const { error } = await supabase.from("issues").update({ comment_ack_by: [...ackBy, me.name] }).eq("id", issueId);
   orThrow(error);
   revalidatePath("/issues");
 }

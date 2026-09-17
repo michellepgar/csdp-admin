@@ -675,11 +675,28 @@ export interface Issue {
   otherCorrectionDetail?: string;
   // Charting Questions
   question?: string;
-  // Correction/Charting "Fix" -- a free-text note about what was done,
-  // not a sign-off list. fixedBy (the old sign-off chips) is retired,
-  // kept only so old rows don't break anything reading it.
+  // Correction/Charting "Fix" -- fixedBy (the old sign-off chips) and
+  // fixNote (the single free-text note that replaced them) are both
+  // retired now that every issue type uses the comment thread below
+  // instead; kept only so old rows don't break anything reading them.
   fixedBy?: string[];
   fixNote?: string;
+  /** A comment thread, replacing the old single Note/Fix free-text
+   *  field -- see components/issue-comments.tsx. Populated by
+   *  lib/fetch-app-state.ts from the issue_comments table, grouped by
+   *  issue id. */
+  comments?: IssueComment[];
+  /** VAs who have seen the LATEST comment -- reset to just the
+   *  poster's own name whenever a new comment is added, so the
+   *  blinking "new comment" dot reopens for everyone else. */
+  commentAckBy?: string[];
+}
+
+export interface IssueComment {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
 }
 
 export function canDeleteIssue(issue: Issue, currentName: string, currentIsAdmin: boolean): boolean {

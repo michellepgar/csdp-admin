@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
 import { Dropdown } from "@/components/dropdown";
 import { Input } from "@/components/ui/input";
+import { IssueComments } from "@/components/issue-comments";
 import {
   ISSUE_STATUS_OPTIONS,
   ISSUE_TYPE_LABELS,
@@ -135,6 +135,10 @@ export function AddIssueForm({
       {editorOpen && type === "software_issue" && (
         <div className="space-y-3 rounded-md border bg-card p-3">
           <p className="text-xs text-muted-foreground">Editing this list changes the categories/subcategories available for every Software Issue.</p>
+          <form action={addIssueCategory} className="flex gap-2">
+            <Input name="name" placeholder="New category" required />
+            <SubmitButton pendingLabel="Adding…">Add category</SubmitButton>
+          </form>
           {issueCategories.map((c) => (
             <div key={c.id} className="space-y-1 rounded-md border bg-record-background p-2">
               <div className="flex items-center justify-between gap-2 text-sm font-medium">
@@ -160,10 +164,6 @@ export function AddIssueForm({
               </div>
             </div>
           ))}
-          <form action={addIssueCategory} className="flex gap-2">
-            <Input name="name" placeholder="New category" required />
-            <SubmitButton pendingLabel="Adding…">Add category</SubmitButton>
-          </form>
         </div>
       )}
     </div>
@@ -180,35 +180,6 @@ function StatusSelectField({ issue, setIssueStatus }: { issue: Issue; setIssueSt
       toneClassName={TONE_CLASSES[ISSUE_STATUS_TONE[issue.status] ?? "neutral"]}
       optionToneClassName={(v) => TONE_CLASSES[ISSUE_STATUS_TONE[v] ?? "neutral"]}
     />
-  );
-}
-
-/* A free-text note about the fix, auto-saved on change -- was a list
-   of sign-off chips before. Correction/Verification calls this a plain
-   "Note" (not every entry there needed an actual fix, just a comment),
-   while Charting keeps "Fix" -- same field/column underneath, just a
-   different placeholder per caller. */
-function FixNote({
-  issue,
-  setIssueFixNote,
-  placeholder = "What was done to fix this…",
-}: {
-  issue: Issue;
-  setIssueFixNote: (formData: FormData) => void;
-  placeholder?: string;
-}) {
-  return (
-    <AutoSubmitForm action={setIssueFixNote}>
-      <input type="hidden" name="id" value={issue.id} />
-      <textarea
-        key={issue.fixNote || ""}
-        name="fixNote"
-        defaultValue={issue.fixNote || ""}
-        placeholder={placeholder}
-        rows={1}
-        className="w-full min-w-[160px] resize-y rounded-md border px-1.5 py-0.5 text-sm"
-      />
-    </AutoSubmitForm>
   );
 }
 
@@ -232,43 +203,23 @@ function DeleteIssueButton({
   );
 }
 
-/* Software Issue's own Note (issues.remarks), auto-saved the same way
-   as Correction/Charting's Fix note -- a different column, different
-   meaning, so kept as a separate component/action. */
-function NoteField({ issue, setIssueNote }: { issue: Issue; setIssueNote: (formData: FormData) => void }) {
-  return (
-    <AutoSubmitForm action={setIssueNote}>
-      <input type="hidden" name="id" value={issue.id} />
-      <textarea
-        key={issue.remarks || ""}
-        name="note"
-        defaultValue={issue.remarks || ""}
-        placeholder="Note…"
-        rows={1}
-        className="w-full min-w-[140px] resize-y rounded-md border px-1.5 py-0.5 text-sm"
-      />
-    </AutoSubmitForm>
-  );
-}
-
 type TableProps = {
   issues: Issue[];
   currentUserName: string;
   currentIsAdmin: boolean;
   setIssueStatus: (formData: FormData) => void;
   removeIssue: (formData: FormData) => void;
-};
-type FixProps = {
-  setIssueFixNote: (formData: FormData) => void;
+  addIssueComment: (formData: FormData) => void;
+  ackIssueComments: (formData: FormData) => void;
 };
 
 /* Each issue type gets its own table -- the four shapes don't share
    fields, so a single shared table either loses type-specific columns
    or crams them into one generic "Details" cell. Separate tables keep
    every field visible, at the cost of repeating the Reported By/Date/
-   Status/delete columns four times. */
+   Status/delete/Comments columns four times. */
 
-export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueNote }: TableProps & { setIssueNote: (formData: FormData) => void }) {
+export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
   const reversed = [...issues].reverse();
   return (
@@ -286,7 +237,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
               <th className="px-2 py-1">Reported By</th>
               <th className="px-2 py-1">Date</th>
               <th className="px-2 py-1">Status</th>
-              <th className="px-2 py-1">Note</th>
+              <th className="px-2 py-1">Comments</th>
               <th />
             </tr>
           </thead>
@@ -299,7 +250,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                 <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
                 <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-                <td className="px-2 py-1"><NoteField issue={issue} setIssueNote={setIssueNote} /></td>
+                <td className="px-2 py-1"><IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} /></td>
                 <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>
             ))}
@@ -338,8 +289,8 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
               <StatusSelectField issue={issue} setIssueStatus={setIssueStatus} />
             </div>
             <div>
-              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Note</div>
-              <NoteField issue={issue} setIssueNote={setIssueNote} />
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
+              <IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} />
             </div>
             <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
           </div>
@@ -349,7 +300,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
   );
 }
 
-export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
+export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
   const rows = [...issues].reverse().map((issue) => ({
     issue,
@@ -368,10 +319,10 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
             <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
               <th className="px-2 py-1">Student Record</th>
               <th className="px-2 py-1">Needs</th>
-              <th className="px-2 py-1">Kind</th>
+              <th className="px-2 py-1">Type</th>
               <th className="px-2 py-1">Reported By</th>
               <th className="px-2 py-1">Status</th>
-              <th className="px-2 py-1">Note</th>
+              <th className="px-2 py-1">Comments</th>
               <th />
             </tr>
           </thead>
@@ -383,7 +334,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
                 <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                 <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} placeholder="Add a note…" /></td>
+                <td className="px-2 py-1"><IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} /></td>
                 <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
               </tr>
             ))}
@@ -403,7 +354,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
                 <div>{needs || "—"}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Kind</div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Type</div>
                 <div>{issue.correctionKind}</div>
               </div>
             </div>
@@ -416,8 +367,8 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
               <StatusSelectField issue={issue} setIssueStatus={setIssueStatus} />
             </div>
             <div>
-              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Note</div>
-              <FixNote issue={issue} setIssueFixNote={setIssueFixNote} placeholder="Add a note…" />
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
+              <IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} />
             </div>
             <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
           </div>
@@ -427,7 +378,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
   );
 }
 
-export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, setIssueFixNote }: TableProps & FixProps) {
+export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
   const reversed = [...issues].reverse();
   return (
@@ -438,7 +389,7 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
             <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
               <th className="px-2 py-1">Student Record</th>
               <th className="px-2 py-1">Question</th>
-              <th className="px-2 py-1">Fix</th>
+              <th className="px-2 py-1">Comments</th>
               <th className="px-2 py-1">Reported By</th>
               <th className="px-2 py-1">Date</th>
               <th className="px-2 py-1">Status</th>
@@ -450,7 +401,7 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
               <tr key={issue.id} className="border-b bg-record-background align-top">
                 <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
                 <td className="px-2 py-1">{issue.question}</td>
-                <td className="px-2 py-1"><FixNote issue={issue} setIssueFixNote={setIssueFixNote} /></td>
+                <td className="px-2 py-1"><IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} /></td>
                 <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                 <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
                 <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
@@ -472,8 +423,8 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
               <div>{issue.question}</div>
             </div>
             <div>
-              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Fix</div>
-              <FixNote issue={issue} setIssueFixNote={setIssueFixNote} />
+              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
+              <IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

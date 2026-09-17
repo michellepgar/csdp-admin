@@ -33,7 +33,7 @@ export function PlansForTomorrow({ planItems, vas, removePlanItem }: {
             <ul className="space-y-1.5">
               {byVa.get(vaName)!.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span>{item.label}</span>
+                  <span className="flex items-center">{item.kind === "priority" && <span className="priority-dot" aria-hidden />}{item.label}</span>
                   <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}" from ${vaName}'s plan?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
                 </li>
               ))}

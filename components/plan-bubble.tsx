@@ -30,7 +30,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
           <div className="max-h-80 space-y-2 overflow-y-auto p-2">
             {myPlanItems.map((item) => (
               <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-                <span>{item.label}</span>
+                <span className="flex items-center">{item.kind === "priority" && <span className="priority-dot" aria-hidden />}{item.label}</span>
                 {item.kind === "priority" ? (
                   <Button type="button" variant="plan" size="xs" onClick={() => setStartingPriority(item)}>Start</Button>
                 ) : (

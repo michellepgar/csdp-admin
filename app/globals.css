@@ -488,3 +488,24 @@
     animation: none;
   }
 }
+
+/* A boss-added priority's own attention-getter -- shown in Task
+   Priorities, Plans for Tomorrow, and the "Your Plan" bubble (never on
+   Overview's Today cards, since a resolved priority is by then an
+   ordinary task). Same blink timing as .nav-alert-dot, its own class
+   since the two mark unrelated things and might one day animate
+   differently. */
+.priority-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 9999px;
+  background: var(--plan-accent);
+  animation: nav-alert-blink 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .priority-dot {
+    animation: none;
+  }
+}

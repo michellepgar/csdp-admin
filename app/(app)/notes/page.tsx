@@ -27,7 +27,7 @@ export default async function NotesPage() {
     <div>
       <PageHeader title="General Notes" />
       <PageBody>
-        <form action={addGeneralNote} className="max-w-lg space-y-2">
+        <form action={addGeneralNote} className="max-w-3xl space-y-2">
           <StickyNoteComposer placeholder="Add a note…" draftKey="draft:general-note" />
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-1.5 text-sm">

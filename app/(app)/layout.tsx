@@ -85,7 +85,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     (n) => n.urgency === "Urgent" && n.author !== me.name && !(n.ackBy || []).includes(me.name)
   );
 
-  const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name || (p.kind === "priority" && !p.vaName));
+  const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name);
 
   return (
     <SidebarShell

@@ -67,6 +67,18 @@ function clearDraft(key: string) {
   }
 }
 
+// "Empty" used to mean "no innerText" -- true for a genuinely blank
+// box, but ALSO true for a note that's nothing but a pasted screenshot
+// or a pasted table with no other text in it (an <img>/<table> has no
+// innerText of its own). That silently blocked the Add note submit
+// entirely (e.preventDefault() with no error shown) and, separately,
+// threw away the draft on every keystroke after pasting an
+// image-only note. A real note has content if it has EITHER text or
+// one of these two elements.
+function hasContent(editor: HTMLElement): boolean {
+  return !!editor.innerText.trim() || !!editor.querySelector("img, table");
+}
+
 export function StickyNoteComposer({
   placeholder,
   defaultText,
@@ -141,7 +153,7 @@ export function StickyNoteComposer({
     function persist() {
       if (!editor) return;
       const html = editor.innerHTML;
-      if (!editor.innerText.trim()) clearDraft(draftKey!);
+      if (!hasContent(editor)) clearDraft(draftKey!);
       else saveDraft(draftKey!, { html, padColor });
     }
     editor.addEventListener("input", persist);
@@ -152,13 +164,13 @@ export function StickyNoteComposer({
     const form = editorRef.current?.closest("form");
     if (!form) return;
     function syncBeforeSubmit(e: SubmitEvent) {
-      const isEmpty = !editorRef.current?.innerText.trim();
-      if (isEmpty) {
+      const editor = editorRef.current;
+      if (!editor || !hasContent(editor)) {
         e.preventDefault();
         return;
       }
-      if (textInputRef.current && editorRef.current) {
-        textInputRef.current.value = editorRef.current.innerHTML;
+      if (textInputRef.current) {
+        textInputRef.current.value = editor.innerHTML;
       }
     }
     form.addEventListener("submit", syncBeforeSubmit);

@@ -199,15 +199,18 @@ export const EMAIL_STATUS_OPTIONS = ["Needs My Response", "Waiting on Them", "Do
 /* One row per pending "plan for tomorrow" item -- resolving one (the
    VA clicks Start/Review, or converts a priority into a real task)
    deletes its row; plan_items only ever holds items nobody has acted
-   on yet, there's no history table. kind:"task" links to a real school
-   task (taskFileCategoryId) or General Task (generalTaskId); kind:
+   on yet, there's no history table (kind:"note" is the one exception --
+   see completedAt below). kind:"task" links to a real school task
+   (taskFileCategoryId) or General Task (generalTaskId); kind:
    "priority" is a boss-authored note with neither set yet -- acting on
-   it creates the real task then deletes this row. vaName is who it's
-   for; undefined means shared/unassigned (priority only -- a task-kind
-   item is always someone's own planned pickup). */
+   it creates the real task then deletes this row. kind:"note" pins a
+   private note into "Your Plan" as a plain reminder (noteId), checked
+   off rather than "started" -- see completedAt. vaName is who it's
+   for; undefined means shared/unassigned (priority only -- task and
+   note kinds are always someone's own). */
 export interface PlanItem {
   id: string;
-  kind: "task" | "priority";
+  kind: "task" | "priority" | "note";
   vaName?: string;
   schoolId?: string;
   taskFileCategoryId?: string;
@@ -215,6 +218,19 @@ export interface PlanItem {
   label: string;
   createdBy: string;
   createdAt: string;
+  /** kind:"priority" only -- a boss-suggested destination for
+   *  PlanPriorityStartForm to pre-fill when the VA starts it. All
+   *  three are optional together; a plain free-text priority leaves
+   *  them unset. */
+  suggestedSchoolId?: string;
+  suggestedCategoryId?: string;
+  suggestedFileName?: string;
+  /** kind:"note" only -- the private note this reminder points back to. */
+  noteId?: string;
+  /** kind:"note" only -- set when the reminder is checked off. The row
+   *  is kept (not deleted) so it can still show up as "completed
+   *  today" on Overview, unlike a resolved task/priority. */
+  completedAt?: string;
 }
 
 export interface SchoolDataEntry {

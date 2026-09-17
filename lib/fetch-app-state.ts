@@ -347,7 +347,7 @@ function mapGeneralTaskRow(r: GeneralTaskRow): GeneralTask {
 
 type PlanItemRow = {
   id: string;
-  kind: "task" | "priority";
+  kind: "task" | "priority" | "note";
   va_name: string | null;
   school_id: string | null;
   task_file_category_id: string | null;
@@ -355,6 +355,11 @@ type PlanItemRow = {
   label: string;
   created_by: string;
   created_at: string;
+  suggested_school_id: string | null;
+  suggested_category_id: string | null;
+  suggested_file_name: string | null;
+  note_id: string | null;
+  completed_at: string | null;
 };
 
 function mapPlanItemRow(r: PlanItemRow): PlanItem {
@@ -368,6 +373,11 @@ function mapPlanItemRow(r: PlanItemRow): PlanItem {
     label: r.label,
     createdBy: r.created_by,
     createdAt: r.created_at,
+    suggestedSchoolId: r.suggested_school_id ?? undefined,
+    suggestedCategoryId: r.suggested_category_id ?? undefined,
+    suggestedFileName: r.suggested_file_name ?? undefined,
+    noteId: r.note_id ?? undefined,
+    completedAt: r.completed_at ?? undefined,
   };
 }
 
@@ -558,7 +568,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at, status_changed_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
-    supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at").order("created_at"),
+    supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;

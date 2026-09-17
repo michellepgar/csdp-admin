@@ -1,4 +1,4 @@
-import type { Task, TaskCategory, TaskFile, School, SchoolDataEntry, GeneralTask } from "@/lib/app-state";
+import type { Task, TaskCategory, TaskFile, School, SchoolDataEntry, GeneralTask, PlanItem } from "@/lib/app-state";
 
 export type TaskFileActionResult = { error: string | null };
 
@@ -164,6 +164,7 @@ export function todayActivityByVa(
   schoolData: Record<string, SchoolDataEntry>,
   generalTasks: GeneralTask[],
   statusChangedAt: Record<string, string>,
+  planItems: PlanItem[] = [],
 ): Map<string, TodayActivityItem[]> {
   const byVa = new Map<string, TodayActivityItem[]>();
   const push = (vaName: string, item: TodayActivityItem) => {
@@ -191,6 +192,11 @@ export function todayActivityByVa(
       null;
     if (!state) continue;
     for (const vaName of task.vaAssigned) push(vaName, { schoolName: "General", category: task.category, fileName: task.description, state });
+  }
+
+  for (const item of planItems) {
+    if (item.kind !== "note" || !item.completedAt || !item.vaName || !isToday(item.completedAt)) continue;
+    push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, state: "completed-today" });
   }
 
   return byVa;

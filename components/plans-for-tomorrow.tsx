@@ -8,7 +8,10 @@ import { vaColorByName, type PlanItem, type Va } from "@/lib/app-state";
    (kind:"priority" with vaName set), grouped by VA. Unassigned/shared
    priorities are NOT shown here -- those live only in the Task
    Priorities widget beside Alerts, until a VA claims one (at which
-   point it gets a vaName and shows up here). */
+   point it gets a vaName and shows up here). kind:"note" reminders are
+   excluded entirely -- those are personal Your-Plan-bubble items, not
+   part of the shared tomorrow plan, and a completed one (completedAt
+   set) has no business showing up here as if still pending. */
 export function PlansForTomorrow({ planItems, vas, removePlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
@@ -16,7 +19,7 @@ export function PlansForTomorrow({ planItems, vas, removePlanItem }: {
 }) {
   const byVa = new Map<string, PlanItem[]>();
   for (const item of planItems) {
-    if (!item.vaName) continue;
+    if (!item.vaName || item.kind === "note") continue;
     if (!byVa.has(item.vaName)) byVa.set(item.vaName, []);
     byVa.get(item.vaName)!.push(item);
   }

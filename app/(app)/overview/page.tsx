@@ -49,7 +49,7 @@ export default async function OverviewPage() {
   const user = await getCurrentUser();
   const me = user?.email ? findVaByEmail(state, user.email) : undefined;
 
-  const todayByVa = todayActivityByVa(state.schools, state.schoolData, state.generalTasks || [], state.statusChangedAt || {});
+  const todayByVa = todayActivityByVa(state.schools, state.schoolData, state.generalTasks || [], state.statusChangedAt || {}, state.planItems || []);
   const vaNamesWithActivity = Array.from(todayByVa.keys()).sort((a, b) => a.localeCompare(b));
 
   const myPlanItems = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === me?.name);
@@ -96,10 +96,16 @@ export default async function OverviewPage() {
                   <ul className="space-y-1.5">
                     {todayByVa.get(vaName)!.map((t, i) => (
                       <li key={i} className="text-sm">
-                        <Link href={t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"} className="font-bold underline-offset-2 hover:underline">
-                          {t.fileName}
-                        </Link>
-                        <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
+                        {t.schoolName === "Reminder" ? (
+                          <span className="font-bold">{t.fileName}</span>
+                        ) : (
+                          <>
+                            <Link href={t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"} className="font-bold underline-offset-2 hover:underline">
+                              {t.fileName}
+                            </Link>
+                            <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
+                          </>
+                        )}
                         {t.state === "completed-today" && <span className="text-status-success-foreground"> (completed today)</span>}
                       </li>
                     ))}

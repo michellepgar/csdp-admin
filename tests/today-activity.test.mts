@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { todayActivityByVa } from "../lib/shared-task-files.ts";
-import type { School, SchoolDataEntry, GeneralTask } from "../lib/app-state.ts";
+import type { School, SchoolDataEntry, GeneralTask, PlanItem } from "../lib/app-state.ts";
 
 const TODAY = new Date().toISOString();
 const YESTERDAY = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
@@ -42,5 +42,15 @@ test("general tasks completed today show up under 'General' with no schoolId", (
   const result = todayActivityByVa([], {}, generalTasks, { g1: TODAY });
   assert.deepEqual(result.get("Jane"), [
     { schoolName: "General", category: "Admin", fileName: "File paperwork", state: "completed-today" },
+  ]);
+});
+
+test("a completed-today note reminder shows up as its own entry", () => {
+  const planItems: PlanItem[] = [
+    { id: "p1", kind: "note", vaName: "Jane", label: "Call the front desk back", createdBy: "Jane", createdAt: TODAY, completedAt: TODAY },
+  ];
+  const result = todayActivityByVa([], {}, [], {}, planItems);
+  assert.deepEqual(result.get("Jane"), [
+    { schoolName: "Reminder", category: "", fileName: "Call the front desk back", state: "completed-today" },
   ]);
 });

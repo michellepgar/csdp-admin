@@ -20,6 +20,7 @@ import {
   unpinPrivateNote,
   resizePinnedNoteWidth,
   resizePinnedNoteHeight,
+  addNoteToPlan,
 } from "./actions";
 
 export default async function PrivateNotesPage() {
@@ -67,6 +68,7 @@ export default async function PrivateNotesPage() {
               removePrivateNote={removePrivateNote}
               unpinPrivateNote={unpinPrivateNote}
               pinPrivateNote={pinPrivateNote}
+              addNoteToPlan={addNoteToPlan}
             />
           </div>
 
@@ -80,6 +82,7 @@ export default async function PrivateNotesPage() {
               unpinPrivateNote={unpinPrivateNote}
               resizePinnedNoteWidth={resizePinnedNoteWidth}
               resizePinnedNoteHeight={resizePinnedNoteHeight}
+              addNoteToPlan={addNoteToPlan}
             />
           </div>
         </div>

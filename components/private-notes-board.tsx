@@ -50,6 +50,7 @@ function BoardNote({
   onReturnToList,
   resizePinnedNoteWidth,
   resizePinnedNoteHeight,
+  addNoteToPlan,
 }: {
   note: PrivateNote;
   currentUserName: string;
@@ -62,6 +63,7 @@ function BoardNote({
   onReturnToList: (id: string) => void;
   resizePinnedNoteWidth: (id: string, width: number) => void;
   resizePinnedNoteHeight: (id: string, height: number) => void;
+  addNoteToPlan: (formData: FormData) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -191,7 +193,14 @@ function BoardNote({
               ⋮
             </Button>
             {menuOpen && (
-              <div className="absolute right-0 top-6 z-10 w-32 rounded-md border bg-white py-1 text-xs shadow-lg">
+              <div className="absolute right-0 top-6 z-10 w-36 rounded-md border bg-white py-1 text-xs shadow-lg">
+                <form action={addNoteToPlan}>
+                  <input type="hidden" name="noteId" value={note.id} />
+                  <input type="hidden" name="label" value={note.text.replace(/<[^>]+>/g, " ").trim().slice(0, 80) || "Note"} />
+                  <button type="submit" className="block w-full px-3 py-1.5 text-left text-foreground hover:bg-muted">
+                    + Add to Your Plan
+                  </button>
+                </form>
                 <button
                   type="button"
                   onClick={() => onReturnToList(note.id)}
@@ -224,6 +233,7 @@ export function PrivateNotesBoard({
   unpinPrivateNote,
   resizePinnedNoteWidth,
   resizePinnedNoteHeight,
+  addNoteToPlan,
 }: {
   notes: PrivateNote[];
   currentUserName: string;
@@ -232,6 +242,7 @@ export function PrivateNotesBoard({
   unpinPrivateNote: (id: string) => void;
   resizePinnedNoteWidth: (id: string, width: number) => void;
   resizePinnedNoteHeight: (id: string, height: number) => void;
+  addNoteToPlan: (formData: FormData) => void;
 }) {
   const sorted = [...notes].sort((a, b) => (a.boardZ ?? 0) - (b.boardZ ?? 0));
 
@@ -313,6 +324,7 @@ export function PrivateNotesBoard({
             onReturnToList={unpinPrivateNote}
             resizePinnedNoteWidth={resizePinnedNoteWidth}
             resizePinnedNoteHeight={resizePinnedNoteHeight}
+            addNoteToPlan={addNoteToPlan}
           />
         ))}
       </div>

@@ -26,6 +26,7 @@ function PrivateNoteRow({
   unsharePrivateNote,
   removePrivateNote,
   pinPrivateNote,
+  addNoteToPlan,
 }: {
   note: PrivateNote;
   currentUserName: string;
@@ -36,6 +37,7 @@ function PrivateNoteRow({
   unsharePrivateNote: (formData: FormData) => void;
   removePrivateNote: (formData: FormData) => void;
   pinPrivateNote: (id: string) => void;
+  addNoteToPlan: (formData: FormData) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const isAuthor = n.author === currentUserName;
@@ -131,6 +133,11 @@ function PrivateNoteRow({
         >
           📌 Pin to board
         </Button>
+        <form action={addNoteToPlan}>
+          <input type="hidden" name="noteId" value={n.id} />
+          <input type="hidden" name="label" value={n.text.replace(/<[^>]+>/g, " ").trim().slice(0, 80) || "Note"} />
+          <SubmitButton pendingLabel="…" variant="outline" size="sm">+ Add to Your Plan</SubmitButton>
+        </form>
         {isAuthor && (
           <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
             Edit
@@ -158,6 +165,7 @@ export function PrivateNotesList({
   removePrivateNote,
   unpinPrivateNote,
   pinPrivateNote,
+  addNoteToPlan,
 }: {
   notes: PrivateNote[];
   currentUserName: string;
@@ -169,6 +177,7 @@ export function PrivateNotesList({
   removePrivateNote: (formData: FormData) => void;
   unpinPrivateNote: (id: string) => void;
   pinPrivateNote: (id: string) => void;
+  addNoteToPlan: (formData: FormData) => void;
 }) {
   const sorted = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -204,6 +213,7 @@ export function PrivateNotesList({
           unsharePrivateNote={unsharePrivateNote}
           removePrivateNote={removePrivateNote}
           pinPrivateNote={pinPrivateNote}
+          addNoteToPlan={addNoteToPlan}
         />
       ))}
     </div>

@@ -196,6 +196,8 @@ export default async function OverviewPage() {
           <TaskPriorities
             planItems={state.planItems || []}
             vas={state.vas}
+            schools={state.schools}
+            taskCategories={state.taskCategories || []}
             isCurrentUserAdmin={!!me && isAdmin(me)}
             addPriority={addPriority}
             removePlanItem={removePlanItem}

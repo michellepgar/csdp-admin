@@ -102,17 +102,34 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
   });
 }
 
-/* Boss-only: add a freeform priority note, optionally targeted at one
-   VA (leave assignedTo blank for a shared/unassigned item anyone can
-   pick up). Not linked to any real task yet -- see resolvePriorityPlanItem. */
+/* Boss-only: add a priority, either freeform or linked to a real file
+   (school + category + file name) so PlanPriorityStartForm can later
+   pre-fill the Start picker instead of starting blank. Linking is
+   metadata only -- `label` is still what displays everywhere, and the
+   VA can still change the picker before submitting Start. Optionally
+   targeted at one VA (leave assignedTo blank for a shared/unassigned
+   item anyone can claim). */
 export async function addPriority(formData: FormData): Promise<PlanActionResult> {
   const label = ((formData.get("label") as string) || "").trim();
   const assignedTo = ((formData.get("assignedTo") as string) || "").trim() || undefined;
+  const suggestedSchoolId = ((formData.get("suggestedSchoolId") as string) || "").trim() || undefined;
+  const suggestedCategoryId = ((formData.get("suggestedCategoryId") as string) || "").trim() || undefined;
+  const suggestedFileName = ((formData.get("suggestedFileName") as string) || "").trim() || undefined;
   if (!label) return { error: "Enter what should be worked on." };
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      (state.planItems ??= []).push({ id: `demo-priority-${Date.now()}`, kind: "priority", vaName: assignedTo, label, createdBy: "Jane", createdAt: new Date().toISOString() });
+      (state.planItems ??= []).push({
+        id: `demo-priority-${Date.now()}`,
+        kind: "priority",
+        vaName: assignedTo,
+        label,
+        createdBy: "Jane",
+        createdAt: new Date().toISOString(),
+        suggestedSchoolId,
+        suggestedCategoryId,
+        suggestedFileName,
+      });
     });
     revalidatePath("/overview");
     return { error: null };
@@ -120,7 +137,15 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireAdmin();
-    const { error } = await supabase.from("plan_items").insert({ kind: "priority", va_name: assignedTo ?? null, label, created_by: me.name });
+    const { error } = await supabase.from("plan_items").insert({
+      kind: "priority",
+      va_name: assignedTo ?? null,
+      label,
+      created_by: me.name,
+      suggested_school_id: suggestedSchoolId ?? null,
+      suggested_category_id: suggestedCategoryId ?? null,
+      suggested_file_name: suggestedFileName ?? null,
+    });
     orThrow(error);
     revalidatePath("/overview");
   });

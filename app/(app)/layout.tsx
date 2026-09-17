@@ -86,7 +86,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   );
 
   const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name || (p.kind === "priority" && !p.vaName));
-  const planBubbleStartedOpen = (await cookies()).get(`plan-bubble-open-${me.id}`)?.value === "1";
 
   return (
     <SidebarShell
@@ -106,7 +105,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       generalTaskCategories={state.generalTaskCategories || []}
       resolveTaskPlanItem={resolveTaskPlanItem}
       resolvePriorityPlanItem={resolvePriorityPlanItem}
-      planBubbleStartedOpen={planBubbleStartedOpen}
     >
       {children}
     </SidebarShell>

@@ -8,8 +8,7 @@ import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
-import { SubmitButton } from "@/components/submit-button";
-import { savePlan, addPriority, removePlanItem, startNewDay } from "./actions";
+import { savePlan, addPriority, removePlanItem } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -112,19 +111,14 @@ export default async function OverviewPage() {
       </div>
 
       {me && (
-        <div className="flex flex-wrap gap-2">
-          <PlanTomorrowPicker
-            currentUserName={me.name}
-            schools={state.schools}
-            schoolData={state.schoolData}
-            generalTasks={state.generalTasks || []}
-            myPlanItems={myPlanItems}
-            savePlan={savePlan}
-          />
-          <form action={startNewDay}>
-            <SubmitButton size="sm" pendingLabel="…">Start a New Day</SubmitButton>
-          </form>
-        </div>
+        <PlanTomorrowPicker
+          currentUserName={me.name}
+          schools={state.schools}
+          schoolData={state.schoolData}
+          generalTasks={state.generalTasks || []}
+          myPlanItems={myPlanItems}
+          savePlan={savePlan}
+        />
       )}
 
       <PlansForTomorrow

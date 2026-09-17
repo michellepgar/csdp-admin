@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { isAdmin } from "@/lib/app-state";
@@ -291,20 +290,4 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
     revalidatePath("/overview");
     revalidatePath(`/schools/${schoolId}`);
   });
-}
-
-/* "Start a New Day" -- opens the floating plan bubble for this VA on
-   every page by setting a per-VA cookie the layout checks (see
-   app/(app)/layout.tsx). No other state changes: the bubble's actual
-   content is always just this VA's current pending plan_items rows. */
-export async function startNewDay() {
-  if (await isDemoMode()) {
-    (await cookies()).set("plan-bubble-open-demo-jane", "1", { maxAge: 60 * 60 * 24 });
-    revalidatePath("/overview");
-    return;
-  }
-
-  const { me } = await requireTeamMember();
-  (await cookies()).set(`plan-bubble-open-${me.id}`, "1", { maxAge: 60 * 60 * 24 });
-  revalidatePath("/overview");
 }

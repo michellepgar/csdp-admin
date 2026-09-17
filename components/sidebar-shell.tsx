@@ -46,7 +46,6 @@ export function SidebarShell({
   generalTaskCategories,
   resolveTaskPlanItem,
   resolvePriorityPlanItem,
-  planBubbleStartedOpen,
   children,
 }: {
   currentName: string;
@@ -65,7 +64,6 @@ export function SidebarShell({
   generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
-  planBubbleStartedOpen: boolean;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -236,7 +234,6 @@ export function SidebarShell({
         generalTaskCategories={generalTaskCategories}
         resolveTaskPlanItem={resolveTaskPlanItem}
         resolvePriorityPlanItem={resolvePriorityPlanItem}
-        startedOpen={planBubbleStartedOpen}
       />
     </div>
   );

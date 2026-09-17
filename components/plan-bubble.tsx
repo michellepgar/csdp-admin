@@ -7,16 +7,15 @@ import { SubmitButton } from "@/components/submit-button";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
 import type { PlanItem, TaskCategory, GeneralTaskCategory } from "@/lib/app-state";
 
-export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, startedOpen }: {
+export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem }: {
   myPlanItems: PlanItem[];
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
   generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
-  startedOpen: boolean;
 }) {
-  const [expanded, setExpanded] = useState(startedOpen);
+  const [expanded, setExpanded] = useState(false);
   const [startingPriorityId, setStartingPriorityId] = useState<string | null>(null);
 
   if (myPlanItems.length === 0) return null;

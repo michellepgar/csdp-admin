@@ -9,6 +9,69 @@ function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+type NoteActionResult = { error: string | null };
+
+/* Pins a private note into "Your Plan" as a plain reminder -- unlike
+   task/priority plan_items, this never resolves into a real task; it
+   just sits until checked off (completeNoteReminder). label is copied
+   from the note's own text at add-time (one-time copy, same as
+   resolvePriorityPlanItem's file names -- editing the note afterward
+   doesn't change the reminder's label). Returns {error} rather than
+   throwing, unlike this file's other actions -- deliberately following
+   the newer convention from app/(app)/overview/actions.ts, since this
+   touches plan_items (a table whose thrown errors this session has
+   repeatedly needed surfaced, not swallowed). */
+export async function addNoteToPlan(formData: FormData): Promise<NoteActionResult> {
+  const noteId = formData.get("noteId") as string;
+  const label = ((formData.get("label") as string) || "").trim() || "Note";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      (state.planItems ??= []).push({ id: `demo-note-plan-${Date.now()}`, kind: "note", vaName: "Jane", noteId, label, createdBy: "Jane", createdAt: new Date().toISOString() });
+    });
+    revalidatePath("/overview");
+    return { error: null };
+  }
+
+  try {
+    const { supabase, me } = await requireTeamMember();
+    const { error } = await supabase.from("plan_items").insert({ kind: "note", va_name: me.name, note_id: noteId, label, created_by: me.name });
+    if (error) throw new Error(error.message);
+    revalidatePath("/overview");
+    return { error: null };
+  } catch (error) {
+    console.error("Add note to plan failed", error);
+    return { error: error instanceof Error ? error.message : "Couldn't add this to your plan. Please try again." };
+  }
+}
+
+/* Checks a note reminder off -- sets completed_at instead of deleting
+   the row, so it can still show up as "completed today" on Overview
+   (see lib/shared-task-files.ts's todayActivityByVa). */
+export async function completeNoteReminder(formData: FormData): Promise<NoteActionResult> {
+  const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const item = (state.planItems || []).find((p) => p.id === id);
+      if (item) item.completedAt = new Date().toISOString();
+    });
+    revalidatePath("/overview");
+    return { error: null };
+  }
+
+  try {
+    const { supabase } = await requireTeamMember();
+    const { error } = await supabase.from("plan_items").update({ completed_at: new Date().toISOString() }).eq("id", id).eq("kind", "note");
+    if (error) throw new Error(error.message);
+    revalidatePath("/overview");
+    return { error: null };
+  } catch (error) {
+    console.error("Complete note reminder failed", error);
+    return { error: error instanceof Error ? error.message : "Couldn't check this off. Please try again." };
+  }
+}
+
 export async function addPrivateNote(formData: FormData) {
   const rawText = ((formData.get("text") as string) || "").trim();
   if (!rawText) return;

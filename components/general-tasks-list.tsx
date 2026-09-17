@@ -7,13 +7,17 @@ import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
 import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
+import { KebabMenu } from "@/components/kebab-menu";
+import { GeneralTaskMoveForm } from "@/components/general-task-move-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
   vaColorByName,
   type GeneralTask,
   type GeneralTaskCategory,
+  type TaskCategory,
   type Va,
 } from "@/lib/app-state";
 
@@ -27,58 +31,113 @@ function GeneralTaskRow({
   task,
   vas,
   currentUserName,
+  schools,
+  taskCategories,
   setGeneralTaskStatus,
   signGeneralTask,
   removeVaFromGeneralTask,
   removeGeneralTask,
+  updateGeneralTaskDescription,
+  moveGeneralTaskToSchool,
+  addTaskCategory,
 }: {
   task: GeneralTask;
   vas: Va[];
   currentUserName: string;
+  schools: { id: string; name: string }[];
+  taskCategories: TaskCategory[];
   setGeneralTaskStatus: (formData: FormData) => void;
   signGeneralTask: (formData: FormData) => void;
   removeVaFromGeneralTask: (formData: FormData) => void;
   removeGeneralTask: (formData: FormData) => void;
+  updateGeneralTaskDescription: (formData: FormData) => Promise<TaskFileActionResult>;
+  moveGeneralTaskToSchool: (formData: FormData) => Promise<{ error: string | null }>;
+  addTaskCategory: (formData: FormData) => void;
 }) {
   const iSigned = task.vaAssigned.includes(currentUserName);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(task.description);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 bg-record-background px-1 py-1">
-      <span className="min-w-40 flex-1 text-sm font-bold break-words">{task.description}</span>
-      <span className="text-xs text-muted-foreground">{task.category}</span>
+    <div className="flex flex-col gap-2 bg-record-background px-1 py-1">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-bold">{task.category}</span>
 
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-1">
-          {task.vaAssigned.map((name) => (
-            <form key={name} action={removeVaFromGeneralTask} className="inline-flex items-center gap-1">
-              <input type="hidden" name="taskId" value={task.id} />
-              <input type="hidden" name="vaName" value={name} />
-              <SignatureChip name={name} color={vaColorByName(vas, name)} small />
-              <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
-            </form>
-          ))}
-          {!iSigned && (
-            <form action={signGeneralTask}>
-              <input type="hidden" name="taskId" value={task.id} />
-              <SubmitButton pendingLabel="…" variant="outline" size="xs">+ Sign</SubmitButton>
-            </form>
-          )}
+        {editingDescription ? (
+          <form
+            action={(formData) => submitTaskFileForm(updateGeneralTaskDescription, formData, setDescriptionError, () => setEditingDescription(false))}
+            className="flex min-w-40 flex-1 flex-wrap items-center gap-1"
+          >
+            <input type="hidden" name="taskId" value={task.id} />
+            <Input name="description" value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} required autoFocus className="h-7 min-w-0" />
+            <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton>
+            <Button type="button" variant="ghost" size="xs" onClick={() => setEditingDescription(false)}>Cancel</Button>
+            {descriptionError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{descriptionError}</p>}
+          </form>
+        ) : (
+          <span className="min-w-40 flex-1 text-sm break-words">{task.description}</span>
+        )}
+
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1">
+            {task.vaAssigned.map((name) => (
+              <form key={name} action={removeVaFromGeneralTask} className="inline-flex items-center gap-1">
+                <input type="hidden" name="taskId" value={task.id} />
+                <input type="hidden" name="vaName" value={name} />
+                <SignatureChip name={name} color={vaColorByName(vas, name)} small />
+                <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
+              </form>
+            ))}
+            {!iSigned && (
+              <form action={signGeneralTask}>
+                <input type="hidden" name="taskId" value={task.id} />
+                <SubmitButton pendingLabel="…" variant="outline" size="xs">+ Sign</SubmitButton>
+              </form>
+            )}
+          </div>
+
+          <StatusSelect
+            action={setGeneralTaskStatus}
+            hiddenFields={{ taskId: task.id }}
+            value={task.status}
+            options={TASK_STATUS_OPTIONS.map((s) => ({ value: s, label: s || "—" }))}
+            toneClassName={TONE_CLASSES[STATUS_TONE[task.status] ?? "neutral"]}
+            optionToneClassName={(v) => TONE_CLASSES[STATUS_TONE[v] ?? "neutral"]}
+          />
+
+          <KebabMenu
+            ariaLabel={`More actions for ${task.description}`}
+            items={[
+              { label: "Edit description", onClick: () => { setEditedDescription(task.description); setDescriptionError(null); setEditingDescription(true); } },
+              { label: "Move to a school", onClick: () => setMoving(true) },
+              {
+                label: "Remove",
+                destructive: true,
+                onClick: () => {
+                  if (!window.confirm(`Remove "${task.description}"?`)) return;
+                  const fd = new FormData();
+                  fd.set("taskId", task.id);
+                  removeGeneralTask(fd);
+                },
+              },
+            ]}
+          />
         </div>
-
-        <StatusSelect
-          action={setGeneralTaskStatus}
-          hiddenFields={{ taskId: task.id }}
-          value={task.status}
-          options={TASK_STATUS_OPTIONS.map((s) => ({ value: s, label: s || "—" }))}
-          toneClassName={TONE_CLASSES[STATUS_TONE[task.status] ?? "neutral"]}
-          optionToneClassName={(v) => TONE_CLASSES[STATUS_TONE[v] ?? "neutral"]}
-        />
-
-        <form action={removeGeneralTask}>
-          <input type="hidden" name="taskId" value={task.id} />
-          <ConfirmDeleteButton confirmMessage={`Remove "${task.description}"?`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
-        </form>
       </div>
+
+      {moving && (
+        <GeneralTaskMoveForm
+          taskId={task.id}
+          defaultFileName={task.description}
+          schools={schools}
+          taskCategories={taskCategories}
+          moveGeneralTaskToSchool={moveGeneralTaskToSchool}
+          addTaskCategory={addTaskCategory}
+          onClose={() => setMoving(false)}
+        />
+      )}
     </div>
   );
 }
@@ -95,6 +154,8 @@ export function GeneralTasksList({
   categories,
   vas,
   currentUserName,
+  schools,
+  taskCategories,
   addGeneralTask,
   setGeneralTaskStatus,
   signGeneralTask,
@@ -102,11 +163,16 @@ export function GeneralTasksList({
   removeGeneralTask,
   addGeneralTaskCategory,
   removeGeneralTaskCategory,
+  updateGeneralTaskDescription,
+  moveGeneralTaskToSchool,
+  addTaskCategory,
 }: {
   tasks: GeneralTask[];
   categories: GeneralTaskCategory[];
   vas: Va[];
   currentUserName: string;
+  schools: { id: string; name: string }[];
+  taskCategories: TaskCategory[];
   addGeneralTask: (formData: FormData) => void;
   setGeneralTaskStatus: (formData: FormData) => void;
   signGeneralTask: (formData: FormData) => void;
@@ -114,6 +180,9 @@ export function GeneralTasksList({
   removeGeneralTask: (formData: FormData) => void;
   addGeneralTaskCategory: (formData: FormData) => void;
   removeGeneralTaskCategory: (formData: FormData) => void;
+  updateGeneralTaskDescription: (formData: FormData) => Promise<TaskFileActionResult>;
+  moveGeneralTaskToSchool: (formData: FormData) => Promise<{ error: string | null }>;
+  addTaskCategory: (formData: FormData) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const openCount = tasks.filter((t) => t.status === "In Progress").length;
@@ -174,10 +243,15 @@ export function GeneralTasksList({
                 task={task}
                 vas={vas}
                 currentUserName={currentUserName}
+                schools={schools}
+                taskCategories={taskCategories}
                 setGeneralTaskStatus={setGeneralTaskStatus}
                 signGeneralTask={signGeneralTask}
                 removeVaFromGeneralTask={removeVaFromGeneralTask}
                 removeGeneralTask={removeGeneralTask}
+                updateGeneralTaskDescription={updateGeneralTaskDescription}
+                moveGeneralTaskToSchool={moveGeneralTaskToSchool}
+                addTaskCategory={addTaskCategory}
               />
             ))}
           </div>

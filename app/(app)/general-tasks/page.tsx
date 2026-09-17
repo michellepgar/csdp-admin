@@ -5,6 +5,7 @@ import { findVaByEmail } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { GeneralTasksList } from "@/components/general-tasks-list";
+import { addTaskCategory } from "@/app/(app)/schools/[id]/actions";
 import {
   addGeneralTask,
   setGeneralTaskStatus,
@@ -13,6 +14,8 @@ import {
   removeGeneralTask,
   addGeneralTaskCategory,
   removeGeneralTaskCategory,
+  updateGeneralTaskDescription,
+  moveGeneralTaskToSchool,
 } from "./actions";
 
 export default async function GeneralTasksPage() {
@@ -34,6 +37,8 @@ export default async function GeneralTasksPage() {
           categories={state.generalTaskCategories || []}
           vas={state.vas}
           currentUserName={me.name}
+          schools={state.schools}
+          taskCategories={state.taskCategories || []}
           addGeneralTask={addGeneralTask}
           setGeneralTaskStatus={setGeneralTaskStatus}
           signGeneralTask={signGeneralTask}
@@ -41,6 +46,9 @@ export default async function GeneralTasksPage() {
           removeGeneralTask={removeGeneralTask}
           addGeneralTaskCategory={addGeneralTaskCategory}
           removeGeneralTaskCategory={removeGeneralTaskCategory}
+          updateGeneralTaskDescription={updateGeneralTaskDescription}
+          moveGeneralTaskToSchool={moveGeneralTaskToSchool}
+          addTaskCategory={addTaskCategory}
         />
       </PageBody>
     </div>

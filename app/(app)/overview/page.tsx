@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
@@ -27,6 +28,16 @@ function progressTone(pct: number): keyof typeof PROGRESS_BAR_CLASSES {
   if (pct < 67) return "warning";
   return "success";
 }
+
+/* Same status/tone pairing as tasks-card.tsx and general-tasks-list.tsx
+   (their own STATUS_TONE) -- kept as its own copy here rather than a
+   shared import since neither of those files exports theirs, and
+   Today's card is read-only display, not an editable StatusSelect. */
+const TODAY_STATUS_TONE: Record<string, StatusTone> = {
+  "In Progress": "warning",
+  Paused: "paused",
+  Completed: "success",
+};
 
 export default async function OverviewPage() {
   const state = await fetchAppState();
@@ -95,7 +106,7 @@ export default async function OverviewPage() {
                   </div>
                   <ul className="space-y-1.5">
                     {todayByVa.get(vaName)!.map((t, i) => (
-                      <li key={i} className="text-sm">
+                      <li key={i} className="flex flex-wrap items-center gap-1.5 text-sm">
                         {t.schoolName === "Reminder" ? (
                           <span className="font-bold">{t.fileName}</span>
                         ) : (
@@ -106,7 +117,7 @@ export default async function OverviewPage() {
                             <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
                           </>
                         )}
-                        {t.state === "completed-today" && <span className="text-status-success-foreground"> (completed today)</span>}
+                        {t.status && <StatusBadge tone={TODAY_STATUS_TONE[t.status] ?? "neutral"}>{t.status}</StatusBadge>}
                       </li>
                     ))}
                   </ul>

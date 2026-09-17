@@ -133,7 +133,12 @@ export interface TodayActivityItem {
   schoolName: string;
   category: string;
   fileName: string;
-  state: "in-progress" | "completed-today";
+  /** The task/general task's own real status ("In Progress", "Completed",
+   *  "Review") -- shown as a status badge on Overview's Today card
+   *  instead of the old plain "(completed today)" text. Empty for a
+   *  Reminder item (private-note reminders have no workflow status of
+   *  their own), which the caller renders without a badge. */
+  status: string;
 }
 
 /* This runs server-side (Vercel functions default to UTC), so
@@ -175,28 +180,22 @@ export function todayActivityByVa(
   for (const school of schools) {
     for (const task of schoolData[school.id]?.tasks || []) {
       const changedAt = statusChangedAt[task.id];
-      const state: TodayActivityItem["state"] | null =
-        task.status === "In Progress" ? "in-progress" :
-        (task.status === "Completed" || task.status === "Review") && changedAt && isToday(changedAt) ? "completed-today" :
-        null;
-      if (!state) continue;
-      for (const vaName of task.vaAssigned) push(vaName, { schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName, state });
+      const completedToday = (task.status === "Completed" || task.status === "Review") && !!changedAt && isToday(changedAt);
+      if (task.status !== "In Progress" && !completedToday) continue;
+      for (const vaName of task.vaAssigned) push(vaName, { schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName, status: task.status });
     }
   }
 
   for (const task of generalTasks) {
     const changedAt = statusChangedAt[task.id];
-    const state: TodayActivityItem["state"] | null =
-      task.status === "In Progress" ? "in-progress" :
-      (task.status === "Completed" || task.status === "Review") && changedAt && isToday(changedAt) ? "completed-today" :
-      null;
-    if (!state) continue;
-    for (const vaName of task.vaAssigned) push(vaName, { schoolName: "General", category: task.category, fileName: task.description, state });
+    const completedToday = (task.status === "Completed" || task.status === "Review") && !!changedAt && isToday(changedAt);
+    if (task.status !== "In Progress" && !completedToday) continue;
+    for (const vaName of task.vaAssigned) push(vaName, { schoolName: "General", category: task.category, fileName: task.description, status: task.status });
   }
 
   for (const item of planItems) {
     if (item.kind !== "note" || !item.completedAt || !item.vaName || !isToday(item.completedAt)) continue;
-    push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, state: "completed-today" });
+    push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "" });
   }
 
   return byVa;

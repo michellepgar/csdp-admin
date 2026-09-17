@@ -51,7 +51,7 @@ export function ExportAllSchoolsButton({
           t.vaAssigned.join("; "),
           t.commsStatus || "",
           (t.commsVaAssigned || []).join("; "),
-          new Date(t.createdAt).toLocaleDateString(),
+          new Date(t.createdAt).toLocaleDateString(undefined, { timeZone: "America/New_York" }),
         ]);
       }
     }

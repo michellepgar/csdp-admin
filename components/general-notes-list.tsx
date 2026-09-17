@@ -14,12 +14,12 @@ import type { GeneralNote } from "@/lib/app-state";
  * hitting the page, which is exactly what happened here. */
 export type DeletableNoteId = { id: string; canDelete: boolean };
 
-/* timeZone: "UTC" pinned for the same reason as components/issues-list.tsx's
-   fmtDate -- SSR runs in UTC, hydration runs in the viewer's own
-   timezone, and letting the two disagree causes an intermittent React
-   hydration mismatch. */
+/* timeZone pinned to Michelle's own working timezone for the same
+   reason as components/issues-list.tsx's fmtDate -- SSR runs in UTC,
+   hydration runs in the viewer's own timezone, and letting the two
+   disagree causes an intermittent React hydration mismatch. */
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  return new Date(iso).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 }
 
 /* One note, as either its read-only card or (if you're the author) its

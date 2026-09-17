@@ -6,8 +6,14 @@ import { MessageCircle } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import type { Issue } from "@/lib/app-state";
 
+/* timeZone pinned to Michelle's own working timezone -- this panel only
+   ever renders after the viewer opens it (never during SSR, so no
+   hydration-mismatch risk like components/issues-list.tsx's fmtDate),
+   but every other timestamp in the app is now pinned the same way, and
+   a comment thread with a mix of viewer-local and Eastern times would
+   be confusing. */
 function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 }
 
 const PANEL_WIDTH = 288; // w-72

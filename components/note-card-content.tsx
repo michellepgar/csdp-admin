@@ -1,18 +1,19 @@
 import type { PrivateNote } from "@/lib/app-state";
 
-/* getUTC*() + timeZone: "UTC" pinned throughout, for the same reason as
+/* timeZone pinned to Michelle's own working timezone (both here and in
+   the time string below) for the same reason as
    components/issues-list.tsx's fmtDate -- SSR runs in UTC, hydration
    runs in the viewer's own timezone, and letting the two disagree
-   causes an intermittent React hydration mismatch. Using the local
-   (non-UTC) getters here would keep the date and time out of sync with
-   each other even after that fix. */
+   causes an intermittent React hydration mismatch. Date.prototype's
+   plain getters (getMonth/getDate/getFullYear) have no timezone
+   argument, so the date portion goes through Intl.DateTimeFormat
+   instead -- locale pinned to "en-US" too, so the MM/DD/YY digit order
+   doesn't depend on the runtime's default locale either. */
 function formatDateTime(iso: string) {
   const d = new Date(iso);
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  const yy = String(d.getUTCFullYear()).slice(-2);
-  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
-  return `${mm}/${dd}/${yy}, ${time}`;
+  const date = d.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit", timeZone: "America/New_York" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  return `${date}, ${time}`;
 }
 
 /* The rendered body of a private note -- text + author/date byline.

@@ -16,12 +16,12 @@ const STATUS_TONE: Record<(typeof STATUSES)[number], StatusTone> = {
   Added: "success",
 };
 
-/* timeZone: "UTC" pinned for the same reason as components/issues-list.tsx's
-   fmtDate -- SSR runs in UTC, hydration runs in the viewer's own
-   timezone, and letting the two disagree causes an intermittent React
-   hydration mismatch. */
+/* timeZone pinned to Michelle's own working timezone for the same
+   reason as components/issues-list.tsx's fmtDate -- SSR runs in UTC,
+   hydration runs in the viewer's own timezone, and letting the two
+   disagree causes an intermittent React hydration mismatch. */
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "America/New_York" });
 }
 
 export function SuggestionsList({

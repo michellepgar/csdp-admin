@@ -45,9 +45,18 @@ import sanitizeHtml from "sanitize-html";
    attribute-based XSS through; transformTags then forces every link
    to open in a new tab with rel="noopener noreferrer" regardless of
    what the source pasted, same safe-external-link convention this
-   app already uses everywhere else. */
-const ALLOWED_TAGS = ["b", "strong", "i", "em", "u", "span", "font", "div", "br", "ul", "ol", "li", "input", "table", "thead", "tbody", "tr", "td", "th", "a"];
-const ALLOWED_ATTR = ["style", "class", "color", "face", "size", "type", "checked", "disabled", "colspan", "rowspan", "href", "target", "rel"];
+   app already uses everywhere else.
+
+   <img> covers pasting a screenshot/copied image directly into the
+   composer -- Chrome inserts it as <img src="data:image/png;base64,..."
+   on paste, no code of ours involved, same as the table/link cases
+   above. data: is only allowed as a scheme for THIS tag (via
+   allowedSchemesByTag, which overrides the global allowedSchemes list
+   above just for img) -- an <a href="data:..."> is still blocked, so
+   this can't be used to smuggle a clickable data: link past the
+   href-scheme restriction. */
+const ALLOWED_TAGS = ["b", "strong", "i", "em", "u", "span", "font", "div", "br", "ul", "ol", "li", "input", "table", "thead", "tbody", "tr", "td", "th", "a", "img"];
+const ALLOWED_ATTR = ["style", "class", "color", "face", "size", "type", "checked", "disabled", "colspan", "rowspan", "href", "target", "rel", "src", "alt", "width", "height"];
 const ALLOWED_STYLES = {
   "*": {
     color: [/^.*$/],
@@ -59,6 +68,8 @@ const ALLOWED_STYLES = {
     "vertical-align": [/^.*$/],
     border: [/^.*$/],
     "border-color": [/^.*$/],
+    width: [/^.*$/],
+    height: [/^.*$/],
   },
 };
 
@@ -68,11 +79,12 @@ export function sanitizeNoteHtml(html: string): string {
     allowedAttributes: { "*": ALLOWED_ATTR },
     allowedStyles: ALLOWED_STYLES,
     allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesByTag: { img: ["data", "http", "https"] },
     transformTags: {
       a: sanitizeHtml.simpleTransform("a", { target: "_blank", rel: "noopener noreferrer" }),
     },
-    // input[type=checkbox] is the only void/self-closing tag this
-    // composer ever inserts.
-    selfClosing: ["br", "input"],
+    // input[type=checkbox] and img are the void/self-closing tags this
+    // composer (or a browser's own paste handling) ever inserts.
+    selfClosing: ["br", "input", "img"],
   });
 }

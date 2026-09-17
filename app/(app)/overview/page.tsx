@@ -89,7 +89,7 @@ export default async function OverviewPage() {
             {vaNamesWithActivity.map((vaName) => {
               const va = state.vas.find((v) => v.name === vaName);
               return (
-                <div key={vaName} className="rounded-md border bg-record-background p-3">
+                <div key={vaName} className="rounded-md border border-l-4 border-l-plan-accent-secondary bg-record-background p-3">
                   <div className="mb-2 text-sm font-semibold" style={va?.color ? { color: va.color } : undefined}>
                     {vaName}
                   </div>

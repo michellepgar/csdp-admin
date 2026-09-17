@@ -52,6 +52,11 @@
   --color-header-background: var(--header-background);
   --color-title-background: var(--title-background);
   --color-record-background: var(--record-background);
+  --color-plan-accent: var(--plan-accent);
+  --color-plan-accent-foreground: var(--plan-accent-foreground);
+  --color-plan-accent-secondary: var(--plan-accent-secondary);
+  --color-plan-accent-secondary-foreground: var(--plan-accent-secondary-foreground);
+  --color-row-hover: var(--row-hover);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -105,7 +110,7 @@
   --destructive: #DC3545;
   --border: #DEDCD5;
   --input: #DEDCD5;
-  --ring: #079DB7;
+  --ring: #06927E;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -149,6 +154,26 @@
   --status-paused-foreground: #8b3f10;
   --header-background: #08B6CF;
   --title-background: #D7F1F4;
+  /* Preview: a second accent color (coral), distinct from the teal
+     used everywhere else -- Michelle asked to see "Option A" from a
+     visual-companion mockup applied live, starting with the floating
+     plan bubble (her specific complaint: it blends into the teal
+     header and is hard to see) and a card accent. Not yet applied
+     app-wide -- this is a preview, not the final rollout. */
+  --plan-accent: #FF6B5E;
+  --plan-accent-foreground: #FFFFFF;
+  /* Second preview accent (plum, from Option B) -- Michelle asked for
+     a different color on "Plans for Tomorrow" boxes than "Today"'s
+     coral, so the two sections read as visually distinct at a glance. */
+  --plan-accent-secondary: #8A5CF6;
+  --plan-accent-secondary-foreground: #FFFFFF;
+  /* Dedicated Tasks-table row-hover color -- it used to reuse
+     bg-muted/40, but --muted is the exact same base color as
+     --title-background (the category header band), so a hovered row
+     read as barely distinguishable from the header color instead of
+     as its own highlight. Two shades lighter than that base teal,
+     its own token so nothing else that already uses --muted shifts. */
+  --row-hover: #ECFAFB;
   /* Back to plain white -- Michelle asked for every record row
      (Tasks, Issues, Contacts, Distribution List, EOD, Suggestions,
      General Notes, etc. all already share this one token) to go back
@@ -178,7 +203,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.715 0.143 215.221);
+  --ring: oklch(0.6 0.143 190);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -210,6 +235,11 @@
   --header-background: oklch(0.245 0.085 211.53);
   --title-background: oklch(0.245 0.085 211.53);
   --record-background: oklch(0.15 0.03 211.53);
+  --plan-accent: #FF6B5E;
+  --plan-accent-foreground: #FFFFFF;
+  --plan-accent-secondary: #8A5CF6;
+  --plan-accent-secondary-foreground: #FFFFFF;
+  --row-hover: oklch(0.32 0.041 260.031);
 }
 
 @layer base {

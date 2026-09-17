@@ -51,7 +51,7 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
       {planItems.length === 0 && <p className="text-sm text-muted-foreground">Nothing planned yet.</p>}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {vaNames.map((vaName) => (
-          <div key={vaName} className="rounded-md border bg-record-background p-3">
+          <div key={vaName} className="rounded-md border border-l-4 border-l-plan-accent bg-record-background p-3">
             <div className="mb-2 text-sm font-semibold">{vaName}</div>
             <ul className="space-y-1.5">
               {byVa.get(vaName)!.map((item) => (
@@ -64,7 +64,7 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
           </div>
         ))}
         {shared.length > 0 && (
-          <div className="rounded-md border bg-record-background p-3">
+          <div className="rounded-md border border-l-4 border-l-plan-accent bg-record-background p-3">
             <div className="mb-2 text-sm font-semibold text-muted-foreground">Unassigned / shared</div>
             <ul className="space-y-1.5">
               {shared.map((item) => (

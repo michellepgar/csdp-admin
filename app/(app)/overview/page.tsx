@@ -122,7 +122,7 @@ export default async function OverviewPage() {
             savePlan={savePlan}
           />
           <form action={startNewDay}>
-            <SubmitButton variant="outline" size="sm" pendingLabel="…">Start a New Day</SubmitButton>
+            <SubmitButton size="sm" pendingLabel="…">Start a New Day</SubmitButton>
           </form>
         </div>
       )}

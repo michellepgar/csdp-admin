@@ -62,7 +62,7 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
 
   return (
     <div>
-      <Button type="button" size="sm" onClick={() => setOpen(true)}>End Today&apos;s Work</Button>
+      <Button type="button" variant="plan" size="sm" onClick={() => setOpen(true)}>End Today&apos;s Work</Button>
       {open && (
         <div className="mt-2 max-w-md rounded-md border bg-card p-3">
           <p className="mb-2 text-xs text-muted-foreground">Still in progress today — uncheck to drop from tomorrow&apos;s plan:</p>
@@ -98,7 +98,7 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
             }}
             className="mt-2 flex gap-2"
           >
-            <SubmitButton size="sm" pendingLabel="Saving…">Save Plan</SubmitButton>
+            <SubmitButton variant="plan" size="sm" pendingLabel="Saving…">Save Plan</SubmitButton>
             <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
           </form>
           {error && <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}

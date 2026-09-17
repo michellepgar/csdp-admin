@@ -44,7 +44,7 @@ export function PlansForTomorrow({ planItems, vas, isCurrentUserAdmin, addPriori
         >
           <input name="label" required placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border px-2 text-sm" />
           <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Anyone (shared)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
-          <SubmitButton size="xs" pendingLabel="Adding…">Add</SubmitButton>
+          <SubmitButton variant="plan" size="xs" pendingLabel="Adding…">Add</SubmitButton>
           {error && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}

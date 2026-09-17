@@ -260,13 +260,14 @@ export function Sidebar({
               </div>
             </form>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setAddingSchool(true)}
-              className="mx-2 mt-1 w-[calc(100%-1rem)] rounded-md border border-dashed px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+              className="mx-2 mt-1 w-[calc(100%-1rem)] justify-start"
             >
               + Add school
-            </button>
+            </Button>
           ))}
 
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />

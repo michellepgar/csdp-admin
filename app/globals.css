@@ -154,13 +154,13 @@
   --status-paused-foreground: #8b3f10;
   --header-background: #08B6CF;
   --title-background: #D7F1F4;
-  /* Preview: a second accent color (coral), distinct from the teal
-     used everywhere else -- Michelle asked to see "Option A" from a
-     visual-companion mockup applied live, starting with the floating
-     plan bubble (her specific complaint: it blends into the teal
-     header and is hard to see) and a card accent. Not yet applied
-     app-wide -- this is a preview, not the final rollout. */
-  --plan-accent: #FF6B5E;
+  /* Second accent color (terracotta), distinct from the teal used
+     everywhere else -- ties the floating plan bubble to "Plans for
+     Tomorrow" cards. Originally a brighter coral (#FF6B5E); Michelle
+     found that too bright/alarming for something on screen
+     persistently, so this is a dustier, less saturated version of the
+     same hue instead. */
+  --plan-accent: #D97757;
   --plan-accent-foreground: #FFFFFF;
   /* Second preview accent (plum, from Option B) -- Michelle asked for
      a different color on "Plans for Tomorrow" boxes than "Today"'s
@@ -235,7 +235,7 @@
   --header-background: oklch(0.245 0.085 211.53);
   --title-background: oklch(0.245 0.085 211.53);
   --record-background: oklch(0.15 0.03 211.53);
-  --plan-accent: #FF6B5E;
+  --plan-accent: #D97757;
   --plan-accent-foreground: #FFFFFF;
   --plan-accent-secondary: #8A5CF6;
   --plan-accent-secondary-foreground: #FFFFFF;

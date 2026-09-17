@@ -55,7 +55,7 @@ export function PlanPriorityStartForm({ planItemId, schools, taskCategories, gen
         <Dropdown name="categoryId" value={categoryId} onChange={setCategoryId} placeholder="Choose a category" openUpward options={categories} />
         <input name="fileName" required placeholder={isGeneral ? "Description" : "File name"} className="h-8 w-full rounded-md border px-2 text-sm" />
         <div className="flex gap-2">
-          <SubmitButton size="xs" pendingLabel="Starting…" disabled={!destinationId || !categoryId}>Start</SubmitButton>
+          <SubmitButton variant="plan" size="xs" pendingLabel="Starting…" disabled={!destinationId || !categoryId}>Start</SubmitButton>
           <Button type="button" variant="ghost" size="xs" onClick={onClose}>Cancel</Button>
         </div>
         {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
@@ -32,7 +33,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
               <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
                 <span>{item.label}</span>
                 {item.kind === "priority" ? (
-                  <Button type="button" size="xs" onClick={() => setStartingPriorityId(item.id)}>Start</Button>
+                  <Button type="button" variant="plan" size="xs" onClick={() => setStartingPriorityId(item.id)}>Start</Button>
                 ) : (
                   <form action={resolveTaskPlanItem}>
                     <input type="hidden" name="id" value={item.id} />
@@ -44,7 +45,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
                     ) : (
                       <input type="hidden" name="generalTaskId" value={item.generalTaskId} />
                     )}
-                    <SubmitButton size="xs" pendingLabel="…">Start</SubmitButton>
+                    <SubmitButton variant="plan" size="xs" pendingLabel="…">Start</SubmitButton>
                   </form>
                 )}
               </div>
@@ -53,7 +54,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
         </div>
       ) : (
         <button type="button" onClick={() => setExpanded(true)} className="relative flex h-14 w-14 items-center justify-center rounded-full bg-plan-accent text-plan-accent-foreground shadow-lg" aria-label="Your plan">
-          📋
+          <ClipboardList className="h-6 w-6" />
           {/* White badge (not the usual status-danger red) -- that red
               is now too close to the new coral bubble color to read as
               its own separate element against it. */}

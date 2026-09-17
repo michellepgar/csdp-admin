@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { visibleSchoolItems } from "@/lib/app-state";
 import type { TaskCategory } from "@/lib/app-state";
+import type { SchoolTables } from "@/components/general-tasks-list";
 
 const ADD_NEW_CATEGORY_OPTION = "__add_new__";
 
-export function GeneralTaskMoveForm({ taskId, defaultFileName, schools, taskCategories, moveGeneralTaskToSchool, addTaskCategory, onClose }: {
+export function GeneralTaskMoveForm({ taskId, defaultFileName, schools, taskCategories, schoolTables, moveGeneralTaskToSchool, addTaskCategory, onClose }: {
   taskId: string;
   defaultFileName: string;
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
+  schoolTables: SchoolTables;
   moveGeneralTaskToSchool: (formData: FormData) => Promise<{ error: string | null }>;
   addTaskCategory: (formData: FormData) => void;
   onClose: () => void;
@@ -22,8 +24,12 @@ export function GeneralTaskMoveForm({ taskId, defaultFileName, schools, taskCate
   const [categoryId, setCategoryId] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [existingTable, setExistingTable] = useState(false);
+  const [tableKey, setTableKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const categories = schoolId ? visibleSchoolItems(taskCategories, schoolId) : [];
+  const tables = schoolTables[schoolId] || [];
+  const selectedTable = tables.find((t) => t.key === tableKey);
 
   return (
     <div className="mt-2 max-w-md rounded-md border bg-card p-3">
@@ -38,18 +44,47 @@ export function GeneralTaskMoveForm({ taskId, defaultFileName, schools, taskCate
         className="space-y-2"
       >
         <input type="hidden" name="taskId" value={taskId} />
-        <Dropdown name="schoolId" value={schoolId} onChange={(v) => { setSchoolId(v); setCategoryId(""); }} placeholder="Choose a school" options={schools.map((s) => ({ value: s.id, label: s.name }))} />
+        <Dropdown name="schoolId" value={schoolId} onChange={(v) => { setSchoolId(v); setCategoryId(""); setTableKey(""); }} placeholder="Choose a school" options={schools.map((s) => ({ value: s.id, label: s.name }))} />
 
-        <Dropdown
-          name="categoryId"
-          value={categoryId}
-          onChange={(v) => {
-            if (v === ADD_NEW_CATEGORY_OPTION) { setAddingCategory(true); return; }
-            setCategoryId(v);
-          }}
-          placeholder="Choose a category"
-          options={[...categories.map((c) => ({ value: c.id, label: c.name })), { value: ADD_NEW_CATEGORY_OPTION, label: "+ Add new category" }]}
-        />
+        {schoolId && tables.length > 0 && (
+          <div className="flex gap-1">
+            <Button type="button" size="xs" variant={existingTable ? "outline" : "default"} onClick={() => { setExistingTable(false); setCategoryId(""); setTableKey(""); }}>New file</Button>
+            <Button type="button" size="xs" variant={existingTable ? "default" : "outline"} onClick={() => { setExistingTable(true); setCategoryId(""); }}>Add to existing table</Button>
+          </div>
+        )}
+
+        {existingTable ? (
+          <>
+            <input type="hidden" name="tableCategoryIds" value={selectedTable ? selectedTable.categoryIds.join(",") : ""} />
+            <Dropdown
+              name="tableKey"
+              value={tableKey}
+              onChange={(v) => { setTableKey(v); setCategoryId(""); }}
+              placeholder="Choose a table"
+              options={tables.map((t) => ({ value: t.key, label: `${t.categoryNames.join(" + ")} (${t.fileCount} file${t.fileCount === 1 ? "" : "s"})` }))}
+            />
+            {selectedTable && (
+              <Dropdown
+                name="categoryId"
+                value={categoryId}
+                onChange={setCategoryId}
+                placeholder="Which category is this task?"
+                options={selectedTable.categoryIds.map((id, i) => ({ value: id, label: selectedTable.categoryNames[i] }))}
+              />
+            )}
+          </>
+        ) : (
+          <Dropdown
+            name="categoryId"
+            value={categoryId}
+            onChange={(v) => {
+              if (v === ADD_NEW_CATEGORY_OPTION) { setAddingCategory(true); return; }
+              setCategoryId(v);
+            }}
+            placeholder="Choose a category"
+            options={[...categories.map((c) => ({ value: c.id, label: c.name })), { value: ADD_NEW_CATEGORY_OPTION, label: "+ Add new category" }]}
+          />
+        )}
         {addingCategory && (
           <div className="flex gap-2">
             <input

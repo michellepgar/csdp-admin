@@ -180,6 +180,8 @@ export async function moveGeneralTaskToSchool(formData: FormData): Promise<Gener
   const schoolId = formData.get("schoolId") as string;
   const categoryId = formData.get("categoryId") as string;
   const fileName = ((formData.get("fileName") as string) || "").trim();
+  const tableCategoryIdsRaw = (formData.get("tableCategoryIds") as string) || "";
+  const categoryIds = tableCategoryIdsRaw ? tableCategoryIdsRaw.split(",").filter(Boolean) : [categoryId];
   if (!fileName) return { error: "Enter a file name." };
   if (!schoolId || !categoryId) return { error: "Choose a school and a category." };
 
@@ -189,11 +191,14 @@ export async function moveGeneralTaskToSchool(formData: FormData): Promise<Gener
       if (!task) return;
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
       const fileId = `demo-moved-file-${Date.now()}`;
-      const category = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
       const createdAt = new Date().toISOString();
-      const assignmentId = `${fileId}-0`;
-      (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category, status: task.status, vaAssigned: task.vaAssigned, sortOrder: 0, createdAt }] });
-      (sd.tasks ??= []).push({ id: assignmentId, category, fileName, sortOrder: sd.taskFiles.length - 1, status: task.status, vaAssigned: task.vaAssigned, createdAt });
+      const categoryAssignments = categoryIds.map((cid, i) => {
+        const categoryName = state.taskCategories?.find((c) => c.id === cid)?.name || "Uncategorized";
+        const isTargetCategory = cid === categoryId;
+        return { id: `${fileId}-${i}`, taskFileId: fileId, categoryId: cid, category: categoryName, status: isTargetCategory ? task.status : "", vaAssigned: isTargetCategory ? task.vaAssigned : [], sortOrder: i, createdAt };
+      });
+      (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: categoryAssignments });
+      (sd.tasks ??= []).push(...categoryAssignments.map((a, i) => ({ id: a.id, category: a.category, fileName, sortOrder: (sd.taskFiles!.length - 1) * 100 + i, status: a.status, vaAssigned: a.vaAssigned, createdAt })));
       state.generalTasks = (state.generalTasks || []).filter((t) => t.id !== taskId);
     });
     revalidatePath("/general-tasks");
@@ -208,7 +213,7 @@ export async function moveGeneralTaskToSchool(formData: FormData): Promise<Gener
     if (!task) throw new Error("That task no longer exists.");
 
     const fileId = crypto.randomUUID();
-    const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
+    const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: categoryIds });
     orThrow(createError);
 
     const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();

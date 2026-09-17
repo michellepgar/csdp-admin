@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail } from "@/lib/app-state";
+import { groupTaskTables } from "@/lib/shared-task-files";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { GeneralTasksList } from "@/components/general-tasks-list";
@@ -28,6 +29,22 @@ export default async function GeneralTasksPage() {
   const me = findVaByEmail(state, user.email);
   if (!me) redirect("/not-on-team");
 
+  /* Per-school "table" shapes (a group of files sharing the same
+     category set, same grouping the Tasks page itself uses) -- lets
+     the move-to-school form offer "add to an existing table" without
+     shipping every school's full file contents to the client. */
+  const schoolTables = Object.fromEntries(
+    state.schools.map((school) => [
+      school.id,
+      groupTaskTables(state.taskCategories || [], state.schoolData[school.id]?.taskFiles || []).map((t) => ({
+        key: t.key,
+        categoryIds: t.categories.map((c) => c.id),
+        categoryNames: t.categories.map((c) => c.name),
+        fileCount: t.files.length,
+      })),
+    ]),
+  );
+
   return (
     <div>
       <PageHeader title="General Tasks" />
@@ -39,6 +56,7 @@ export default async function GeneralTasksPage() {
           currentUserName={me.name}
           schools={state.schools}
           taskCategories={state.taskCategories || []}
+          schoolTables={schoolTables}
           addGeneralTask={addGeneralTask}
           setGeneralTaskStatus={setGeneralTaskStatus}
           signGeneralTask={signGeneralTask}

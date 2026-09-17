@@ -27,12 +27,15 @@ const STATUS_TONE: Record<string, StatusTone> = {
   Completed: "success",
 };
 
+export type SchoolTables = Record<string, { key: string; categoryIds: string[]; categoryNames: string[]; fileCount: number }[]>;
+
 function GeneralTaskRow({
   task,
   vas,
   currentUserName,
   schools,
   taskCategories,
+  schoolTables,
   setGeneralTaskStatus,
   signGeneralTask,
   removeVaFromGeneralTask,
@@ -46,6 +49,7 @@ function GeneralTaskRow({
   currentUserName: string;
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
+  schoolTables: SchoolTables;
   setGeneralTaskStatus: (formData: FormData) => void;
   signGeneralTask: (formData: FormData) => void;
   removeVaFromGeneralTask: (formData: FormData) => void;
@@ -133,6 +137,7 @@ function GeneralTaskRow({
           defaultFileName={task.description}
           schools={schools}
           taskCategories={taskCategories}
+          schoolTables={schoolTables}
           moveGeneralTaskToSchool={moveGeneralTaskToSchool}
           addTaskCategory={addTaskCategory}
           onClose={() => setMoving(false)}
@@ -156,6 +161,7 @@ export function GeneralTasksList({
   currentUserName,
   schools,
   taskCategories,
+  schoolTables,
   addGeneralTask,
   setGeneralTaskStatus,
   signGeneralTask,
@@ -173,6 +179,7 @@ export function GeneralTasksList({
   currentUserName: string;
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
+  schoolTables: SchoolTables;
   addGeneralTask: (formData: FormData) => void;
   setGeneralTaskStatus: (formData: FormData) => void;
   signGeneralTask: (formData: FormData) => void;
@@ -245,6 +252,7 @@ export function GeneralTasksList({
                 currentUserName={currentUserName}
                 schools={schools}
                 taskCategories={taskCategories}
+                schoolTables={schoolTables}
                 setGeneralTaskStatus={setGeneralTaskStatus}
                 signGeneralTask={signGeneralTask}
                 removeVaFromGeneralTask={removeVaFromGeneralTask}

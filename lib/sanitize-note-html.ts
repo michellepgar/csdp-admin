@@ -73,6 +73,43 @@ const ALLOWED_STYLES = {
   },
 };
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function escapeAttr(text: string): string {
+  return escapeHtml(text).replace(/"/g, "&quot;");
+}
+
+// Matches a bare URL (http(s):// or a bare "www.") in otherwise plain
+// text -- not every link a VA saves comes in as a rich pasted anchor
+// (the case sanitize-html's own tag/attribute allowlist handles
+// above); typing or pasting a plain address needs the same "click to
+// open" treatment. Trailing punctuation (a period ending the
+// sentence, a comma, a closing bracket) is peeled off the match and
+// left as plain text after the link, so "see angeloelementary.edu."
+// doesn't glue the period into the URL.
+const BARE_URL = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
+const TRAILING_PUNCTUATION = /[.,;:!?)\]}]+$/;
+
+function linkifyPlainText(text: string): string {
+  let lastIndex = 0;
+  let out = "";
+  for (const match of text.matchAll(BARE_URL)) {
+    const raw = match[0];
+    const start = match.index!;
+    out += escapeHtml(text.slice(lastIndex, start));
+    const trailingMatch = raw.match(TRAILING_PUNCTUATION);
+    const trailing = trailingMatch ? trailingMatch[0] : "";
+    const url = trailing ? raw.slice(0, -trailing.length) : raw;
+    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    out += `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>${escapeHtml(trailing)}`;
+    lastIndex = start + raw.length;
+  }
+  out += escapeHtml(text.slice(lastIndex));
+  return out;
+}
+
 export function sanitizeNoteHtml(html: string): string {
   return sanitizeHtml(html, {
     allowedTags: ALLOWED_TAGS,
@@ -86,5 +123,16 @@ export function sanitizeNoteHtml(html: string): string {
     // input[type=checkbox] and img are the void/self-closing tags this
     // composer (or a browser's own paste handling) ever inserts.
     selfClosing: ["br", "input", "img"],
+    // Runs on every remaining text node during output -- the ONE hook
+    // sanitize-html gives you to inject markup (its return value is
+    // spliced straight into the output HTML, not re-parsed through
+    // allowedTags/transformTags), which is exactly what auto-linkifying
+    // needs. Skipped for text that's already the label of a real <a>
+    // (tagName === "a") -- linkifying THAT would nest an <a> inside an
+    // <a>, which is invalid HTML and would render wrong. Every other
+    // branch must escape its own output by hand since nothing else
+    // will: this callback fully replaces the library's default escaping
+    // for whichever text node it's called on.
+    textFilter: (text, tagName) => (tagName === "a" ? escapeHtml(text) : linkifyPlainText(text)),
   });
 }

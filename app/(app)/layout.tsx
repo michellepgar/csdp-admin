@@ -6,6 +6,7 @@ import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { SidebarShell } from "@/components/sidebar-shell";
 import { addSchool } from "./layout-actions";
 import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overview/actions";
+import { completeNoteReminder } from "@/app/(app)/private-notes/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Demo mode has no real Supabase session for is_team_member() to check
@@ -85,7 +86,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     (n) => n.urgency === "Urgent" && n.author !== me.name && !(n.ackBy || []).includes(me.name)
   );
 
-  const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name);
+  const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name && !p.completedAt);
 
   return (
     <SidebarShell
@@ -105,6 +106,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       generalTaskCategories={state.generalTaskCategories || []}
       resolveTaskPlanItem={resolveTaskPlanItem}
       resolvePriorityPlanItem={resolvePriorityPlanItem}
+      completeNoteReminder={completeNoteReminder}
     >
       {children}
     </SidebarShell>

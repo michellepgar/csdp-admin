@@ -46,6 +46,7 @@ export function SidebarShell({
   generalTaskCategories,
   resolveTaskPlanItem,
   resolvePriorityPlanItem,
+  completeNoteReminder,
   children,
 }: {
   currentName: string;
@@ -64,6 +65,7 @@ export function SidebarShell({
   generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
+  completeNoteReminder: (formData: FormData) => void;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -234,6 +236,7 @@ export function SidebarShell({
         generalTaskCategories={generalTaskCategories}
         resolveTaskPlanItem={resolveTaskPlanItem}
         resolvePriorityPlanItem={resolvePriorityPlanItem}
+        completeNoteReminder={completeNoteReminder}
       />
     </div>
   );

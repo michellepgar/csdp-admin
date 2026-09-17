@@ -7,18 +7,22 @@ import { SubmitButton } from "@/components/submit-button";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
 import type { PlanItem, TaskCategory, GeneralTaskCategory } from "@/lib/app-state";
 
-export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem }: {
+export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, completeNoteReminder }: {
   myPlanItems: PlanItem[];
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
   generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
+  completeNoteReminder: (formData: FormData) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [startingPriority, setStartingPriority] = useState<PlanItem | null>(null);
 
   if (myPlanItems.length === 0) return null;
+
+  const actionableItems = myPlanItems.filter((item) => item.kind !== "note");
+  const reminders = myPlanItems.filter((item) => item.kind === "note");
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
@@ -28,7 +32,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
             <span>Your Plan</span><span>▾</span>
           </button>
           <div className="max-h-80 space-y-2 overflow-y-auto p-2">
-            {myPlanItems.map((item) => (
+            {actionableItems.map((item) => (
               <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
                 <span className="flex items-center">{item.kind === "priority" && <span className="priority-dot" aria-hidden />}{item.label}</span>
                 {item.kind === "priority" ? (
@@ -49,6 +53,20 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
                 )}
               </div>
             ))}
+            {reminders.length > 0 && (
+              <div className="mt-2 border-t pt-2">
+                <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Reminders</div>
+                {reminders.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                    <span>{item.label}</span>
+                    <form action={completeNoteReminder}>
+                      <input type="hidden" name="id" value={item.id} />
+                      <SubmitButton size="xs" pendingLabel="…">✓</SubmitButton>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ) : (

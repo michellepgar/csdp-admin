@@ -117,7 +117,7 @@ export function TeamPresence({ currentMember, collapsed }: { currentMember: Curr
       {!collapsed && <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Online now</div>}
       <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "-space-x-2")}>
         {roster.members.map((member) => (
-          <HoverLabel key={member.memberId} label={`${member.name} · ${member.status === "active" ? "Online" : "Inactive"}`} side={collapsed ? "right" : "left"}>
+          <HoverLabel key={member.memberId} label={`${member.name} · ${member.status === "active" ? "Online" : "Inactive"}`} side="right">
             <button
               type="button"
             className={cn("relative flex h-8 w-8 flex-none items-center justify-center rounded-full border-2 border-sidebar text-[10px] font-semibold text-white shadow-sm", member.status === "idle" && "opacity-45 grayscale")}

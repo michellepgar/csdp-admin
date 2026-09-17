@@ -16,7 +16,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [startingPriorityId, setStartingPriorityId] = useState<string | null>(null);
+  const [startingPriority, setStartingPriority] = useState<PlanItem | null>(null);
 
   if (myPlanItems.length === 0) return null;
 
@@ -32,7 +32,7 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
               <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
                 <span>{item.label}</span>
                 {item.kind === "priority" ? (
-                  <Button type="button" variant="plan" size="xs" onClick={() => setStartingPriorityId(item.id)}>Start</Button>
+                  <Button type="button" variant="plan" size="xs" onClick={() => setStartingPriority(item)}>Start</Button>
                 ) : (
                   <form action={resolveTaskPlanItem}>
                     <input type="hidden" name="id" value={item.id} />
@@ -60,14 +60,14 @@ export function PlanBubble({ myPlanItems, schools, taskCategories, generalTaskCa
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-plan-accent">{myPlanItems.length}</span>
         </button>
       )}
-      {startingPriorityId && (
+      {startingPriority && (
         <PlanPriorityStartForm
-          planItemId={startingPriorityId}
+          planItem={startingPriority}
           schools={schools}
           taskCategories={taskCategories}
           generalTaskCategories={generalTaskCategories}
           resolvePriorityPlanItem={resolvePriorityPlanItem}
-          onClose={() => setStartingPriorityId(null)}
+          onClose={() => setStartingPriority(null)}
         />
       )}
     </div>

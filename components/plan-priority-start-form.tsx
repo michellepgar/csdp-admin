@@ -5,20 +5,21 @@ import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { visibleSchoolItems } from "@/lib/app-state";
-import type { TaskCategory, GeneralTaskCategory } from "@/lib/app-state";
+import type { PlanItem, TaskCategory, GeneralTaskCategory } from "@/lib/app-state";
 
 const GENERAL_TASKS_OPTION = "__general__";
 
-export function PlanPriorityStartForm({ planItemId, schools, taskCategories, generalTaskCategories, resolvePriorityPlanItem, onClose }: {
-  planItemId: string;
+export function PlanPriorityStartForm({ planItem, schools, taskCategories, generalTaskCategories, resolvePriorityPlanItem, onClose }: {
+  planItem: PlanItem;
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
   generalTaskCategories: GeneralTaskCategory[];
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   onClose: () => void;
 }) {
-  const [destinationId, setDestinationId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [destinationId, setDestinationId] = useState(planItem.suggestedSchoolId ?? "");
+  const [categoryId, setCategoryId] = useState(planItem.suggestedCategoryId ?? "");
+  const [fileName, setFileName] = useState(planItem.suggestedFileName ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const isGeneral = destinationId === GENERAL_TASKS_OPTION;
@@ -43,7 +44,7 @@ export function PlanPriorityStartForm({ planItemId, schools, taskCategories, gen
         }}
         className="space-y-2"
       >
-        <input type="hidden" name="id" value={planItemId} />
+        <input type="hidden" name="id" value={planItem.id} />
         <Dropdown
           name="destinationDisplay"
           value={destinationId}
@@ -53,7 +54,7 @@ export function PlanPriorityStartForm({ planItemId, schools, taskCategories, gen
           options={[{ value: GENERAL_TASKS_OPTION, label: "General Tasks" }, ...schools.map((s) => ({ value: s.id, label: s.name }))]}
         />
         <Dropdown name="categoryId" value={categoryId} onChange={setCategoryId} placeholder="Choose a category" openUpward options={categories} />
-        <input name="fileName" required placeholder={isGeneral ? "Description" : "File name"} className="h-8 w-full rounded-md border px-2 text-sm" />
+        <input name="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} required placeholder={isGeneral ? "Description" : "File name"} className="h-8 w-full rounded-md border px-2 text-sm" />
         <div className="flex gap-2">
           <SubmitButton variant="plan" size="xs" pendingLabel="Starting…" disabled={!destinationId || !categoryId}>Start</SubmitButton>
           <Button type="button" variant="ghost" size="xs" onClick={onClose}>Cancel</Button>

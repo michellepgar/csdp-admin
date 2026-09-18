@@ -139,6 +139,42 @@ export interface TodayActivityItem {
    *  Reminder item (private-note reminders have no workflow status of
    *  their own), which the caller renders without a badge. */
   status: string;
+  /** Appended to the school link href for this item -- e.g.
+   *  "#email-tracker" so an email item's Today entry jumps straight to
+   *  that section instead of just the top of the school page. Absent
+   *  for every other kind of Today item. */
+  linkSuffix?: string;
+}
+
+export interface OpenEmailItem {
+  schoolId: string;
+  schoolName: string;
+  itemId: string;
+  description: string;
+  status: string;
+}
+
+/* Email Tracker items aren't assigned to an individual VA the way
+   tasks are -- only the whole school is (schoolData[id].vaAssigned) --
+   so "whose plan is this on" is just that school's one assigned VA.
+   Unlike tasks/priorities, this is never opt-in: every open (non-Done)
+   email for a VA's schools always shows on Today, Plans for Tomorrow,
+   and Your Plan until its status changes to Done -- Michelle asked for
+   this specifically as a standing reminder to check email, not
+   something that needs claiming or starting first. Shared here since
+   all three surfaces need the identical derivation. */
+export function openEmailItemsByVa(schools: School[], schoolData: Record<string, SchoolDataEntry>): Map<string, OpenEmailItem[]> {
+  const byVa = new Map<string, OpenEmailItem[]>();
+  for (const school of schools) {
+    const va = schoolData[school.id]?.vaAssigned;
+    if (!va) continue;
+    for (const item of schoolData[school.id]?.emailTracker || []) {
+      if (item.status === "Done") continue;
+      if (!byVa.has(va)) byVa.set(va, []);
+      byVa.get(va)!.push({ schoolId: school.id, schoolName: school.name, itemId: item.id, description: item.description, status: item.status });
+    }
+  }
+  return byVa;
 }
 
 /* This runs server-side (Vercel functions default to UTC), so
@@ -196,6 +232,10 @@ export function todayActivityByVa(
   for (const item of planItems) {
     if (item.kind === "task" || !item.completedAt || !item.vaName || !isToday(item.completedAt)) continue;
     push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "" });
+  }
+
+  for (const [vaName, items] of openEmailItemsByVa(schools, schoolData)) {
+    for (const item of items) push(vaName, { schoolId: item.schoolId, schoolName: item.schoolName, category: "Email", fileName: item.description, status: item.status, linkSuffix: "#email-tracker" });
   }
 
   return byVa;

@@ -38,6 +38,8 @@ const TODAY_STATUS_TONE: Record<string, StatusTone> = {
   "In Progress": "warning",
   Paused: "paused",
   Completed: "success",
+  "Needs My Response": "warning",
+  "Waiting on Them": "paused",
 };
 
 export default async function OverviewPage() {
@@ -112,7 +114,7 @@ export default async function OverviewPage() {
                           <span className="font-bold">{t.fileName}</span>
                         ) : (
                           <>
-                            <Link href={t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"} className="font-bold underline-offset-2 hover:underline">
+                            <Link href={`${t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"}${t.linkSuffix || ""}`} className="font-bold underline-offset-2 hover:underline">
                               {t.fileName}
                             </Link>
                             <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
@@ -146,6 +148,8 @@ export default async function OverviewPage() {
       <PlansForTomorrow
         planItems={state.planItems || []}
         vas={state.vas}
+        schools={state.schools}
+        schoolData={state.schoolData}
         currentUserName={me?.name ?? ""}
         removePlanItem={removePlanItem}
       />

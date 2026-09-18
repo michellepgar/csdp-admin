@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
+import { openEmailItemsByVa } from "@/lib/shared-task-files";
 import { SidebarShell } from "@/components/sidebar-shell";
 import { addSchool } from "./layout-actions";
 import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overview/actions";
 import { completeNoteReminder } from "@/app/(app)/private-notes/actions";
 import { markMentionRead } from "@/app/(app)/mentions/actions";
+import { setEmailStatus } from "@/app/(app)/schools/[id]/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Demo mode has no real Supabase session for is_team_member() to check
@@ -93,6 +95,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const myMentions = (state.mentions || []).filter((m) => m.mentionedName === me.name);
 
   const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name && !p.completedAt);
+  const myOpenEmailItems = openEmailItemsByVa(state.schools, state.schoolData).get(me.name) || [];
 
   return (
     <SidebarShell
@@ -111,11 +114,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       myMentions={myMentions}
       markMentionRead={markMentionRead}
       myPlanItems={myPlanItems}
+      myOpenEmailItems={myOpenEmailItems}
       taskCategories={state.taskCategories || []}
       generalTaskCategories={state.generalTaskCategories || []}
       resolveTaskPlanItem={resolveTaskPlanItem}
       resolvePriorityPlanItem={resolvePriorityPlanItem}
       completeNoteReminder={completeNoteReminder}
+      setEmailStatus={setEmailStatus}
     >
       {children}
     </SidebarShell>

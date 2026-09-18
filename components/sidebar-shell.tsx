@@ -6,6 +6,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import { PlanBubble } from "@/components/plan-bubble";
+import type { OpenEmailItem } from "@/lib/shared-task-files";
 import type { PlanItem, TaskCategory, GeneralTaskCategory, Va, Mention } from "@/lib/app-state";
 import type { CurrentPresenceMember } from "@/components/team-presence";
 
@@ -45,11 +46,13 @@ export function SidebarShell({
   myMentions,
   markMentionRead,
   myPlanItems,
+  myOpenEmailItems,
   taskCategories,
   generalTaskCategories,
   resolveTaskPlanItem,
   resolvePriorityPlanItem,
   completeNoteReminder,
+  setEmailStatus,
   children,
 }: {
   currentName: string;
@@ -67,11 +70,13 @@ export function SidebarShell({
   myMentions: Mention[];
   markMentionRead: (formData: FormData) => void;
   myPlanItems: PlanItem[];
+  myOpenEmailItems: OpenEmailItem[];
   taskCategories: TaskCategory[];
   generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   completeNoteReminder: (formData: FormData) => void;
+  setEmailStatus: (formData: FormData) => void;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -240,12 +245,14 @@ export function SidebarShell({
 
       <PlanBubble
         myPlanItems={myPlanItems}
+        myOpenEmailItems={myOpenEmailItems}
         schools={schools}
         taskCategories={taskCategories}
         generalTaskCategories={generalTaskCategories}
         resolveTaskPlanItem={resolveTaskPlanItem}
         resolvePriorityPlanItem={resolvePriorityPlanItem}
         completeNoteReminder={completeNoteReminder}
+        setEmailStatus={setEmailStatus}
       />
     </div>
   );

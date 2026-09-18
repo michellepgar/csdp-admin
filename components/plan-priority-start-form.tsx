@@ -8,6 +8,7 @@ import { visibleSchoolItems } from "@/lib/app-state";
 import type { PlanItem, TaskCategory, GeneralTaskCategory } from "@/lib/app-state";
 
 const GENERAL_TASKS_OPTION = "__general__";
+const REMINDER_OPTION = "__reminder__";
 
 export function PlanPriorityStartForm({ planItem, schools, taskCategories, generalTaskCategories, resolvePriorityPlanItem, onClose }: {
   planItem: PlanItem;
@@ -23,20 +24,21 @@ export function PlanPriorityStartForm({ planItem, schools, taskCategories, gener
   const [error, setError] = useState<string | null>(null);
 
   const isGeneral = destinationId === GENERAL_TASKS_OPTION;
+  const isReminder = destinationId === REMINDER_OPTION;
   const categories = isGeneral
     ? generalTaskCategories.map((c) => ({ value: c.name, label: c.name }))
-    : destinationId
+    : destinationId && !isReminder
       ? visibleSchoolItems(taskCategories, destinationId).map((c) => ({ value: c.id, label: c.name }))
       : [];
 
   return (
     <div className="absolute bottom-16 right-0 w-72 rounded-md border bg-card p-3 shadow-lg">
-      <p className="mb-2 text-sm font-semibold">Which school is this for?</p>
+      <p className="mb-2 text-sm font-semibold">{isReminder ? "Just a heads-up, not a real task?" : "Which school is this for?"}</p>
       <form
         action={async (formData) => {
           setError(null);
-          formData.set("destination", isGeneral ? "general" : "school");
-          if (isGeneral) formData.delete("schoolId");
+          formData.set("destination", isReminder ? "reminder" : isGeneral ? "general" : "school");
+          if (isReminder || isGeneral) formData.delete("schoolId");
           else formData.set("schoolId", destinationId);
           const result = await resolvePriorityPlanItem(formData);
           if (result.error) setError(result.error);
@@ -51,12 +53,12 @@ export function PlanPriorityStartForm({ planItem, schools, taskCategories, gener
           onChange={(v) => { setDestinationId(v); setCategoryId(""); }}
           placeholder="Choose a school"
           openUpward
-          options={[{ value: GENERAL_TASKS_OPTION, label: "General Tasks" }, ...schools.map((s) => ({ value: s.id, label: s.name }))]}
+          options={[{ value: REMINDER_OPTION, label: "Just a reminder" }, { value: GENERAL_TASKS_OPTION, label: "General Tasks" }, ...schools.map((s) => ({ value: s.id, label: s.name }))]}
         />
-        <Dropdown name="categoryId" value={categoryId} onChange={setCategoryId} placeholder="Choose a category" openUpward options={categories} />
-        <input name="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} required placeholder={isGeneral ? "Description" : "File name"} className="h-8 w-full rounded-md border px-2 text-sm" />
+        {!isReminder && <Dropdown name="categoryId" value={categoryId} onChange={setCategoryId} placeholder="Choose a category" openUpward options={categories} />}
+        {!isReminder && <input name="fileName" value={fileName} onChange={(e) => setFileName(e.target.value)} required placeholder={isGeneral ? "Description" : "File name"} className="h-8 w-full rounded-md border px-2 text-sm" />}
         <div className="flex gap-2">
-          <SubmitButton variant="plan" size="xs" pendingLabel="Starting…" disabled={!destinationId || !categoryId}>Start</SubmitButton>
+          <SubmitButton variant="plan" size="xs" pendingLabel="Starting…" disabled={!destinationId || (!isReminder && !categoryId)}>{isReminder ? "Mark as reminder" : "Start"}</SubmitButton>
           <Button type="button" variant="ghost" size="xs" onClick={onClose}>Cancel</Button>
         </div>
         {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}

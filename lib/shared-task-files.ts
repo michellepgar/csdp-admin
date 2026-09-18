@@ -194,7 +194,7 @@ export function todayActivityByVa(
   }
 
   for (const item of planItems) {
-    if (item.kind !== "note" || !item.completedAt || !item.vaName || !isToday(item.completedAt)) continue;
+    if (item.kind === "task" || !item.completedAt || !item.vaName || !isToday(item.completedAt)) continue;
     push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "" });
   }
 

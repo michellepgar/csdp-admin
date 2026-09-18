@@ -116,6 +116,7 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
   const suggestedCategoryId = ((formData.get("suggestedCategoryId") as string) || "").trim() || undefined;
   const suggestedFileName = ((formData.get("suggestedFileName") as string) || "").trim() || undefined;
   if (!label) return { error: "Enter what should be worked on." };
+  if (suggestedCategoryId && !suggestedFileName) return { error: "Choose or add a file name." };
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -163,6 +164,7 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
   const suggestedCategoryId = ((formData.get("suggestedCategoryId") as string) || "").trim() || undefined;
   const suggestedFileName = ((formData.get("suggestedFileName") as string) || "").trim() || undefined;
   if (!label) return { error: "Enter what should be worked on." };
+  if (suggestedCategoryId && !suggestedFileName) return { error: "Choose or add a file name." };
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -223,39 +225,43 @@ export async function claimPriorityPlanItem(formData: FormData): Promise<PlanAct
   });
 }
 
-/* Either VA can remove any pending plan item -- matches this app's
-   existing team-wide trust model (no per-row ownership enforcement
-   anywhere else either, see plan_items' own RLS policy).
+/* An UNCLAIMED item (no vaName -- only ever a shared priority sitting
+   in Task Priorities) can be removed by anyone, same as this app's
+   existing team-wide trust model everywhere else. But once an item has
+   a vaName -- it's on someone's own Plans for Tomorrow -- only that VA
+   can remove it; Michelle asked for this specifically so one person
+   can't clear another's plan out from under them.
 
-   A claimed priority (kind:"priority" with a vaName) is the one
-   exception: removing it from Plans for Tomorrow doesn't delete the
-   row, it just clears vaName back to null -- Michelle asked for a
-   claimed-then-abandoned priority to go back to Task Priorities'
-   unassigned list for someone else to claim, not disappear entirely.
-   This same function is also how an UNCLAIMED priority gets removed
-   directly from Task Priorities (its own ✕ button) -- there vaName is
-   already null, so that case still falls through to a real delete,
-   same as every other kind. */
+   A claimed priority (kind:"priority" with a vaName) removed by its
+   own VA doesn't delete the row, it just clears vaName back to null --
+   Michelle asked for a claimed-then-abandoned priority to go back to
+   Task Priorities' unassigned list for someone else to claim, not
+   disappear entirely. */
 export async function removePlanItem(formData: FormData): Promise<PlanActionResult> {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
-    await demoMutate((state) => {
-      const item = (state.planItems || []).find((p) => p.id === id);
-      if (item && item.kind === "priority" && item.vaName) {
-        item.vaName = undefined;
-      } else {
-        state.planItems = (state.planItems || []).filter((p) => p.id !== id);
-      }
+    return runPlanAction(async () => {
+      await demoMutate((state) => {
+        const item = (state.planItems || []).find((p) => p.id === id);
+        if (!item) return;
+        if (item.vaName && item.vaName !== "Jane") throw new Error("You can only remove items from your own plan.");
+        if (item.kind === "priority" && item.vaName) {
+          item.vaName = undefined;
+        } else {
+          state.planItems = (state.planItems || []).filter((p) => p.id !== id);
+        }
+      });
+      revalidatePath("/overview");
     });
-    revalidatePath("/overview");
-    return { error: null };
   }
 
   return runPlanAction(async () => {
-    const { supabase } = await requireTeamMember();
+    const { supabase, me } = await requireTeamMember();
     const { data: item } = await supabase.from("plan_items").select("kind, va_name").eq("id", id).maybeSingle();
-    if (item && item.kind === "priority" && item.va_name) {
+    if (!item) return;
+    if (item.va_name && item.va_name !== me.name) throw new Error("You can only remove items from your own plan.");
+    if (item.kind === "priority" && item.va_name) {
       const { error } = await supabase.from("plan_items").update({ va_name: null }).eq("id", id);
       orThrow(error);
     } else {
@@ -461,13 +467,37 @@ export async function startMyDay(): Promise<PlanActionResult> {
 
 /* Resolve a kind:"priority" item -- creates the real task (school +
    category + file name, reusing add_task_file), signs the VA, sets it
-   In Progress, then deletes the plan_items row. */
+   In Progress, then deletes the plan_items row. A priority that's just
+   a heads-up with no real task behind it (e.g. "keep an eye on the
+   front desk today") can instead be resolved as a plain reminder --
+   same completed_at convention private-note reminders already use
+   (see completeNoteReminder in app/(app)/private-notes/actions.ts):
+   the row is marked done, not deleted or turned into a task, so it can
+   still show up on Today (lib/shared-task-files.ts's
+   todayActivityByVa). */
 export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanActionResult> {
   const id = formData.get("id") as string;
   const destination = (formData.get("destination") as string) || "school";
   const schoolId = (formData.get("schoolId") as string) || "";
   const categoryId = formData.get("categoryId") as string;
   const fileName = ((formData.get("fileName") as string) || "").trim();
+
+  if (destination === "reminder") {
+    if (await isDemoMode()) {
+      await demoMutate((state) => {
+        const item = (state.planItems || []).find((p) => p.id === id && p.kind === "priority");
+        if (item) item.completedAt = new Date().toISOString();
+      });
+      revalidatePath("/overview");
+      return { error: null };
+    }
+    return runPlanAction(async () => {
+      const { supabase } = await requireTeamMember();
+      const { error } = await supabase.from("plan_items").update({ completed_at: new Date().toISOString() }).eq("id", id).eq("kind", "priority");
+      orThrow(error);
+      revalidatePath("/overview");
+    });
+  }
   if (!fileName) return { error: "Enter a file name" };
 
   if (destination === "general") {
@@ -491,15 +521,38 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
     });
   }
 
+  /* The file name suggested when linking a priority is now picked from
+     REAL existing files under that school+category (task-priorities.tsx),
+     so the common case here is "start this existing file's task", not
+     "create a new one" -- creating a new file at the same name+category
+     would just fail the unique-name constraint add_task_file already
+     enforces. Match by trimmed/case-insensitive name (same normalization
+     add_task_file itself uses) and, if found, sign/start that existing
+     assignment instead -- same status logic resolveTaskPlanItem already
+     uses (Review if already Completed, In Progress otherwise). Only
+     falls through to creating a brand-new file when no match exists
+     (the VA typed a genuinely new name, or the picker's "+ Add new
+     file" path was used). */
+  const normalizedFileName = fileName.trim().toLowerCase();
+
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
-      const fileId = `demo-priority-file-${Date.now()}`;
-      const category = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
-      const createdAt = new Date().toISOString();
-      const assignmentId = `${fileId}-0`;
-      (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category, status: "In Progress", vaAssigned: ["Jane"], sortOrder: 0, createdAt }] });
-      (sd.tasks ??= []).push({ id: assignmentId, category, fileName, sortOrder: sd.taskFiles.length - 1, status: "In Progress", vaAssigned: ["Jane"], createdAt });
+      const existingFile = (sd.taskFiles || []).find((f) => f.fileName.trim().toLowerCase() === normalizedFileName && f.categories.some((c) => c.categoryId === categoryId));
+      const existingAssignment = existingFile?.categories.find((c) => c.categoryId === categoryId);
+      if (existingAssignment) {
+        if (!existingAssignment.vaAssigned.includes("Jane")) existingAssignment.vaAssigned.push("Jane");
+        existingAssignment.status = existingAssignment.status === "Completed" ? "Review" : "In Progress";
+        const task = sd.tasks?.find((t) => t.id === existingAssignment.id);
+        if (task) { if (!task.vaAssigned.includes("Jane")) task.vaAssigned.push("Jane"); task.status = existingAssignment.status; }
+      } else {
+        const fileId = `demo-priority-file-${Date.now()}`;
+        const category = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
+        const createdAt = new Date().toISOString();
+        const assignmentId = `${fileId}-0`;
+        (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category, status: "In Progress", vaAssigned: ["Jane"], sortOrder: 0, createdAt }] });
+        (sd.tasks ??= []).push({ id: assignmentId, category, fileName, sortOrder: sd.taskFiles.length - 1, status: "In Progress", vaAssigned: ["Jane"], createdAt });
+      }
       state.planItems = (state.planItems || []).filter((p) => p.id !== id);
     });
     revalidatePath("/overview");
@@ -510,15 +563,32 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
 
-    const fileId = crypto.randomUUID();
-    const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
-    orThrow(createError);
+    const { data: existingFiles } = await supabase
+      .from("task_files")
+      .select("id, task_file_categories(id, status, va_assigned, category_id)")
+      .eq("school_id", schoolId)
+      .ilike("file_name", fileName.trim());
+    const existingAssignment = (existingFiles || [])
+      .flatMap((f) => f.task_file_categories)
+      .find((a) => a.category_id === categoryId);
 
-    const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
-    if (!created) throw new Error("Task was created but could not be started — open the school page to sign it manually.");
+    if (existingAssignment) {
+      const nextStatus = existingAssignment.status === "Completed" ? "Review" : "In Progress";
+      const vaAssigned: string[] = existingAssignment.va_assigned || [];
+      const nextVaAssigned = vaAssigned.includes(me.name) ? vaAssigned : [...vaAssigned, me.name];
+      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: existingAssignment.id, p_patch: { status: nextStatus, va_assigned: nextVaAssigned } });
+      orThrow(error);
+    } else {
+      const fileId = crypto.randomUUID();
+      const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
+      orThrow(createError);
 
-    const { error: startError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: created.id, p_patch: { status: "In Progress", va_assigned: [me.name] } });
-    orThrow(startError);
+      const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
+      if (!created) throw new Error("Task was created but could not be started — open the school page to sign it manually.");
+
+      const { error: startError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: created.id, p_patch: { status: "In Progress", va_assigned: [me.name] } });
+      orThrow(startError);
+    }
 
     await supabase.from("plan_items").delete().eq("id", id);
     revalidatePath("/overview");

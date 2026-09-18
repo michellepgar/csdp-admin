@@ -146,6 +146,7 @@ export default async function OverviewPage() {
       <PlansForTomorrow
         planItems={state.planItems || []}
         vas={state.vas}
+        currentUserName={me?.name ?? ""}
         removePlanItem={removePlanItem}
       />
 
@@ -219,6 +220,7 @@ export default async function OverviewPage() {
             vas={state.vas}
             schools={state.schools}
             taskCategories={state.taskCategories || []}
+            schoolData={state.schoolData}
             isCurrentUserAdmin={!!me && isAdmin(me)}
             addPriority={addPriority}
             updatePriorityPlanItem={updatePriorityPlanItem}

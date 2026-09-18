@@ -509,3 +509,20 @@
     animation: none;
   }
 }
+
+/* Briefly flashes a General Note when you land on it via a mentions-
+   bell deep link (?highlightNote=, see components/general-notes-list.tsx)
+   -- fades from a warning-tone background back to transparent so the
+   destination note is obvious without a permanent visual change. */
+.note-highlight-flash {
+  animation: note-highlight-fade 2s ease-out;
+}
+@keyframes note-highlight-fade {
+  from { background-color: var(--status-warning-foreground); }
+  to { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .note-highlight-flash {
+    animation: none;
+  }
+}

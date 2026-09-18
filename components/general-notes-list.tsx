@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
@@ -35,6 +35,7 @@ function GeneralNoteRow({
   currentUserName,
   canDelete,
   vas,
+  isHighlighted,
   ackGeneralNote,
   updateGeneralNote,
   removeGeneralNote,
@@ -43,6 +44,7 @@ function GeneralNoteRow({
   currentUserName: string;
   canDelete: boolean;
   vas: Va[];
+  isHighlighted: boolean;
   ackGeneralNote: (formData: FormData) => void;
   updateGeneralNote: (formData: FormData) => void;
   removeGeneralNote: (formData: FormData) => void;
@@ -79,7 +81,8 @@ function GeneralNoteRow({
 
   return (
     <div
-      className={`note-card rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : ""}`}
+      id={`note-${n.id}`}
+      className={`note-card rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : ""} ${isHighlighted ? "note-highlight-flash" : ""}`}
       style={n.urgency !== "Urgent" && n.padColor ? { backgroundColor: n.padColor } : undefined}
     >
       <div className="flex items-start justify-between gap-3">
@@ -131,6 +134,7 @@ export function GeneralNotesList({
   currentUserName,
   deletable,
   vas,
+  highlightNote,
   ackGeneralNote,
   updateGeneralNote,
   removeGeneralNote,
@@ -139,12 +143,36 @@ export function GeneralNotesList({
   currentUserName: string;
   deletable: DeletableNoteId[];
   vas: Va[];
+  /** A note id to scroll to and briefly flash on mount -- set from
+   *  ?highlightNote= on the URL, which is how a mentions-bell click
+   *  (components/mentions-bell.tsx) deep-links back to the specific
+   *  note someone was mentioned in. */
+  highlightNote?: string;
   ackGeneralNote: (formData: FormData) => void;
   updateGeneralNote: (formData: FormData) => void;
   removeGeneralNote: (formData: FormData) => void;
 }) {
   const deletableIds = new Set(deletable.filter((d) => d.canDelete).map((d) => d.id));
   const sorted = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  // Driven through React state (not a direct classList.add/remove) on
+  // purpose -- classList mutated straight on the DOM node gets silently
+  // wiped the next time this list re-renders for ANY reason (a Server
+  // Action revalidating the page, an unrelated state update elsewhere),
+  // since React's reconciliation resets className to whatever the JSX
+  // below computes, with no idea an outside mutation happened.
+  // Confirmed directly: the class was there immediately after being
+  // added, then gone moments later with no code in between removing it
+  // on purpose. Keeping "is this the highlighted note" in state instead
+  // means React itself renders the class, so it survives reconciliation.
+  const [highlightedId, setHighlightedId] = useState(highlightNote ?? null);
+
+  useEffect(() => {
+    if (!highlightedId) return;
+    document.getElementById(`note-${highlightedId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timeout = setTimeout(() => setHighlightedId(null), 2000);
+    return () => clearTimeout(timeout);
+  }, [highlightedId]);
 
   if (sorted.length === 0) {
     return <p className="text-sm text-muted-foreground">No notes yet.</p>;
@@ -159,6 +187,7 @@ export function GeneralNotesList({
           currentUserName={currentUserName}
           canDelete={deletableIds.has(n.id)}
           vas={vas}
+          isHighlighted={n.id === highlightedId}
           ackGeneralNote={ackGeneralNote}
           updateGeneralNote={updateGeneralNote}
           removeGeneralNote={removeGeneralNote}

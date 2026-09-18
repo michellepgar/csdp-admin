@@ -9,7 +9,7 @@ import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { SubmitButton } from "@/components/submit-button";
 import { addGeneralNote, ackGeneralNote, updateGeneralNote, removeGeneralNote } from "./actions";
 
-export default async function NotesPage() {
+export default async function NotesPage({ searchParams }: { searchParams: Promise<{ highlightNote?: string }> }) {
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
@@ -19,6 +19,7 @@ export default async function NotesPage() {
   const me = findVaByEmail(state, user.email);
   if (!me) redirect("/not-on-team");
 
+  const { highlightNote } = await searchParams;
   const meIsAdmin = isAdmin(me);
   const notes = state.generalNotes || [];
   const deletable = notes.map((n) => ({ id: n.id, canDelete: canDeleteGeneralNote(state, n, me.name, meIsAdmin) }));
@@ -43,6 +44,7 @@ export default async function NotesPage() {
           currentUserName={me.name}
           deletable={deletable}
           vas={state.vas || []}
+          highlightNote={highlightNote}
           ackGeneralNote={ackGeneralNote}
           updateGeneralNote={updateGeneralNote}
           removeGeneralNote={removeGeneralNote}

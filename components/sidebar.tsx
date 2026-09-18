@@ -25,12 +25,13 @@ import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dropdown } from "@/components/dropdown";
-import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
+import { SCHOOL_GROUPS, type Va, type Mention } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 import { IconTooltip } from "@/components/icon-tooltip";
 import { SignOutButton } from "@/components/sign-out-button";
 import { SchoolsFlyout } from "@/components/schools-flyout";
 import { TeamPresence, type CurrentPresenceMember } from "@/components/team-presence";
+import { MentionsBell } from "@/components/mentions-bell";
 
 export function Sidebar({
   currentName,
@@ -46,6 +47,8 @@ export function Sidebar({
   needsPrivateNoteAck,
   needsGeneralNoteAck,
   needsIssueCommentAck,
+  myMentions,
+  markMentionRead,
 }: {
   currentName: string;
   currentMember: CurrentPresenceMember;
@@ -72,6 +75,12 @@ export function Sidebar({
    *  comment the current user hasn't seen yet (see
    *  app/(app)/layout.tsx's own comment). */
   needsIssueCommentAck: boolean;
+  /** @mentions addressed to the current user (components/mentions-bell.tsx)
+   *  -- independent of the three needs*Ack booleans above, since a
+   *  mention is about being personally called out by name, not "this
+   *  page has unread activity". */
+  myMentions: Mention[];
+  markMentionRead: (formData: FormData) => void;
   /* Icons-only mode -- Michelle asked to be able to jump between
      pages without the full labeled panel taking up space every time.
      Search/VA-filter/"+ Add school" all need room to type in, so
@@ -426,6 +435,9 @@ export function Sidebar({
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
         {presenceEnabled && <TeamPresence currentMember={currentMember} collapsed={collapsed} />}
         <div className={cn("border-t", collapsed ? "mx-2" : "mx-3")} />
+        <div className={collapsed ? "px-2 pt-2" : "px-1 pt-2"}>
+          <MentionsBell mentions={myMentions} markMentionRead={markMentionRead} collapsed={collapsed} />
+        </div>
         {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Account</div>}
         {!collapsed && <div className="px-3 pb-1 pt-2 text-sm text-muted-foreground">{currentName} · Signed in</div>}
         <div className={!collapsed ? "pb-2" : undefined}>

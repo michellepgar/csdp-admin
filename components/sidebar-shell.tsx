@@ -6,7 +6,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import { PlanBubble } from "@/components/plan-bubble";
-import type { PlanItem, TaskCategory, GeneralTaskCategory, Va } from "@/lib/app-state";
+import type { PlanItem, TaskCategory, GeneralTaskCategory, Va, Mention } from "@/lib/app-state";
 import type { CurrentPresenceMember } from "@/components/team-presence";
 
 const COOKIE_NAME = "sidebar-collapsed";
@@ -42,6 +42,8 @@ export function SidebarShell({
   needsPrivateNoteAck,
   needsGeneralNoteAck,
   needsIssueCommentAck,
+  myMentions,
+  markMentionRead,
   myPlanItems,
   taskCategories,
   generalTaskCategories,
@@ -62,6 +64,8 @@ export function SidebarShell({
   needsPrivateNoteAck: boolean;
   needsGeneralNoteAck: boolean;
   needsIssueCommentAck: boolean;
+  myMentions: Mention[];
+  markMentionRead: (formData: FormData) => void;
   myPlanItems: PlanItem[];
   taskCategories: TaskCategory[];
   generalTaskCategories: GeneralTaskCategory[];
@@ -185,6 +189,8 @@ export function SidebarShell({
           needsPrivateNoteAck={needsPrivateNoteAck}
           needsGeneralNoteAck={needsGeneralNoteAck}
           needsIssueCommentAck={needsIssueCommentAck}
+          myMentions={myMentions}
+          markMentionRead={markMentionRead}
         />
       </div>
 

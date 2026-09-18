@@ -7,6 +7,7 @@ import { SidebarShell } from "@/components/sidebar-shell";
 import { addSchool } from "./layout-actions";
 import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overview/actions";
 import { completeNoteReminder } from "@/app/(app)/private-notes/actions";
+import { markMentionRead } from "@/app/(app)/mentions/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Demo mode has no real Supabase session for is_team_member() to check
@@ -89,6 +90,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     (i) => (i.comments || []).length > 0 && !(i.commentAckBy || []).includes(me.name)
   );
 
+  const myMentions = (state.mentions || []).filter((m) => m.mentionedName === me.name);
+
   const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name && !p.completedAt);
 
   return (
@@ -105,6 +108,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       needsPrivateNoteAck={needsPrivateNoteAck}
       needsGeneralNoteAck={needsGeneralNoteAck}
       needsIssueCommentAck={needsIssueCommentAck}
+      myMentions={myMentions}
+      markMentionRead={markMentionRead}
       myPlanItems={myPlanItems}
       taskCategories={state.taskCategories || []}
       generalTaskCategories={state.generalTaskCategories || []}

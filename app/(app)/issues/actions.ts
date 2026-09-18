@@ -5,6 +5,7 @@ import { isAdmin, NO_SUBCATEGORY, type Issue } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { extractMentionedNames, snippetFromHtml } from "@/lib/mentions";
+import { sanitizeNoteHtml } from "@/lib/sanitize-note-html";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -175,7 +176,7 @@ export async function addIssueComment(formData: FormData) {
     await demoMutate((state) => {
       const issue = (state.issues || []).find((i) => i.id === issueId);
       if (!issue) return;
-      (issue.comments ??= []).push({ id: `demo-${Date.now()}`, author: "Jane", text, createdAt: new Date().toISOString() });
+      (issue.comments ??= []).push({ id: `demo-${Date.now()}`, author: "Jane", text: sanitizeNoteHtml(text, state.vas || []), createdAt: new Date().toISOString() });
       issue.commentAckBy = ["Jane"];
       const mentioned = extractMentionedNames(text, (state.vas || []).map((v) => v.name)).filter((n) => n !== "Jane");
       for (const name of mentioned) {
@@ -196,13 +197,16 @@ export async function addIssueComment(formData: FormData) {
 
   const { supabase, me } = await requireTeamMember();
 
-  const { error } = await supabase.from("issue_comments").insert({ id: crypto.randomUUID(), issue_id: issueId, author: me.name, text });
+  const { data: vasData } = await supabase.from("vas").select("name, color");
+  const roster = vasData || [];
+  const html = sanitizeNoteHtml(text, roster);
+
+  const { error } = await supabase.from("issue_comments").insert({ id: crypto.randomUUID(), issue_id: issueId, author: me.name, text: html });
   orThrow(error);
   const { error: ackError } = await supabase.from("issues").update({ comment_ack_by: [me.name] }).eq("id", issueId);
   orThrow(ackError);
 
-  const { data: vasData } = await supabase.from("vas").select("name");
-  const mentioned = extractMentionedNames(text, (vasData || []).map((v) => v.name)).filter((n) => n !== me.name);
+  const mentioned = extractMentionedNames(snippetFromHtml(text), roster.map((v) => v.name)).filter((n) => n !== me.name);
   if (mentioned.length > 0) {
     const { error: mentionsError } = await supabase.from("mentions").insert(
       mentioned.map((name) => ({
@@ -217,6 +221,106 @@ export async function addIssueComment(formData: FormData) {
     orThrow(mentionsError);
   }
 
+  revalidatePath("/issues");
+}
+
+/* Author-only, same rule as General Notes' updateGeneralNote -- no
+   admin exception, nobody else can change what someone else wrote.
+   Re-parses mentions the same way updateGeneralNote does: only NEWLY
+   added names get a fresh mentions row, so re-saving an edit that
+   still mentions someone already mentioned doesn't re-notify them. */
+export async function editIssueComment(formData: FormData) {
+  const commentId = formData.get("commentId") as string;
+  const text = ((formData.get("text") as string) || "").trim();
+  if (!text) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const issue of state.issues || []) {
+        const comment = (issue.comments || []).find((c) => c.id === commentId);
+        if (!comment || comment.author !== "Jane") continue;
+        const alreadyMentioned = new Set((state.mentions || []).filter((m) => m.issueId === issue.id).map((m) => m.mentionedName));
+        comment.text = sanitizeNoteHtml(text, state.vas || []);
+        comment.editedAt = new Date().toISOString();
+        const mentioned = extractMentionedNames(text, (state.vas || []).map((v) => v.name)).filter((n) => n !== "Jane" && !alreadyMentioned.has(n));
+        for (const name of mentioned) {
+          (state.mentions ??= []).push({
+            id: `demo-${Date.now()}-${name}`,
+            mentionedName: name,
+            mentionerName: "Jane",
+            source: "issue_comment",
+            issueId: issue.id,
+            snippet: snippetFromHtml(text),
+            createdAt: new Date().toISOString(),
+          });
+        }
+        return;
+      }
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: comment } = await supabase.from("issue_comments").select("author, issue_id").eq("id", commentId).maybeSingle();
+  if (!comment || comment.author !== me.name) return;
+
+  const { data: vasData } = await supabase.from("vas").select("name, color");
+  const roster = vasData || [];
+  const html = sanitizeNoteHtml(text, roster);
+
+  const { error } = await supabase.from("issue_comments").update({ text: html, edited_at: new Date().toISOString() }).eq("id", commentId);
+  orThrow(error);
+
+  const { data: existingMentions } = await supabase.from("mentions").select("mentioned_name").eq("issue_id", comment.issue_id);
+  const alreadyMentioned = new Set((existingMentions || []).map((m) => m.mentioned_name));
+  const mentioned = extractMentionedNames(snippetFromHtml(text), roster.map((v) => v.name)).filter((n) => n !== me.name && !alreadyMentioned.has(n));
+  if (mentioned.length > 0) {
+    const { error: mentionsError } = await supabase.from("mentions").insert(
+      mentioned.map((name) => ({
+        id: crypto.randomUUID(),
+        mentioned_name: name,
+        mentioner_name: me.name,
+        source: "issue_comment",
+        issue_id: comment.issue_id,
+        snippet: snippetFromHtml(text),
+      }))
+    );
+    orThrow(mentionsError);
+  }
+
+  revalidatePath("/issues");
+}
+
+/* Author-only, same as editIssueComment. Doesn't clean up any
+   mentions row this comment may have created -- mentions record which
+   ISSUE a mention happened on, not which specific comment, so there's
+   nothing precise to delete; the mention stays as a record that the
+   mentioned person was once called out on this issue, same as the
+   rest of this app's minimal mention-lifecycle handling. */
+export async function removeIssueComment(formData: FormData) {
+  const commentId = formData.get("commentId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const issue of state.issues || []) {
+        const before = (issue.comments || []).length;
+        issue.comments = (issue.comments || []).filter((c) => !(c.id === commentId && c.author === "Jane"));
+        if (issue.comments.length !== before) return;
+      }
+    });
+    revalidatePath("/issues");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: comment } = await supabase.from("issue_comments").select("author").eq("id", commentId).maybeSingle();
+  if (!comment || comment.author !== me.name) return;
+
+  const { error } = await supabase.from("issue_comments").delete().eq("id", commentId);
+  orThrow(error);
   revalidatePath("/issues");
 }
 

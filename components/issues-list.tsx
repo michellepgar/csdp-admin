@@ -7,7 +7,7 @@ import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
 import { Dropdown } from "@/components/dropdown";
 import { Input } from "@/components/ui/input";
-import { CommentToggleButton, CommentThreadPanel } from "@/components/issue-comments";
+import { CommentToggleButton, CommentThreadPanel } from "@/components/comment-thread";
 import {
   ISSUE_STATUS_OPTIONS,
   ISSUE_TYPE_LABELS,
@@ -223,6 +223,8 @@ type TableProps = {
   setIssueStatus: (formData: FormData) => void;
   removeIssue: (formData: FormData) => void;
   addIssueComment: (formData: FormData) => void;
+  editIssueComment: (formData: FormData) => void;
+  removeIssueComment: (formData: FormData) => void;
   ackIssueComments: (formData: FormData) => void;
 };
 
@@ -232,7 +234,7 @@ type TableProps = {
    every field visible, at the cost of repeating the Reported By/Date/
    Status/delete/Comments columns four times. */
 
-export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
+export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
   const reversed = [...issues].reverse();
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
@@ -267,11 +269,16 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
                   <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
                   <td className="px-2 py-1">
                     <CommentToggleButton
-                      issue={issue}
+                      comments={issue.comments || []}
+                      commentAckBy={issue.commentAckBy || []}
                       currentUserName={currentUserName}
                       expanded={expandedId === issue.id}
                       onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                      ackIssueComments={ackIssueComments}
+                      onAck={() => {
+                        const fd = new FormData();
+                        fd.set("issueId", issue.id);
+                        ackIssueComments(fd);
+                      }}
                     />
                   </td>
                   <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
@@ -279,7 +286,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background">
                     <td colSpan={8} className="p-2">
-                      <CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} />
+                      <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
                   </tr>
                 )}
@@ -322,13 +329,18 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
             <div>
               <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
               <CommentToggleButton
-                issue={issue}
+                comments={issue.comments || []}
+                commentAckBy={issue.commentAckBy || []}
                 currentUserName={currentUserName}
                 expanded={expandedId === issue.id}
                 onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                ackIssueComments={ackIssueComments}
+                onAck={() => {
+                  const fd = new FormData();
+                  fd.set("issueId", issue.id);
+                  ackIssueComments(fd);
+                }}
               />
-              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} /></div>}
+              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} /></div>}
             </div>
             <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
           </div>
@@ -338,7 +350,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
   );
 }
 
-export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
+export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
   const rows = [...issues].reverse().map((issue) => ({
     issue,
@@ -376,11 +388,16 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
                   <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
                   <td className="px-2 py-1">
                     <CommentToggleButton
-                      issue={issue}
+                      comments={issue.comments || []}
+                      commentAckBy={issue.commentAckBy || []}
                       currentUserName={currentUserName}
                       expanded={expandedId === issue.id}
                       onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                      ackIssueComments={ackIssueComments}
+                      onAck={() => {
+                        const fd = new FormData();
+                        fd.set("issueId", issue.id);
+                        ackIssueComments(fd);
+                      }}
                     />
                   </td>
                   <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
@@ -388,7 +405,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background">
                     <td colSpan={7} className="p-2">
-                      <CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} />
+                      <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
                   </tr>
                 )}
@@ -425,13 +442,18 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
             <div>
               <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
               <CommentToggleButton
-                issue={issue}
+                comments={issue.comments || []}
+                commentAckBy={issue.commentAckBy || []}
                 currentUserName={currentUserName}
                 expanded={expandedId === issue.id}
                 onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                ackIssueComments={ackIssueComments}
+                onAck={() => {
+                  const fd = new FormData();
+                  fd.set("issueId", issue.id);
+                  ackIssueComments(fd);
+                }}
               />
-              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} /></div>}
+              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} /></div>}
             </div>
             <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
           </div>
@@ -441,7 +463,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
   );
 }
 
-export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
+export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
   const reversed = [...issues].reverse();
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
@@ -468,11 +490,16 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, ex
                   <td className="px-2 py-1">{issue.question}</td>
                   <td className="px-2 py-1">
                     <CommentToggleButton
-                      issue={issue}
+                      comments={issue.comments || []}
+                      commentAckBy={issue.commentAckBy || []}
                       currentUserName={currentUserName}
                       expanded={expandedId === issue.id}
                       onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                      ackIssueComments={ackIssueComments}
+                      onAck={() => {
+                        const fd = new FormData();
+                        fd.set("issueId", issue.id);
+                        ackIssueComments(fd);
+                      }}
                     />
                   </td>
                   <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
@@ -483,7 +510,7 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, ex
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background">
                     <td colSpan={7} className="p-2">
-                      <CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} />
+                      <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
                   </tr>
                 )}
@@ -506,13 +533,18 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, ex
             <div>
               <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
               <CommentToggleButton
-                issue={issue}
+                comments={issue.comments || []}
+                commentAckBy={issue.commentAckBy || []}
                 currentUserName={currentUserName}
                 expanded={expandedId === issue.id}
                 onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                ackIssueComments={ackIssueComments}
+                onAck={() => {
+                  const fd = new FormData();
+                  fd.set("issueId", issue.id);
+                  ackIssueComments(fd);
+                }}
               />
-              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} /></div>}
+              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} /></div>}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

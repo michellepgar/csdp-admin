@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Bold, Italic, Underline, List, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NOTE_PAD_COLORS, NOTE_FONT_COLORS } from "@/lib/app-state";
+import { MentionAutocomplete } from "@/components/mention-autocomplete";
+import { NOTE_PAD_COLORS, NOTE_FONT_COLORS, type Va } from "@/lib/app-state";
 
 const FONT_FAMILIES = [
   { value: "", label: "Sans" },
@@ -84,8 +85,13 @@ export function StickyNoteComposer({
   defaultText,
   defaultPadColor,
   draftKey,
+  vas,
 }: {
   placeholder: string;
+  /** Team roster for the @mention autocomplete (components/mention-
+   *  autocomplete.tsx) -- matches typed @names against real accounts
+   *  and renders each suggestion's own avatar color. */
+  vas: Va[];
   /** Pre-fills the editor with existing sanitized HTML and starts the
    *  hidden `text` input at that same value -- used when this same
    *  composer is reused to EDIT a note instead of creating a new one
@@ -266,6 +272,75 @@ export function StickyNoteComposer({
     e.preventDefault();
   }
 
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionAnchorRect, setMentionAnchorRect] = useState<DOMRect | null>(null);
+
+  // Unlike a <textarea> (components/issue-comments.tsx), a
+  // contentEditable's caret lives in a Selection/Range, not a
+  // selectionStart offset -- this reads the text of whichever text
+  // node the caret sits in, up to the caret's offset within THAT node,
+  // and checks for a trailing @word the same way the textarea version
+  // does. getBoundingClientRect() on a COLLAPSED range gives the
+  // caret's real on-screen position, which a textarea has no
+  // equivalent for -- so unlike the textarea (anchored to the whole
+  // textarea's rect), this anchors right at the caret.
+  function detectMention() {
+    const selection = window.getSelection();
+    const editor = editorRef.current;
+    if (!selection || !editor || selection.rangeCount === 0 || !selection.isCollapsed) {
+      setMentionQuery(null);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.startContainer)) {
+      setMentionQuery(null);
+      return;
+    }
+    const node = range.startContainer;
+    const textBeforeCaret = node.nodeType === Node.TEXT_NODE ? (node.textContent || "").slice(0, range.startOffset) : "";
+    const match = textBeforeCaret.match(/@(\w*)$/);
+    if (!match) {
+      setMentionQuery(null);
+      return;
+    }
+    setMentionQuery(match[1]);
+    const rects = range.cloneRange().getClientRects();
+    setMentionAnchorRect(rects.length > 0 ? rects[0] : editor.getBoundingClientRect());
+  }
+
+  function selectMention(name: string) {
+    const selection = window.getSelection();
+    const editor = editorRef.current;
+    if (!selection || !editor || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return;
+    const text = node.textContent || "";
+    const textBeforeCaret = text.slice(0, range.startOffset);
+    const match = textBeforeCaret.match(/@(\w*)$/);
+    if (!match) return;
+    const start = range.startOffset - match[0].length;
+    const mentionRange = document.createRange();
+    mentionRange.setStart(node, start);
+    mentionRange.setEnd(node, range.startOffset);
+    mentionRange.deleteContents();
+    // A trailing plain space here gets silently collapsed by the
+    // browser's own contentEditable whitespace handling the instant
+    // more text is typed right after it -- confirmed directly ("Hi
+    // @Jane" + typing more produced "Hi @Janemore", no space at all).
+    // A non-breaking space is immune to that collapsing.
+    const inserted = document.createTextNode(`@${name} `);
+    mentionRange.insertNode(inserted);
+    const after = document.createRange();
+    after.setStartAfter(inserted);
+    after.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(after);
+    editor.focus();
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+    setMentionQuery(null);
+  }
+
   // A copied TABLE or LINK (handled by the browser's own default paste
   // -- lib/sanitize-note-html.ts is what keeps those alive on save) is
   // real HTML on the clipboard already. A copied SCREENSHOT is not --
@@ -424,6 +499,10 @@ export function StickyNoteComposer({
         data-placeholder={placeholder}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
+        onInput={detectMention}
+        onKeyUp={detectMention}
+        onClick={detectMention}
+        onBlur={() => setMentionQuery(null)}
         // [&_ul]/[&_ol] -- the app's own CSS reset otherwise zeroes
         // out list-style/padding on every <ul>/<li> globally, so a
         // Bullet list click looked like it did nothing while actually
@@ -435,6 +514,7 @@ export function StickyNoteComposer({
         className="min-h-24 w-full overflow-x-auto rounded-md border p-3 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
         style={{ backgroundColor: padColor }}
       />
+      <MentionAutocomplete query={mentionQuery} anchorRect={mentionAnchorRect} vas={vas} onSelect={selectMention} onClose={() => setMentionQuery(null)} />
       <input ref={textInputRef} type="hidden" name="text" />
       <input type="hidden" name="padColor" value={padColor} readOnly />
     </div>

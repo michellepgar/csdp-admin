@@ -28,7 +28,7 @@ export default async function NotesPage() {
       <PageHeader title="General Notes" />
       <PageBody>
         <form action={addGeneralNote} className="max-w-3xl space-y-2">
-          <StickyNoteComposer placeholder="Add a note…" draftKey="draft:general-note" />
+          <StickyNoteComposer placeholder="Add a note…" draftKey="draft:general-note" vas={state.vas || []} />
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-1.5 text-sm">
               <input type="checkbox" name="urgent" />
@@ -42,6 +42,7 @@ export default async function NotesPage() {
           notes={notes}
           currentUserName={me.name}
           deletable={deletable}
+          vas={state.vas || []}
           ackGeneralNote={ackGeneralNote}
           updateGeneralNote={updateGeneralNote}
           removeGeneralNote={removeGeneralNote}

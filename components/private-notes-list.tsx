@@ -7,7 +7,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { NoteCardContent } from "@/components/note-card-content";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
-import type { PrivateNote } from "@/lib/app-state";
+import type { PrivateNote, Va } from "@/lib/app-state";
 
 /* One note, as either its read-only card or (if you're the author) its
    own edit form -- editing reuses the exact same StickyNoteComposer
@@ -20,6 +20,7 @@ function PrivateNoteRow({
   note: n,
   currentUserName,
   shareableVas,
+  vas,
   ackPrivateNote,
   updatePrivateNote,
   sharePrivateNote,
@@ -31,6 +32,7 @@ function PrivateNoteRow({
   note: PrivateNote;
   currentUserName: string;
   shareableVas: string[];
+  vas: Va[];
   ackPrivateNote: (formData: FormData) => void;
   updatePrivateNote: (formData: FormData) => void;
   sharePrivateNote: (formData: FormData) => void;
@@ -55,7 +57,7 @@ function PrivateNoteRow({
         className="note-card space-y-2 rounded-md border bg-muted/30 p-3"
       >
         <input type="hidden" name="id" value={n.id} />
-        <StickyNoteComposer placeholder="Edit note…" defaultText={n.text} defaultPadColor={n.padColor} />
+        <StickyNoteComposer placeholder="Edit note…" defaultText={n.text} defaultPadColor={n.padColor} vas={vas} />
         <div className="flex items-center justify-end gap-2">
           <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
           <button type="button" onClick={() => setEditing(false)} className="text-sm text-muted-foreground hover:underline">
@@ -158,6 +160,7 @@ export function PrivateNotesList({
   notes,
   currentUserName,
   shareableVas,
+  vas,
   ackPrivateNote,
   updatePrivateNote,
   sharePrivateNote,
@@ -170,6 +173,7 @@ export function PrivateNotesList({
   notes: PrivateNote[];
   currentUserName: string;
   shareableVas: string[];
+  vas: Va[];
   ackPrivateNote: (formData: FormData) => void;
   updatePrivateNote: (formData: FormData) => void;
   sharePrivateNote: (formData: FormData) => void;
@@ -207,6 +211,7 @@ export function PrivateNotesList({
           note={n}
           currentUserName={currentUserName}
           shareableVas={shareableVas}
+          vas={vas}
           ackPrivateNote={ackPrivateNote}
           updatePrivateNote={updatePrivateNote}
           sharePrivateNote={sharePrivateNote}

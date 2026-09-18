@@ -53,7 +53,7 @@ export default async function PrivateNotesPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_3fr]">
           <div className="space-y-4">
             <form action={addPrivateNote} className="max-w-3xl space-y-2">
-              <StickyNoteComposer placeholder="Add a private note…" draftKey="draft:private-note" />
+              <StickyNoteComposer placeholder="Add a private note…" draftKey="draft:private-note" vas={state.vas || []} />
               <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
             </form>
 
@@ -61,6 +61,7 @@ export default async function PrivateNotesPage() {
               notes={listNotes}
               currentUserName={me.name}
               shareableVas={state.vas.map((v) => v.name)}
+              vas={state.vas || []}
               ackPrivateNote={ackPrivateNote}
               updatePrivateNote={updatePrivateNote}
               sharePrivateNote={sharePrivateNote}

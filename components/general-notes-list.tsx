@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
-import type { GeneralNote } from "@/lib/app-state";
+import type { GeneralNote, Va } from "@/lib/app-state";
 
 /* A note's id paired with whether the current viewer is allowed to
  * delete it — computed server-side (page.tsx) and passed down as plain
@@ -34,6 +34,7 @@ function GeneralNoteRow({
   note: n,
   currentUserName,
   canDelete,
+  vas,
   ackGeneralNote,
   updateGeneralNote,
   removeGeneralNote,
@@ -41,6 +42,7 @@ function GeneralNoteRow({
   note: GeneralNote;
   currentUserName: string;
   canDelete: boolean;
+  vas: Va[];
   ackGeneralNote: (formData: FormData) => void;
   updateGeneralNote: (formData: FormData) => void;
   removeGeneralNote: (formData: FormData) => void;
@@ -58,7 +60,7 @@ function GeneralNoteRow({
         className="note-card space-y-2 rounded-md border bg-muted/30 p-3"
       >
         <input type="hidden" name="id" value={n.id} />
-        <StickyNoteComposer placeholder="Edit note…" defaultText={n.text} defaultPadColor={n.padColor} />
+        <StickyNoteComposer placeholder="Edit note…" defaultText={n.text} defaultPadColor={n.padColor} vas={vas} />
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-1.5 text-sm">
             <input type="checkbox" name="urgent" defaultChecked={n.urgency === "Urgent"} />
@@ -128,6 +130,7 @@ export function GeneralNotesList({
   notes,
   currentUserName,
   deletable,
+  vas,
   ackGeneralNote,
   updateGeneralNote,
   removeGeneralNote,
@@ -135,6 +138,7 @@ export function GeneralNotesList({
   notes: GeneralNote[];
   currentUserName: string;
   deletable: DeletableNoteId[];
+  vas: Va[];
   ackGeneralNote: (formData: FormData) => void;
   updateGeneralNote: (formData: FormData) => void;
   removeGeneralNote: (formData: FormData) => void;
@@ -154,6 +158,7 @@ export function GeneralNotesList({
           note={n}
           currentUserName={currentUserName}
           canDelete={deletableIds.has(n.id)}
+          vas={vas}
           ackGeneralNote={ackGeneralNote}
           updateGeneralNote={updateGeneralNote}
           removeGeneralNote={removeGeneralNote}

@@ -21,6 +21,10 @@ import {
   resizePinnedNoteWidth,
   resizePinnedNoteHeight,
   addNoteToPlan,
+  addPrivateNoteComment,
+  editPrivateNoteComment,
+  removePrivateNoteComment,
+  ackPrivateNoteComments,
 } from "./actions";
 
 export default async function PrivateNotesPage() {
@@ -70,6 +74,10 @@ export default async function PrivateNotesPage() {
               unpinPrivateNote={unpinPrivateNote}
               pinPrivateNote={pinPrivateNote}
               addNoteToPlan={addNoteToPlan}
+              addPrivateNoteComment={addPrivateNoteComment}
+              editPrivateNoteComment={editPrivateNoteComment}
+              removePrivateNoteComment={removePrivateNoteComment}
+              ackPrivateNoteComments={ackPrivateNoteComments}
             />
           </div>
 

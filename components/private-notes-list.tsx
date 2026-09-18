@@ -7,6 +7,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { NoteCardContent } from "@/components/note-card-content";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
+import { CommentToggleButton, CommentThreadPanel } from "@/components/comment-thread";
 import type { PrivateNote, Va } from "@/lib/app-state";
 
 /* One note, as either its read-only card or (if you're the author) its
@@ -28,6 +29,10 @@ function PrivateNoteRow({
   removePrivateNote,
   pinPrivateNote,
   addNoteToPlan,
+  addPrivateNoteComment,
+  editPrivateNoteComment,
+  removePrivateNoteComment,
+  ackPrivateNoteComments,
 }: {
   note: PrivateNote;
   currentUserName: string;
@@ -40,8 +45,13 @@ function PrivateNoteRow({
   removePrivateNote: (formData: FormData) => void;
   pinPrivateNote: (id: string) => void;
   addNoteToPlan: (formData: FormData) => void;
+  addPrivateNoteComment: (formData: FormData) => void;
+  editPrivateNoteComment: (formData: FormData) => void;
+  removePrivateNoteComment: (formData: FormData) => void;
+  ackPrivateNoteComments: (formData: FormData) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const isAuthor = n.author === currentUserName;
   const sharedWith = n.sharedWith || [];
   const ackBy = n.ackBy || [];
@@ -151,7 +161,32 @@ function PrivateNoteRow({
             <ConfirmDeleteButton confirmMessage="Remove this note?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
           </form>
         )}
+        <CommentToggleButton
+          comments={n.comments || []}
+          commentAckBy={n.commentAckBy || []}
+          currentUserName={currentUserName}
+          expanded={commentsExpanded}
+          onToggle={() => setCommentsExpanded((cur) => !cur)}
+          onAck={() => {
+            const fd = new FormData();
+            fd.set("noteId", n.id);
+            ackPrivateNoteComments(fd);
+          }}
+        />
       </div>
+      {commentsExpanded && (
+        <div className="mt-2">
+          <CommentThreadPanel
+            comments={n.comments || []}
+            vas={vas}
+            currentUserName={currentUserName}
+            hiddenFields={{ noteId: n.id }}
+            addComment={addPrivateNoteComment}
+            editComment={editPrivateNoteComment}
+            removeComment={removePrivateNoteComment}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -169,6 +204,10 @@ export function PrivateNotesList({
   unpinPrivateNote,
   pinPrivateNote,
   addNoteToPlan,
+  addPrivateNoteComment,
+  editPrivateNoteComment,
+  removePrivateNoteComment,
+  ackPrivateNoteComments,
 }: {
   notes: PrivateNote[];
   currentUserName: string;
@@ -182,6 +221,10 @@ export function PrivateNotesList({
   unpinPrivateNote: (id: string) => void;
   pinPrivateNote: (id: string) => void;
   addNoteToPlan: (formData: FormData) => void;
+  addPrivateNoteComment: (formData: FormData) => void;
+  editPrivateNoteComment: (formData: FormData) => void;
+  removePrivateNoteComment: (formData: FormData) => void;
+  ackPrivateNoteComments: (formData: FormData) => void;
 }) {
   const sorted = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -219,6 +262,10 @@ export function PrivateNotesList({
           removePrivateNote={removePrivateNote}
           pinPrivateNote={pinPrivateNote}
           addNoteToPlan={addNoteToPlan}
+          addPrivateNoteComment={addPrivateNoteComment}
+          editPrivateNoteComment={editPrivateNoteComment}
+          removePrivateNoteComment={removePrivateNoteComment}
+          ackPrivateNoteComments={ackPrivateNoteComments}
         />
       ))}
     </div>

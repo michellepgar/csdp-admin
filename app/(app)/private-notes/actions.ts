@@ -425,3 +425,127 @@ export async function unpinPrivateNote(id: string) {
   orThrow(error);
   revalidatePath("/private-notes");
 }
+
+/* Visible to, and postable by, only the note's author and whoever
+   it's shared with -- same access rule as the note itself
+   (canManageBoardState above). Unlike Issue/General Note comments,
+   this does NOT record a mentions row even if the text contains an
+   @name -- Private Notes are explicitly out of scope for mention
+   notifications (see docs/superpowers/specs/2026-09-18-comment-
+   redesign-mentions-notifications-design.md's Scope section); the
+   rich CommentComposer still autocompletes and styles a typed mention,
+   it just doesn't notify anyone. */
+export async function addPrivateNoteComment(formData: FormData) {
+  const noteId = formData.get("noteId") as string;
+  const text = ((formData.get("text") as string) || "").trim();
+  if (!text) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === noteId && (n.author === "Jane" || (n.sharedWith || []).includes("Jane")));
+      if (!note) return;
+      (note.comments ??= []).push({ id: `demo-${Date.now()}`, author: "Jane", text: sanitizeNoteHtml(text, state.vas || []), createdAt: new Date().toISOString() });
+      note.commentAckBy = ["Jane"];
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", noteId).maybeSingle();
+  if (!note || !canManageBoardState(note, me.name)) return;
+
+  const { data: vasData } = await supabase.from("vas").select("name, color");
+  const html = sanitizeNoteHtml(text, vasData || []);
+
+  const { error } = await supabase.from("private_note_comments").insert({ id: crypto.randomUUID(), note_id: noteId, author: me.name, text: html });
+  orThrow(error);
+  const { error: ackError } = await supabase.from("private_notes").update({ comment_ack_by: [me.name] }).eq("id", noteId);
+  orThrow(ackError);
+  revalidatePath("/private-notes");
+}
+
+/* Author-only, matching every other edit rule in this app. */
+export async function editPrivateNoteComment(formData: FormData) {
+  const commentId = formData.get("commentId") as string;
+  const text = ((formData.get("text") as string) || "").trim();
+  if (!text) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const note of state.privateNotes || []) {
+        const comment = (note.comments || []).find((c) => c.id === commentId);
+        if (!comment || comment.author !== "Jane") continue;
+        comment.text = sanitizeNoteHtml(text, state.vas || []);
+        comment.editedAt = new Date().toISOString();
+        return;
+      }
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: comment } = await supabase.from("private_note_comments").select("author").eq("id", commentId).maybeSingle();
+  if (!comment || comment.author !== me.name) return;
+
+  const { data: vasData } = await supabase.from("vas").select("name, color");
+  const html = sanitizeNoteHtml(text, vasData || []);
+
+  const { error } = await supabase.from("private_note_comments").update({ text: html, edited_at: new Date().toISOString() }).eq("id", commentId);
+  orThrow(error);
+  revalidatePath("/private-notes");
+}
+
+export async function removePrivateNoteComment(formData: FormData) {
+  const commentId = formData.get("commentId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const note of state.privateNotes || []) {
+        const before = (note.comments || []).length;
+        note.comments = (note.comments || []).filter((c) => !(c.id === commentId && c.author === "Jane"));
+        if (note.comments.length !== before) return;
+      }
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: comment } = await supabase.from("private_note_comments").select("author").eq("id", commentId).maybeSingle();
+  if (!comment || comment.author !== me.name) return;
+
+  const { error } = await supabase.from("private_note_comments").delete().eq("id", commentId);
+  orThrow(error);
+  revalidatePath("/private-notes");
+}
+
+export async function ackPrivateNoteComments(formData: FormData) {
+  const noteId = formData.get("noteId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === noteId);
+      if (!note) return;
+      note.commentAckBy ??= [];
+      if (!note.commentAckBy.includes("Jane")) note.commentAckBy.push("Jane");
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: note } = await supabase.from("private_notes").select("comment_ack_by").eq("id", noteId).maybeSingle();
+  if (!note) return;
+  const ackBy: string[] = note.comment_ack_by || [];
+  if (ackBy.includes(me.name)) return;
+
+  const { error } = await supabase.from("private_notes").update({ comment_ack_by: [...ackBy, me.name] }).eq("id", noteId);
+  orThrow(error);
+  revalidatePath("/private-notes");
+}

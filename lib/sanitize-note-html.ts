@@ -91,26 +91,42 @@ function escapeAttr(text: string): string {
 // doesn't glue the period into the URL.
 const BARE_URL = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
 const TRAILING_PUNCTUATION = /[.,;:!?)\]}]+$/;
+// Combined with BARE_URL below (not run as a separate second pass over
+// the URL-linkified output) so URL and @mention matches are found in
+// one single left-to-right sweep of the ORIGINAL plain text -- running
+// this as a second pass over already-tagged HTML would risk matching
+// inside a freshly-inserted <a href="..."> attribute instead of the
+// original text. Only one of the two capture groups is ever set per
+// match: group 1 for a URL, group 2 for an @word.
+const LINKIFY_PATTERN = new RegExp(`${BARE_URL.source}|@(\\w+)`, "gi");
 
-function linkifyPlainText(text: string): string {
+function linkifyPlainText(text: string, mentionColorByLowerName: Map<string, { name: string; color: string }>): string {
   let lastIndex = 0;
   let out = "";
-  for (const match of text.matchAll(BARE_URL)) {
-    const raw = match[0];
+  for (const match of text.matchAll(LINKIFY_PATTERN)) {
     const start = match.index!;
     out += escapeHtml(text.slice(lastIndex, start));
-    const trailingMatch = raw.match(TRAILING_PUNCTUATION);
-    const trailing = trailingMatch ? trailingMatch[0] : "";
-    const url = trailing ? raw.slice(0, -trailing.length) : raw;
-    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-    out += `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>${escapeHtml(trailing)}`;
-    lastIndex = start + raw.length;
+    if (match[1]) {
+      const raw = match[1];
+      const trailingMatch = raw.match(TRAILING_PUNCTUATION);
+      const trailing = trailingMatch ? trailingMatch[0] : "";
+      const url = trailing ? raw.slice(0, -trailing.length) : raw;
+      const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+      out += `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>${escapeHtml(trailing)}`;
+    } else if (match[2]) {
+      const mentioned = mentionColorByLowerName.get(match[2].toLowerCase());
+      out += mentioned ? `<b style="color:${escapeAttr(mentioned.color)}">@${escapeHtml(mentioned.name)}</b>` : escapeHtml(match[0]);
+    }
+    lastIndex = start + match[0].length;
   }
   out += escapeHtml(text.slice(lastIndex));
   return out;
 }
 
-export function sanitizeNoteHtml(html: string): string {
+export function sanitizeNoteHtml(html: string, teamRoster: { name: string; color?: string }[] = []): string {
+  const mentionColorByLowerName = new Map(
+    teamRoster.map((v) => [v.name.toLowerCase(), { name: v.name, color: v.color || "var(--muted-foreground)" }])
+  );
   return sanitizeHtml(html, {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: { "*": ALLOWED_ATTR },
@@ -133,6 +149,6 @@ export function sanitizeNoteHtml(html: string): string {
     // branch must escape its own output by hand since nothing else
     // will: this callback fully replaces the library's default escaping
     // for whichever text node it's called on.
-    textFilter: (text, tagName) => (tagName === "a" ? escapeHtml(text) : linkifyPlainText(text)),
+    textFilter: (text, tagName) => (tagName === "a" ? escapeHtml(text) : linkifyPlainText(text, mentionColorByLowerName)),
   });
 }

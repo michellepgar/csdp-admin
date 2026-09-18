@@ -151,6 +151,51 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
   });
 }
 
+/* Boss-only: edit an existing priority's own fields in place -- same
+   fields addPriority accepts, since editing is just "add" with an id
+   instead of an insert. Scoped to kind:"priority" so this can never be
+   pointed at a kind:"task"/"note" row by id. */
+export async function updatePriorityPlanItem(formData: FormData): Promise<PlanActionResult> {
+  const id = formData.get("id") as string;
+  const label = ((formData.get("label") as string) || "").trim();
+  const assignedTo = ((formData.get("assignedTo") as string) || "").trim() || undefined;
+  const suggestedSchoolId = ((formData.get("suggestedSchoolId") as string) || "").trim() || undefined;
+  const suggestedCategoryId = ((formData.get("suggestedCategoryId") as string) || "").trim() || undefined;
+  const suggestedFileName = ((formData.get("suggestedFileName") as string) || "").trim() || undefined;
+  if (!label) return { error: "Enter what should be worked on." };
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const item = (state.planItems || []).find((p) => p.id === id && p.kind === "priority");
+      if (!item) return;
+      item.label = label;
+      item.vaName = assignedTo;
+      item.suggestedSchoolId = suggestedSchoolId;
+      item.suggestedCategoryId = suggestedCategoryId;
+      item.suggestedFileName = suggestedFileName;
+    });
+    revalidatePath("/overview");
+    return { error: null };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase } = await requireAdmin();
+    const { error } = await supabase
+      .from("plan_items")
+      .update({
+        label,
+        va_name: assignedTo ?? null,
+        suggested_school_id: suggestedSchoolId ?? null,
+        suggested_category_id: suggestedCategoryId ?? null,
+        suggested_file_name: suggestedFileName ?? null,
+      })
+      .eq("id", id)
+      .eq("kind", "priority");
+    orThrow(error);
+    revalidatePath("/overview");
+  });
+}
+
 /* Any VA can claim an unassigned/shared priority for themselves --
    matches this app's existing "no per-row ownership" trust model.
    Guarded with .is("va_name", null) so two VAs racing to claim the

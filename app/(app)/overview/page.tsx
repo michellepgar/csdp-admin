@@ -11,7 +11,7 @@ import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
 import { StartMyDayButton } from "@/components/start-my-day-button";
-import { savePlan, addPriority, removePlanItem, claimPriorityPlanItem, startMyDay } from "./actions";
+import { savePlan, addPriority, updatePriorityPlanItem, removePlanItem, claimPriorityPlanItem, startMyDay } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -221,6 +221,7 @@ export default async function OverviewPage() {
             taskCategories={state.taskCategories || []}
             isCurrentUserAdmin={!!me && isAdmin(me)}
             addPriority={addPriority}
+            updatePriorityPlanItem={updatePriorityPlanItem}
             removePlanItem={removePlanItem}
             claimPriorityPlanItem={claimPriorityPlanItem}
           />

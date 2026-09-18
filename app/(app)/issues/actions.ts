@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { isAdmin, NO_SUBCATEGORY, type Issue } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
+import { extractMentionedNames, snippetFromHtml } from "@/lib/mentions";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -176,6 +177,18 @@ export async function addIssueComment(formData: FormData) {
       if (!issue) return;
       (issue.comments ??= []).push({ id: `demo-${Date.now()}`, author: "Jane", text, createdAt: new Date().toISOString() });
       issue.commentAckBy = ["Jane"];
+      const mentioned = extractMentionedNames(text, (state.vas || []).map((v) => v.name)).filter((n) => n !== "Jane");
+      for (const name of mentioned) {
+        (state.mentions ??= []).push({
+          id: `demo-${Date.now()}-${name}`,
+          mentionedName: name,
+          mentionerName: "Jane",
+          source: "issue_comment",
+          issueId,
+          snippet: snippetFromHtml(text),
+          createdAt: new Date().toISOString(),
+        });
+      }
     });
     revalidatePath("/issues");
     return;
@@ -187,6 +200,23 @@ export async function addIssueComment(formData: FormData) {
   orThrow(error);
   const { error: ackError } = await supabase.from("issues").update({ comment_ack_by: [me.name] }).eq("id", issueId);
   orThrow(ackError);
+
+  const { data: vasData } = await supabase.from("vas").select("name");
+  const mentioned = extractMentionedNames(text, (vasData || []).map((v) => v.name)).filter((n) => n !== me.name);
+  if (mentioned.length > 0) {
+    const { error: mentionsError } = await supabase.from("mentions").insert(
+      mentioned.map((name) => ({
+        id: crypto.randomUUID(),
+        mentioned_name: name,
+        mentioner_name: me.name,
+        source: "issue_comment",
+        issue_id: issueId,
+        snippet: snippetFromHtml(text),
+      }))
+    );
+    orThrow(mentionsError);
+  }
+
   revalidatePath("/issues");
 }
 

@@ -1,19 +1,38 @@
 "use client";
 
-import Link from "next/link";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { openEmailItemsByVa } from "@/lib/shared-task-files";
-import { vaColorByName, type PlanItem, type School, type SchoolDataEntry, type Va } from "@/lib/app-state";
+import { vaColorByName, type GeneralTask, type PlanItem, type School, type SchoolDataEntry, type Va } from "@/lib/app-state";
 
 /* Same status/tone pairing as email-tracker-card.tsx's own copy --
    kept separate rather than a shared import for the same reason
    overview/page.tsx's TODAY_STATUS_TONE is its own copy: neither file
    exports theirs, and this is read-only display. */
-const EMAIL_STATUS_TONE: Record<string, StatusTone> = {
-  "Needs My Response": "warning",
-  "Waiting on Them": "paused",
-};
+const EMAIL_STATUS_TONE = { "Needs My Response": "warning", "Waiting on Them": "paused" } as const;
+
+/* A kind:"task" PlanItem only carries a pre-built display label (e.g.
+   "Q3-enrollment-report.xlsx — Initial") -- no separate category
+   field of its own. Rather than parse that string back apart, look
+   the real task/general-task row back up by the id the plan item
+   already carries (taskFileCategoryId+schoolId, or generalTaskId) --
+   the exact same data Overview's Today card and the Your Plan bubble
+   already have in scope, just with a real .category/.fileName on it.
+   Falls back to the raw label under an "Other" column on the rare
+   chance the underlying row was deleted out from under a stale plan
+   item, rather than throwing. */
+function resolveTaskItem(item: PlanItem, schools: School[], schoolData: Record<string, SchoolDataEntry>, generalTasks: GeneralTask[]) {
+  if (item.taskFileCategoryId && item.schoolId) {
+    const task = schoolData[item.schoolId]?.tasks?.find((t) => t.id === item.taskFileCategoryId);
+    if (task) {
+      return { category: task.category, fileName: task.fileName, schoolName: schools.find((s) => s.id === item.schoolId)?.name, href: `/schools/${item.schoolId}` };
+    }
+  } else if (item.generalTaskId) {
+    const task = generalTasks.find((t) => t.id === item.generalTaskId);
+    if (task) return { category: task.category, fileName: task.description, schoolName: "General", href: "/general-tasks" };
+  }
+  return { category: "Other", fileName: item.label, schoolName: undefined, href: undefined };
+}
 
 /* Every VA's own plan for tomorrow -- both their own carried-over
    tasks (kind:"task") and any priority assigned to them by name
@@ -31,18 +50,20 @@ const EMAIL_STATUS_TONE: Record<string, StatusTone> = {
    showing it on someone else's row would just be a button that always
    fails, so it's hidden here too.
 
-   Open Email Tracker items are appended per VA below the plan items --
-   unlike tasks/priorities, these are never opt-in (see
-   openEmailItemsByVa's own comment): every non-Done email for a VA's
-   assigned schools always shows here, with no ✕ at all, since there's
-   no plan_item row to remove -- the only way one of these leaves this
-   list is its status changing (from here, the school page, or Your
-   Plan's "Mark Done"). */
-export function PlansForTomorrow({ planItems, vas, schools, schoolData, currentUserName, removePlanItem }: {
+   Tasks and open Email Tracker items are arranged into category
+   columns (one column per category, files listed below, status beside
+   each file) -- the VAs asked for the same layout tasks-card.tsx's own
+   school tables already use, instead of one flat mixed list. Priorities
+   stay their own separate list above the columns: a priority's label
+   is boss-authored free text with no real category behind it, so
+   forcing it into a column (like Reminders on Today) would be
+   misleading structure over something that isn't structured. */
+export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, currentUserName, removePlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
   schools: School[];
   schoolData: Record<string, SchoolDataEntry>;
+  generalTasks: GeneralTask[];
   currentUserName: string;
   removePlanItem: (formData: FormData) => void;
 }) {
@@ -59,43 +80,67 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, currentU
     <div>
       <h2 className="mb-3 font-semibold">Plans for Tomorrow</h2>
       {vaNames.length === 0 && <p className="text-sm text-muted-foreground">Nothing planned yet.</p>}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {vaNames.map((vaName) => (
-          <div key={vaName} className="rounded-md border border-l-4 bg-record-background p-3" style={{ borderLeftColor: vaColorByName(vas, vaName) || "var(--plan-accent)" }}>
-            <div className="mb-2 text-sm font-semibold" style={vaColorByName(vas, vaName) ? { color: vaColorByName(vas, vaName) } : undefined}>{vaName}</div>
-            <ul className="space-y-1.5">
-              {(byVa.get(vaName) || []).map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex items-center">{item.kind === "priority" && <span className="priority-dot" aria-hidden />}{item.label}</span>
-                  {vaName === currentUserName && (
-                    <form action={removePlanItem}>
-                      <input type="hidden" name="id" value={item.id} />
-                      <ConfirmDeleteButton
-                        confirmMessage={
-                          item.kind === "priority"
-                            ? `Remove "${item.label}" from your plan? It'll go back to Task Priorities for anyone to claim.`
-                            : `Remove "${item.label}" from your plan?`
-                        }
-                        pendingLabel="…"
-                      >
-                        ✕
-                      </ConfirmDeleteButton>
-                    </form>
-                  )}
-                </li>
-              ))}
-              {(emailByVa.get(vaName) || []).map((item) => (
-                <li key={item.itemId} className="flex items-center justify-between gap-2 text-sm">
-                  <Link href={`/schools/${item.schoolId}#email-tracker`} className="hover:underline">
-                    {item.description}
-                    <span className="text-muted-foreground"> — {item.schoolName}</span>
-                  </Link>
-                  <StatusBadge tone={EMAIL_STATUS_TONE[item.status] ?? "neutral"}>{item.status}</StatusBadge>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      <div className="space-y-3">
+        {vaNames.map((vaName) => {
+          const items = byVa.get(vaName) || [];
+          const priorities = items.filter((item) => item.kind === "priority");
+          const tasks = items.filter((item) => item.kind === "task");
+          const emails = emailByVa.get(vaName) || [];
+
+          const byCategory = new Map<string, CategoryColumn["rows"]>();
+          const addRow = (category: string, row: CategoryColumn["rows"][number]) => {
+            if (!byCategory.has(category)) byCategory.set(category, []);
+            byCategory.get(category)!.push(row);
+          };
+          for (const item of tasks) {
+            const resolved = resolveTaskItem(item, schools, schoolData, generalTasks);
+            addRow(resolved.category, {
+              key: item.id,
+              label: resolved.fileName,
+              sublabel: resolved.schoolName,
+              href: resolved.href,
+              action: vaName === currentUserName ? (
+                <form action={removePlanItem}>
+                  <input type="hidden" name="id" value={item.id} />
+                  <ConfirmDeleteButton confirmMessage={`Remove "${resolved.fileName}" from your plan?`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
+                </form>
+              ) : undefined,
+            });
+          }
+          for (const item of emails) {
+            addRow("Email", {
+              key: item.itemId,
+              label: item.description,
+              sublabel: item.schoolName,
+              href: `/schools/${item.schoolId}#email-tracker`,
+              status: item.status,
+              statusTone: EMAIL_STATUS_TONE[item.status as keyof typeof EMAIL_STATUS_TONE] ?? "neutral",
+            });
+          }
+          const columns: CategoryColumn[] = Array.from(byCategory.entries()).map(([category, rows]) => ({ category, rows }));
+
+          return (
+            <div key={vaName} className="rounded-md border border-l-4 bg-record-background p-3" style={{ borderLeftColor: vaColorByName(vas, vaName) || "var(--plan-accent)" }}>
+              <div className="mb-2 text-sm font-semibold" style={vaColorByName(vas, vaName) ? { color: vaColorByName(vas, vaName) } : undefined}>{vaName}</div>
+              {priorities.length > 0 && (
+                <ul className="mb-2 space-y-1.5">
+                  {priorities.map((item) => (
+                    <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex items-center"><span className="priority-dot" aria-hidden />{item.label}</span>
+                      {vaName === currentUserName && (
+                        <form action={removePlanItem}>
+                          <input type="hidden" name="id" value={item.id} />
+                          <ConfirmDeleteButton confirmMessage={`Remove "${item.label}" from your plan? It'll go back to Task Priorities for anyone to claim.`} pendingLabel="…">✕</ConfirmDeleteButton>
+                        </form>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <CategoryColumns columns={columns} accentColor={vaColorByName(vas, vaName)} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

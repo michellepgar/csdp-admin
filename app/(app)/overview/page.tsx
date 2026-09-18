@@ -7,6 +7,7 @@ import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
@@ -99,31 +100,33 @@ export default async function OverviewPage() {
         {vaNamesWithActivity.length === 0 ? (
           <p className="text-sm text-muted-foreground">No activity today yet.</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-3">
             {vaNamesWithActivity.map((vaName) => {
               const va = state.vas.find((v) => v.name === vaName);
+              const items = todayByVa.get(vaName)!;
+              const byCategory = new Map<string, typeof items>();
+              for (const t of items) {
+                const category = t.schoolName === "Reminder" ? "Reminder" : t.category;
+                if (!byCategory.has(category)) byCategory.set(category, []);
+                byCategory.get(category)!.push(t);
+              }
+              const columns: CategoryColumn[] = Array.from(byCategory.entries()).map(([category, rows]) => ({
+                category,
+                rows: rows.map((t, i) => ({
+                  key: `${category}-${i}`,
+                  label: t.fileName,
+                  sublabel: t.schoolName === "Reminder" ? undefined : t.schoolName,
+                  href: t.schoolName === "Reminder" ? undefined : `${t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"}${t.linkSuffix || ""}`,
+                  status: t.status || undefined,
+                  statusTone: TODAY_STATUS_TONE[t.status] ?? "neutral",
+                })),
+              }));
               return (
                 <div key={vaName} className="rounded-md border border-l-4 bg-record-background p-3" style={{ borderLeftColor: va?.color || "var(--plan-accent-secondary)" }}>
                   <div className="mb-2 text-sm font-semibold" style={va?.color ? { color: va.color } : undefined}>
                     {vaName}
                   </div>
-                  <ul className="space-y-1.5">
-                    {todayByVa.get(vaName)!.map((t, i) => (
-                      <li key={i} className="flex flex-wrap items-center gap-1.5 text-sm">
-                        {t.schoolName === "Reminder" ? (
-                          <span className="font-bold">{t.fileName}</span>
-                        ) : (
-                          <>
-                            <Link href={`${t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"}${t.linkSuffix || ""}`} className="font-bold underline-offset-2 hover:underline">
-                              {t.fileName}
-                            </Link>
-                            <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
-                          </>
-                        )}
-                        {t.status && <StatusBadge tone={TODAY_STATUS_TONE[t.status] ?? "neutral"}>{t.status}</StatusBadge>}
-                      </li>
-                    ))}
-                  </ul>
+                  <CategoryColumns columns={columns} accentColor={va?.color} />
                 </div>
               );
             })}
@@ -150,6 +153,7 @@ export default async function OverviewPage() {
         vas={state.vas}
         schools={state.schools}
         schoolData={state.schoolData}
+        generalTasks={state.generalTasks || []}
         currentUserName={me?.name ?? ""}
         removePlanItem={removePlanItem}
       />

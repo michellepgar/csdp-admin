@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
 import { Dropdown } from "@/components/dropdown";
 import { Input } from "@/components/ui/input";
-import { IssueComments } from "@/components/issue-comments";
+import { CommentToggleButton, CommentThreadPanel } from "@/components/issue-comments";
 import {
   ISSUE_STATUS_OPTIONS,
   ISSUE_TYPE_LABELS,
@@ -16,6 +16,7 @@ import {
   type Issue,
   type IssueType,
   type IssueCategory,
+  type Va,
 } from "@/lib/app-state";
 
 /* Issue.status is a free-form string (unlike Suggestion's, which is a
@@ -217,6 +218,8 @@ type TableProps = {
   issues: Issue[];
   currentUserName: string;
   currentIsAdmin: boolean;
+  vas: Va[];
+  expandIssueId?: string;
   setIssueStatus: (formData: FormData) => void;
   removeIssue: (formData: FormData) => void;
   addIssueComment: (formData: FormData) => void;
@@ -229,9 +232,10 @@ type TableProps = {
    every field visible, at the cost of repeating the Reported By/Date/
    Status/delete/Comments columns four times. */
 
-export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
+export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
   const reversed = [...issues].reverse();
+  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   return (
     <>
       {/* Table on sm and up; a stacked card list below sm -- this
@@ -253,16 +257,33 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
           </thead>
           <tbody>
             {reversed.map((issue) => (
-              <tr key={issue.id} className="border-b bg-record-background align-top">
-                <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{issue.subcategory || "—"}</td>
-                <td className="px-2 py-1">{issue.description}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-                <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-                <td className="px-2 py-1"><IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} /></td>
-                <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
-              </tr>
+              <Fragment key={issue.id}>
+                <tr className="border-b bg-record-background align-top">
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.subcategory || "—"}</td>
+                  <td className="px-2 py-1">{issue.description}</td>
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+                  <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+                  <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
+                  <td className="px-2 py-1">
+                    <CommentToggleButton
+                      issue={issue}
+                      currentUserName={currentUserName}
+                      expanded={expandedId === issue.id}
+                      onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
+                      ackIssueComments={ackIssueComments}
+                    />
+                  </td>
+                  <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+                </tr>
+                {expandedId === issue.id && (
+                  <tr className="border-b bg-record-background">
+                    <td colSpan={8} className="p-2">
+                      <CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -300,7 +321,14 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
             </div>
             <div>
               <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
-              <IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} />
+              <CommentToggleButton
+                issue={issue}
+                currentUserName={currentUserName}
+                expanded={expandedId === issue.id}
+                onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
+                ackIssueComments={ackIssueComments}
+              />
+              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} /></div>}
             </div>
             <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
           </div>
@@ -310,7 +338,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, se
   );
 }
 
-export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
+export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
   const rows = [...issues].reverse().map((issue) => ({
     issue,
@@ -321,6 +349,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
       issue.needsOtherCorrection && (issue.otherCorrectionDetail || "Other"),
     ].filter(Boolean).join(", "),
   }));
+  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   return (
     <>
       <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
@@ -338,15 +367,32 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
           </thead>
           <tbody>
             {rows.map(({ issue, needs }) => (
-              <tr key={issue.id} className="border-b bg-record-background align-top">
-                <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
-                <td className="px-2 py-1">{needs || "—"}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
-                <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-                <td className="px-2 py-1"><IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} /></td>
-                <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
-              </tr>
+              <Fragment key={issue.id}>
+                <tr className="border-b bg-record-background align-top">
+                  <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+                  <td className="px-2 py-1">{needs || "—"}</td>
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+                  <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
+                  <td className="px-2 py-1">
+                    <CommentToggleButton
+                      issue={issue}
+                      currentUserName={currentUserName}
+                      expanded={expandedId === issue.id}
+                      onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
+                      ackIssueComments={ackIssueComments}
+                    />
+                  </td>
+                  <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+                </tr>
+                {expandedId === issue.id && (
+                  <tr className="border-b bg-record-background">
+                    <td colSpan={7} className="p-2">
+                      <CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -378,7 +424,14 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
             </div>
             <div>
               <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
-              <IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} />
+              <CommentToggleButton
+                issue={issue}
+                currentUserName={currentUserName}
+                expanded={expandedId === issue.id}
+                onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
+                ackIssueComments={ackIssueComments}
+              />
+              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} /></div>}
             </div>
             <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
           </div>
@@ -388,9 +441,10 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, setIs
   );
 }
 
-export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
+export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, ackIssueComments }: TableProps) {
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
   const reversed = [...issues].reverse();
+  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   return (
     <>
       <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
@@ -408,15 +462,32 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
           </thead>
           <tbody>
             {reversed.map((issue) => (
-              <tr key={issue.id} className="border-b bg-record-background align-top">
-                <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
-                <td className="px-2 py-1">{issue.question}</td>
-                <td className="px-2 py-1"><IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} /></td>
-                <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
-                <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-                <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-                <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
-              </tr>
+              <Fragment key={issue.id}>
+                <tr className="border-b bg-record-background align-top">
+                  <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+                  <td className="px-2 py-1">{issue.question}</td>
+                  <td className="px-2 py-1">
+                    <CommentToggleButton
+                      issue={issue}
+                      currentUserName={currentUserName}
+                      expanded={expandedId === issue.id}
+                      onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
+                      ackIssueComments={ackIssueComments}
+                    />
+                  </td>
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
+                  <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
+                  <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
+                  <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+                </tr>
+                {expandedId === issue.id && (
+                  <tr className="border-b bg-record-background">
+                    <td colSpan={7} className="p-2">
+                      <CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -434,7 +505,14 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, setIssu
             </div>
             <div>
               <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
-              <IssueComments issue={issue} currentUserName={currentUserName} addIssueComment={addIssueComment} ackIssueComments={ackIssueComments} />
+              <CommentToggleButton
+                issue={issue}
+                currentUserName={currentUserName}
+                expanded={expandedId === issue.id}
+                onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
+                ackIssueComments={ackIssueComments}
+              />
+              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel issue={issue} vas={vas} addIssueComment={addIssueComment} /></div>}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

@@ -22,7 +22,7 @@ import {
   removeIssueSubcategory,
 } from "./actions";
 
-export default async function IssuesPage() {
+export default async function IssuesPage({ searchParams }: { searchParams: Promise<{ expandIssue?: string }> }) {
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
@@ -32,12 +32,13 @@ export default async function IssuesPage() {
   const me = findVaByEmail(state, user.email);
   if (!me) redirect("/not-on-team");
 
+  const { expandIssue } = await searchParams;
   const issues = state.issues || [];
   const software = issues.filter((i) => i.type === "software_issue");
   const corrections = issues.filter((i) => i.type === "correction");
   const charting = issues.filter((i) => i.type === "charting");
 
-  const tableProps = { currentUserName: me.name, currentIsAdmin: isAdmin(me), setIssueStatus, removeIssue, addIssueComment, ackIssueComments };
+  const tableProps = { currentUserName: me.name, currentIsAdmin: isAdmin(me), vas: state.vas || [], expandIssueId: expandIssue, setIssueStatus, removeIssue, addIssueComment, ackIssueComments };
 
   return (
     <div>

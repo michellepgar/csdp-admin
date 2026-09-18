@@ -26,7 +26,7 @@ import type {
   EodReport,
   Issue,
   IssueCategory,
-  IssueComment,
+  Comment,
   AccessRequest,
   GeneralTask,
   GeneralTaskCategory,
@@ -145,6 +145,7 @@ type GeneralNoteRow = {
   author: string;
   urgency: string | null;
   ack_by: string[];
+  comment_ack_by: string[];
   created_at: string;
   pad_color: string | null;
 };
@@ -157,6 +158,7 @@ function mapGeneralNoteRow(r: GeneralNoteRow): GeneralNote {
     author: r.author,
     urgency: (r.urgency as "Urgent" | "" | null) ?? undefined,
     ackBy: r.ack_by,
+    commentAckBy: r.comment_ack_by,
     createdAt: r.created_at,
   };
 }
@@ -167,6 +169,7 @@ type PrivateNoteRow = {
   author: string;
   shared_with: string[];
   ack_by: string[];
+  comment_ack_by: string[];
   created_at: string;
   pad_color: string | null;
   board_x: number | null;
@@ -185,6 +188,7 @@ function mapPrivateNoteRow(r: PrivateNoteRow): PrivateNote {
     author: r.author,
     sharedWith: r.shared_with,
     ackBy: r.ack_by,
+    commentAckBy: r.comment_ack_by,
     boardX: r.board_x ?? undefined,
     boardY: r.board_y ?? undefined,
     boardRotation: r.board_rotation ?? undefined,
@@ -447,10 +451,16 @@ function mapIssueRow(r: IssueRow): Issue {
   };
 }
 
-type IssueCommentRow = { id: string; issue_id: string; author: string; text: string; created_at: string };
+type IssueCommentRow = { id: string; issue_id: string; author: string; text: string; created_at: string; edited_at: string | null };
 
-function mapIssueCommentRow(r: IssueCommentRow): IssueComment {
-  return { id: r.id, author: r.author, text: r.text, createdAt: r.created_at };
+function mapIssueCommentRow(r: IssueCommentRow): Comment {
+  return { id: r.id, author: r.author, text: r.text, createdAt: r.created_at, editedAt: r.edited_at ?? undefined };
+}
+
+type NoteCommentRow = { id: string; note_id: string; author: string; text: string; created_at: string; edited_at: string | null };
+
+function mapNoteCommentRow(r: NoteCommentRow): Comment {
+  return { id: r.id, author: r.author, text: r.text, createdAt: r.created_at, editedAt: r.edited_at ?? undefined };
 }
 
 type MentionRow = {
@@ -559,7 +569,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     emailTrackerResult,
     suggestionsResult,
     generalNotesResult,
+    generalNoteCommentsResult,
     privateNotesResult,
+    privateNoteCommentsResult,
     emailTemplatesResult,
     contactGroupsResult,
     contactRowsResult,
@@ -589,8 +601,10 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order, created_at, status_changed_at").order("sort_order"),
     supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
     supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
-    supabase.from("general_notes").select("id, text, author, urgency, ack_by, created_at, pad_color").order("created_at"),
-    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, created_at, pad_color, board_x, board_y, board_rotation, board_width, board_height, board_z").order("created_at"),
+    supabase.from("general_notes").select("id, text, author, urgency, ack_by, comment_ack_by, created_at, pad_color").order("created_at"),
+    supabase.from("general_note_comments").select("id, note_id, author, text, created_at, edited_at").order("created_at"),
+    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, comment_ack_by, created_at, pad_color, board_x, board_y, board_rotation, board_width, board_height, board_z").order("created_at"),
+    supabase.from("private_note_comments").select("id, note_id, author, text, created_at, edited_at").order("created_at"),
     supabase.from("email_templates").select("id, name, category, subject, body").order("sort_order"),
     supabase.from("contact_groups").select("id, name").order("sort_order"),
     supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),
@@ -601,7 +615,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, subcategory, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note, comment_ack_by").order("created_at"),
     supabase.from("issue_categories").select("id, name").order("sort_order"),
     supabase.from("issue_subcategories").select("id, category_id, name").order("sort_order"),
-    supabase.from("issue_comments").select("id, issue_id, author, text, created_at").order("created_at"),
+    supabase.from("issue_comments").select("id, issue_id, author, text, created_at, edited_at").order("created_at"),
     supabase.from("mentions").select("id, mentioned_name, mentioner_name, source, issue_id, note_id, snippet, created_at, read_at").order("created_at", { ascending: false }),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, name, email, created_at").order("created_at"),
@@ -622,7 +636,9 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (emailTrackerResult.error) return null;
   if (suggestionsResult.error) return null;
   if (generalNotesResult.error) return null;
+  if (generalNoteCommentsResult.error) return null;
   if (privateNotesResult.error) return null;
+  if (privateNoteCommentsResult.error) return null;
   if (emailTemplatesResult.error) return null;
   if (contactGroupsResult.error) return null;
   if (contactRowsResult.error) return null;
@@ -647,8 +663,27 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined, hasCount: !!row.has_count })) as TaskCategory[];
   state.checklistTemplate = (checklistTemplateResult.data || []).map((row) => ({ id: row.id, description: row.description, schoolId: row.school_id ?? undefined, taskCategoryId: row.task_category_id ?? undefined })) as ChecklistTemplateItem[];
   state.suggestions = (suggestionsResult.data || []).map((r) => mapSuggestionRow(r as SuggestionRow));
-  state.generalNotes = (generalNotesResult.data || []).map((r) => mapGeneralNoteRow(r as GeneralNoteRow));
-  state.privateNotes = (privateNotesResult.data || []).map((r) => mapPrivateNoteRow(r as PrivateNoteRow));
+  const generalNoteCommentsByNoteId = new Map<string, Comment[]>();
+  for (const c of (generalNoteCommentsResult.data || []) as NoteCommentRow[]) {
+    const list = generalNoteCommentsByNoteId.get(c.note_id) ?? [];
+    list.push(mapNoteCommentRow(c));
+    generalNoteCommentsByNoteId.set(c.note_id, list);
+  }
+  state.generalNotes = (generalNotesResult.data || []).map((r) => ({
+    ...mapGeneralNoteRow(r as GeneralNoteRow),
+    comments: generalNoteCommentsByNoteId.get((r as GeneralNoteRow).id) || [],
+  }));
+
+  const privateNoteCommentsByNoteId = new Map<string, Comment[]>();
+  for (const c of (privateNoteCommentsResult.data || []) as NoteCommentRow[]) {
+    const list = privateNoteCommentsByNoteId.get(c.note_id) ?? [];
+    list.push(mapNoteCommentRow(c));
+    privateNoteCommentsByNoteId.set(c.note_id, list);
+  }
+  state.privateNotes = (privateNotesResult.data || []).map((r) => ({
+    ...mapPrivateNoteRow(r as PrivateNoteRow),
+    comments: privateNoteCommentsByNoteId.get((r as PrivateNoteRow).id) || [],
+  }));
 
   state.checklistProgress = {};
   for (const row of checklistProgressResult.data || []) {
@@ -769,7 +804,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
 
   state.eodReports = (eodReportsResult.data || []).map((r) => mapEodReportRow(r as EodReportRow));
 
-  const issueCommentsByIssueId = new Map<string, IssueComment[]>();
+  const issueCommentsByIssueId = new Map<string, Comment[]>();
   for (const c of (issueCommentsResult.data || []) as IssueCommentRow[]) {
     const list = issueCommentsByIssueId.get(c.issue_id) ?? [];
     list.push(mapIssueCommentRow(c));

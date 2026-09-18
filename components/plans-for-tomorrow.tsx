@@ -37,7 +37,19 @@ export function PlansForTomorrow({ planItems, vas, removePlanItem }: {
               {byVa.get(vaName)!.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
                   <span className="flex items-center">{item.kind === "priority" && <span className="priority-dot" aria-hidden />}{item.label}</span>
-                  <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}" from ${vaName}'s plan?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
+                  <form action={removePlanItem}>
+                    <input type="hidden" name="id" value={item.id} />
+                    <ConfirmDeleteButton
+                      confirmMessage={
+                        item.kind === "priority"
+                          ? `Remove "${item.label}" from ${vaName}'s plan? It'll go back to Task Priorities for anyone to claim.`
+                          : `Remove "${item.label}" from ${vaName}'s plan?`
+                      }
+                      pendingLabel="…"
+                    >
+                      ✕
+                    </ConfirmDeleteButton>
+                  </form>
                 </li>
               ))}
             </ul>

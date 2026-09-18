@@ -180,13 +180,28 @@ export async function claimPriorityPlanItem(formData: FormData): Promise<PlanAct
 
 /* Either VA can remove any pending plan item -- matches this app's
    existing team-wide trust model (no per-row ownership enforcement
-   anywhere else either, see plan_items' own RLS policy). */
+   anywhere else either, see plan_items' own RLS policy).
+
+   A claimed priority (kind:"priority" with a vaName) is the one
+   exception: removing it from Plans for Tomorrow doesn't delete the
+   row, it just clears vaName back to null -- Michelle asked for a
+   claimed-then-abandoned priority to go back to Task Priorities'
+   unassigned list for someone else to claim, not disappear entirely.
+   This same function is also how an UNCLAIMED priority gets removed
+   directly from Task Priorities (its own ✕ button) -- there vaName is
+   already null, so that case still falls through to a real delete,
+   same as every other kind. */
 export async function removePlanItem(formData: FormData): Promise<PlanActionResult> {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      state.planItems = (state.planItems || []).filter((p) => p.id !== id);
+      const item = (state.planItems || []).find((p) => p.id === id);
+      if (item && item.kind === "priority" && item.vaName) {
+        item.vaName = undefined;
+      } else {
+        state.planItems = (state.planItems || []).filter((p) => p.id !== id);
+      }
     });
     revalidatePath("/overview");
     return { error: null };
@@ -194,8 +209,14 @@ export async function removePlanItem(formData: FormData): Promise<PlanActionResu
 
   return runPlanAction(async () => {
     const { supabase } = await requireTeamMember();
-    const { error } = await supabase.from("plan_items").delete().eq("id", id);
-    orThrow(error);
+    const { data: item } = await supabase.from("plan_items").select("kind, va_name").eq("id", id).maybeSingle();
+    if (item && item.kind === "priority" && item.va_name) {
+      const { error } = await supabase.from("plan_items").update({ va_name: null }).eq("id", id);
+      orThrow(error);
+    } else {
+      const { error } = await supabase.from("plan_items").delete().eq("id", id);
+      orThrow(error);
+    }
     revalidatePath("/overview");
   });
 }

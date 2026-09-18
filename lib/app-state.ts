@@ -306,6 +306,10 @@ export interface GeneralNote {
   urgency?: "Urgent" | "";
   ackBy?: string[];
   createdAt: string;
+  comments?: Comment[];
+  /** VAs who have seen the LATEST comment -- same reset-on-new-comment
+   *  blink-dot pattern as Issue.commentAckBy. */
+  commentAckBy?: string[];
 }
 
 export interface PrivateNote {
@@ -317,6 +321,12 @@ export interface PrivateNote {
   sharedWith?: string[];
   ackBy?: string[];
   createdAt: string;
+  /** Only ever populated for a note the current viewer can already see
+   *  (visiblePrivateNotes() filters the parent note before it crosses
+   *  the server/client boundary -- see supabase/phase49_note_comments.sql's
+   *  own comment on private_note_comments' RLS for why that's enough). */
+  comments?: Comment[];
+  commentAckBy?: string[];
   /** Position on the freeform pinboard (components/private-notes-board.tsx).
    *  Non-null boardX means this note lives on the board instead of the
    *  ordered list -- this is the ONLY signal used to decide that; there
@@ -686,18 +696,25 @@ export interface Issue {
    *  field -- see components/issue-comments.tsx. Populated by
    *  lib/fetch-app-state.ts from the issue_comments table, grouped by
    *  issue id. */
-  comments?: IssueComment[];
+  comments?: Comment[];
   /** VAs who have seen the LATEST comment -- reset to just the
    *  poster's own name whenever a new comment is added, so the
    *  blinking "new comment" dot reopens for everyone else. */
   commentAckBy?: string[];
 }
 
-export interface IssueComment {
+/* Shared shape for every comment table in the app (issue_comments,
+   general_note_comments, private_note_comments) -- all three are
+   identical: who wrote it, the sanitized-HTML text (screenshots,
+   links, @mentions all render the same way General/Private Notes'
+   own bodies already do), when, and when last edited (undefined if
+   never edited). */
+export interface Comment {
   id: string;
   author: string;
   text: string;
   createdAt: string;
+  editedAt?: string;
 }
 
 export interface Mention {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
+import { CommentToggleButton, CommentThreadPanel } from "@/components/comment-thread";
 import type { GeneralNote, Va } from "@/lib/app-state";
 
 /* A note's id paired with whether the current viewer is allowed to
@@ -39,6 +40,10 @@ function GeneralNoteRow({
   ackGeneralNote,
   updateGeneralNote,
   removeGeneralNote,
+  addGeneralNoteComment,
+  editGeneralNoteComment,
+  removeGeneralNoteComment,
+  ackGeneralNoteComments,
 }: {
   note: GeneralNote;
   currentUserName: string;
@@ -48,8 +53,13 @@ function GeneralNoteRow({
   ackGeneralNote: (formData: FormData) => void;
   updateGeneralNote: (formData: FormData) => void;
   removeGeneralNote: (formData: FormData) => void;
+  addGeneralNoteComment: (formData: FormData) => void;
+  editGeneralNoteComment: (formData: FormData) => void;
+  removeGeneralNoteComment: (formData: FormData) => void;
+  ackGeneralNoteComments: (formData: FormData) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const ackBy = n.ackBy || [];
   const isAuthor = n.author === currentUserName;
   const needsAck = n.urgency === "Urgent" && !isAuthor && !ackBy.includes(currentUserName);
@@ -112,6 +122,18 @@ function GeneralNoteRow({
               <SubmitButton pendingLabel="…" variant="outline" size="sm">Mark as checked</SubmitButton>
             </form>
           )}
+          <CommentToggleButton
+            comments={n.comments || []}
+            commentAckBy={n.commentAckBy || []}
+            currentUserName={currentUserName}
+            expanded={commentsExpanded}
+            onToggle={() => setCommentsExpanded((cur) => !cur)}
+            onAck={() => {
+              const fd = new FormData();
+              fd.set("noteId", n.id);
+              ackGeneralNoteComments(fd);
+            }}
+          />
           {isAuthor && (
             <button type="button" onClick={() => setEditing(true)} className="text-sm text-muted-foreground hover:underline">
               Edit
@@ -125,6 +147,19 @@ function GeneralNoteRow({
           )}
         </div>
       </div>
+      {commentsExpanded && (
+        <div className="mt-2">
+          <CommentThreadPanel
+            comments={n.comments || []}
+            vas={vas}
+            currentUserName={currentUserName}
+            hiddenFields={{ noteId: n.id }}
+            addComment={addGeneralNoteComment}
+            editComment={editGeneralNoteComment}
+            removeComment={removeGeneralNoteComment}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -138,6 +173,10 @@ export function GeneralNotesList({
   ackGeneralNote,
   updateGeneralNote,
   removeGeneralNote,
+  addGeneralNoteComment,
+  editGeneralNoteComment,
+  removeGeneralNoteComment,
+  ackGeneralNoteComments,
 }: {
   notes: GeneralNote[];
   currentUserName: string;
@@ -151,6 +190,10 @@ export function GeneralNotesList({
   ackGeneralNote: (formData: FormData) => void;
   updateGeneralNote: (formData: FormData) => void;
   removeGeneralNote: (formData: FormData) => void;
+  addGeneralNoteComment: (formData: FormData) => void;
+  editGeneralNoteComment: (formData: FormData) => void;
+  removeGeneralNoteComment: (formData: FormData) => void;
+  ackGeneralNoteComments: (formData: FormData) => void;
 }) {
   const deletableIds = new Set(deletable.filter((d) => d.canDelete).map((d) => d.id));
   const sorted = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -191,6 +234,10 @@ export function GeneralNotesList({
           ackGeneralNote={ackGeneralNote}
           updateGeneralNote={updateGeneralNote}
           removeGeneralNote={removeGeneralNote}
+          addGeneralNoteComment={addGeneralNoteComment}
+          editGeneralNoteComment={editGeneralNoteComment}
+          removeGeneralNoteComment={removeGeneralNoteComment}
+          ackGeneralNoteComments={ackGeneralNoteComments}
         />
       ))}
     </div>

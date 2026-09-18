@@ -237,6 +237,45 @@ export async function addCategoryToFiles(formData: FormData): Promise<TaskFileAc
   return result;
 }
 
+/* Moves an existing file's category assignment to a different category
+   -- everything else about the row (status, VAs, count, comms) carries
+   over untouched, since move_task_file_category only ever updates
+   category_id. Re-bucketing into the right table afterward needs no
+   extra client logic -- groupTaskTables already re-derives table
+   membership from each file's current categories on every render. */
+export async function moveTaskFileCategory(formData: FormData): Promise<TaskFileActionResult> {
+  const schoolId = formData.get("schoolId") as string;
+  const taskId = formData.get("taskId") as string;
+  const newCategoryId = formData.get("newCategoryId") as string;
+  if (!newCategoryId) return { error: "Choose a category." };
+
+  if (await isDemoMode()) {
+    const result = await saveTaskFile(() => demoMutate((state) => {
+      const sd = state.schoolData[schoolId];
+      const category = state.taskCategories?.find((item) => item.id === newCategoryId);
+      if (!category) throw new Error("That category no longer exists");
+      const file = sd?.taskFiles?.find((item) => item.categories.some((a) => a.id === taskId));
+      const assignment = file?.categories.find((item) => item.id === taskId);
+      if (!file || !assignment) throw new Error("Task does not belong to this school");
+      if (file.categories.some((item) => item.categoryId === newCategoryId && item.id !== taskId)) throw new Error("This file is already in that category");
+      assignment.categoryId = newCategoryId;
+      assignment.category = category.name;
+      const task = sd.tasks?.find((item) => item.id === taskId);
+      if (task) task.category = category.name;
+    }));
+    if (!result.error) revalidateSchool(schoolId);
+    return result;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const result = await saveTaskFile(async () => {
+    const { error } = await supabase.rpc("move_task_file_category", { p_school_id: schoolId, p_task_id: taskId, p_new_category_id: newCategoryId });
+    if (error) throw error;
+  });
+  if (!result.error) revalidateSchool(schoolId);
+  return result;
+}
+
 export async function reorderTasks(schoolId: string, orderedIds: string[]) {
   if (await isDemoMode()) {
     await demoMutate((state) => {

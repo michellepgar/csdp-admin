@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GripVertical, Pencil, Trash2, X } from "lucide-react";
+import { GripVertical, Pencil, Trash2 } from "lucide-react";
 import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
+import { TaskTableAddFileRow } from "@/components/task-table-add-file-row";
+import { KebabMenu } from "@/components/kebab-menu";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -47,18 +49,48 @@ const TASK_STATUS_TONE: Record<string, StatusTone> = {
    signatures -- Michelle asked for this specifically so the first
    person who signed always lands in the same spot, right after where
    "+ Sign" would have been. */
-function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, signTask, removeVaFromTask, setTaskStatus, removeTaskAssignment }: {
+function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName, canEdit, signTask, removeVaFromTask, setTaskStatus, removeTaskAssignment, moveTaskFileCategory }: {
   schoolId: string;
   assignment: TaskFileCategory;
   vas: Va[];
+  categories: TaskCategory[];
   currentUserName: string;
   canEdit: boolean;
   signTask: (formData: FormData) => void;
   removeVaFromTask: (formData: FormData) => void;
   setTaskStatus: (formData: FormData) => void;
   removeTaskAssignment: (formData: FormData) => void;
+  moveTaskFileCategory: (formData: FormData) => Promise<TaskFileActionResult>;
 }) {
   const iSigned = assignment.vaAssigned.includes(currentUserName);
+  const [moving, setMoving] = useState(false);
+  const [moveTargetId, setMoveTargetId] = useState("");
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const moveTargets = categories.filter((category) => category.id !== assignment.categoryId);
+
+  if (moving) {
+    return (
+      <form
+        action={async (formData) => {
+          setMoveError(null);
+          const result = await moveTaskFileCategory(formData);
+          if (result.error) setMoveError(result.error);
+          else { setMoving(false); setMoveTargetId(""); }
+        }}
+        className="space-y-1"
+      >
+        <input type="hidden" name="schoolId" value={schoolId} />
+        <input type="hidden" name="taskId" value={assignment.id} />
+        <Dropdown name="newCategoryId" value={moveTargetId} onChange={setMoveTargetId} placeholder="Move to which category?" options={moveTargets.map((category) => ({ value: category.id, label: category.name }))} />
+        {moveError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{moveError}</p>}
+        <div className="flex gap-2">
+          <SubmitButton size="xs" pendingLabel="Moving…" disabled={!moveTargetId}>Move</SubmitButton>
+          <Button type="button" variant="ghost" size="xs" onClick={() => { setMoving(false); setMoveError(null); setMoveTargetId(""); }}>Cancel</Button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <div className="grid grid-cols-[1fr_88px_24px] items-start gap-1">
       <div className="flex min-w-0 flex-wrap items-center gap-1">
@@ -89,23 +121,36 @@ function SignAndStatus({ schoolId, assignment, vas, currentUserName, canEdit, si
         disabled={!canEdit}
       />
       {canEdit && (
-        <form action={removeTaskAssignment}>
-          <input type="hidden" name="schoolId" value={schoolId} />
-          <input type="hidden" name="taskId" value={assignment.id} />
-          <ConfirmDeleteButton confirmMessage={`Remove only the ${assignment.category} task from this file?`} pendingLabel="…" variant="ghost" size="icon-xs"><X className="h-3 w-3" /></ConfirmDeleteButton>
-        </form>
+        <KebabMenu
+          ariaLabel={`More actions for the ${assignment.category} task`}
+          items={[
+            ...(moveTargets.length > 0 ? [{ label: "Move to another category", onClick: () => setMoving(true) }] : []),
+            {
+              label: "Remove",
+              destructive: true,
+              onClick: () => {
+                if (!window.confirm(`Remove only the ${assignment.category} task from this file?`)) return;
+                const formData = new FormData();
+                formData.set("schoolId", schoolId);
+                formData.set("taskId", assignment.id);
+                removeTaskAssignment(formData);
+              },
+            },
+          ]}
+        />
       )}
     </div>
   );
 }
 
-function AssignmentCell({ schoolId, assignment, vas, currentUserName, canEdit, actions }: {
+function AssignmentCell({ schoolId, assignment, vas, categories, currentUserName, canEdit, actions }: {
   schoolId: string;
   assignment: TaskFileCategory;
   vas: Va[];
+  categories: TaskCategory[];
   currentUserName: string;
   canEdit: boolean;
-  actions: Pick<TasksCardProps, "setTaskStatus" | "setTaskCount" | "signTask" | "removeVaFromTask" | "setCommsStatus" | "signComms" | "removeVaFromComms" | "removeTaskAssignment">;
+  actions: Pick<TasksCardProps, "setTaskStatus" | "setTaskCount" | "signTask" | "removeVaFromTask" | "setCommsStatus" | "signComms" | "removeVaFromComms" | "removeTaskAssignment" | "moveTaskFileCategory">;
 }) {
   return (
     <div className="min-w-0">
@@ -113,12 +158,14 @@ function AssignmentCell({ schoolId, assignment, vas, currentUserName, canEdit, a
         schoolId={schoolId}
         assignment={assignment}
         vas={vas}
+        categories={categories}
         currentUserName={currentUserName}
         canEdit={canEdit}
         signTask={actions.signTask}
         removeVaFromTask={actions.removeVaFromTask}
         setTaskStatus={actions.setTaskStatus}
         removeTaskAssignment={actions.removeTaskAssignment}
+        moveTaskFileCategory={actions.moveTaskFileCategory}
       />
     </div>
   );
@@ -139,6 +186,7 @@ type TasksCardProps = {
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
   removeTaskAssignment: (formData: FormData) => void;
+  moveTaskFileCategory: (formData: FormData) => Promise<TaskFileActionResult>;
   addTaskCategory: (formData: FormData) => void;
   removeTaskCategory: (formData: FormData) => void;
   setCommsStatus: (formData: FormData) => void;
@@ -163,6 +211,8 @@ export function TasksCard(props: TasksCardProps) {
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [newFileName, setNewFileName] = useState("");
   const [addFileError, setAddFileError] = useState<string | null>(null);
+  const [addToExistingTable, setAddToExistingTable] = useState(false);
+  const [addFileTableKey, setAddFileTableKey] = useState("");
   const [editFileError, setEditFileError] = useState<string | null>(null);
   const [editedFileName, setEditedFileName] = useState("");
 
@@ -265,14 +315,38 @@ export function TasksCard(props: TasksCardProps) {
           </div>
         )}
 
-        <form action={(formData) => submitTaskFileForm(props.addTask, formData, setAddFileError, () => setNewFileName(""))} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <input type="hidden" name="schoolId" value={schoolId} />
-          <div className="flex min-w-56 flex-1 flex-wrap gap-2">
-            <Dropdown name="categoryIds" defaultValue={orderedCategories[0]?.id} options={orderedCategories.map((category) => ({ value: category.id, label: category.name }))} className="max-w-72 truncate rounded-md border px-2 py-1.5 text-left text-sm" />
-          </div>
-          <Input name="fileName" placeholder="File name" required value={newFileName} onChange={(event) => setNewFileName(event.target.value)} className="w-full sm:max-w-md sm:flex-1" />
-          <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
-        </form>
+        <div className="space-y-2">
+          {taskTables.length > 0 && (
+            <div className="flex gap-1">
+              <Button type="button" size="xs" variant={addToExistingTable ? "outline" : "default"} onClick={() => { setAddToExistingTable(false); setAddFileTableKey(""); }}>New category</Button>
+              <Button type="button" size="xs" variant={addToExistingTable ? "default" : "outline"} onClick={() => setAddToExistingTable(true)}>Existing table</Button>
+            </div>
+          )}
+          <form action={(formData) => submitTaskFileForm(props.addTask, formData, setAddFileError, () => setNewFileName(""))} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <div className="flex min-w-56 flex-1 flex-wrap gap-2">
+              {addToExistingTable ? (
+                <>
+                  {taskTables.find((group) => group.key === addFileTableKey)?.categories.map((category) => (
+                    <input key={category.id} type="hidden" name="categoryIds" value={category.id} />
+                  ))}
+                  <Dropdown
+                    name="tableKey"
+                    value={addFileTableKey}
+                    onChange={setAddFileTableKey}
+                    placeholder="Choose a table"
+                    options={taskTables.map((group) => ({ value: group.key, label: `${group.categories.map((c) => c.name).join(" + ")} (${group.files.length} file${group.files.length === 1 ? "" : "s"})` }))}
+                    className="max-w-72 truncate rounded-md border px-2 py-1.5 text-left text-sm"
+                  />
+                </>
+              ) : (
+                <Dropdown name="categoryIds" defaultValue={orderedCategories[0]?.id} options={orderedCategories.map((category) => ({ value: category.id, label: category.name }))} className="max-w-72 truncate rounded-md border px-2 py-1.5 text-left text-sm" />
+              )}
+            </div>
+            <Input name="fileName" placeholder="File name" required value={newFileName} onChange={(event) => setNewFileName(event.target.value)} className="w-full sm:max-w-md sm:flex-1" />
+            <SubmitButton pendingLabel="Adding…" disabled={addToExistingTable && !addFileTableKey}>Add</SubmitButton>
+          </form>
+        </div>
         {addFileError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{addFileError}</p>}
 
         {orderedFiles.length === 0 ? (
@@ -321,7 +395,7 @@ export function TasksCard(props: TasksCardProps) {
                         const category = column.category;
                         const assignment = file.categories.find((item) => item.categoryId === category.id);
                         return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${dividerClass(index)}`}>
-                          {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} currentUserName={currentUserName} canEdit={canEdit} actions={props} /> : null}
+                          {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} categories={orderedCategories} currentUserName={currentUserName} canEdit={canEdit} actions={props} /> : null}
                         </td>;
                       }
                       return <td key="file" className="px-2 py-2 align-top">
@@ -343,6 +417,7 @@ export function TasksCard(props: TasksCardProps) {
               </tbody>
             </table>
             </div>
+            {canEdit && <TaskTableAddFileRow schoolId={schoolId} categoryIds={group.categories.map((category) => category.id)} addTask={props.addTask} />}
             {canEdit && <TaskTableCategoryPicker schoolId={schoolId} tableId={group.key} files={group.files} categories={orderedCategories} action={props.addCategoryToFiles} />}
           </div>
         ); })}

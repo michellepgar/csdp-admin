@@ -10,7 +10,8 @@ import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
-import { savePlan, addPriority, removePlanItem, claimPriorityPlanItem } from "./actions";
+import { StartMyDayButton } from "@/components/start-my-day-button";
+import { savePlan, addPriority, removePlanItem, claimPriorityPlanItem, startMyDay } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -129,14 +130,17 @@ export default async function OverviewPage() {
       </div>
 
       {me && (
-        <PlanTomorrowPicker
-          currentUserName={me.name}
-          schools={state.schools}
-          schoolData={state.schoolData}
-          generalTasks={state.generalTasks || []}
-          myPlanItems={myPlanItems}
-          savePlan={savePlan}
-        />
+        <div className="flex flex-wrap items-start gap-2">
+          <StartMyDayButton startMyDay={startMyDay} />
+          <PlanTomorrowPicker
+            currentUserName={me.name}
+            schools={state.schools}
+            schoolData={state.schoolData}
+            generalTasks={state.generalTasks || []}
+            myPlanItems={myPlanItems}
+            savePlan={savePlan}
+          />
+        </div>
       )}
 
       <PlansForTomorrow

@@ -24,6 +24,7 @@ import {
   removeVaFromTask,
   removeTask,
   removeTaskAssignment,
+  moveTaskFileCategory,
   addTaskCategory,
   removeTaskCategory,
   reorderTaskCategories,
@@ -181,6 +182,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             removeVaFromTask={removeVaFromTask}
             removeTask={removeTask}
             removeTaskAssignment={removeTaskAssignment}
+            moveTaskFileCategory={moveTaskFileCategory}
             addTaskCategory={addTaskCategory}
             removeTaskCategory={removeTaskCategory}
             reorderTaskCategories={reorderTaskCategories}

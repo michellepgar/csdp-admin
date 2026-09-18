@@ -298,6 +298,122 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
   });
 }
 
+/* "Start my day" -- pauses every task this VA currently has In
+   Progress (school tasks + General Tasks) and makes sure each one has
+   a kind:"task" plan_items row waiting in Your Plan, so nothing gets
+   stranded Paused with no way back except the status dropdown. A VA
+   with nothing In Progress gets a silent no-op (no writes, no
+   revalidate) -- this also makes a second click harmless. Only
+   `status` is patched via update_task_assignment's p_patch -- leaving
+   va_assigned out of the patch leaves it untouched (confirmed in
+   supabase/phase41_selective_table_categories.sql's `p_patch ? 'key'`
+   guards), so this never touches who's assigned, just the shared
+   status field. Known limitation, accepted by Michelle: status is one
+   field per task row, not per-VA, so a task shared with another VA
+   pauses for them too. */
+export async function startMyDay(): Promise<PlanActionResult> {
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const existingTaskRefs = new Set(
+        (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane").map((p) => p.taskFileCategoryId || p.generalTaskId)
+      );
+      for (const school of state.schools) {
+        const sd = state.schoolData[school.id];
+        for (const assignment of sd?.taskFiles?.flatMap((f) => f.categories) || []) {
+          if (assignment.status !== "In Progress" || !assignment.vaAssigned.includes("Jane")) continue;
+          assignment.status = "Paused";
+          const task = sd?.tasks?.find((t) => t.id === assignment.id);
+          if (task) task.status = "Paused";
+          if (!existingTaskRefs.has(assignment.id)) {
+            const fileName = sd?.taskFiles?.find((f) => f.categories.some((c) => c.id === assignment.id))?.fileName || "Task";
+            (state.planItems ??= []).push({ id: `demo-startday-${assignment.id}`, kind: "task", vaName: "Jane", schoolId: school.id, taskFileCategoryId: assignment.id, label: `${fileName} — ${assignment.category}`, createdBy: "Jane", createdAt: new Date().toISOString() });
+          }
+        }
+      }
+      for (const task of state.generalTasks || []) {
+        if (task.status !== "In Progress" || !task.vaAssigned.includes("Jane")) continue;
+        task.status = "Paused";
+        if (!existingTaskRefs.has(task.id)) {
+          (state.planItems ??= []).push({ id: `demo-startday-${task.id}`, kind: "task", vaName: "Jane", generalTaskId: task.id, label: `${task.description} — ${task.category}`, createdBy: "Jane", createdAt: new Date().toISOString() });
+        }
+      }
+    });
+    revalidatePath("/overview");
+    return { error: null };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
+
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from("task_file_categories")
+      .select("id, task_file_id, category_id")
+      .eq("status", "In Progress")
+      .contains("va_assigned", [me.name]);
+    orThrow(assignmentsError);
+
+    const { data: generalTasks, error: generalError } = await supabase
+      .from("general_tasks")
+      .select("id, category, description")
+      .eq("status", "In Progress")
+      .contains("va_assigned", [me.name]);
+    orThrow(generalError);
+
+    if ((assignments || []).length === 0 && (generalTasks || []).length === 0) return;
+
+    const { data: existingPlanRows, error: existingError } = await supabase
+      .from("plan_items")
+      .select("task_file_category_id, general_task_id")
+      .eq("kind", "task")
+      .eq("va_name", me.name);
+    orThrow(existingError);
+    const existingRefs = new Set((existingPlanRows || []).map((r) => r.task_file_category_id || r.general_task_id));
+
+    const touchedSchoolIds = new Set<string>();
+    const newPlanRows: { kind: "task"; va_name: string; school_id?: string; task_file_category_id?: string; general_task_id?: string; label: string; created_by: string }[] = [];
+
+    if ((assignments || []).length > 0) {
+      const fileIds = [...new Set((assignments || []).map((a) => a.task_file_id))];
+      const categoryIds = [...new Set((assignments || []).map((a) => a.category_id))];
+      const { data: files, error: filesError } = await supabase.from("task_files").select("id, file_name, school_id").in("id", fileIds);
+      orThrow(filesError);
+      const { data: categories, error: categoriesError } = await supabase.from("task_categories").select("id, name").in("id", categoryIds);
+      orThrow(categoriesError);
+      const fileById = new Map((files || []).map((f) => [f.id, f]));
+      const categoryById = new Map((categories || []).map((c) => [c.id, c.name]));
+
+      for (const assignment of assignments || []) {
+        const file = fileById.get(assignment.task_file_id);
+        if (!file) continue;
+        touchedSchoolIds.add(file.school_id);
+        const { error } = await supabase.rpc("update_task_assignment", { p_school_id: file.school_id, p_task_id: assignment.id, p_patch: { status: "Paused" } });
+        orThrow(error);
+        if (!existingRefs.has(assignment.id)) {
+          const categoryName = categoryById.get(assignment.category_id) || "";
+          newPlanRows.push({ kind: "task", va_name: me.name, school_id: file.school_id, task_file_category_id: assignment.id, label: `${file.file_name} — ${categoryName}`, created_by: me.name });
+        }
+      }
+    }
+
+    for (const task of generalTasks || []) {
+      const { error } = await supabase.from("general_tasks").update({ status: "Paused" }).eq("id", task.id);
+      orThrow(error);
+      if (!existingRefs.has(task.id)) {
+        newPlanRows.push({ kind: "task", va_name: me.name, general_task_id: task.id, label: `${task.description} — ${task.category}`, created_by: me.name });
+      }
+    }
+
+    if (newPlanRows.length > 0) {
+      const { error } = await supabase.from("plan_items").insert(newPlanRows);
+      orThrow(error);
+    }
+
+    revalidatePath("/overview");
+    for (const schoolId of touchedSchoolIds) revalidatePath(`/schools/${schoolId}`);
+    if ((generalTasks || []).length > 0) revalidatePath("/general-tasks");
+  });
+}
+
 /* Resolve a kind:"priority" item -- creates the real task (school +
    category + file name, reusing add_task_file), signs the VA, sets it
    In Progress, then deletes the plan_items row. */

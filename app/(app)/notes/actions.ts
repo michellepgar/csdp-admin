@@ -208,3 +208,180 @@ export async function removeGeneralNote(formData: FormData) {
   orThrow(error);
   revalidatePath("/notes");
 }
+
+/* A comment thread per General Note, same pattern as Issues &
+   Concerns' issue_comments -- comment_ack_by resets to just the
+   poster's own name on every new comment (blinking dot for everyone
+   else), independent of the note's own Urgent/ack_by mechanism. */
+export async function addGeneralNoteComment(formData: FormData) {
+  const noteId = formData.get("noteId") as string;
+  const text = ((formData.get("text") as string) || "").trim();
+  if (!text) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.generalNotes || []).find((n) => n.id === noteId);
+      if (!note) return;
+      (note.comments ??= []).push({ id: `demo-${Date.now()}`, author: "Jane", text: sanitizeNoteHtml(text, state.vas || []), createdAt: new Date().toISOString() });
+      note.commentAckBy = ["Jane"];
+      const mentioned = extractMentionedNames(text, (state.vas || []).map((v) => v.name)).filter((n) => n !== "Jane");
+      for (const name of mentioned) {
+        (state.mentions ??= []).push({
+          id: `demo-${Date.now()}-${name}`,
+          mentionedName: name,
+          mentionerName: "Jane",
+          source: "general_note",
+          noteId,
+          snippet: snippetFromHtml(text),
+          createdAt: new Date().toISOString(),
+        });
+      }
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: vasData } = await supabase.from("vas").select("name, color");
+  const roster = vasData || [];
+  const html = sanitizeNoteHtml(text, roster);
+
+  const { error } = await supabase.from("general_note_comments").insert({ id: crypto.randomUUID(), note_id: noteId, author: me.name, text: html });
+  orThrow(error);
+  const { error: ackError } = await supabase.from("general_notes").update({ comment_ack_by: [me.name] }).eq("id", noteId);
+  orThrow(ackError);
+
+  const mentioned = extractMentionedNames(snippetFromHtml(text), roster.map((v) => v.name)).filter((n) => n !== me.name);
+  if (mentioned.length > 0) {
+    const { error: mentionsError } = await supabase.from("mentions").insert(
+      mentioned.map((name) => ({
+        id: crypto.randomUUID(),
+        mentioned_name: name,
+        mentioner_name: me.name,
+        source: "general_note",
+        note_id: noteId,
+        snippet: snippetFromHtml(text),
+      }))
+    );
+    orThrow(mentionsError);
+  }
+
+  revalidatePath("/notes");
+}
+
+/* Author-only, matching every other edit rule in this app. */
+export async function editGeneralNoteComment(formData: FormData) {
+  const commentId = formData.get("commentId") as string;
+  const text = ((formData.get("text") as string) || "").trim();
+  if (!text) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const note of state.generalNotes || []) {
+        const comment = (note.comments || []).find((c) => c.id === commentId);
+        if (!comment || comment.author !== "Jane") continue;
+        const alreadyMentioned = new Set((state.mentions || []).filter((m) => m.noteId === note.id).map((m) => m.mentionedName));
+        comment.text = sanitizeNoteHtml(text, state.vas || []);
+        comment.editedAt = new Date().toISOString();
+        const mentioned = extractMentionedNames(text, (state.vas || []).map((v) => v.name)).filter((n) => n !== "Jane" && !alreadyMentioned.has(n));
+        for (const name of mentioned) {
+          (state.mentions ??= []).push({
+            id: `demo-${Date.now()}-${name}`,
+            mentionedName: name,
+            mentionerName: "Jane",
+            source: "general_note",
+            noteId: note.id,
+            snippet: snippetFromHtml(text),
+            createdAt: new Date().toISOString(),
+          });
+        }
+        return;
+      }
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: comment } = await supabase.from("general_note_comments").select("author, note_id").eq("id", commentId).maybeSingle();
+  if (!comment || comment.author !== me.name) return;
+
+  const { data: vasData } = await supabase.from("vas").select("name, color");
+  const roster = vasData || [];
+  const html = sanitizeNoteHtml(text, roster);
+
+  const { error } = await supabase.from("general_note_comments").update({ text: html, edited_at: new Date().toISOString() }).eq("id", commentId);
+  orThrow(error);
+
+  const { data: existingMentions } = await supabase.from("mentions").select("mentioned_name").eq("note_id", comment.note_id);
+  const alreadyMentioned = new Set((existingMentions || []).map((m) => m.mentioned_name));
+  const mentioned = extractMentionedNames(snippetFromHtml(text), roster.map((v) => v.name)).filter((n) => n !== me.name && !alreadyMentioned.has(n));
+  if (mentioned.length > 0) {
+    const { error: mentionsError } = await supabase.from("mentions").insert(
+      mentioned.map((name) => ({
+        id: crypto.randomUUID(),
+        mentioned_name: name,
+        mentioner_name: me.name,
+        source: "general_note",
+        note_id: comment.note_id,
+        snippet: snippetFromHtml(text),
+      }))
+    );
+    orThrow(mentionsError);
+  }
+
+  revalidatePath("/notes");
+}
+
+export async function removeGeneralNoteComment(formData: FormData) {
+  const commentId = formData.get("commentId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      for (const note of state.generalNotes || []) {
+        const before = (note.comments || []).length;
+        note.comments = (note.comments || []).filter((c) => !(c.id === commentId && c.author === "Jane"));
+        if (note.comments.length !== before) return;
+      }
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: comment } = await supabase.from("general_note_comments").select("author").eq("id", commentId).maybeSingle();
+  if (!comment || comment.author !== me.name) return;
+
+  const { error } = await supabase.from("general_note_comments").delete().eq("id", commentId);
+  orThrow(error);
+  revalidatePath("/notes");
+}
+
+export async function ackGeneralNoteComments(formData: FormData) {
+  const noteId = formData.get("noteId") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.generalNotes || []).find((n) => n.id === noteId);
+      if (!note) return;
+      note.commentAckBy ??= [];
+      if (!note.commentAckBy.includes("Jane")) note.commentAckBy.push("Jane");
+    });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: note } = await supabase.from("general_notes").select("comment_ack_by").eq("id", noteId).maybeSingle();
+  if (!note) return;
+  const ackBy: string[] = note.comment_ack_by || [];
+  if (ackBy.includes(me.name)) return;
+
+  const { error } = await supabase.from("general_notes").update({ comment_ack_by: [...ackBy, me.name] }).eq("id", noteId);
+  orThrow(error);
+  revalidatePath("/notes");
+}

@@ -457,6 +457,7 @@ export interface AppState {
   taskCategories?: TaskCategory[];
   accessRequests?: AccessRequest[];
   issues?: Issue[];
+  mentions?: Mention[];
   issueCategories?: IssueCategory[];
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];
@@ -697,6 +698,18 @@ export interface IssueComment {
   author: string;
   text: string;
   createdAt: string;
+}
+
+export interface Mention {
+  id: string;
+  mentionedName: string;
+  mentionerName: string;
+  source: "issue_comment" | "general_note";
+  issueId?: string;
+  noteId?: string;
+  snippet: string;
+  createdAt: string;
+  readAt?: string;
 }
 
 export function canDeleteIssue(issue: Issue, currentName: string, currentIsAdmin: boolean): boolean {

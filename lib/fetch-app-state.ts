@@ -31,6 +31,7 @@ import type {
   GeneralTask,
   GeneralTaskCategory,
   PlanItem,
+  Mention,
 } from "@/lib/app-state";
 
 type SchoolRow = {
@@ -452,6 +453,32 @@ function mapIssueCommentRow(r: IssueCommentRow): IssueComment {
   return { id: r.id, author: r.author, text: r.text, createdAt: r.created_at };
 }
 
+type MentionRow = {
+  id: string;
+  mentioned_name: string;
+  mentioner_name: string;
+  source: string;
+  issue_id: string | null;
+  note_id: string | null;
+  snippet: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+function mapMentionRow(r: MentionRow): Mention {
+  return {
+    id: r.id,
+    mentionedName: r.mentioned_name,
+    mentionerName: r.mentioner_name,
+    source: r.source as Mention["source"],
+    issueId: r.issue_id ?? undefined,
+    noteId: r.note_id ?? undefined,
+    snippet: r.snippet,
+    createdAt: r.created_at,
+    readAt: r.read_at ?? undefined,
+  };
+}
+
 type SchoolContactRow = { id: string; school_id: string; position: string; name: string | null; email: string; created_at: string };
 
 function mapSchoolContactRow(r: SchoolContactRow): SchoolContact {
@@ -544,6 +571,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     issueCategoriesResult,
     issueSubcategoriesResult,
     issueCommentsResult,
+    mentionsResult,
     accessRequestsResult,
     schoolContactsResult,
     otherContactsResult,
@@ -574,6 +602,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     supabase.from("issue_categories").select("id, name").order("sort_order"),
     supabase.from("issue_subcategories").select("id, category_id, name").order("sort_order"),
     supabase.from("issue_comments").select("id, issue_id, author, text, created_at").order("created_at"),
+    supabase.from("mentions").select("id, mentioned_name, mentioner_name, source, issue_id, note_id, snippet, created_at, read_at").order("created_at", { ascending: false }),
     supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
     supabase.from("school_contacts").select("id, school_id, position, name, email, created_at").order("created_at"),
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
@@ -604,6 +633,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   if (issuesResult.error) return null;
   if (issueCategoriesResult.error) return null;
   if (issueCommentsResult.error) return null;
+  if (mentionsResult.error) return null;
   if (issueSubcategoriesResult.error) return null;
   if (accessRequestsResult.error) return null;
   if (schoolContactsResult.error) return null;
@@ -749,6 +779,7 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
     ...mapIssueRow(r as unknown as IssueRow),
     comments: issueCommentsByIssueId.get((r as unknown as IssueRow).id) || [],
   }));
+  state.mentions = (mentionsResult.data || []).map((r) => mapMentionRow(r as MentionRow));
 
   state.issueCategories = (issueCategoriesResult.data || []).map(
     (c): IssueCategory => ({

@@ -84,7 +84,13 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
     byVa.get(item.vaName)!.push(item);
   }
   const emailByVa = openEmailItemsByVa(schools, schoolData);
-  const allVaNames = Array.from(new Set([...byVa.keys(), ...emailByVa.keys()])).sort((a, b) => a.localeCompare(b));
+  // Someone removed from the team no longer appears here -- their plan
+  // items and open emails stay in the data (and the tasks they signed
+  // stay on the school pages), this just hides the ex-teammate's row.
+  const currentVaNames = new Set(vas.map((v) => v.name));
+  const allVaNames = Array.from(new Set([...byVa.keys(), ...emailByVa.keys()]))
+    .filter((name) => currentVaNames.has(name))
+    .sort((a, b) => a.localeCompare(b));
   const vaNames = allVaNames.filter((name) => !vaFilter || name === vaFilter);
 
   return (

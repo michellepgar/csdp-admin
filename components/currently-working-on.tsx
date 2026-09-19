@@ -73,8 +73,12 @@ export function CurrentlyWorkingOn({ todayByVa, vas }: {
   const [vaFilter, setVaFilter] = useState("");
   const [viewMode, setViewMode] = useState<"columns" | "list">("columns");
 
-  const allVaNames = todayByVa.map(([name]) => name).sort((a, b) => a.localeCompare(b));
-  const visibleEntries = todayByVa
+  // Someone removed from the team no longer appears here -- the tasks
+  // they signed stay on the school pages, this just hides their row.
+  const currentVaNames = new Set(vas.map((v) => v.name));
+  const currentEntries = todayByVa.filter(([name]) => currentVaNames.has(name));
+  const allVaNames = currentEntries.map(([name]) => name).sort((a, b) => a.localeCompare(b));
+  const visibleEntries = currentEntries
     .filter(([name]) => !vaFilter || name === vaFilter)
     .sort((a, b) => a[0].localeCompare(b[0]));
 

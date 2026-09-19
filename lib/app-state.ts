@@ -341,6 +341,10 @@ export interface PrivateNote {
   /** Stacking order -- higher draws on top. Recomputed server-side to
    *  current-max-plus-one whenever a note is touched, never client-set. */
   boardZ?: number;
+  /** A quiet flag with no effect on this page itself -- makes this note
+   *  selectable later from End Today's Work's "Add reminder" picker
+   *  (as an alternative to typing a reminder as free text). */
+  isReminder?: boolean;
 }
 
 export interface EmailTemplate {

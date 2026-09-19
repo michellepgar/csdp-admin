@@ -3,11 +3,10 @@ import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { checklistCompletion, findVaByEmail, isAdmin, vaColorByName, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { todayActivityByVa } from "@/lib/shared-task-files";
+import { todayActivityByVa, isToday } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge, type StatusTone } from "@/components/status-badge";
-import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
+import { CurrentlyWorkingOn } from "@/components/currently-working-on";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
@@ -31,18 +30,6 @@ function progressTone(pct: number): keyof typeof PROGRESS_BAR_CLASSES {
   return "success";
 }
 
-/* Same status/tone pairing as tasks-card.tsx and general-tasks-list.tsx
-   (their own STATUS_TONE) -- kept as its own copy here rather than a
-   shared import since neither of those files exports theirs, and
-   Today's card is read-only display, not an editable StatusSelect. */
-const TODAY_STATUS_TONE: Record<string, StatusTone> = {
-  "In Progress": "warning",
-  Paused: "paused",
-  Completed: "success",
-  "Needs My Response": "warning",
-  "Waiting on Them": "paused",
-};
-
 export default async function OverviewPage() {
   const state = await fetchAppState();
   if (!state) return <p className="text-muted-foreground">Couldn&apos;t load the app — try reloading.</p>;
@@ -65,9 +52,19 @@ export default async function OverviewPage() {
   const me = user?.email ? findVaByEmail(state, user.email) : undefined;
 
   const todayByVa = todayActivityByVa(state.schools, state.schoolData, state.generalTasks || [], state.statusChangedAt || {}, state.planItems || []);
-  const vaNamesWithActivity = Array.from(todayByVa.keys()).sort((a, b) => a.localeCompare(b));
 
   const myPlanItems = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === me?.name);
+
+  /* Today's completed reminders (a checked-off private note, or a
+     priority resolved as "just a reminder") for just this VA -- End
+     Today's Work lets them re-instate any of these as a fresh pending
+     reminder for the next shift, since a reminder has no "In Progress"
+     status of its own to naturally carry over the way a task does. */
+  const myTodayReminders = (state.planItems || [])
+    .filter((p) => p.kind !== "task" && p.vaName === me?.name && p.completedAt && isToday(p.completedAt))
+    .map((p) => ({ id: p.id, label: p.label, noteId: p.noteId }));
+
+  const myReminderNotes = (state.privateNotes || []).filter((n) => n.author === me?.name && n.isReminder);
 
   return (
     <div>
@@ -95,46 +92,7 @@ export default async function OverviewPage() {
       </div>
 
       <PageBody>
-      <div>
-        <h2 className="mb-3 font-semibold">Currently Working On</h2>
-        {vaNamesWithActivity.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No activity today yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {vaNamesWithActivity.map((vaName) => {
-              const va = state.vas.find((v) => v.name === vaName);
-              const items = todayByVa.get(vaName)!;
-              const byCategory = new Map<string, typeof items>();
-              for (const t of items) {
-                const category = t.schoolName === "Reminder" ? "Reminder" : t.category;
-                if (!byCategory.has(category)) byCategory.set(category, []);
-                byCategory.get(category)!.push(t);
-              }
-              const columns: CategoryColumn[] = Array.from(byCategory.entries()).map(([category, rows]) => ({
-                category,
-                rows: rows.map((t, i) => ({
-                  key: `${category}-${i}`,
-                  label: t.fileName,
-                  sublabel: t.schoolName === "Reminder" ? undefined : t.schoolName,
-                  href: t.schoolName === "Reminder" ? undefined : `${t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"}${t.linkSuffix || ""}`,
-                  status: t.status || undefined,
-                  statusTone: TODAY_STATUS_TONE[t.status] ?? "neutral",
-                })),
-              }));
-              return (
-                <div key={vaName} className="flex overflow-hidden rounded-md border bg-record-background">
-                  <div className="flex w-9 shrink-0 items-center justify-center border-r py-3" style={{ color: va?.color }}>
-                    <span className="whitespace-nowrap text-sm font-semibold" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{vaName}</span>
-                  </div>
-                  <div className="min-w-0 flex-1 p-3">
-                    <CategoryColumns columns={columns} accentColor={va?.color} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <CurrentlyWorkingOn todayByVa={Array.from(todayByVa.entries())} vas={state.vas} />
 
       {me && (
         <div className="flex flex-wrap items-start gap-2">
@@ -145,6 +103,8 @@ export default async function OverviewPage() {
             schoolData={state.schoolData}
             generalTasks={state.generalTasks || []}
             myPlanItems={myPlanItems}
+            myTodayReminders={myTodayReminders}
+            myReminderNotes={myReminderNotes}
             savePlan={savePlan}
           />
         </div>

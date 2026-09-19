@@ -191,7 +191,7 @@ function calendarDateInTeamZone(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TEAM_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
-function isToday(iso: string): boolean {
+export function isToday(iso: string): boolean {
   return calendarDateInTeamZone(new Date(iso)) === calendarDateInTeamZone(new Date());
 }
 

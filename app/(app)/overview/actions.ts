@@ -50,6 +50,15 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
   const checkedGeneralIds = formData.getAll("generalTaskIds").map(String);
   const labelsJson = formData.get("labels") as string; // { [id]: { label, schoolId? } } -- schoolId absent for General Tasks
   const labels: Record<string, { label: string; schoolId?: string }> = labelsJson ? JSON.parse(labelsJson) : {};
+  // Reminders to add as fresh, pending kind:"note" plan_items -- either
+  // a today's-reminder being carried into the next shift, or a brand
+  // new one (free text, or copied from a private note flagged as a
+  // reminder). Unlike taskFileCategoryIds/generalTaskIds above, these
+  // are never diffed against anything existing -- every entry here is
+  // always a new row (End Today's Work's own reminder tab only ever
+  // stages ones that aren't already pending).
+  const remindersJson = formData.get("reminders") as string;
+  const reminders: { label: string; noteId?: string }[] = remindersJson ? JSON.parse(remindersJson) : [];
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -68,6 +77,9 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
         const info = labels[id];
         if (!info) continue;
         state.planItems.push({ id: `demo-plan-${id}`, kind: "task", vaName: "Jane", generalTaskId: id, label: info.label, createdBy: "Jane", createdAt: new Date().toISOString() });
+      }
+      for (const [i, reminder] of reminders.entries()) {
+        state.planItems.push({ id: `demo-reminder-${Date.now()}-${i}`, kind: "note", vaName: "Jane", noteId: reminder.noteId, label: reminder.label, createdBy: "Jane", createdAt: new Date().toISOString() });
       }
     });
     revalidatePath("/overview");
@@ -93,6 +105,7 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
     const rows = [
       ...taskDiff.toInsert.map((id) => ({ kind: "task" as const, va_name: me.name, school_id: labels[id]?.schoolId, task_file_category_id: id, label: labels[id]?.label || "", created_by: me.name })),
       ...generalDiff.toInsert.map((id) => ({ kind: "task" as const, va_name: me.name, general_task_id: id, label: labels[id]?.label || "", created_by: me.name })),
+      ...reminders.map((r) => ({ kind: "note" as const, va_name: me.name, note_id: r.noteId ?? null, label: r.label, created_by: me.name })),
     ];
     if (rows.length > 0) {
       const { error } = await supabase.from("plan_items").insert(rows);

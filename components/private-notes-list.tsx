@@ -68,11 +68,17 @@ function PrivateNoteRow({
       >
         <input type="hidden" name="id" value={n.id} />
         <StickyNoteComposer placeholder="Edit note…" defaultText={n.text} defaultPadColor={n.padColor} vas={vas} />
-        <div className="flex items-center justify-end gap-2">
-          <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
-          <button type="button" onClick={() => setEditing(false)} className="text-sm text-muted-foreground hover:underline">
-            Cancel
-          </button>
+        <div className="flex items-center justify-between gap-2">
+          <label className="flex items-center gap-1.5 text-sm">
+            <input key={String(!!n.isReminder)} type="checkbox" name="isReminder" defaultChecked={!!n.isReminder} />
+            Mark as reminder
+          </label>
+          <div className="flex items-center gap-2">
+            <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
+            <button type="button" onClick={() => setEditing(false)} className="text-sm text-muted-foreground hover:underline">
+              Cancel
+            </button>
+          </div>
         </div>
       </form>
     );

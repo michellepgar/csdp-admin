@@ -77,10 +77,11 @@ export async function addPrivateNote(formData: FormData) {
   if (!rawText) return;
   const text = sanitizeNoteHtml(rawText);
   const padColor = (formData.get("padColor") as string) || undefined;
+  const isReminder = formData.get("isReminder") === "on";
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      (state.privateNotes ??= []).push({ id: `demo-${Date.now()}`, text, padColor, author: "Jane", sharedWith: [], ackBy: [], createdAt: new Date().toISOString() });
+      (state.privateNotes ??= []).push({ id: `demo-${Date.now()}`, text, padColor, author: "Jane", sharedWith: [], ackBy: [], createdAt: new Date().toISOString(), isReminder });
     });
     revalidatePath("/private-notes");
     return;
@@ -95,6 +96,7 @@ export async function addPrivateNote(formData: FormData) {
     author: me.name,
     shared_with: [],
     ack_by: [],
+    is_reminder: isReminder,
   });
   orThrow(error);
   revalidatePath("/private-notes");
@@ -109,6 +111,7 @@ export async function updatePrivateNote(formData: FormData) {
   if (!rawText) return;
   const text = sanitizeNoteHtml(rawText);
   const padColor = (formData.get("padColor") as string) || undefined;
+  const isReminder = formData.get("isReminder") === "on";
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -116,6 +119,7 @@ export async function updatePrivateNote(formData: FormData) {
       if (note) {
         note.text = text;
         note.padColor = padColor;
+        note.isReminder = isReminder;
       }
     });
     revalidatePath("/private-notes");
@@ -129,7 +133,7 @@ export async function updatePrivateNote(formData: FormData) {
 
   const { error } = await supabase
     .from("private_notes")
-    .update({ text, pad_color: padColor || null })
+    .update({ text, pad_color: padColor || null, is_reminder: isReminder })
     .eq("id", id);
   orThrow(error);
   revalidatePath("/private-notes");

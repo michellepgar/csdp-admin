@@ -58,7 +58,13 @@ export default async function PrivateNotesPage() {
           <div className="space-y-4">
             <form action={addPrivateNote} className="max-w-3xl space-y-2">
               <StickyNoteComposer placeholder="Add a private note…" draftKey="draft:private-note" vas={state.vas || []} />
-              <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-sm">
+                  <input type="checkbox" name="isReminder" />
+                  Mark as reminder
+                </label>
+                <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
+              </div>
             </form>
 
             <PrivateNotesList

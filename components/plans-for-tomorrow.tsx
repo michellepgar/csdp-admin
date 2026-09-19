@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
+import { StatusBadge } from "@/components/status-badge";
+import { Dropdown } from "@/components/dropdown";
 import { openEmailItemsByVa } from "@/lib/shared-task-files";
 import { vaColorByName, type GeneralTask, type PlanItem, type School, type SchoolDataEntry, type TaskCategory, type Va } from "@/lib/app-state";
 
@@ -70,6 +74,9 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
   currentUserName: string;
   removePlanItem: (formData: FormData) => void;
 }) {
+  const [vaFilter, setVaFilter] = useState("");
+  const [viewMode, setViewMode] = useState<"columns" | "list">("columns");
+
   const byVa = new Map<string, PlanItem[]>();
   for (const item of planItems) {
     if (!item.vaName || item.kind === "note" || item.completedAt) continue;
@@ -77,11 +84,30 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
     byVa.get(item.vaName)!.push(item);
   }
   const emailByVa = openEmailItemsByVa(schools, schoolData);
-  const vaNames = Array.from(new Set([...byVa.keys(), ...emailByVa.keys()])).sort((a, b) => a.localeCompare(b));
+  const allVaNames = Array.from(new Set([...byVa.keys(), ...emailByVa.keys()])).sort((a, b) => a.localeCompare(b));
+  const vaNames = allVaNames.filter((name) => !vaFilter || name === vaFilter);
 
   return (
     <div>
-      <h2 className="mb-3 font-semibold">Next Shift Plan</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">Next Shift Plan</h2>
+        {allVaNames.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Dropdown
+              name="vaFilter"
+              value={vaFilter}
+              onChange={setVaFilter}
+              placeholder="All VAs"
+              options={[{ value: "", label: "All VAs" }, ...allVaNames.map((name) => ({ value: name, label: name }))]}
+              className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
+            />
+            <div className="flex overflow-hidden rounded-md border bg-card">
+              <button type="button" onClick={() => setViewMode("columns")} className={`px-3 py-1.5 text-sm ${viewMode === "columns" ? "bg-primary text-primary-foreground" : ""}`}>Columns</button>
+              <button type="button" onClick={() => setViewMode("list")} className={`px-3 py-1.5 text-sm ${viewMode === "list" ? "bg-primary text-primary-foreground" : ""}`}>List</button>
+            </div>
+          </div>
+        )}
+      </div>
       {vaNames.length === 0 && <p className="text-sm text-muted-foreground">Nothing planned yet.</p>}
       <div className="space-y-3">
         {vaNames.map((vaName) => {
@@ -137,6 +163,7 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
             });
           }
           const columns: CategoryColumn[] = Array.from(byCategory.entries()).map(([category, rows]) => ({ category, rows }));
+          const flatRows = columns.flatMap((c) => c.rows);
 
           const vaColor = vaColorByName(vas, vaName);
           return (
@@ -144,9 +171,27 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
               <div className="flex w-9 shrink-0 items-center justify-center border-r py-3" style={{ color: vaColor }}>
                 <span className="whitespace-nowrap text-sm font-semibold" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{vaName}</span>
               </div>
-              <div className="min-w-0 flex-1 p-3">
-                <CategoryColumns columns={columns} accentColor={vaColor} />
-              </div>
+              {viewMode === "list" ? (
+                <ul className="min-w-0 flex-1 space-y-1.5 p-3">
+                  {flatRows.map((row) => (
+                    <li key={row.key} className="flex flex-wrap items-center justify-between gap-1.5 text-sm">
+                      <span className="flex min-w-0 items-center gap-1">
+                        {row.dot && <span className="priority-dot" aria-hidden />}
+                        {row.href ? <Link href={row.href} className="font-bold underline-offset-2 hover:underline">{row.label}</Link> : <span className="font-bold">{row.label}</span>}
+                        {row.sublabel && <span className="text-muted-foreground"> — {row.sublabel}</span>}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        {row.status && <StatusBadge tone={row.statusTone ?? "neutral"}>{row.status}</StatusBadge>}
+                        {row.action}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="min-w-0 flex-1 p-3">
+                  <CategoryColumns columns={columns} accentColor={vaColor} />
+                </div>
+              )}
             </div>
           );
         })}

@@ -284,7 +284,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
                   <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
                 </tr>
                 {expandedId === issue.id && (
-                  <tr className="border-b bg-record-background">
+                  <tr className="border-b bg-record-background no-record-hover">
                     <td colSpan={8} className="p-2">
                       <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
@@ -403,7 +403,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
                   <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
                 </tr>
                 {expandedId === issue.id && (
-                  <tr className="border-b bg-record-background">
+                  <tr className="border-b bg-record-background no-record-hover">
                     <td colSpan={7} className="p-2">
                       <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
@@ -508,7 +508,7 @@ export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, ex
                   <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
                 </tr>
                 {expandedId === issue.id && (
-                  <tr className="border-b bg-record-background">
+                  <tr className="border-b bg-record-background no-record-hover">
                     <td colSpan={7} className="p-2">
                       <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>

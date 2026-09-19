@@ -136,7 +136,7 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
   const categoryName = (id?: string) => taskCategories.find((c) => c.id === id)?.name;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-red-500/30 bg-record-background shadow-sm" style={{ "--plan-accent": "#DC2626" } as React.CSSProperties}>
+    <div className="overflow-hidden rounded-xl border border-red-500/30 bg-record-background no-record-hover shadow-sm" style={{ "--plan-accent": "#DC2626" } as React.CSSProperties}>
       <div className="flex items-center justify-between gap-2 border-b border-red-500/20 bg-red-500/10 px-4 py-3">
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-sm"><Flag className="h-4 w-4" /></span>

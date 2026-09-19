@@ -73,7 +73,7 @@ function GeneralTaskRow({
   const [moving, setMoving] = useState(false);
 
   return (
-    <div className="flex flex-col gap-2 bg-record-background px-1 py-1">
+    <div className="flex flex-col gap-2 bg-record-background no-record-hover px-1 py-1">
       <div className="flex flex-wrap items-center gap-3">
         {editingCategory ? (
           <form

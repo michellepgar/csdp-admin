@@ -369,7 +369,11 @@
    color", not a generic hover -- checked in both themes: 8% is enough
    to see against both a near-white (light) and near-black (dark)
    --record-background without shifting text contrast in either. */
-.bg-record-background:hover {
+/* `.no-record-hover` opts out a record-styled CONTAINER (a block that holds
+   other cards/rows: Overview's per-VA blocks, the Task Priorities card,
+   Team rows) so hovering somewhere inside it doesn't light up the whole
+   block; only the individual rows/cards/links inside respond. */
+.bg-record-background:not(.no-record-hover):hover {
   background-color: color-mix(in oklch, var(--record-background), var(--primary) 8%);
 }
 

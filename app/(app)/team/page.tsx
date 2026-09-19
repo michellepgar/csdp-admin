@@ -70,7 +70,7 @@ export default async function TeamPage() {
             {sortedVas.map((va) => {
               const isSuperadmin = va.name === SUPERADMIN_NAME;
               return (
-                <div key={va.id} className="flex flex-wrap items-center gap-3 rounded-md border bg-record-background px-3 py-1.5">
+                <div key={va.id} className="flex flex-wrap items-center gap-3 rounded-md border bg-record-background no-record-hover px-3 py-1.5">
                   <span className="w-28 flex-none font-medium">
                     {va.name}
                   </span>
@@ -143,7 +143,7 @@ export default async function TeamPage() {
             {[...state.schools].sort((a, b) => a.name.localeCompare(b.name)).map((school) => {
               const sd = state.schoolData[school.id];
               return (
-                <div key={school.id} className="flex items-center justify-between gap-2 rounded-md border bg-record-background px-3 py-1">
+                <div key={school.id} className="flex items-center justify-between gap-2 rounded-md border bg-record-background no-record-hover px-3 py-1">
                   <span className="font-medium">{school.name}</span>
                   <AutoSubmitDropdown
                     action={setSchoolAssignment}

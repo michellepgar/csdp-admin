@@ -90,7 +90,7 @@ export function CategoryColumns({ columns, accentColor }: { columns: CategoryCol
             </div>
             <ul className="divide-y">
               {col.rows.map((row) => (
-                <li key={row.key} className="space-y-1 px-2 py-1.5 text-sm">
+                <li key={row.key} className={`space-y-1 px-2 py-1.5 text-sm transition-colors ${row.href ? "hover:bg-primary/10" : ""}`}>
                   <div className="flex items-start justify-between gap-1">
                     {row.href ? (
                       <Link href={row.href} className="flex min-w-0 flex-1 items-center font-medium break-words hover:underline">{row.dot && <span className="priority-dot" aria-hidden />}{row.label}</Link>

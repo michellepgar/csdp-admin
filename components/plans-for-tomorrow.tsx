@@ -173,7 +173,7 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
 
           const vaColor = vaColorByName(vas, vaName);
           return (
-            <div key={vaName} className="flex overflow-hidden rounded-md border bg-record-background">
+            <div key={vaName} className="flex overflow-hidden rounded-md border bg-record-background no-record-hover">
               <div className="flex w-9 shrink-0 items-center justify-center border-r py-3" style={{ color: vaColor }}>
                 <span className="whitespace-nowrap text-sm font-semibold" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{vaName}</span>
               </div>

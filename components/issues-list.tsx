@@ -235,9 +235,9 @@ type TableProps = {
    Status/delete/Comments columns four times. */
 
 export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
   const reversed = [...issues].reverse();
-  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   return (
     <>
       {/* Table on sm and up; a stacked card list below sm -- this
@@ -351,6 +351,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
 }
 
 export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
   const rows = [...issues].reverse().map((issue) => ({
     issue,
@@ -361,7 +362,6 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
       issue.needsOtherCorrection && (issue.otherCorrectionDetail || "Other"),
     ].filter(Boolean).join(", "),
   }));
-  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   return (
     <>
       <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
@@ -464,9 +464,9 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
 }
 
 export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
   const reversed = [...issues].reverse();
-  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   return (
     <>
       <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">

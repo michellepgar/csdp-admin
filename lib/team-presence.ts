@@ -55,6 +55,23 @@ export function aggregatePresence(state: Record<string, unknown[]>): TeamPresenc
   });
 }
 
+/* The sidebar's presence channel is the one place that knows who's
+   online; it publishes each update here (window event + a remembered
+   copy) so other parts of the app -- the Messages page's online dots --
+   can show it without opening a second realtime connection. */
+export const PRESENCE_EVENT = "team-presence";
+
+type PresenceWindow = Window & { __teamPresence?: TeamPresenceMember[] };
+
+export function publishPresence(members: TeamPresenceMember[]) {
+  (window as PresenceWindow).__teamPresence = members;
+  window.dispatchEvent(new CustomEvent(PRESENCE_EVENT, { detail: members }));
+}
+
+export function readPublishedPresence(): TeamPresenceMember[] {
+  return (window as PresenceWindow).__teamPresence ?? [];
+}
+
 export function initialsForName(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join("") || "?";

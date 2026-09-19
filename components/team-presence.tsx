@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { aggregatePresence, initialsForName, visiblePresence, type PresenceStatus, type TeamPresenceMember } from "@/lib/team-presence";
+import { aggregatePresence, initialsForName, publishPresence, visiblePresence, type PresenceStatus, type TeamPresenceMember } from "@/lib/team-presence";
 import { cn } from "@/lib/utils";
 import { HoverLabel } from "@/components/hover-label";
 
@@ -82,7 +82,11 @@ export function TeamPresence({ currentMember, collapsed }: { currentMember: Curr
       if (cancelled) return;
 
       channel
-        .on("presence", { event: "sync" }, () => setMembers(aggregatePresence(channel.presenceState())))
+        .on("presence", { event: "sync" }, () => {
+          const next = aggregatePresence(channel.presenceState());
+          setMembers(next);
+          publishPresence(next);
+        })
         .subscribe((status) => {
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             setUnavailable(true);

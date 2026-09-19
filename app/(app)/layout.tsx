@@ -9,6 +9,7 @@ import { addSchool } from "./layout-actions";
 import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overview/actions";
 import { completeNoteReminder } from "@/app/(app)/private-notes/actions";
 import { markMentionRead } from "@/app/(app)/mentions/actions";
+import { FloatingChat } from "@/components/floating-chat";
 import { setEmailStatus } from "@/app/(app)/schools/[id]/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -98,6 +99,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const myOpenEmailItems = openEmailItemsByVa(state.schools, state.schoolData).get(me.name) || [];
 
   return (
+    <>
     <SidebarShell
       currentName={me.name}
       currentMember={{ id: me.id, name: me.name, color: me.color }}
@@ -124,5 +126,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {children}
     </SidebarShell>
+    <FloatingChat
+      me={me.name}
+      people={state.vas.filter((v) => v.name !== me.name).sort((a, b) => a.name.localeCompare(b.name)).map((v) => ({ id: v.id, name: v.name, color: v.color }))}
+    />
+    </>
   );
 }

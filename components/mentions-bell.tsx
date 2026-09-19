@@ -8,6 +8,7 @@ import { AtSign, Bell, Flag, Volume2, VolumeX, X } from "lucide-react";
 import type { Mention } from "@/lib/app-state";
 import { countMyUnreadNotifications } from "@/app/(app)/mentions/actions";
 import { playChime, readSoundOn, SOUND_KEY } from "@/lib/notification-sound";
+import { getToastRoot } from "@/lib/toast-root";
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 416;
@@ -227,7 +228,7 @@ export function MentionsBell({
         document.body,
       )}
       {toasts.length > 0 && typeof document !== "undefined" && createPortal(
-        <div className="pointer-events-none fixed right-4 top-4 z-[70] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
+        <>
           {toasts.map((m) => {
             const isPriority = m.source === "priority_assignment";
             return (
@@ -254,8 +255,8 @@ export function MentionsBell({
               </div>
             );
           })}
-        </div>,
-        document.body,
+        </>,
+        getToastRoot(),
       )}
     </div>
   );

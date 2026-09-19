@@ -59,3 +59,17 @@ export function summarizeChat(me: string, messages: ChatMessage[], reads: Record
   }
   return { me, rooms, totalUnread: Object.values(rooms).reduce((n, r) => n + r.unread, 0) };
 }
+
+/* Which chat the floating chat window currently has open (or null when
+   it's closed) -- the Messages nav reads this so it doesn't pop up a
+   toast for a message you're already looking at. Browser-only; a plain
+   window property, nothing persisted. */
+type ChatWindow = Window & { __floatingChatRoom?: string | null };
+
+export function setFloatingChatRoom(room: string | null) {
+  (window as ChatWindow).__floatingChatRoom = room;
+}
+
+export function getFloatingChatRoom(): string | null {
+  return (window as ChatWindow).__floatingChatRoom ?? null;
+}

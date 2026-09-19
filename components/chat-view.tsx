@@ -5,7 +5,7 @@ import { Send, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchChatMessages, markChatRead, sendChatMessage } from "@/app/(app)/messages/actions";
 import { canAccessRoom, dmRoom, MAX_CHAT_BODY, TEAM_ROOM, type ChatMessage, type ChatSummary } from "@/lib/chat";
-import { initialsForName } from "@/lib/team-presence";
+import { Avatar, dayKey, dayLabel, fmtTime, renderBody, STATUS_LABEL, useOnlineStatus } from "@/components/chat-parts";
 import { cn } from "@/lib/utils";
 
 export interface ChatPerson {
@@ -17,46 +17,6 @@ export interface ChatPerson {
 const REAL_POLL_MS = 30_000;
 const DEMO_POLL_MS = 3_000;
 
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
-}
-
-function dayKey(iso: string) {
-  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
-
-function dayLabel(iso: string) {
-  const key = dayKey(iso);
-  if (key === dayKey(new Date().toISOString())) return "Today";
-  if (key === dayKey(new Date(Date.now() - 86_400_000).toISOString())) return "Yesterday";
-  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "America/New_York" });
-}
-
-/* Plain text with clickable links -- message bodies are never rendered
-   as HTML, so nothing a teammate types can inject markup. */
-function renderBody(body: string, mine: boolean) {
-  return body.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
-    /^https?:\/\//.test(part) ? (
-      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className={cn("underline underline-offset-2 break-all", mine ? "text-primary-foreground" : "text-primary")}>
-        {part}
-      </a>
-    ) : (
-      <Fragment key={i}>{part}</Fragment>
-    ),
-  );
-}
-
-function Avatar({ name, color, className }: { name: string; color?: string; className?: string }) {
-  return (
-    <span
-      className={cn("flex flex-none items-center justify-center rounded-full text-[11px] font-semibold text-white", className)}
-      style={{ backgroundColor: color || "#64748b" }}
-      aria-hidden
-    >
-      {initialsForName(name)}
-    </span>
-  );
-}
 
 /* The Messages page: a list of chats on the left (Team + one private
    chat per teammate, each with an unread badge) and the open
@@ -89,6 +49,8 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
     for (const p of people) map.set(dmRoom(me, p.name), p);
     return map;
   }, [people, me]);
+  const statusOf = useOnlineStatus();
+
   const colorByName = useMemo(() => new Map(people.map((p) => [p.name, p.color])), [people]);
 
   const markRead = useCallback((forRoom: string) => {
@@ -178,7 +140,7 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
   }
 
   const title = room === TEAM_ROOM ? "Team chat" : peopleByRoom.get(room)?.name ?? "Chat";
-  const subtitle = room === TEAM_ROOM ? "Everyone on the team" : "Private — only the two of you";
+  const subtitle = room === TEAM_ROOM ? `Everyone on the team · ${people.filter((p) => statusOf(p.name) === "online").length} online` : `${STATUS_LABEL[statusOf(title)]} · private chat`;
 
   const roomButton = (roomKey: string, label: string, avatar: React.ReactNode) => {
     const info = summary?.rooms[roomKey];
@@ -219,7 +181,7 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
           <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-emerald-600 text-white"><Users className="h-4 w-4" /></span>,
         )}
         <div className="hidden px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:block">Private</div>
-        {people.map((p) => roomButton(dmRoom(me, p.name), p.name, <Avatar name={p.name} color={p.color} className="h-9 w-9" />))}
+        {people.map((p) => roomButton(dmRoom(me, p.name), p.name, <Avatar name={p.name} color={p.color} className="h-9 w-9" status={statusOf(p.name)} />))}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -227,7 +189,7 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
           {room === TEAM_ROOM ? (
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25"><Users className="h-4 w-4" /></span>
           ) : (
-            <Avatar name={title} color={peopleByRoom.get(room)?.color} className="h-8 w-8 ring-2 ring-white/40" />
+            <Avatar name={title} color={peopleByRoom.get(room)?.color} className="h-8 w-8 ring-2 ring-white/40" status={statusOf(title)} />
           )}
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-semibold">{title}</div>

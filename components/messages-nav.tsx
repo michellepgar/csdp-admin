@@ -7,7 +7,8 @@ import { MessageCircle, X } from "lucide-react";
 import { getChatSummary } from "@/app/(app)/messages/actions";
 import { createClient } from "@/lib/supabase/client";
 import { playChime, readSoundOn } from "@/lib/notification-sound";
-import { TEAM_ROOM, type ChatMessage, type ChatSummary } from "@/lib/chat";
+import { getToastRoot } from "@/lib/toast-root";
+import { getFloatingChatRoom, TEAM_ROOM, type ChatMessage, type ChatSummary } from "@/lib/chat";
 import { cn } from "@/lib/utils";
 
 const REAL_POLL_MS = 20_000;
@@ -25,7 +26,8 @@ function isDemoSession() {
 }
 
 function roomBeingViewed(): string | null {
-  if (window.location.pathname !== "/messages" || document.visibilityState !== "visible") return null;
+  if (document.visibilityState !== "visible") return null;
+  if (window.location.pathname !== "/messages") return getFloatingChatRoom();
   return new URLSearchParams(window.location.search).get("room") || TEAM_ROOM;
 }
 
@@ -128,7 +130,7 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
         )}
       </Link>
       {toasts.length > 0 && typeof document !== "undefined" && createPortal(
-        <div className="pointer-events-none fixed left-1/2 top-4 z-[70] flex w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-2" aria-live="polite">
+        <>
           {toasts.map((t) => {
             const isTeam = t.room === TEAM_ROOM;
             return (
@@ -136,7 +138,19 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
                 <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full bg-emerald-600 text-white">
                   <MessageCircle className="h-4 w-4" />
                 </span>
-                <Link href={`/messages?room=${encodeURIComponent(t.room)}`} onClick={() => dismiss(t.key)} className="min-w-0 flex-1">
+                <Link
+                  href={`/messages?room=${encodeURIComponent(t.room)}`}
+                  onClick={(event) => {
+                    dismiss(t.key);
+                    // Anywhere but the Messages page, the pop-up opens the floating
+                    // chat right on that conversation instead of navigating away.
+                    if (window.location.pathname !== "/messages") {
+                      event.preventDefault();
+                      window.dispatchEvent(new CustomEvent("chat:open", { detail: t.room }));
+                    }
+                  }}
+                  className="min-w-0 flex-1"
+                >
                   <span className="block text-sm font-semibold">{isTeam ? `${t.senderName} in Team chat` : `${t.senderName} sent you a message`}</span>
                   <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{t.body}</span>
                 </Link>
@@ -151,8 +165,8 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
               </div>
             );
           })}
-        </div>,
-        document.body,
+        </>,
+        getToastRoot(),
       )}
     </>
   );

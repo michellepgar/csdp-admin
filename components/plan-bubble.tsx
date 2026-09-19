@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, Check, ChevronDown, ClipboardList, ListChecks, Mail, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,14 +31,45 @@ export function PlanBubble({ myPlanItems, myOpenEmailItems, schools, taskCategor
 }) {
   const [expanded, setExpanded] = useState(false);
   const [startingPriority, setStartingPriority] = useState<PlanItem | null>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const hasContent = myPlanItems.length > 0 || myOpenEmailItems.length > 0;
 
-  if (myPlanItems.length === 0 && myOpenEmailItems.length === 0) return null;
+  // Publishes how much bottom-right space this bubble/window takes (its
+  // own height plus a 1rem gap) as --plan-dock, so the floating chat
+  // bubble can ride above it instead of being covered when the plan
+  // window opens. 0px when there's no plan bubble at all.
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = dockRef.current;
+    if (!el) {
+      root.style.setProperty("--plan-dock", "0px");
+      return;
+    }
+    const update = () => root.style.setProperty("--plan-dock", `${el.offsetHeight + 16}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.setProperty("--plan-dock", "0px");
+    };
+  }, [hasContent]);
+
+  // The floating chat asks the plan window to fold up when it opens
+  // (they're both tall, so only one is open at a time).
+  useEffect(() => {
+    const collapse = () => setExpanded(false);
+    window.addEventListener("plan:collapse", collapse);
+    return () => window.removeEventListener("plan:collapse", collapse);
+  }, []);
+
+  if (!hasContent) return null;
 
   const actionableItems = myPlanItems.filter((item) => item.kind !== "note");
   const reminders = myPlanItems.filter((item) => item.kind === "note");
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div ref={dockRef} className="fixed bottom-4 right-4 z-50">
       {expanded ? (
         <div className="w-72 overflow-hidden rounded-lg border bg-card shadow-lg">
           <button type="button" onClick={() => setExpanded(false)} className="flex w-full items-center justify-between bg-plan-accent px-3 py-2.5 text-sm font-semibold text-plan-accent-foreground">
@@ -107,7 +138,7 @@ export function PlanBubble({ myPlanItems, myOpenEmailItems, schools, taskCategor
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setExpanded(true)} className="relative flex h-14 w-14 items-center justify-center rounded-full bg-plan-accent text-plan-accent-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl" aria-label="Your plan">
+        <button type="button" onClick={() => { setExpanded(true); window.dispatchEvent(new Event("chat:close")); }} className="relative flex h-14 w-14 items-center justify-center rounded-full bg-plan-accent text-plan-accent-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl" aria-label="Your plan">
           <ClipboardList className="h-6 w-6" />
           {/* White badge (not the usual status-danger red) -- that red
               is now too close to the new coral bubble color to read as

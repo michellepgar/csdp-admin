@@ -45,10 +45,10 @@ const TASK_STATUS_TONE: Record<string, StatusTone> = {
    don't reflow based on a sibling's content the way flex-wrap does:
    the VA/sign area (first track) can wrap or overflow internally
    without ever moving the Status/Remove tracks after it.
-   "+ Sign" now renders FIRST in that track, before any existing
-   signatures -- Michelle asked for this specifically so the first
-   person who signed always lands in the same spot, right after where
-   "+ Sign" would have been. */
+   The first signer sits in a fixed-width slot at the left with
+   "+ Sign" right after it (any further signers follow), so every
+   "+ Sign" lines up in the same spot next to the first VA rather than
+   drifting out toward Status. */
 function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName, canEdit, signTask, removeVaFromTask, setTaskStatus, removeTaskAssignment, moveTaskFileCategory }: {
   schoolId: string;
   assignment: TaskFileCategory;
@@ -91,25 +91,29 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
     );
   }
 
+  const [firstSigner, ...otherSigners] = assignment.vaAssigned;
+  const signerChip = (name: string) => (
+    <form key={name} action={removeVaFromTask} className="inline-flex shrink-0 items-center gap-1">
+      <input type="hidden" name="schoolId" value={schoolId} />
+      <input type="hidden" name="taskId" value={assignment.id} />
+      <input type="hidden" name="vaName" value={name} />
+      <SignatureChip name={name} color={vaColorByName(vas, name)} small />
+      <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
+    </form>
+  );
+
   return (
     <div className="grid grid-cols-[1fr_88px_24px] items-start gap-1">
-      <div className="flex min-w-0 flex-wrap items-center gap-1">
+      <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+        <div className="flex w-24 shrink-0 items-center overflow-hidden">{firstSigner && signerChip(firstSigner)}</div>
         {!iSigned && (
-          <form action={signTask}>
+          <form action={signTask} className="shrink-0">
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="taskId" value={assignment.id} />
             <SubmitButton pendingLabel="…" variant="outline" size="xs">+ Sign</SubmitButton>
           </form>
         )}
-        {assignment.vaAssigned.map((name) => (
-          <form key={name} action={removeVaFromTask} className="inline-flex items-center gap-1">
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <input type="hidden" name="taskId" value={assignment.id} />
-            <input type="hidden" name="vaName" value={name} />
-            <SignatureChip name={name} color={vaColorByName(vas, name)} small />
-            <ConfirmDeleteButton confirmMessage={`Remove ${name}'s signature?`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
-          </form>
-        ))}
+        {otherSigners.map(signerChip)}
       </div>
       <StatusSelect
         action={setTaskStatus}
@@ -199,6 +203,12 @@ type TasksCardProps = {
   updateTaskFileName: (formData: FormData) => Promise<TaskFileActionResult>;
 };
 
+/* The category/table picker beside the "Add file" input -- a plain
+   bordered, tinted button (no chevron) so it reads as something to click
+   even before anything is chosen; the placeholder text does the rest. */
+const ADD_FILE_PICKER_CLASS =
+  "min-w-52 max-w-72 truncate rounded-md border border-primary/60 bg-primary/5 px-3 py-1.5 text-left text-sm font-medium text-primary hover:bg-primary/10";
+
 export function TasksCard(props: TasksCardProps) {
   const { schoolId, categories, taskFiles, vas, canEdit, currentUserName } = props;
   const [editorOpen, setEditorOpen] = useState(false);
@@ -213,6 +223,7 @@ export function TasksCard(props: TasksCardProps) {
   const [addFileError, setAddFileError] = useState<string | null>(null);
   const [addToExistingTable, setAddToExistingTable] = useState(false);
   const [addFileTableKey, setAddFileTableKey] = useState("");
+  const [addFileCategoryId, setAddFileCategoryId] = useState("");
   const [editFileError, setEditFileError] = useState<string | null>(null);
   const [editedFileName, setEditedFileName] = useState("");
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
@@ -345,15 +356,22 @@ export function TasksCard(props: TasksCardProps) {
                     onChange={setAddFileTableKey}
                     placeholder="Choose a table"
                     options={taskTables.map((group) => ({ value: group.key, label: `${group.categories.map((c) => c.name).join(" + ")} (${group.files.length} file${group.files.length === 1 ? "" : "s"})` }))}
-                    className="max-w-72 truncate rounded-md border px-2 py-1.5 text-left text-sm"
+                    className={ADD_FILE_PICKER_CLASS}
                   />
                 </>
               ) : (
-                <Dropdown name="categoryIds" defaultValue={orderedCategories[0]?.id} options={orderedCategories.map((category) => ({ value: category.id, label: category.name }))} className="max-w-72 truncate rounded-md border px-2 py-1.5 text-left text-sm" />
+                <Dropdown
+                  name="categoryIds"
+                  value={addFileCategoryId}
+                  onChange={setAddFileCategoryId}
+                  placeholder="Choose a category"
+                  options={orderedCategories.map((category) => ({ value: category.id, label: category.name.trim() || "(Unnamed category)" }))}
+                  className={ADD_FILE_PICKER_CLASS}
+                />
               )}
             </div>
             <Input name="fileName" placeholder="File name" required value={newFileName} onChange={(event) => setNewFileName(event.target.value)} className="w-full sm:max-w-md sm:flex-1" />
-            <SubmitButton pendingLabel="Adding…" disabled={addToExistingTable && !addFileTableKey}>Add</SubmitButton>
+            <SubmitButton pendingLabel="Adding…" disabled={addToExistingTable ? !addFileTableKey : !addFileCategoryId}>Add</SubmitButton>
           </form>
         </div>
         {addFileError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{addFileError}</p>}

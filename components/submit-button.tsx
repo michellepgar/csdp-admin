@@ -16,6 +16,7 @@ export function SubmitButton({
   pendingLabel,
   variant,
   size,
+  className,
   disabled,
   title,
   formAction,
@@ -25,6 +26,7 @@ export function SubmitButton({
   pendingLabel: React.ReactNode;
   variant?: React.ComponentProps<typeof Button>["variant"];
   size?: React.ComponentProps<typeof Button>["size"];
+  className?: string;
   disabled?: boolean;
   title?: string;
   /* Overrides the enclosing form's Server Action for just this button —
@@ -49,6 +51,7 @@ export function SubmitButton({
       disabled={pending || disabled}
       variant={variant}
       size={size}
+      className={className}
       title={title}
     >
       {pending ? pendingLabel : children}

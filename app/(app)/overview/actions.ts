@@ -36,6 +36,37 @@ async function runPlanAction(operation: () => Promise<void>): Promise<PlanAction
   }
 }
 
+/* Tells a VA a Task Priority was assigned to them -- one row in the same
+   `mentions` table the bell already reads (source "priority_assignment",
+   the priority's label as the snippet; see
+   supabase/phase52_priority_assignment_notifications.sql). */
+async function notifyPriorityAssigned(
+  supabase: Awaited<ReturnType<typeof requireTeamMember>>["supabase"],
+  assignee: string,
+  assigner: string,
+  label: string,
+) {
+  const { error } = await supabase.from("mentions").insert({
+    id: crypto.randomUUID(),
+    mentioned_name: assignee,
+    mentioner_name: assigner,
+    source: "priority_assignment",
+    snippet: label,
+  });
+  orThrow(error);
+}
+
+function pushDemoAssignmentNotice(state: import("@/lib/app-state").AppState, assignee: string, label: string) {
+  (state.mentions ??= []).push({
+    id: `demo-${Date.now()}-${assignee}`,
+    mentionedName: assignee,
+    mentionerName: "Jane",
+    source: "priority_assignment",
+    snippet: label,
+    createdAt: new Date().toISOString(),
+  });
+}
+
 /* Save/edit a VA's own plan for tomorrow -- formData carries every id
    currently checked in the End Today's Work picker (carry-over items
    included), split into taskFileCategoryIds (school tasks) and
@@ -144,6 +175,7 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
         suggestedCategoryId,
         suggestedFileName,
       });
+      if (assignedTo && assignedTo !== "Jane") pushDemoAssignmentNotice(state, assignedTo, label);
     });
     revalidatePath("/overview");
     return { error: null };
@@ -161,6 +193,7 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
       suggested_file_name: suggestedFileName ?? null,
     });
     orThrow(error);
+    if (assignedTo && assignedTo !== me.name) await notifyPriorityAssigned(supabase, assignedTo, me.name, label);
     revalidatePath("/overview");
   });
 }
@@ -183,8 +216,10 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
     await demoMutate((state) => {
       const item = (state.planItems || []).find((p) => p.id === id && p.kind === "priority");
       if (!item) return;
+      const previousAssignee = item.vaName;
       item.label = label;
       item.vaName = assignedTo;
+      if (assignedTo && assignedTo !== previousAssignee && assignedTo !== "Jane") pushDemoAssignmentNotice(state, assignedTo, label);
       item.suggestedSchoolId = suggestedSchoolId;
       item.suggestedCategoryId = suggestedCategoryId;
       item.suggestedFileName = suggestedFileName;
@@ -194,7 +229,8 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
   }
 
   return runPlanAction(async () => {
-    const { supabase } = await requireAdmin();
+    const { supabase, me } = await requireAdmin();
+    const { data: existing } = await supabase.from("plan_items").select("va_name").eq("id", id).eq("kind", "priority").maybeSingle();
     const { error } = await supabase
       .from("plan_items")
       .update({
@@ -207,6 +243,11 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
       .eq("id", id)
       .eq("kind", "priority");
     orThrow(error);
+    // Only a NEW assignee gets told -- re-saving an edit that leaves the
+    // same person assigned doesn't re-notify them.
+    if (existing && assignedTo && assignedTo !== existing.va_name && assignedTo !== me.name) {
+      await notifyPriorityAssigned(supabase, assignedTo, me.name, label);
+    }
     revalidatePath("/overview");
   });
 }

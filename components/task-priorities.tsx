@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Flag, Link2, Plus } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
@@ -58,7 +59,7 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
         <Button type="button" size="xs" variant={linkMode ? "default" : "outline"} onClick={() => setLinkMode(true)}>Link to a task</Button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <input name="label" required defaultValue={defaultLabel} placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border px-2 text-sm" />
+        <input name="label" required defaultValue={defaultLabel} placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border bg-card px-2 text-sm" />
         <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Anyone (shared)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
       </div>
       {linkMode && (
@@ -80,7 +81,7 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
           {categoryId && (
             addingNewFile ? (
               <div className="flex min-w-40 flex-1 items-center gap-1">
-                <input name="suggestedFileName" required value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="New file name" className="h-8 min-w-0 flex-1 rounded-md border px-2 text-sm" />
+                <input name="suggestedFileName" required value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="New file name" className="h-8 min-w-0 flex-1 rounded-md border bg-card px-2 text-sm" />
                 {filesForCategory.length > 0 && (
                   <Button type="button" variant="ghost" size="xs" onClick={() => { setAddingNewFile(false); setFileName(""); }}>Choose existing</Button>
                 )}
@@ -101,7 +102,7 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
         </div>
       )}
       <div className="flex items-center gap-2">
-        <SubmitButton variant="plan" size="xs" pendingLabel={pendingLabel} disabled={fileNameMissing}>{submitLabel}</SubmitButton>
+        <SubmitButton variant="plan" className="bg-red-600 text-white hover:bg-red-700" size="xs" pendingLabel={pendingLabel} disabled={fileNameMissing}>{submitLabel}</SubmitButton>
         {onCancel && <Button type="button" variant="ghost" size="xs" onClick={onCancel}>Cancel</Button>}
       </div>
     </>
@@ -131,12 +132,24 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
     setAddOpen(false);
   }
 
+  const schoolName = (id?: string) => schools.find((s) => s.id === id)?.name;
+  const categoryName = (id?: string) => taskCategories.find((c) => c.id === id)?.name;
+
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-semibold">Task Priorities</h2>
-        {isCurrentUserAdmin && <Button type="button" size="xs" variant="outline" onClick={() => setAddOpen((v) => !v)}>+ Add priority</Button>}
+    <div className="overflow-hidden rounded-xl border border-red-500/30 bg-record-background shadow-sm" style={{ "--plan-accent": "#DC2626" } as React.CSSProperties}>
+      <div className="flex items-center justify-between gap-2 border-b border-red-500/20 bg-red-500/10 px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-sm"><Flag className="h-4 w-4" /></span>
+          <h2 className="bg-transparent px-0 py-0 text-base font-semibold leading-tight text-foreground">Task Priorities</h2>
+          {shared.length > 0 && <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">{shared.length}</span>}
+        </div>
+        {isCurrentUserAdmin && (
+          <Button type="button" size="xs" variant="plan" className="bg-red-600 text-white hover:bg-red-700" onClick={() => setAddOpen((v) => !v)}>
+            {!addOpen && <Plus className="h-3 w-3" />}{addOpen ? "Close" : "Add priority"}
+          </Button>
+        )}
       </div>
+      <div className="space-y-3 p-4">
       {isCurrentUserAdmin && addOpen && (
         <form
           action={async (formData) => {
@@ -145,18 +158,23 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
             if (result.error) setError(result.error);
             else resetForm();
           }}
-          className="mb-3 space-y-2 rounded-md border p-2"
+          className="space-y-2.5 rounded-lg border border-red-500/40 bg-red-500/5 p-3"
         >
+          <div className="text-xs font-semibold uppercase tracking-wide text-red-600">New priority</div>
           <PriorityFields vas={vas} schools={schools} taskCategories={taskCategories} schoolData={schoolData} submitLabel="Add" pendingLabel="Adding…" />
           {error && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
       {shared.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing unassigned right now.</p>
+        <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-red-500/40 px-4 py-6 text-center">
+          <Flag className="h-5 w-5 text-red-500/70" />
+          <p className="text-sm font-medium">Nothing unassigned right now</p>
+          <p className="text-xs text-muted-foreground">New priorities show up here until someone claims them.</p>
+        </div>
       ) : (
-        <div className="rounded-md border border-l-4 border-l-plan-accent bg-record-background p-3">
-          <div className="mb-2 text-sm font-semibold text-muted-foreground">Unassigned / shared</div>
-          <ul className="space-y-1.5">
+        <div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Unassigned / shared</div>
+          <ul className="space-y-2">
             {shared.map((item) => editingId === item.id ? (
               <li key={item.id}>
                 <form
@@ -166,7 +184,7 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                     if (result.error) setEditError(result.error);
                     else setEditingId(null);
                   }}
-                  className="space-y-2 rounded-md border p-2"
+                  className="space-y-2.5 rounded-lg border border-red-500/40 bg-red-500/5 p-3"
                 >
                   <input type="hidden" name="id" value={item.id} />
                   <PriorityFields
@@ -188,10 +206,18 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                 </form>
               </li>
             ) : (
-              <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center"><span className="priority-dot" aria-hidden />{item.label}</span>
+              <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-l-4 border-red-500/25 border-l-red-600 bg-card px-3 py-2.5 text-sm shadow-sm transition-shadow hover:shadow-md">
+                <div className="min-w-0">
+                  <span className="flex items-center font-medium"><span className="priority-dot" aria-hidden />{item.label}</span>
+                  {item.suggestedSchoolId && (
+                    <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Link2 className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{[schoolName(item.suggestedSchoolId), categoryName(item.suggestedCategoryId), item.suggestedFileName].filter(Boolean).join(" · ")}</span>
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1">
-                  <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="plan" size="xs" pendingLabel="…">Claim</SubmitButton></form>
+                  <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="plan" className="bg-red-600 text-white hover:bg-red-700" size="xs" pendingLabel="…">Claim</SubmitButton></form>
                   {isCurrentUserAdmin && <Button type="button" variant="ghost" size="xs" onClick={() => { setEditingId(item.id); setEditError(null); }}>Edit</Button>}
                   <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}"?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
                 </div>
@@ -200,6 +226,7 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
           </ul>
         </div>
       )}
+      </div>
     </div>
   );
 }

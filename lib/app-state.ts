@@ -725,7 +725,7 @@ export interface Mention {
   id: string;
   mentionedName: string;
   mentionerName: string;
-  source: "issue_comment" | "general_note";
+  source: "issue_comment" | "general_note" | "priority_assignment";
   issueId?: string;
   noteId?: string;
   snippet: string;

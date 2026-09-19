@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GripVertical, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, Pencil, Trash2 } from "lucide-react";
 import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
 import { TaskTableAddFileRow } from "@/components/task-table-add-file-row";
 import { KebabMenu } from "@/components/kebab-menu";
@@ -215,6 +215,15 @@ export function TasksCard(props: TasksCardProps) {
   const [addFileTableKey, setAddFileTableKey] = useState("");
   const [editFileError, setEditFileError] = useState<string | null>(null);
   const [editedFileName, setEditedFileName] = useState("");
+  const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
+
+  function toggleTableCollapsed(key: string) {
+    setCollapsedTables((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Refresh optimistic category order after server mutations.
@@ -362,8 +371,21 @@ export function TasksCard(props: TasksCardProps) {
           // which already has its own row/column structure to tell
           // them apart).
           const dividerClass = (index: number) => columns[index - 1]?.kind === "task" ? "border-l border-border/40" : "";
+          const collapsed = collapsedTables.has(group.key);
           return (
           <div key={group.key} className="rounded-md border">
+            <button
+              type="button"
+              onClick={() => toggleTableCollapsed(group.key)}
+              aria-expanded={!collapsed}
+              className="flex w-full items-center gap-1.5 bg-muted/40 px-3 py-1.5 text-left text-sm font-semibold hover:bg-muted/60"
+            >
+              {collapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+              <span className="truncate">{group.categories.map((c) => c.name).join(" + ")}</span>
+              <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">{group.files.length} file{group.files.length === 1 ? "" : "s"}</span>
+            </button>
+            {!collapsed && (
+            <>
             <div className="overflow-x-auto">
             <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
               <colgroup>{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
@@ -419,6 +441,8 @@ export function TasksCard(props: TasksCardProps) {
             </div>
             {canEdit && <TaskTableAddFileRow schoolId={schoolId} categoryIds={group.categories.map((category) => category.id)} addTask={props.addTask} />}
             {canEdit && <TaskTableCategoryPicker schoolId={schoolId} tableId={group.key} files={group.files} categories={orderedCategories} action={props.addCategoryToFiles} />}
+            </>
+            )}
           </div>
         ); })}
       </div>

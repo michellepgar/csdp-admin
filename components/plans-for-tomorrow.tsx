@@ -3,7 +3,7 @@
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { openEmailItemsByVa } from "@/lib/shared-task-files";
-import { vaColorByName, type GeneralTask, type PlanItem, type School, type SchoolDataEntry, type Va } from "@/lib/app-state";
+import { vaColorByName, type GeneralTask, type PlanItem, type School, type SchoolDataEntry, type TaskCategory, type Va } from "@/lib/app-state";
 
 /* Same status/tone pairing as email-tracker-card.tsx's own copy --
    kept separate rather than a shared import for the same reason
@@ -53,17 +53,20 @@ function resolveTaskItem(item: PlanItem, schools: School[], schoolData: Record<s
    Tasks and open Email Tracker items are arranged into category
    columns (one column per category, files listed below, status beside
    each file) -- the VAs asked for the same layout tasks-card.tsx's own
-   school tables already use, instead of one flat mixed list. Priorities
-   stay their own separate list above the columns: a priority's label
-   is boss-authored free text with no real category behind it, so
-   forcing it into a column (like Reminders on Today) would be
-   misleading structure over something that isn't structured. */
-export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, currentUserName, removePlanItem }: {
+   school tables already use, instead of one flat mixed list. A
+   priority joins this same layout: one linked to a real school+
+   category (via "Link to a task") lands in that real category's
+   column, marked with the same priority dot Task Priorities and Your
+   Plan already use, so it still reads as a priority sitting among
+   ordinary tasks. A genuinely free-text priority has no real category
+   to join, so it gets its own dedicated "Priorities" column instead. */
+export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, taskCategories, currentUserName, removePlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
   schools: School[];
   schoolData: Record<string, SchoolDataEntry>;
   generalTasks: GeneralTask[];
+  taskCategories: TaskCategory[];
   currentUserName: string;
   removePlanItem: (formData: FormData) => void;
 }) {
@@ -78,7 +81,7 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
 
   return (
     <div>
-      <h2 className="mb-3 font-semibold">Plans for Tomorrow</h2>
+      <h2 className="mb-3 font-semibold">Next Shift Plan</h2>
       {vaNames.length === 0 && <p className="text-sm text-muted-foreground">Nothing planned yet.</p>}
       <div className="space-y-3">
         {vaNames.map((vaName) => {
@@ -107,6 +110,22 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
               ) : undefined,
             });
           }
+          for (const item of priorities) {
+            const category = item.suggestedCategoryId ? taskCategories.find((c) => c.id === item.suggestedCategoryId)?.name : undefined;
+            addRow(category || "Priorities", {
+              key: item.id,
+              label: item.suggestedFileName || item.label,
+              sublabel: item.suggestedSchoolId ? schools.find((s) => s.id === item.suggestedSchoolId)?.name : undefined,
+              href: item.suggestedSchoolId ? `/schools/${item.suggestedSchoolId}` : undefined,
+              dot: true,
+              action: vaName === currentUserName ? (
+                <form action={removePlanItem}>
+                  <input type="hidden" name="id" value={item.id} />
+                  <ConfirmDeleteButton confirmMessage={`Remove "${item.label}" from your plan? It'll go back to Task Priorities for anyone to claim.`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
+                </form>
+              ) : undefined,
+            });
+          }
           for (const item of emails) {
             addRow("Email", {
               key: item.itemId,
@@ -119,25 +138,15 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
           }
           const columns: CategoryColumn[] = Array.from(byCategory.entries()).map(([category, rows]) => ({ category, rows }));
 
+          const vaColor = vaColorByName(vas, vaName);
           return (
-            <div key={vaName} className="rounded-md border border-l-4 bg-record-background p-3" style={{ borderLeftColor: vaColorByName(vas, vaName) || "var(--plan-accent)" }}>
-              <div className="mb-2 text-sm font-semibold" style={vaColorByName(vas, vaName) ? { color: vaColorByName(vas, vaName) } : undefined}>{vaName}</div>
-              {priorities.length > 0 && (
-                <ul className="mb-2 space-y-1.5">
-                  {priorities.map((item) => (
-                    <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex items-center"><span className="priority-dot" aria-hidden />{item.label}</span>
-                      {vaName === currentUserName && (
-                        <form action={removePlanItem}>
-                          <input type="hidden" name="id" value={item.id} />
-                          <ConfirmDeleteButton confirmMessage={`Remove "${item.label}" from your plan? It'll go back to Task Priorities for anyone to claim.`} pendingLabel="…">✕</ConfirmDeleteButton>
-                        </form>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <CategoryColumns columns={columns} accentColor={vaColorByName(vas, vaName)} />
+            <div key={vaName} className="flex overflow-hidden rounded-md border bg-record-background">
+              <div className="flex w-9 shrink-0 items-center justify-center border-r py-3" style={{ color: vaColor }}>
+                <span className="whitespace-nowrap text-sm font-semibold" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{vaName}</span>
+              </div>
+              <div className="min-w-0 flex-1 p-3">
+                <CategoryColumns columns={columns} accentColor={vaColor} />
+              </div>
             </div>
           );
         })}

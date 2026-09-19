@@ -12,6 +12,12 @@ export interface CategoryColumnRow {
    *  own-item-only remove button. Omitted entirely (not just hidden)
    *  keeps read-only surfaces like Today from rendering an empty slot. */
   action?: React.ReactNode;
+  /** Marks a row as a priority (the same dot Task Priorities and the
+   *  Your Plan bubble already use) -- lets a priority linked to a real
+   *  category still read as a priority sitting alongside ordinary
+   *  tasks in that same column, not just when it's off in its own
+   *  "Priorities" column. */
+  dot?: boolean;
 }
 
 export interface CategoryColumn {
@@ -74,7 +80,7 @@ export function CategoryColumns({ columns, accentColor }: { columns: CategoryCol
     <div className="overflow-x-auto">
       <div className="flex gap-2 pb-1">
         {columns.map((col) => (
-          <div key={col.category} className="w-48 shrink-0 rounded-md border">
+          <div key={col.category} className="w-64 shrink-0 rounded-md border">
             <div
               className="truncate px-2 py-1 text-center text-xs font-bold"
               style={{ backgroundColor: headerColor, color: readableTextColor(headerColor) }}
@@ -87,9 +93,9 @@ export function CategoryColumns({ columns, accentColor }: { columns: CategoryCol
                 <li key={row.key} className="space-y-1 px-2 py-1.5 text-sm">
                   <div className="flex items-start justify-between gap-1">
                     {row.href ? (
-                      <Link href={row.href} className="min-w-0 flex-1 font-medium break-words hover:underline">{row.label}</Link>
+                      <Link href={row.href} className="flex min-w-0 flex-1 items-center font-medium break-words hover:underline">{row.dot && <span className="priority-dot" aria-hidden />}{row.label}</Link>
                     ) : (
-                      <span className="min-w-0 flex-1 font-medium break-words">{row.label}</span>
+                      <span className="flex min-w-0 flex-1 items-center font-medium break-words">{row.dot && <span className="priority-dot" aria-hidden />}{row.label}</span>
                     )}
                     {row.action}
                   </div>

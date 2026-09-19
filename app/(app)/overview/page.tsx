@@ -96,7 +96,7 @@ export default async function OverviewPage() {
 
       <PageBody>
       <div>
-        <h2 className="mb-3 font-semibold">Today</h2>
+        <h2 className="mb-3 font-semibold">Currently Working On</h2>
         {vaNamesWithActivity.length === 0 ? (
           <p className="text-sm text-muted-foreground">No activity today yet.</p>
         ) : (
@@ -122,11 +122,13 @@ export default async function OverviewPage() {
                 })),
               }));
               return (
-                <div key={vaName} className="rounded-md border border-l-4 bg-record-background p-3" style={{ borderLeftColor: va?.color || "var(--plan-accent-secondary)" }}>
-                  <div className="mb-2 text-sm font-semibold" style={va?.color ? { color: va.color } : undefined}>
-                    {vaName}
+                <div key={vaName} className="flex overflow-hidden rounded-md border bg-record-background">
+                  <div className="flex w-9 shrink-0 items-center justify-center border-r py-3" style={{ color: va?.color }}>
+                    <span className="whitespace-nowrap text-sm font-semibold" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{vaName}</span>
                   </div>
-                  <CategoryColumns columns={columns} accentColor={va?.color} />
+                  <div className="min-w-0 flex-1 p-3">
+                    <CategoryColumns columns={columns} accentColor={va?.color} />
+                  </div>
                 </div>
               );
             })}
@@ -154,6 +156,7 @@ export default async function OverviewPage() {
         schools={state.schools}
         schoolData={state.schoolData}
         generalTasks={state.generalTasks || []}
+        taskCategories={state.taskCategories || []}
         currentUserName={me?.name ?? ""}
         removePlanItem={removePlanItem}
       />

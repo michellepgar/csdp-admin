@@ -65,7 +65,7 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
       <Button type="button" variant="plan" size="sm" onClick={() => setOpen(true)}>End Today&apos;s Work</Button>
       {open && (
         <div className="mt-2 max-w-md rounded-md border bg-card p-3">
-          <p className="mb-2 text-xs text-muted-foreground">Still in progress today — uncheck to drop from tomorrow&apos;s plan:</p>
+          <p className="mb-2 text-xs text-muted-foreground">Still in progress today — uncheck to drop from your next shift plan:</p>
           {carryOver.length === 0 && <p className="mb-2 text-xs text-muted-foreground">Nothing carried over.</p>}
           {carryOver.map((t) => (
             <label key={t.id} className="flex items-center gap-2 text-sm">

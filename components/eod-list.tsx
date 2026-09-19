@@ -29,11 +29,18 @@ function NoteEntry({
   currentIsAdmin: boolean;
   removeEodReport: (formData: FormData) => void;
 }) {
+  const hasBreak = !!(e.breakStart || e.breakEnd);
   const line1 = `EOD ${fmtEodDate(e.date)}${e.totalHours ? ` (TOTAL HOURS: ${e.totalHours})` : ""}`;
-  const line2 = [e.timeIn ? `IN- ${fmtTime12(e.timeIn)}` : "", e.breakStart ? `BREAK- ${fmtTime12(e.breakStart)}` : ""].filter(Boolean).join(" ");
-  const line3 = [e.breakEnd ? `RESUME- ${fmtTime12(e.breakEnd)}` : "", e.timeOut ? `- OUT- ${fmtTime12(e.timeOut)}` : ""].filter(Boolean).join(" ");
+  // No break taken -- In and Out read as one row instead of Out
+  // sitting alone on its own line where Resume would otherwise be.
+  const line2 = hasBreak
+    ? [e.timeIn ? `IN- ${fmtTime12(e.timeIn)}` : "", e.breakStart ? `BREAK- ${fmtTime12(e.breakStart)}` : ""].filter(Boolean).join(" ")
+    : [e.timeIn ? `IN- ${fmtTime12(e.timeIn)}` : "", e.timeOut ? `- OUT- ${fmtTime12(e.timeOut)}` : ""].filter(Boolean).join(" ");
+  const line3 = hasBreak
+    ? [e.breakEnd ? `RESUME- ${fmtTime12(e.breakEnd)}` : "", e.timeOut ? `- OUT- ${fmtTime12(e.timeOut)}` : ""].filter(Boolean).join(" ")
+    : "";
   return (
-    <div className="mb-3 rounded-md border bg-card">
+    <div className="rounded-md border bg-card">
       <div className="flex items-center justify-between gap-2 px-4 pt-2">
         <span className="text-xs font-semibold text-muted-foreground">{e.author || "Unnamed"}</span>
         {canDeleteEodReport(e, currentUserName, currentIsAdmin) && (
@@ -248,9 +255,11 @@ export function EodList({
           {showArchive ? "No archived reports match these filters." : `No EOD reports yet for ${fmtMonthLabel(currentMonth)}.`}
         </p>
       ) : (
-        list.map((e) => (
-          <NoteEntry key={e.id} e={e} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeEodReport={removeEodReport} />
-        ))
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {list.map((e) => (
+            <NoteEntry key={e.id} e={e} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeEodReport={removeEodReport} />
+          ))}
+        </div>
       )}
     </div>
   );

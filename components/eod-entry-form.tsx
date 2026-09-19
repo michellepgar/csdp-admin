@@ -16,11 +16,12 @@ function todayIsoDate() {
    total as she fills these in, not just after saving. */
 export function EodEntryForm({ addEodReport }: { addEodReport: (formData: FormData) => void }) {
   const [timeIn, setTimeIn] = useState("");
+  const [tookBreak, setTookBreak] = useState(false);
   const [breakStart, setBreakStart] = useState("");
   const [breakEnd, setBreakEnd] = useState("");
   const [timeOut, setTimeOut] = useState("");
 
-  const totalHours = computeEodTotalHours(timeIn, timeOut, breakStart, breakEnd);
+  const totalHours = computeEodTotalHours(timeIn, timeOut, tookBreak ? breakStart : "", tookBreak ? breakEnd : "");
 
   return (
     <form action={addEodReport} className="space-y-2 rounded-md border bg-card p-3">
@@ -33,18 +34,33 @@ export function EodEntryForm({ addEodReport }: { addEodReport: (formData: FormDa
           <label className="text-xs font-medium text-muted-foreground">Time in</label>
           <input type="time" name="timeIn" value={timeIn} onChange={(e) => setTimeIn(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm" />
         </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Break</label>
-          <input type="time" name="breakStart" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Resume</label>
-          <input type="time" name="breakEnd" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm" />
-        </div>
+        {tookBreak && (
+          <>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Break</label>
+              <input type="time" name="breakStart" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Resume</label>
+              <input type="time" name="breakEnd" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm" />
+            </div>
+          </>
+        )}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Time out</label>
           <input type="time" name="timeOut" value={timeOut} onChange={(e) => setTimeOut(e.target.value)} className="rounded-md border px-2 py-1.5 text-sm" />
         </div>
+        <label className="mb-1.5 flex items-center gap-1.5 text-sm">
+          <input
+            type="checkbox"
+            checked={tookBreak}
+            onChange={(e) => {
+              setTookBreak(e.target.checked);
+              if (!e.target.checked) { setBreakStart(""); setBreakEnd(""); }
+            }}
+          />
+          Took a break
+        </label>
       </div>
       <p className="text-sm">
         Total hours so far: <strong>{totalHours || "—"}</strong>

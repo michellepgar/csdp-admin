@@ -7,48 +7,11 @@ import { useRouter } from "next/navigation";
 import { AtSign, Bell, Flag, Volume2, VolumeX, X } from "lucide-react";
 import type { Mention } from "@/lib/app-state";
 import { countMyUnreadNotifications } from "@/app/(app)/mentions/actions";
+import { playChime, readSoundOn, SOUND_KEY } from "@/lib/notification-sound";
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 416;
 const POLL_MS = 30_000;
-const SOUND_KEY = "notification-sound";
-
-/* A short two-note chime made with the Web Audio API (no audio file to
-   ship or load). Browsers keep audio locked until the person has
-   interacted with the page at least once, so a chime before any click
-   just silently doesn't play -- caught, never surfaced as an error. */
-function playChime() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    void ctx.resume();
-    const start = ctx.currentTime;
-    [880, 1318.5].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, start + i * 0.14);
-      gain.gain.linearRampToValueAtTime(0.18, start + i * 0.14 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + i * 0.14 + 0.5);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(start + i * 0.14);
-      osc.stop(start + i * 0.14 + 0.55);
-    });
-    setTimeout(() => void ctx.close(), 1200);
-  } catch {
-    // Audio blocked or unsupported -- nothing to do.
-  }
-}
-
-function readSoundOn(): boolean {
-  try {
-    return localStorage.getItem(SOUND_KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
-
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 }

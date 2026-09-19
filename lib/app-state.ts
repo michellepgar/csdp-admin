@@ -472,6 +472,9 @@ export interface AppState {
   accessRequests?: AccessRequest[];
   issues?: Issue[];
   mentions?: Mention[];
+  /** Demo mode only -- real chat lives in its own tables (chat_messages / chat_reads), read directly by the messages actions rather than through fetchAppState(). */
+  chatMessages?: import("@/lib/chat").ChatMessage[];
+  chatReads?: Record<string, string>;
   issueCategories?: IssueCategory[];
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];

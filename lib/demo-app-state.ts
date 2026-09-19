@@ -28,6 +28,12 @@ export const DEMO_APP_STATE: AppState = {
     { id: "demo-john", name: "John", email: "john@demo.csdp-tracker.local", color: "#f97316" },
     { id: "demo-alex", name: "Alex", email: "alex@demo.csdp-tracker.local", color: "#a855f7" },
   ],
+  chatMessages: [
+    { id: "demo-chat-1", room: "team", senderName: "John", body: "Morning team! I'm starting on the Baker enrollment forms today.", createdAt: new Date(Date.now() - 3 * 3600e3).toISOString() },
+    { id: "demo-chat-2", room: "team", senderName: "Alex", body: "Sounds good. I'll take the follow-up notes.", createdAt: new Date(Date.now() - 2.9 * 3600e3).toISOString() },
+    { id: "demo-chat-3", room: "dm:Jane|John", senderName: "John", body: "Can you double-check the consent forms batch when you get a chance?", createdAt: new Date(Date.now() - 20 * 60e3).toISOString() },
+  ],
+  chatReads: {},
   schoolData: {
     [SCHOOL_ANGELO]: {
       vaAssigned: DEMO_USER_NAME,

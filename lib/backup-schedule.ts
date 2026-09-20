@@ -50,6 +50,30 @@ export function demoBackupFiles(): { name: string; size: number; updatedAt: stri
   });
 }
 
+/* What kind of key is this? Reads only the harmless label part -- the
+   "role" inside a legacy JWT key, or the "sb_secret_"/"sb_publishable_"
+   prefix of a newer key -- and never returns any of the secret itself, so
+   the result is safe to show in an error message. Used to tell someone
+   they pasted the public key where the secret one belongs. */
+export type KeyKind = "service_role" | "secret" | "public" | "unreadable";
+
+export function describeSupabaseKey(key: string | undefined): KeyKind {
+  const value = (key ?? "").trim();
+  if (value.startsWith("sb_secret_")) return "secret";
+  if (value.startsWith("sb_publishable_")) return "public";
+  if (value.startsWith("eyJ")) {
+    try {
+      const payload = value.split(".")[1] ?? "";
+      const json = JSON.parse(Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")) as { role?: string };
+      if (json.role === "service_role") return "service_role";
+      if (json.role === "anon") return "public";
+    } catch {
+      // Falls through to unreadable.
+    }
+  }
+  return "unreadable";
+}
+
 export function formatBackupSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;

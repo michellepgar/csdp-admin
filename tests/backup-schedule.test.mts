@@ -42,3 +42,15 @@ test("sizes read naturally", () => {
   assert.equal(formatBackupSize(2048), "2 KB");
   assert.equal(formatBackupSize(5.5 * 1024 * 1024), "5.5 MB");
 });
+
+test("the key check tells a public key from a secret one without exposing anything", async () => {
+  const { describeSupabaseKey } = await import("../lib/backup-schedule.ts");
+  const jwt = (role: string) => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ role })).toString("base64url")}.signature`;
+  assert.equal(describeSupabaseKey(jwt("service_role")), "service_role");
+  assert.equal(describeSupabaseKey(jwt("anon")), "public");
+  assert.equal(describeSupabaseKey("sb_secret_abc123"), "secret");
+  assert.equal(describeSupabaseKey("sb_publishable_abc123"), "public");
+  assert.equal(describeSupabaseKey("  sb_secret_abc123  "), "secret");
+  assert.equal(describeSupabaseKey("not a key"), "unreadable");
+  assert.equal(describeSupabaseKey(undefined), "unreadable");
+});

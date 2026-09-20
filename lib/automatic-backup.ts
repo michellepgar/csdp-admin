@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { loadAppState } from "@/lib/fetch-app-state";
-import { BACKUP_BUCKET, backupFileName, backupsToPrune } from "@/lib/backup-schedule";
+import { BACKUP_BUCKET, backupFileName, backupsToPrune, describeSupabaseKey } from "@/lib/backup-schedule";
 
 /* The automatic nightly backup -- server-only. Runs from the cron route
    (app/api/cron/backup/route.ts, scheduled in vercel.json) and from the
@@ -25,6 +25,27 @@ export function missingBackupEnv(): string[] {
 
 export type BackupResult = { ok: true; name: string; bytes: number; kept: number } | { ok: false; error: string };
 
+/* When the load comes back empty, say WHY in plain words instead of a
+   vague failure. A wrong key is by far the most common cause: the public
+   ("anon"/"publishable") key connects fine but row security hides every
+   row from it, so the load looks empty rather than failing. */
+type Client = Parameters<typeof loadAppState>[0];
+
+async function explainEmptyLoad(client: Client, serviceKey: string, couldNotLoad: boolean): Promise<string> {
+  const kind = describeSupabaseKey(serviceKey);
+  if (kind === "public") {
+    return "Nothing was saved: SUPABASE_SERVICE_ROLE_KEY in Vercel is the PUBLIC key (anon/publishable). Replace it with the secret key (service_role, or the one starting with sb_secret_) and redeploy.";
+  }
+  if (kind === "unreadable") {
+    return "Nothing was saved: SUPABASE_SERVICE_ROLE_KEY in Vercel doesn't look like a Supabase key. Check for a missing part, or a space or quote mark at the start or end, then redeploy.";
+  }
+  const { count, error } = await client.from("vas").select("id", { count: "exact", head: true });
+  if (error) {
+    return `Nothing was saved: Supabase refused the read (${error.message}). If it mentions an invalid key, re-copy the secret key into Vercel and redeploy.`;
+  }
+  return `Nothing was saved: the key looks right, but the data read came back ${couldNotLoad ? "incomplete" : "empty"} (team members found: ${count ?? 0}). Try again in a minute; if it keeps happening, tell me this message.`;
+}
+
 export async function runAutomaticBackup(): Promise<BackupResult> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,7 +57,7 @@ export async function runAutomaticBackup(): Promise<BackupResult> {
     const state = await loadAppState(client);
     // Never overwrite a good backup with an empty or half-loaded one.
     if (!state || state.vas.length === 0 || state.schools.length === 0) {
-      return { ok: false, error: "The data didn't load completely, so nothing was saved." };
+      return { ok: false, error: await explainEmptyLoad(client, serviceKey, !state) };
     }
 
     const now = new Date();

@@ -394,6 +394,81 @@ export async function setTaskCount(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
+/* Whoever is put on a file from the school page also gets it in their
+   Planned Work (unless it's already In Progress, when it shows in their
+   Currently Working On instead), and the previous person's planned copy
+   is dropped -- a file has one VA, so it shouldn't sit on two plans. */
+async function syncPlannedWorkForAssignment(
+  supabase: Awaited<ReturnType<typeof requireTeamMember>>["supabase"],
+  schoolId: string,
+  taskId: string,
+  vaName: string,
+  createdBy: string,
+) {
+  const { data: task, error } = await supabase
+    .from("task_file_categories")
+    .select("status, task_files(file_name), task_categories(name)")
+    .eq("id", taskId)
+    .maybeSingle();
+  orThrow(error);
+  if (!task) return;
+
+  const { error: clearError } = await supabase.from("plan_items").delete().eq("kind", "task").eq("task_file_category_id", taskId).neq("va_name", vaName);
+  orThrow(clearError);
+  if (task.status === "In Progress") return;
+
+  const { data: existing, error: existingError } = await supabase.from("plan_items").select("id").eq("kind", "task").eq("task_file_category_id", taskId).eq("va_name", vaName).maybeSingle();
+  orThrow(existingError);
+  if (existing) return;
+
+  const fileName = (task.task_files as unknown as { file_name: string } | null)?.file_name || "File";
+  const categoryName = (task.task_categories as unknown as { name: string } | null)?.name || "";
+  const { error: insertError } = await supabase.from("plan_items").insert({
+    kind: "task",
+    va_name: vaName,
+    school_id: schoolId,
+    task_file_category_id: taskId,
+    label: categoryName ? `${fileName} — ${categoryName}` : fileName,
+    created_by: createdBy,
+  });
+  orThrow(insertError);
+}
+
+/* Tells a VA a task was assigned to them (the notification bell). It doesn't
+   say who assigned it. A failure here (e.g. the SQL for this notification
+   isn't run yet) never undoes the assignment itself. */
+async function notifyTaskAssigned(
+  supabase: Awaited<ReturnType<typeof requireTeamMember>>["supabase"],
+  assignee: string,
+  assigner: string,
+  taskId: string,
+) {
+  const { data: task } = await supabase
+    .from("task_file_categories")
+    .select("task_files(file_name), task_categories(name)")
+    .eq("id", taskId)
+    .maybeSingle();
+  const fileName = (task?.task_files as unknown as { file_name: string } | null)?.file_name || "A file";
+  const categoryName = (task?.task_categories as unknown as { name: string } | null)?.name || "";
+  const { error } = await supabase.from("mentions").insert({
+    id: crypto.randomUUID(),
+    mentioned_name: assignee,
+    mentioner_name: assigner,
+    source: "task_assignment",
+    snippet: categoryName ? `${fileName} — ${categoryName}` : fileName,
+  });
+  if (error) console.error("Task assignment notification failed", error.message);
+}
+
+function syncPlannedWorkForAssignmentDemo(state: AppState, schoolId: string, taskId: string, vaName: string, createdBy: string) {
+  const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
+  if (!task) return;
+  state.planItems = (state.planItems || []).filter((p) => !(p.kind === "task" && p.taskFileCategoryId === taskId && p.vaName !== vaName));
+  if (task.status === "In Progress") return;
+  if (state.planItems.some((p) => p.kind === "task" && p.taskFileCategoryId === taskId && p.vaName === vaName)) return;
+  state.planItems.push({ id: `demo-plan-${taskId}-${vaName}`, kind: "task", vaName, schoolId, taskFileCategoryId: taskId, label: `${task.fileName} — ${task.category}`, createdBy, createdAt: new Date().toISOString() });
+}
+
 export async function signTask(formData: FormData) {
   const schoolId = formData.get("schoolId") as string;
   const taskId = formData.get("taskId") as string;
@@ -405,8 +480,10 @@ export async function signTask(formData: FormData) {
       if (task) task.vaAssigned = ["Jane"];
       const assignment = findDemoAssignment(state, schoolId, taskId);
       if (assignment) assignment.vaAssigned = ["Jane"];
+      syncPlannedWorkForAssignmentDemo(state, schoolId, taskId, "Jane", "Jane");
     });
     revalidateSchool(schoolId);
+    revalidatePath("/overview");
     return;
   }
 
@@ -418,7 +495,9 @@ export async function signTask(formData: FormData) {
 
   const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: [me.name] } });
   orThrow(error);
+  await syncPlannedWorkForAssignment(supabase, schoolId, taskId, me.name, me.name);
   revalidateSchool(schoolId);
+  revalidatePath("/overview");
 }
 
 /* Admins only: put a chosen VA on a file in place of whoever was on it
@@ -436,8 +515,14 @@ export async function assignTaskToVa(formData: FormData) {
       if (task) task.vaAssigned = [vaName];
       const assignment = findDemoAssignment(state, schoolId, taskId);
       if (assignment) assignment.vaAssigned = [vaName];
+      syncPlannedWorkForAssignmentDemo(state, schoolId, taskId, vaName, "Jane");
+      const assignedTask = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
+      if (assignedTask && vaName !== "Jane") {
+        (state.mentions ??= []).push({ id: `demo-${Date.now()}-${vaName}`, mentionedName: vaName, mentionerName: "Jane", source: "task_assignment", snippet: `${assignedTask.fileName} — ${assignedTask.category}`, createdAt: new Date().toISOString() });
+      }
     });
     revalidateSchool(schoolId);
+    revalidatePath("/overview");
     return;
   }
 
@@ -449,7 +534,10 @@ export async function assignTaskToVa(formData: FormData) {
 
   const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: [vaName] } });
   orThrow(error);
+  await syncPlannedWorkForAssignment(supabase, schoolId, taskId, vaName, me.name);
+  if (vaName !== me.name) await notifyTaskAssigned(supabase, vaName, me.name, taskId);
   revalidateSchool(schoolId);
+  revalidatePath("/overview");
 }
 
 export async function removeVaFromTask(formData: FormData) {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AtSign, Bell, Flag, Volume2, VolumeX, X } from "lucide-react";
+import { AtSign, Bell, ClipboardList, Flag, Volume2, VolumeX, X } from "lucide-react";
 import type { Mention } from "@/lib/app-state";
 import { countMyUnreadNotifications } from "@/app/(app)/mentions/actions";
 import { playChime, readSoundOn, SOUND_KEY } from "@/lib/notification-sound";
@@ -18,14 +18,15 @@ function fmtDateTime(iso: string) {
 }
 
 function hrefFor(mention: Mention): string {
-  if (mention.source === "priority_assignment") return "/overview";
+  if (mention.source === "priority_assignment" || mention.source === "task_assignment") return "/overview";
   return mention.source === "issue_comment" ? `/issues?expandIssue=${mention.issueId}` : `/notes?highlightNote=${mention.noteId}`;
 }
 
 function titleFor(mention: Mention): string {
-  return mention.source === "priority_assignment"
-    ? `${mention.mentionerName} assigned you a priority`
-    : `${mention.mentionerName} mentioned you`;
+  // Assignments don't say who made them -- just what was assigned.
+  if (mention.source === "priority_assignment") return "A priority was assigned to you";
+  if (mention.source === "task_assignment") return "A task was assigned to you";
+  return `${mention.mentionerName} mentioned you`;
 }
 
 /* Independent from the existing per-page nav-alert-dot pattern
@@ -196,21 +197,22 @@ export function MentionsBell({
                 <div className="flex flex-col items-center gap-1 px-4 py-8 text-center">
                   <Bell className="h-6 w-6 text-muted-foreground/60" />
                   <p className="text-sm font-medium">You&apos;re all caught up</p>
-                  <p className="text-xs text-muted-foreground">Mentions and priority assignments show up here.</p>
+                  <p className="text-xs text-muted-foreground">Mentions and assignments show up here.</p>
                 </div>
               ) : (
                 mentions.map((m) => {
                   const isPriority = m.source === "priority_assignment";
+                  const isTask = m.source === "task_assignment";
                   const unread = !m.readAt;
                   return (
                     <Link
                       key={m.id}
                       href={hrefFor(m)}
                       onClick={() => handleMentionClick(m)}
-                      className={`flex items-start gap-3 border-b border-l-4 px-3 py-3 last:border-b-0 transition-colors hover:bg-muted ${unread ? (isPriority ? "border-l-red-600 bg-red-500/10" : "border-l-green-600 bg-green-500/10") : "border-l-transparent"}`}
+                      className={`flex items-start gap-3 border-b border-l-4 px-3 py-3 last:border-b-0 transition-colors hover:bg-muted ${unread ? (isPriority ? "border-l-red-600 bg-red-500/10" : isTask ? "border-l-amber-500 bg-amber-500/10" : "border-l-green-600 bg-green-500/10") : "border-l-transparent"}`}
                     >
-                      <span className={`mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full ${isPriority ? "bg-red-600 text-white" : "bg-green-600 text-white"} ${unread ? "" : "opacity-50"}`}>
-                        {isPriority ? <Flag className="h-4 w-4" /> : <AtSign className="h-4 w-4" />}
+                      <span className={`mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full ${isPriority ? "bg-red-600 text-white" : isTask ? "bg-amber-500 text-white" : "bg-green-600 text-white"} ${unread ? "" : "opacity-50"}`}>
+                        {isPriority ? <Flag className="h-4 w-4" /> : isTask ? <ClipboardList className="h-4 w-4" /> : <AtSign className="h-4 w-4" />}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className={`block text-sm ${unread ? "font-semibold" : "font-medium text-muted-foreground"}`}>{titleFor(m)}</span>
@@ -231,14 +233,15 @@ export function MentionsBell({
         <>
           {toasts.map((m) => {
             const isPriority = m.source === "priority_assignment";
+            const isTask = m.source === "task_assignment";
             return (
               <div
                 key={m.id}
                 role="status"
-                className={`pointer-events-auto flex items-start gap-3 overflow-hidden rounded-xl border border-l-4 bg-background p-3 shadow-xl ${isPriority ? "border-l-red-600" : "border-l-green-600"}`}
+                className={`pointer-events-auto flex items-start gap-3 overflow-hidden rounded-xl border border-l-4 bg-background p-3 shadow-xl ${isPriority ? "border-l-red-600" : isTask ? "border-l-amber-500" : "border-l-green-600"}`}
               >
-                <span className={`mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full text-white ${isPriority ? "bg-red-600" : "bg-green-600"}`}>
-                  {isPriority ? <Flag className="h-4 w-4" /> : <AtSign className="h-4 w-4" />}
+                <span className={`mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full text-white ${isPriority ? "bg-red-600" : isTask ? "bg-amber-500" : "bg-green-600"}`}>
+                  {isPriority ? <Flag className="h-4 w-4" /> : isTask ? <ClipboardList className="h-4 w-4" /> : <AtSign className="h-4 w-4" />}
                 </span>
                 <Link href={hrefFor(m)} onClick={() => handleMentionClick(m)} className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{titleFor(m)}</span>

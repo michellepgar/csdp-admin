@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { loadAppState } from "@/lib/fetch-app-state";
-import { BACKUP_BUCKET, backupFileName, backupsToPrune, describeSupabaseKey } from "@/lib/backup-schedule";
+import { BACKUP_BUCKET, backupFileName, backupsToPrune, describeSupabaseKey, headersWithoutKeyBearer, keyProjectRef, projectRefFromUrl } from "@/lib/backup-schedule";
 
 /* The automatic nightly backup -- server-only. Runs from the cron route
    (app/api/cron/backup/route.ts, scheduled in vercel.json) and from the
@@ -31,7 +31,7 @@ export type BackupResult = { ok: true; name: string; bytes: number; kept: number
    row from it, so the load looks empty rather than failing. */
 type Client = Parameters<typeof loadAppState>[0];
 
-async function explainEmptyLoad(client: Client, serviceKey: string, couldNotLoad: boolean): Promise<string> {
+async function explainEmptyLoad(client: Client, serviceKey: string, couldNotLoad: boolean, url: string): Promise<string> {
   const kind = describeSupabaseKey(serviceKey);
   if (kind === "public") {
     return "Nothing was saved: SUPABASE_SERVICE_ROLE_KEY in Vercel is the PUBLIC key (anon/publishable). Replace it with the secret key (service_role, or the one starting with sb_secret_) and redeploy.";
@@ -39,25 +39,75 @@ async function explainEmptyLoad(client: Client, serviceKey: string, couldNotLoad
   if (kind === "unreadable") {
     return "Nothing was saved: SUPABASE_SERVICE_ROLE_KEY in Vercel doesn't look like a Supabase key. Check for a missing part, or a space or quote mark at the start or end, then redeploy.";
   }
-  const { count, error } = await client.from("vas").select("id", { count: "exact", head: true });
-  if (error) {
-    return `Nothing was saved: Supabase refused the read (${error.message}). If it mentions an invalid key, re-copy the secret key into Vercel and redeploy.`;
+  // A key from a DIFFERENT project is rejected outright -- say so.
+  const keyRef = keyProjectRef(serviceKey);
+  const appRef = projectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  if (keyRef && appRef && keyRef !== appRef) {
+    return `Nothing was saved: SUPABASE_SERVICE_ROLE_KEY belongs to a different Supabase project (${keyRef}) than this app uses (${appRef}). Copy the secret key from the ${appRef} project into Vercel and redeploy.`;
   }
-  return `Nothing was saved: the key looks right, but the data read came back ${couldNotLoad ? "incomplete" : "empty"} (team members found: ${count ?? 0}). Try again in a minute; if it keeps happening, tell me this message.`;
+
+  // An ordinary read (not a HEAD request, whose errors come back with no
+  // text at all) so the real reason and HTTP status are visible.
+  const { data, error, status, statusText } = await client.from("vas").select("id").limit(1);
+  if (error || status >= 400) {
+    const reason = [error?.message, error?.details, error?.hint, error?.code].filter(Boolean).join(" · ") || "no details given";
+    const advice =
+      status === 401
+        ? "The key was rejected -- it may be cut off, from the wrong project, or an old-style key that's been turned off. Copy the secret key again (the newer one starting with sb_secret_ is best), paste it into Vercel with no spaces or quotes, and redeploy."
+        : status === 403
+          ? "The key connected but was denied. Copy the secret key again into Vercel and redeploy."
+          : "Try again in a minute; if it keeps happening, tell me this message.";
+    const direct = await restProbe(url, serviceKey);
+    return `Nothing was saved: Supabase answered ${status || "no response"} ${statusText || ""} (${reason}). Direct check -> ${direct}. ${advice}`.replace(/\s+/g, " ");
+  }
+  const count = data?.length ?? 0;
+  return `Nothing was saved: the key looks right, but the data read came back ${couldNotLoad ? "incomplete" : "empty"} (team members found: ${count}). Try again in a minute; if it keeps happening, tell me this message.`;
+}
+
+/* A fetch that, for newer sb_ keys, doesn't also send the key as a Bearer
+   token (see headersWithoutKeyBearer). */
+function fetchFor(key: string): typeof fetch {
+  if (!key.startsWith("sb_")) return fetch;
+  return (input, init) => {
+    const base = init?.headers ?? (input instanceof Request ? input.headers : undefined);
+    return fetch(input, { ...init, headers: headersWithoutKeyBearer(new Headers(base), key) });
+  };
+}
+
+/* Asks the database's REST address directly, two ways, and reports just
+   the HTTP status of each (never the key) -- so a rejection is pinned on
+   the key/header combination instead of guessed at. */
+async function restProbe(url: string, key: string): Promise<string> {
+  const target = `${url.replace(/\/$/, "")}/rest/v1/vas?select=id&limit=1`;
+  const attempts: [string, Record<string, string>][] = [
+    ["apikey only", { apikey: key }],
+    ["apikey + bearer", { apikey: key, authorization: `Bearer ${key}` }],
+  ];
+  const results: string[] = [];
+  for (const [label, headers] of attempts) {
+    try {
+      const response = await fetch(target, { headers });
+      results.push(`${label}: ${response.status}`);
+    } catch {
+      results.push(`${label}: no response`);
+    }
+  }
+  return results.join(", ");
 }
 
 export async function runAutomaticBackup(): Promise<BackupResult> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // trim(): a stray space or line break from pasting would break the key.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !serviceKey) return { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY isn't set." };
 
   try {
-    const client = createServiceClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const client = createServiceClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: fetchFor(serviceKey) } });
 
     const state = await loadAppState(client);
     // Never overwrite a good backup with an empty or half-loaded one.
     if (!state || state.vas.length === 0 || state.schools.length === 0) {
-      return { ok: false, error: await explainEmptyLoad(client, serviceKey, !state) };
+      return { ok: false, error: await explainEmptyLoad(client, serviceKey, !state, url) };
     }
 
     const now = new Date();

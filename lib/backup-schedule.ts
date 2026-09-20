@@ -74,6 +74,43 @@ export function describeSupabaseKey(key: string | undefined): KeyKind {
   return "unreadable";
 }
 
+/* The project a legacy (JWT-style) key belongs to -- its "ref" claim,
+   which is just the project's public id (the same string that's in the
+   project URL), not a secret. undefined for newer sb_ keys, which don't
+   carry it. Lets us say "this key is from a different project" instead of
+   a vague failure. */
+export function keyProjectRef(key: string | undefined): string | undefined {
+  const value = (key ?? "").trim();
+  if (!value.startsWith("eyJ")) return undefined;
+  try {
+    const payload = value.split(".")[1] ?? "";
+    const json = JSON.parse(Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")) as { ref?: string };
+    return typeof json.ref === "string" ? json.ref : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/* "https://abcd1234.supabase.co" -> "abcd1234". */
+export function projectRefFromUrl(url: string | undefined): string | undefined {
+  try {
+    return new URL(url ?? "").hostname.split(".")[0] || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/* Newer Supabase secret keys (sb_secret_...) are NOT JWTs: they belong in
+   the "apikey" header only. A client that also sends the key as
+   "Authorization: Bearer <key>" gets it rejected as an invalid token. This
+   drops that one header when it's just the key echoed back, and leaves
+   every other request untouched. */
+export function headersWithoutKeyBearer(headers: Headers, key: string): Headers {
+  const next = new Headers(headers);
+  if (key.startsWith("sb_") && next.get("authorization") === `Bearer ${key}`) next.delete("authorization");
+  return next;
+}
+
 export function formatBackupSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;

@@ -43,6 +43,29 @@ test("sizes read naturally", () => {
   assert.equal(formatBackupSize(5.5 * 1024 * 1024), "5.5 MB");
 });
 
+test("a legacy key reveals only its public project id, and the URL gives the app's project id", async () => {
+  const { keyProjectRef, projectRefFromUrl } = await import("../lib/backup-schedule.ts");
+  const jwt = (claims: object) => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+  assert.equal(keyProjectRef(jwt({ role: "service_role", ref: "abcd1234" })), "abcd1234");
+  assert.equal(keyProjectRef(jwt({ role: "service_role" })), undefined);
+  assert.equal(keyProjectRef("sb_secret_abc"), undefined);
+  assert.equal(projectRefFromUrl("https://abcd1234.supabase.co"), "abcd1234");
+  assert.equal(projectRefFromUrl("nonsense"), undefined);
+});
+
+test("a newer sb_ key is sent as apikey only, never echoed as a Bearer token", async () => {
+  const { headersWithoutKeyBearer } = await import("../lib/backup-schedule.ts");
+  const key = "sb_secret_abc123";
+  const sent = headersWithoutKeyBearer(new Headers({ apikey: key, authorization: `Bearer ${key}`, "content-type": "application/json" }), key);
+  assert.equal(sent.get("authorization"), null);
+  assert.equal(sent.get("apikey"), key);
+  assert.equal(sent.get("content-type"), "application/json");
+  // A user's own token, or a legacy JWT key, is left alone.
+  assert.equal(headersWithoutKeyBearer(new Headers({ authorization: "Bearer someone-elses-token" }), key).get("authorization"), "Bearer someone-elses-token");
+  const legacy = "eyJhbGciOiJIUzI1NiJ9.e30.sig";
+  assert.equal(headersWithoutKeyBearer(new Headers({ authorization: `Bearer ${legacy}` }), legacy).get("authorization"), `Bearer ${legacy}`);
+});
+
 test("the key check tells a public key from a secret one without exposing anything", async () => {
   const { describeSupabaseKey } = await import("../lib/backup-schedule.ts");
   const jwt = (role: string) => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ role })).toString("base64url")}.signature`;

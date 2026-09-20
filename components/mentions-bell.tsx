@@ -12,7 +12,10 @@ import { getToastRoot } from "@/lib/toast-root";
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 416;
-const POLL_MS = 30_000;
+// How often an open tab asks whether something new arrived. Short on purpose:
+// an assignment should reach the person within a few seconds. The check is a
+// single head-only count query, and the page only re-fetches when it changes.
+const POLL_MS = 6_000;
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 }
@@ -91,7 +94,7 @@ export function MentionsBell({
   }
 
   // Background check for new notifications: a cheap count-only request
-  // every 30s while the tab is visible. Only when the number differs
+  // every few seconds while the tab is visible (and the moment you return to it). Only when the number differs
   // from what's showing does it refresh the page data -- which is what
   // updates the badge and (through the effect above) plays the chime.
   useEffect(() => {
@@ -103,10 +106,12 @@ export function MentionsBell({
     }
     const timer = setInterval(check, POLL_MS);
     document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
     return () => {
       cancelled = true;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
     };
   }, [router]);
 

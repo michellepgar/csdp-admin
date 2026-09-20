@@ -212,7 +212,8 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                 </form>
               </li>
             ) : (
-              <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-l-4 border-red-500/25 border-l-red-600 bg-card px-3 py-2.5 text-sm shadow-sm transition-shadow hover:shadow-md">
+              <li key={item.id} className="space-y-2 rounded-lg border border-l-4 border-red-500/25 border-l-red-600 bg-card px-3 py-2.5 text-sm shadow-sm transition-shadow hover:shadow-md">
+                <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-start gap-2">
                   <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-red-600 text-[11px] font-bold text-white shadow-sm" title={`Priority ${index + 1}`}>{index + 1}</span>
                   <div className="min-w-0">
@@ -225,17 +226,20 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                   )}
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-1">
+                <div className="flex flex-none items-center gap-1">
                   {isCurrentUserAdmin && (
                     <div className="flex flex-col">
                       <form action={movePriorityPlanItem}><input type="hidden" name="id" value={item.id} /><input type="hidden" name="direction" value="up" /><button type="submit" disabled={index === 0} aria-label="Move up" title="Move up" className="flex h-4 w-5 items-center justify-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent"><ArrowUp className="h-3 w-3" /></button></form>
                       <form action={movePriorityPlanItem}><input type="hidden" name="id" value={item.id} /><input type="hidden" name="direction" value="down" /><button type="submit" disabled={index === shared.length - 1} aria-label="Move down" title="Move down" className="flex h-4 w-5 items-center justify-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent"><ArrowDown className="h-3 w-3" /></button></form>
                     </div>
                   )}
-                  <Button type="button" variant="plan" size="xs" className="bg-red-600 text-white hover:bg-red-700" title="Claim it and start it now" onClick={async () => { const data = new FormData(); data.set("id", item.id); await claimPriorityPlanItem(data); setStartingToday(item); }}><Play className="h-3 w-3" /> Today</Button>
-                  <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="outline" size="xs" pendingLabel="…" title="Add to my next shift plan"><CalendarClock className="h-3 w-3" /> Next plan</SubmitButton></form>
                   {isCurrentUserAdmin && <Button type="button" variant="ghost" size="xs" onClick={() => { setEditingId(item.id); setEditError(null); }}>Edit</Button>}
                   <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}"?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
+                </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 border-t border-red-500/15 pt-2">
+                  <Button type="button" variant="plan" size="xs" className="bg-red-600 text-white hover:bg-red-700" title="Claim it and start it now" onClick={async () => { const data = new FormData(); data.set("id", item.id); await claimPriorityPlanItem(data); setStartingToday(item); }}><Play className="h-3 w-3" /> Today</Button>
+                  <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="outline" size="xs" pendingLabel="…" title="Add to my next shift plan"><CalendarClock className="h-3 w-3" /> Next plan</SubmitButton></form>
                 </div>
               </li>
             ))}

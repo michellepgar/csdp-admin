@@ -64,8 +64,16 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
   // (they're both tall, so only one is open at a time).
   useEffect(() => {
     const collapse = () => setExpanded(false);
+    const openPlan = () => {
+      setExpanded(true);
+      window.dispatchEvent(new Event("chat:close"));
+    };
     window.addEventListener("plan:collapse", collapse);
-    return () => window.removeEventListener("plan:collapse", collapse);
+    window.addEventListener("plan:open", openPlan);
+    return () => {
+      window.removeEventListener("plan:collapse", collapse);
+      window.removeEventListener("plan:open", openPlan);
+    };
   }, []);
 
   if (!hasContent) return null;

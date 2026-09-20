@@ -93,6 +93,10 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
   // stages ones that aren't already pending).
   const remindersJson = formData.get("reminders") as string;
   const reminders: { label: string; noteId?: string }[] = remindersJson ? JSON.parse(remindersJson) : [];
+  // Files/tasks/categories typed into the planning window that don't exist
+  // yet. They're created here, only when the plan is actually saved.
+  const newItemsJson = formData.get("newItems") as string;
+  const newItems: { kind: "school" | "general"; schoolId?: string; categoryId?: string; tableId?: string; categoryIds?: string[]; categoryName: string; isNewCategory: boolean; name: string }[] = newItemsJson ? JSON.parse(newItemsJson) : [];
   // Set by the End Today's Work window (not by the plain "Add" on Next
   // Shift Plan): saving the plan also closes the shift.
   const endShift = formData.get("endShift") === "1";
@@ -105,6 +109,51 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
         return;
       }
       if (endShift) state.shiftStates = [...(state.shiftStates || []).filter((s) => s.vaName !== "Jane"), { vaName: "Jane", status: "ended", changedAt: new Date().toISOString() }];
+      for (const [index, item] of newItems.entries()) {
+        const name = item.name.trim();
+        const categoryName = item.categoryName.trim();
+        if (!name || !categoryName) continue;
+        const stamp = `${Date.now()}-${index}`;
+        const createdAt = new Date().toISOString();
+        if (item.kind === "general") {
+          if (item.isNewCategory && !(state.generalTaskCategories || []).some((c) => c.name.toLowerCase() === categoryName.toLowerCase())) {
+            (state.generalTaskCategories ??= []).push({ id: `demo-gcat-${stamp}`, name: categoryName });
+          }
+          const id = `demo-gen-${stamp}`;
+          (state.generalTasks ??= []).push({ id, category: categoryName, description: name, status: "", vaAssigned: [], createdAt });
+          checkedGeneralIds.push(id);
+          labels[id] = { label: `${name} — ${categoryName}` };
+        } else if (item.schoolId && item.tableId && item.categoryIds?.length) {
+          const sd = (state.schoolData[item.schoolId] ??= { vaAssigned: "" });
+          const fileId = `demo-file-${stamp}`;
+          const assignments = item.categoryIds.map((categoryId, i) => ({
+            id: `${fileId}-${i}`, taskFileId: fileId, categoryId,
+            category: state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized",
+            status: "", vaAssigned: [] as string[], sortOrder: i, createdAt,
+          }));
+          (sd.taskFiles ??= []).push({ id: fileId, tableId: item.tableId, fileName: name, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: assignments });
+          for (const a of assignments) {
+            (sd.tasks ??= []).push({ id: a.id, category: a.category, fileName: name, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
+            checkedTaskIds.push(a.id);
+            labels[a.id] = { label: `${name} — ${a.category}`, schoolId: item.schoolId };
+          }
+        } else if (item.schoolId) {
+          let categoryId = item.categoryId;
+          if (item.isNewCategory) {
+            const found = (state.taskCategories || []).find((c) => c.name.toLowerCase() === categoryName.toLowerCase());
+            categoryId = found?.id ?? `demo-cat-${stamp}`;
+            if (!found) (state.taskCategories ??= []).push({ id: categoryId, name: categoryName });
+          }
+          if (!categoryId) continue;
+          const sd = (state.schoolData[item.schoolId] ??= { vaAssigned: "" });
+          const fileId = `demo-file-${stamp}`;
+          const assignmentId = `${fileId}-0`;
+          (sd.taskFiles ??= []).push({ id: fileId, fileName: name, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category: categoryName, status: "", vaAssigned: [], sortOrder: 0, createdAt }] });
+          (sd.tasks ??= []).push({ id: assignmentId, category: categoryName, fileName: name, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
+          checkedTaskIds.push(assignmentId);
+          labels[assignmentId] = { label: `${name} — ${categoryName}`, schoolId: item.schoolId };
+        }
+      }
       const existingTask = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane" && p.taskFileCategoryId).map((p) => ({ id: p.id, refId: p.taskFileCategoryId }));
       const existingGeneral = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane" && p.generalTaskId).map((p) => ({ id: p.id, refId: p.generalTaskId }));
       const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);
@@ -139,6 +188,105 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
       if (!shiftAvailability(states, me.name).canEnd) throw new Error("You haven't started your day yet. Click Start my day first.");
     }
 
+    const touchedSchoolIds = new Set<string>();
+    for (const item of newItems) {
+      const name = item.name.trim();
+      const categoryName = item.categoryName.trim();
+      if (!name || !categoryName) continue;
+
+      if (item.kind === "general") {
+        if (item.isNewCategory) {
+          const { data: existingCategory, error: categoryLookupError } = await supabase.from("general_task_categories").select("id").ilike("name", categoryName).maybeSingle();
+          orThrow(categoryLookupError);
+          if (!existingCategory) {
+            const { data: maxRow } = await supabase.from("general_task_categories").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+            const { error } = await supabase.from("general_task_categories").insert({ id: crypto.randomUUID(), name: categoryName, sort_order: (maxRow?.sort_order ?? -1) + 1 });
+            orThrow(error);
+          }
+        }
+        const { data: existingTask, error: taskLookupError } = await supabase.from("general_tasks").select("id").eq("category", categoryName).ilike("description", name).maybeSingle();
+        orThrow(taskLookupError);
+        let taskId = existingTask?.id as string | undefined;
+        if (!taskId) {
+          taskId = crypto.randomUUID();
+          const { error } = await supabase.from("general_tasks").insert({ id: taskId, category: categoryName, description: name, status: "", va_assigned: [] });
+          orThrow(error);
+        }
+        checkedGeneralIds.push(taskId);
+        labels[taskId] = { label: `${name} — ${categoryName}` };
+        continue;
+      }
+
+      if (!item.schoolId) continue;
+
+      if (item.tableId && item.categoryIds?.length) {
+        const { data: tableCategories, error: tableCategoriesError } = await supabase.from("task_categories").select("id, name").in("id", item.categoryIds);
+        orThrow(tableCategoriesError);
+        const categoryNameById = new Map((tableCategories || []).map((c) => [c.id as string, c.name as string]));
+        const { data: sameNameFiles, error: sameNameError } = await supabase
+          .from("task_files")
+          .select("id, task_file_categories(id, category_id)")
+          .eq("school_id", item.schoolId)
+          .eq("table_id", item.tableId)
+          .ilike("file_name", name);
+        orThrow(sameNameError);
+        let assignmentRows = (sameNameFiles || []).flatMap((f) => f.task_file_categories);
+        if (assignmentRows.length === 0) {
+          const fileId = crypto.randomUUID();
+          const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: item.schoolId, p_file_name: name, p_category_ids: item.categoryIds });
+          orThrow(createError);
+          // Keep it in the table it was added to (a table is identified by its table_id).
+          const { error: tableError } = await supabase.from("task_files").update({ table_id: item.tableId }).eq("id", fileId).eq("school_id", item.schoolId);
+          orThrow(tableError);
+          const { data: created, error: createdError } = await supabase.from("task_file_categories").select("id, category_id").eq("task_file_id", fileId);
+          orThrow(createdError);
+          assignmentRows = created || [];
+          touchedSchoolIds.add(item.schoolId);
+        }
+        if (assignmentRows.length === 0) throw new Error("The new file was created but couldn't be added to your plan. Open the school page to find it.");
+        for (const row of assignmentRows) {
+          checkedTaskIds.push(row.id as string);
+          labels[row.id as string] = { label: `${name} — ${categoryNameById.get(row.category_id as string) || item.categoryName}`, schoolId: item.schoolId };
+        }
+        continue;
+      }
+
+      let categoryId = item.categoryId;
+      if (item.isNewCategory) {
+        const { data: existingCategory, error: categoryLookupError } = await supabase.from("task_categories").select("id").is("school_id", null).ilike("name", categoryName).maybeSingle();
+        orThrow(categoryLookupError);
+        if (existingCategory) {
+          categoryId = existingCategory.id;
+        } else {
+          const { data: maxRow } = await supabase.from("task_categories").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+          categoryId = crypto.randomUUID();
+          const { error } = await supabase.from("task_categories").insert({ id: categoryId, name: categoryName, sort_order: (maxRow?.sort_order ?? -1) + 1 });
+          orThrow(error);
+        }
+      }
+      if (!categoryId) continue;
+
+      const { data: existingFiles, error: fileLookupError } = await supabase
+        .from("task_files")
+        .select("id, task_file_categories(id, category_id)")
+        .eq("school_id", item.schoolId)
+        .ilike("file_name", name);
+      orThrow(fileLookupError);
+      let assignmentId = (existingFiles || []).flatMap((f) => f.task_file_categories).find((a) => a.category_id === categoryId)?.id as string | undefined;
+      if (!assignmentId) {
+        const fileId = crypto.randomUUID();
+        const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: item.schoolId, p_file_name: name, p_category_ids: [categoryId] });
+        orThrow(createError);
+        const { data: created, error: createdError } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
+        orThrow(createdError);
+        if (!created) throw new Error("The new file was created but couldn't be added to your plan. Open the school page to find it.");
+        assignmentId = created.id;
+        touchedSchoolIds.add(item.schoolId);
+      }
+      checkedTaskIds.push(assignmentId!);
+      labels[assignmentId!] = { label: `${name} — ${categoryName}`, schoolId: item.schoolId };
+    }
+
     const { data: existingRows, error: selectError } = await supabase.from("plan_items").select("id, task_file_category_id, general_task_id").eq("kind", "task").eq("va_name", me.name);
     orThrow(selectError);
     const existingTask = (existingRows || []).filter((r) => r.task_file_category_id).map((r) => ({ id: r.id, refId: r.task_file_category_id as string }));
@@ -166,6 +314,9 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
       orThrow(error);
     }
     revalidatePath("/overview");
+    for (const schoolId of touchedSchoolIds) revalidatePath(`/schools/${schoolId}`);
+    if (newItems.some((i) => i.kind === "general")) revalidatePath("/general-tasks");
+    if (newItems.some((i) => i.isNewCategory)) revalidatePath("/", "layout");
   });
 }
 
@@ -757,6 +908,63 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
    to, a plan item must be on your own plan, and the note is always filed
    under your name. The database enforces the same (see
    supabase/phase59_work_notes.sql); this check just gives a clear message. */
+/* The check button on your own task in Currently Working On: sets the real
+   task to Completed (school task or General Task), so its school page shows
+   it too. Only someone signed on the task can complete it here. */
+export async function completeWorkItem(formData: FormData): Promise<PlanActionResult> {
+  const target = parseNoteKey(String(formData.get("itemKey") || ""));
+  if (!target || (target.type !== "task" && target.type !== "general")) return { error: "That item can't be completed from here." };
+
+  if (await isDemoMode()) {
+    let outcome: PlanActionResult = { error: null };
+    await demoMutate((state) => {
+      if (target.type === "general") {
+        const task = (state.generalTasks || []).find((t) => t.id === target.id);
+        if (!task || !task.vaAssigned.includes("Jane")) { outcome = { error: "You can only complete a task you're signed on to." }; return; }
+        task.status = "Completed";
+        return;
+      }
+      for (const sd of Object.values(state.schoolData)) {
+        const task = sd.tasks?.find((t) => t.id === target.id);
+        if (!task) continue;
+        if (!task.vaAssigned.includes("Jane")) { outcome = { error: "You can only complete a task you're signed on to." }; return; }
+        task.status = "Completed";
+        const assignment = sd.taskFiles?.flatMap((f) => f.categories).find((a) => a.id === target.id);
+        if (assignment) assignment.status = "Completed";
+        return;
+      }
+    });
+    revalidatePath("/overview");
+    return outcome;
+  }
+
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
+
+    if (target.type === "general") {
+      const { data: task, error } = await supabase.from("general_tasks").select("va_assigned").eq("id", target.id).maybeSingle();
+      orThrow(error);
+      if (!task || !(task.va_assigned || []).includes(me.name)) throw new Error("You can only complete a task you're signed on to.");
+      const { error: updateError } = await supabase.from("general_tasks").update({ status: "Completed" }).eq("id", target.id);
+      orThrow(updateError);
+      revalidatePath("/overview");
+      revalidatePath("/general-tasks");
+      return;
+    }
+
+    const { data: assignment, error } = await supabase.from("task_file_categories").select("id, va_assigned, task_file_id").eq("id", target.id).maybeSingle();
+    orThrow(error);
+    if (!assignment || !(assignment.va_assigned || []).includes(me.name)) throw new Error("You can only complete a task you're signed on to.");
+    const { data: file, error: fileError } = await supabase.from("task_files").select("school_id").eq("id", assignment.task_file_id).maybeSingle();
+    orThrow(fileError);
+    if (!file) throw new Error("Couldn't find that task's school.");
+    const { error: rpcError } = await supabase.rpc("update_task_assignment", { p_school_id: file.school_id, p_task_id: assignment.id, p_patch: { status: "Completed" } });
+    orThrow(rpcError);
+    revalidatePath("/overview");
+    revalidatePath(`/schools/${file.school_id}`);
+  });
+}
+
 export async function saveWorkNote(formData: FormData): Promise<PlanActionResult> {
   const itemKey = String(formData.get("itemKey") || "");
   const note = String(formData.get("note") || "").replace(/\s+/g, " ").trim();

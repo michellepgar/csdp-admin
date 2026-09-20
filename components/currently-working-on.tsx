@@ -8,6 +8,7 @@ import { Dropdown } from "@/components/dropdown";
 import type { Va, WorkNote } from "@/lib/app-state";
 import { StickyNote } from "lucide-react";
 import { WorkNoteButton } from "@/components/work-note-button";
+import { CompleteTaskButton } from "@/components/complete-task-button";
 import { makeNoteLookup } from "@/lib/work-notes";
 import type { TodayActivityItem } from "@/lib/shared-task-files";
 
@@ -28,6 +29,12 @@ const TODAY_STATUS_TONE: Record<string, StatusTone> = {
 // What the status badge says -- a checked reminder shows a check mark.
 function statusText(status: string): string {
   return status === "Reviewed" ? "✓ Reviewed" : status;
+}
+
+// A task can be checked off here unless it's already done. Reminders
+// (schoolName "Reminder") are checked off in Your Plan instead.
+function canComplete(t: TodayActivityItem): boolean {
+  return t.schoolName !== "Reminder" && t.status !== "Completed" && !!t.itemKey && (t.itemKey.startsWith("t:") || t.itemKey.startsWith("g:"));
 }
 
 function vaListRow(t: TodayActivityItem, key: number, note?: string, action?: React.ReactNode) {
@@ -72,7 +79,7 @@ function columnsFor(items: TodayActivityItem[], noteFor: (item: TodayActivityIte
       status: t.status ? statusText(t.status) : undefined,
       statusTone: TODAY_STATUS_TONE[t.status] ?? "neutral",
       note: noteFor(t),
-      action: isMine && t.itemKey ? <WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /> : undefined,
+      action: isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined,
     })),
   }));
 }
@@ -141,7 +148,7 @@ export function CurrentlyWorkingOn({ todayByVa, vas, workNotes, currentUserName 
                 </div>
                 {viewMode === "list" ? (
                   <ul className="min-w-0 flex-1 space-y-1.5 p-3">
-                    {items.map((t, i) => vaListRow(t, i, noteFor(t), isMine && t.itemKey ? <WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /> : undefined))}
+                    {items.map((t, i) => vaListRow(t, i, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
                   </ul>
                 ) : (
                   <div className="min-w-0 flex-1 p-3">

@@ -17,6 +17,8 @@ export function StartMyDayButton({ startMyDay, disabled, disabledReason }: { sta
         setError(null);
         const result = await startMyDay();
         if (result.error) setError(result.error);
+        // Pop open Your Plan so the paused tasks are right there to Start.
+        else window.dispatchEvent(new Event("plan:open"));
       }}
     >
       <SubmitButton variant="plan" size="sm" pendingLabel="Starting…" disabled={disabled} title={disabled ? disabledReason : undefined}>Start my day</SubmitButton>

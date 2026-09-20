@@ -7,10 +7,31 @@ import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { cn } from "@/lib/utils";
-import type { School, SchoolDataEntry, GeneralTask, PlanItem, PrivateNote } from "@/lib/app-state";
+import { groupTaskTables } from "@/lib/shared-task-files";
+import { visibleSchoolItems, type School, type SchoolDataEntry, type GeneralTask, type GeneralTaskCategory, type PlanItem, type PrivateNote, type TaskCategory } from "@/lib/app-state";
 
 interface OpenItem { id: string; schoolId?: string; schoolName: string; category: string; fileName: string; status: string }
 type Tab = "inProgress" | "schools" | "general" | "reminder";
+
+const NEW_CATEGORY = "__new_category__";
+const TABLE_PREFIX = "table:";
+
+/* A file or task typed in here that doesn't exist yet. It is only created
+   when the plan is saved (savePlan), so cancelling leaves nothing behind. */
+interface NewItem {
+  key: string;
+  kind: "school" | "general";
+  schoolId?: string;
+  schoolName?: string;
+  /** Set when an existing category was chosen; empty for a brand-new one. */
+  categoryId?: string;
+  /** Set when the file goes into an existing table: that table's id and every category in it. */
+  tableId?: string;
+  categoryIds?: string[];
+  categoryName: string;
+  isNewCategory: boolean;
+  name: string;
+}
 
 function plainText(html: string, max: number): string {
   return html.replace(/<[^>]+>/g, " ").trim().slice(0, max) || "Note";
@@ -25,7 +46,7 @@ function plainText(html: string, max: number): string {
      starts with only what's already planned checked.
    Either way everything saves together through one submit (savePlan); the
    tabs only change what's visible while building that one submission. */
-export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUserName, schools, schoolData, generalTasks, myPlanItems, myReminderNotes, savePlan }: {
+export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUserName, schools, schoolData, generalTasks, taskCategories, generalTaskCategories, myPlanItems, myReminderNotes, savePlan }: {
   mode: "end" | "add";
   /** End mode only: the button is off until a shift has been started. */
   disabled?: boolean;
@@ -34,6 +55,8 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   schools: School[];
   schoolData: Record<string, SchoolDataEntry>;
   generalTasks: GeneralTask[];
+  taskCategories: TaskCategory[];
+  generalTaskCategories: GeneralTaskCategory[];
   myPlanItems: PlanItem[];
   /** This VA's own private notes flagged as reminders -- the "From
    *  Private Notes" option under the Reminder tab picks from these. */
@@ -43,6 +66,15 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("inProgress");
   const [schoolId, setSchoolId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  // "By category" and "Existing table" are two separate ways to pick where a file goes.
+  const [schoolMode, setSchoolMode] = useState<"category" | "table">("category");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newFileName, setNewFileName] = useState("");
+  const [generalCategory, setGeneralCategory] = useState("");
+  const [newGeneralCategoryName, setNewGeneralCategoryName] = useState("");
+  const [newGeneralTaskName, setNewGeneralTaskName] = useState("");
+  const [newItems, setNewItems] = useState<NewItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const schoolCarryOver: OpenItem[] = schools.flatMap((school) =>
@@ -62,12 +94,27 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   );
 
   const school = schools.find((s) => s.id === schoolId);
-  const browseSchoolTasks: OpenItem[] = school
+  const schoolCategories = school ? visibleSchoolItems(taskCategories, school.id) : [];
+  const pickedCategory = schoolCategories.find((c) => c.id === categoryId);
+  // Existing tables at this school that hold more than one category (a
+  // single-category table is just that category, already in the list).
+  const schoolTables = school
+    ? groupTaskTables(taskCategories, schoolData[school.id]?.taskFiles || []).filter((g) => g.categories.length > 1)
+    : [];
+  const tableLabel = (g: { categories: { name: string }[]; files: unknown[] }) => `${g.categories.map((c) => c.name).join(" + ")} (${g.files.length} file${g.files.length === 1 ? "" : "s"})`;
+  const pickedTable = categoryId.startsWith(TABLE_PREFIX) ? schoolTables.find((g) => g.key === categoryId.slice(TABLE_PREFIX.length)) : undefined;
+  const browseSchoolTasks: OpenItem[] = school && pickedTable
+    ? pickedTable.files
+        .flatMap((f) => f.categories.map((a) => ({ id: a.id, schoolId: school.id, schoolName: school.name, category: a.category, fileName: f.fileName, status: a.status })))
+        .filter((t) => !schoolCarryOver.some((c) => c.id === t.id))
+    : school && pickedCategory
     ? (schoolData[school.id]?.tasks || [])
+        .filter((t) => t.category === pickedCategory.name)
         .filter((t) => !schoolCarryOver.some((c) => c.id === t.id))
         .map((t) => ({ id: t.id, schoolId: school.id, schoolName: school.name, category: t.category, fileName: t.fileName, status: t.status }))
     : [];
   const browseGeneralTasks: OpenItem[] = generalTasks
+    .filter((t) => generalCategory !== "" && generalCategory !== NEW_CATEGORY && t.category === generalCategory)
     .filter((t) => !generalCarryOver.some((c) => c.id === t.id))
     .map((t) => ({ id: t.id, schoolName: "General", category: t.category, fileName: t.description, status: t.status }));
 
@@ -94,6 +141,45 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
     setSelectedNoteId("");
   }
 
+  function stageNewSchoolFile() {
+    const name = newFileName.trim();
+    if (!school || !name) return;
+    const isNew = categoryId === NEW_CATEGORY;
+    const categoryName = isNew ? newCategoryName.trim() : pickedTable ? pickedTable.categories.map((c) => c.name).join(" + ") : pickedCategory?.name || "";
+    if (!categoryName) return;
+    // Already on the list? Tick it instead of creating a duplicate.
+    const matches = !isNew ? browseSchoolTasks.filter((t) => t.fileName.trim().toLowerCase() === name.toLowerCase()) : [];
+    if (matches.length > 0) {
+      setChecked((prev) => { const next = new Set(prev); for (const m of matches) next.add(m.id); return next; });
+    } else {
+      setNewItems((prev) => [...prev, {
+        key: `school-${Date.now()}`, kind: "school", schoolId: school.id, schoolName: school.name,
+        categoryId: isNew || pickedTable ? undefined : categoryId,
+        tableId: pickedTable?.key, categoryIds: pickedTable?.categories.map((c) => c.id),
+        categoryName, isNewCategory: isNew, name,
+      }]);
+    }
+    setNewFileName("");
+  }
+
+  function stageNewGeneralTask() {
+    const name = newGeneralTaskName.trim();
+    const isNew = generalCategory === NEW_CATEGORY;
+    const categoryName = isNew ? newGeneralCategoryName.trim() : generalCategory;
+    if (!name || !categoryName) return;
+    const existing = !isNew && browseGeneralTasks.find((t) => t.fileName.trim().toLowerCase() === name.toLowerCase());
+    if (existing) {
+      setChecked((prev) => new Set(prev).add(existing.id));
+    } else {
+      setNewItems((prev) => [...prev, { key: `general-${Date.now()}`, kind: "general", categoryName, isNewCategory: isNew, name }]);
+    }
+    setNewGeneralTaskName("");
+  }
+
+  function removeNewItem(key: string) {
+    setNewItems((prev) => prev.filter((i) => i.key !== key));
+  }
+
   function removePendingReminder(key: string) {
     setPendingReminders((prev) => prev.filter((r) => r.key !== key));
   }
@@ -112,11 +198,11 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
 
   const tabs: { id: Tab; label: string; hint: string; icon: React.ReactNode; count: number }[] = [
     { id: "inProgress", label: "In Progress", hint: mode === "end" ? "Still open from today" : "What you're working on now", icon: <ListChecks className="h-4 w-4" />, count: carryOver.filter((t) => checked.has(t.id)).length },
-    { id: "schools", label: "Schools", hint: "Pick from any school", icon: <SchoolIcon className="h-4 w-4" />, count: browseSchoolTasks.filter((t) => checked.has(t.id)).length },
-    { id: "general", label: "General", hint: "General Tasks", icon: <ClipboardList className="h-4 w-4" />, count: browseGeneralTasks.filter((t) => checked.has(t.id)).length },
+    { id: "schools", label: "Schools", hint: "Pick from any school", icon: <SchoolIcon className="h-4 w-4" />, count: browseSchoolTasks.filter((t) => checked.has(t.id)).length + newItems.filter((i) => i.kind === "school").length },
+    { id: "general", label: "General", hint: "General Tasks", icon: <ClipboardList className="h-4 w-4" />, count: browseGeneralTasks.filter((t) => checked.has(t.id)).length + newItems.filter((i) => i.kind === "general").length },
     { id: "reminder", label: "Reminder", hint: "Things to remember", icon: <Bell className="h-4 w-4" />, count: pendingReminders.length },
   ];
-  const taskTotal = checked.size;
+  const taskTotal = checked.size + newItems.length;
   const title = mode === "end" ? "Plan your next shift" : "Add to your next shift plan";
   const subtitle = mode === "end" ? "Choose what carries into your next shift, then save to end today's work." : "Add anything you forgot. This doesn't end your day.";
 
@@ -177,27 +263,108 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                 )}
                 {tab === "general" && (
                   <>
-                    <p className="text-sm text-muted-foreground">General Tasks you can add:</p>
-                    {browseGeneralTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Nothing else open.</p>}
+                    <Dropdown
+                      name="generalCategory"
+                      value={generalCategory}
+                      onChange={setGeneralCategory}
+                      placeholder="Choose a category"
+                      options={[...generalTaskCategories.map((c) => ({ value: c.name, label: c.name })), { value: NEW_CATEGORY, label: "+ New category" }]}
+                    />
+                    {generalCategory === "" && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Choose a category to see its tasks.</p>}
+                    {generalCategory === NEW_CATEGORY && (
+                      <input value={newGeneralCategoryName} onChange={(e) => setNewGeneralCategoryName(e.target.value)} placeholder="New category name" className="h-9 w-full rounded-md border bg-background px-3 text-sm" />
+                    )}
+                    {generalCategory !== "" && generalCategory !== NEW_CATEGORY && browseGeneralTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">No tasks in this category yet.</p>}
                     {browseGeneralTasks.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
                         <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t.id)} />
-                        <span className="min-w-0"><span className="font-medium">{t.fileName}</span><span className="text-muted-foreground"> — {t.category}</span>{t.status === "Completed" && <span className="text-muted-foreground"> (Completed)</span>}</span>
+                        <span className="min-w-0"><span className="font-medium">{t.fileName}</span>{t.status === "Completed" && <span className="text-muted-foreground"> (Completed)</span>}</span>
                       </label>
                     ))}
+                    {generalCategory !== "" && (
+                      <div className="flex gap-2 rounded-lg border border-dashed p-2.5">
+                        <input value={newGeneralTaskName} onChange={(e) => setNewGeneralTaskName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); stageNewGeneralTask(); } }} placeholder="Not on the list? Type a new task" className="h-9 flex-1 rounded-md border bg-background px-3 text-sm" />
+                        <Button type="button" size="sm" onClick={stageNewGeneralTask} disabled={!newGeneralTaskName.trim() || (generalCategory === NEW_CATEGORY && !newGeneralCategoryName.trim())}>Add new</Button>
+                      </div>
+                    )}
+                    {newItems.filter((i) => i.kind === "general").length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Will be created when you save</p>
+                        {newItems.filter((i) => i.kind === "general").map((i) => (
+                          <div key={i.key} className="flex items-center justify-between gap-2 rounded-lg border border-l-4 border-l-plan-accent bg-card px-3 py-2 text-sm shadow-sm">
+                            <span className="min-w-0"><span className="font-medium">{i.name}</span><span className="text-muted-foreground"> — {i.categoryName}</span>{i.isNewCategory && <span className="ml-1.5 rounded-full bg-plan-accent px-1.5 py-0.5 text-[10px] font-bold text-plan-accent-foreground">new category</span>}</span>
+                            <button type="button" onClick={() => removeNewItem(i.key)} aria-label="Remove" className="text-muted-foreground hover:text-destructive">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
                 {tab === "schools" && (
                   <>
-                    <Dropdown name="schoolId" value={schoolId} onChange={setSchoolId} placeholder="Choose a school" options={schools.map((s) => ({ value: s.id, label: s.name }))} />
-                    {!school && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Choose a school to see its tasks.</p>}
-                    {school && browseSchoolTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Nothing else open at this school.</p>}
+                    <div className="flex flex-wrap gap-2">
+                      <Dropdown name="schoolId" value={schoolId} onChange={(v) => { setSchoolId(v); setCategoryId(""); }} placeholder="Choose a school" options={schools.map((s) => ({ value: s.id, label: s.name }))} />
+                    </div>
+                    {school && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex overflow-hidden rounded-lg border bg-card text-sm shadow-sm">
+                          <button type="button" onClick={() => { setSchoolMode("category"); setCategoryId(""); }} className={cn("px-3 py-1.5 font-medium transition-colors", schoolMode === "category" ? "bg-plan-accent text-plan-accent-foreground" : "hover:bg-muted")}>By category</button>
+                          <button type="button" onClick={() => { setSchoolMode("table"); setCategoryId(""); }} className={cn("border-l px-3 py-1.5 font-medium transition-colors", schoolMode === "table" ? "bg-plan-accent text-plan-accent-foreground" : "hover:bg-muted")}>Existing table</button>
+                        </div>
+                        {schoolMode === "category" ? (
+                          <Dropdown
+                            name="categoryId"
+                            value={categoryId}
+                            onChange={setCategoryId}
+                            placeholder="Choose a category"
+                            options={[...schoolCategories.map((c) => ({ value: c.id, label: c.name })), { value: NEW_CATEGORY, label: "+ New category" }]}
+                          />
+                        ) : schoolTables.length > 0 ? (
+                          <Dropdown
+                            name="tableId"
+                            value={categoryId}
+                            onChange={setCategoryId}
+                            placeholder="Choose a table"
+                            options={schoolTables.map((g) => ({ value: TABLE_PREFIX + g.key, label: tableLabel(g) }))}
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">This school has no tables with more than one category.</span>
+                        )}
+                      </div>
+                    )}
+                    {!school && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Choose a school first.</p>}
+                    {school && categoryId === "" && schoolMode === "category" && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Now choose a category to see its files.</p>}
+                    {school && categoryId === "" && schoolMode === "table" && schoolTables.length > 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Now choose a table. A new file you add will be created in that table, with all of its categories.</p>}
+                    {categoryId === NEW_CATEGORY && (
+                      <div className="space-y-1">
+                        <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="New category name" className="h-9 w-full rounded-md border bg-background px-3 text-sm" />
+                        <p className="text-xs text-muted-foreground">Categories are shared by every school.</p>
+                      </div>
+                    )}
+                    {school && (pickedCategory || pickedTable) && browseSchoolTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">{pickedTable ? "No other files in this table." : "No other files in this category at this school."}</p>}
                     {browseSchoolTasks.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
                         <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t.id)} />
-                        <span className="min-w-0"><span className="font-medium">{t.fileName}</span><span className="text-muted-foreground"> — {t.category}</span>{t.status === "Completed" && <span className="text-muted-foreground"> (Completed)</span>}</span>
+                        <span className="min-w-0"><span className="font-medium">{t.fileName}</span>{pickedTable && <span className="text-muted-foreground"> — {t.category}</span>}{t.status === "Completed" && <span className="text-muted-foreground"> (Completed)</span>}</span>
                       </label>
                     ))}
+                    {school && categoryId !== "" && (
+                      <div className="flex gap-2 rounded-lg border border-dashed p-2.5">
+                        <input value={newFileName} onChange={(e) => setNewFileName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); stageNewSchoolFile(); } }} placeholder="Not on the list? Type a new file name" className="h-9 flex-1 rounded-md border bg-background px-3 text-sm" />
+                        <Button type="button" size="sm" onClick={stageNewSchoolFile} disabled={!newFileName.trim() || (categoryId === NEW_CATEGORY && !newCategoryName.trim())}>Add new</Button>
+                      </div>
+                    )}
+                    {newItems.filter((i) => i.kind === "school").length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Will be created when you save</p>
+                        {newItems.filter((i) => i.kind === "school").map((i) => (
+                          <div key={i.key} className="flex items-center justify-between gap-2 rounded-lg border border-l-4 border-l-plan-accent bg-card px-3 py-2 text-sm shadow-sm">
+                            <span className="min-w-0"><span className="font-medium">{i.name}</span><span className="text-muted-foreground"> — {i.schoolName + " · " + i.categoryName}</span>{i.isNewCategory && <span className="ml-1.5 rounded-full bg-plan-accent px-1.5 py-0.5 text-[10px] font-bold text-plan-accent-foreground">new category</span>}</span>
+                            <button type="button" onClick={() => removeNewItem(i.key)} aria-label="Remove" className="text-muted-foreground hover:text-destructive">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
                 {tab === "reminder" && (
@@ -240,10 +407,11 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                 for (const id of checked) formData.append(isSchoolId(id) ? "taskFileCategoryIds" : "generalTaskIds", id);
                 formData.set("labels", JSON.stringify(buildLabels()));
                 formData.set("reminders", JSON.stringify(pendingReminders.map((r) => ({ label: r.label, noteId: r.noteId }))));
+                formData.set("newItems", JSON.stringify(newItems));
                 if (mode === "end") formData.set("endShift", "1");
                 const result = await savePlan(formData);
                 if (result.error) setError(result.error);
-                else { setPendingReminders([]); setOpen(false); }
+                else { setPendingReminders([]); setNewItems([]); setOpen(false); }
               }}
               className="flex flex-wrap items-center gap-3 border-t bg-muted/30 px-5 py-3"
             >

@@ -63,6 +63,8 @@ export default async function OverviewPage() {
     schools: state.schools,
     schoolData: state.schoolData,
     generalTasks: state.generalTasks || [],
+    taskCategories: state.taskCategories || [],
+    generalTaskCategories: state.generalTaskCategories || [],
     myPlanItems,
     myReminderNotes,
     savePlan,

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Flag, Link2, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarClock, Flag, Link2, Play, Plus } from "lucide-react";
+import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
+import { comparePriorities } from "@/lib/plan-order";
 import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { visibleSchoolItems, type PlanItem, type TaskCategory, type SchoolDataEntry, type Va } from "@/lib/app-state";
+import { visibleSchoolItems, type PlanItem, type GeneralTaskCategory, type TaskCategory, type SchoolDataEntry, type Va } from "@/lib/app-state";
 
 const ADD_NEW_FILE_OPTION = "__add_new_file__";
 
@@ -109,7 +111,7 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
   );
 }
 
-export function TaskPriorities({ planItems, vas, schools, taskCategories, schoolData, isCurrentUserAdmin, addPriority, removePlanItem, claimPriorityPlanItem, updatePriorityPlanItem }: {
+export function TaskPriorities({ planItems, vas, schools, taskCategories, schoolData, isCurrentUserAdmin, addPriority, removePlanItem, claimPriorityPlanItem, movePriorityPlanItem, resolvePriorityPlanItem, generalTaskCategories, updatePriorityPlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
   schools: { id: string; name: string }[];
@@ -119,14 +121,18 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
   addPriority: (formData: FormData) => Promise<{ error: string | null }>;
   removePlanItem: (formData: FormData) => void;
   claimPriorityPlanItem: (formData: FormData) => void;
+  movePriorityPlanItem: (formData: FormData) => void;
+  resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
+  generalTaskCategories: GeneralTaskCategory[];
   updatePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
 }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [startingToday, setStartingToday] = useState<PlanItem | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const shared = planItems.filter((p) => p.kind === "priority" && !p.vaName);
+  const shared = planItems.filter((p) => p.kind === "priority" && !p.vaName).sort(comparePriorities);
 
   function resetForm() {
     setAddOpen(false);
@@ -175,7 +181,7 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
         <div>
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Unassigned / shared</div>
           <ul className="space-y-2">
-            {shared.map((item) => editingId === item.id ? (
+            {shared.map((item, index) => editingId === item.id ? (
               <li key={item.id}>
                 <form
                   action={async (formData) => {
@@ -207,7 +213,9 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
               </li>
             ) : (
               <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-l-4 border-red-500/25 border-l-red-600 bg-card px-3 py-2.5 text-sm shadow-sm transition-shadow hover:shadow-md">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-start gap-2">
+                  <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-red-600 text-[11px] font-bold text-white shadow-sm" title={`Priority ${index + 1}`}>{index + 1}</span>
+                  <div className="min-w-0">
                   <span className="flex items-center font-medium"><span className="priority-dot" aria-hidden />{item.label}</span>
                   {item.suggestedSchoolId && (
                     <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -215,9 +223,17 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                       <span className="truncate">{[schoolName(item.suggestedSchoolId), categoryName(item.suggestedCategoryId), item.suggestedFileName].filter(Boolean).join(" · ")}</span>
                     </span>
                   )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="plan" className="bg-red-600 text-white hover:bg-red-700" size="xs" pendingLabel="…">Claim</SubmitButton></form>
+                <div className="flex flex-wrap items-center gap-1">
+                  {isCurrentUserAdmin && (
+                    <div className="flex flex-col">
+                      <form action={movePriorityPlanItem}><input type="hidden" name="id" value={item.id} /><input type="hidden" name="direction" value="up" /><button type="submit" disabled={index === 0} aria-label="Move up" title="Move up" className="flex h-4 w-5 items-center justify-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent"><ArrowUp className="h-3 w-3" /></button></form>
+                      <form action={movePriorityPlanItem}><input type="hidden" name="id" value={item.id} /><input type="hidden" name="direction" value="down" /><button type="submit" disabled={index === shared.length - 1} aria-label="Move down" title="Move down" className="flex h-4 w-5 items-center justify-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent"><ArrowDown className="h-3 w-3" /></button></form>
+                    </div>
+                  )}
+                  <Button type="button" variant="plan" size="xs" className="bg-red-600 text-white hover:bg-red-700" title="Claim it and start it now" onClick={async () => { const data = new FormData(); data.set("id", item.id); await claimPriorityPlanItem(data); setStartingToday(item); }}><Play className="h-3 w-3" /> Today</Button>
+                  <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="outline" size="xs" pendingLabel="…" title="Add to my next shift plan"><CalendarClock className="h-3 w-3" /> Next plan</SubmitButton></form>
                   {isCurrentUserAdmin && <Button type="button" variant="ghost" size="xs" onClick={() => { setEditingId(item.id); setEditError(null); }}>Edit</Button>}
                   <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}"?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
                 </div>
@@ -227,6 +243,16 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
         </div>
       )}
       </div>
+      {startingToday && (
+        <PlanPriorityStartForm
+          planItem={startingToday}
+          schools={schools}
+          taskCategories={taskCategories}
+          generalTaskCategories={generalTaskCategories}
+          resolvePriorityPlanItem={resolvePriorityPlanItem}
+          onClose={() => setStartingToday(null)}
+        />
+      )}
     </div>
   );
 }

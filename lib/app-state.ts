@@ -231,6 +231,8 @@ export interface PlanItem {
    *  is kept (not deleted) so it can still show up as "completed
    *  today" on Overview, unlike a resolved task/priority. */
   completedAt?: string;
+  /** kind:"priority" only -- position in Task Priorities set by the admins (0 = top). */
+  sortOrder?: number;
 }
 
 /* A VA's short explanation attached to one of their own tasks or

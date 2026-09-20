@@ -368,6 +368,7 @@ type PlanItemRow = {
   suggested_file_name: string | null;
   note_id: string | null;
   completed_at: string | null;
+  sort_order: number | null;
 };
 
 function mapPlanItemRow(r: PlanItemRow): PlanItem {
@@ -386,6 +387,7 @@ function mapPlanItemRow(r: PlanItemRow): PlanItem {
     suggestedFileName: r.suggested_file_name ?? undefined,
     noteId: r.note_id ?? undefined,
     completedAt: r.completed_at ?? undefined,
+    sortOrder: r.sort_order ?? undefined,
   };
 }
 
@@ -632,7 +634,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at, status_changed_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
-    supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at").order("created_at"),
+    supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at, sort_order").order("created_at"),
     supabase.from("work_notes").select("item_key, va_name, note, updated_at"),
   ]);
 

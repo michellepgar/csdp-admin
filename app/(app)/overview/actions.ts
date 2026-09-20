@@ -6,6 +6,7 @@ import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { isAdmin } from "@/lib/app-state";
 import { diffPlanSelection } from "@/lib/shared-task-files";
 import { MAX_WORK_NOTE, parseNoteKey } from "@/lib/work-notes";
+import { comparePriorities, movePriorityId } from "@/lib/plan-order";
 
 type PlanActionResult = { error: string | null };
 
@@ -248,6 +249,46 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
     // same person assigned doesn't re-notify them.
     if (existing && assignedTo && assignedTo !== existing.va_name && assignedTo !== me.name) {
       await notifyPriorityAssigned(supabase, assignedTo, me.name, label);
+    }
+    revalidatePath("/overview");
+  });
+}
+
+/* Admins move an unassigned priority one step up or down in Task
+   Priorities. Every unassigned priority is renumbered 0..n in its current
+   order first, so priorities that were never ordered get a stable place. */
+export async function movePriorityPlanItem(formData: FormData): Promise<PlanActionResult> {
+  const id = formData.get("id") as string;
+  const direction = formData.get("direction") === "up" ? "up" : "down";
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const shared = (state.planItems || []).filter((p) => p.kind === "priority" && !p.vaName);
+      const ids = movePriorityId(shared, id, direction);
+      if (!ids) return;
+      ids.forEach((itemId, index) => {
+        const item = shared.find((p) => p.id === itemId);
+        if (item) item.sortOrder = index;
+      });
+    });
+    revalidatePath("/overview");
+    return { error: null };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase } = await requireAdmin();
+    const { data, error } = await supabase
+      .from("plan_items")
+      .select("id, created_at, sort_order")
+      .eq("kind", "priority")
+      .is("va_name", null);
+    orThrow(error);
+    const shared = (data || []).map((r) => ({ id: r.id, kind: "priority" as const, label: "", createdBy: "", createdAt: r.created_at, sortOrder: r.sort_order ?? undefined }));
+    const ids = movePriorityId(shared.sort(comparePriorities), id, direction);
+    if (!ids) return;
+    for (const [index, itemId] of ids.entries()) {
+      const { error: updateError } = await supabase.from("plan_items").update({ sort_order: index }).eq("id", itemId);
+      orThrow(updateError);
     }
     revalidatePath("/overview");
   });

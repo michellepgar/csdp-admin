@@ -557,8 +557,15 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   const isDemo = (await cookies()).get("demo-mode")?.value === "1";
   if (isDemo) return getDemoState();
 
-  const supabase = await createClient();
+  return loadAppState(await createClient());
+});
 
+type DbClient = Awaited<ReturnType<typeof createClient>>;
+
+/* The actual read, with the database connection passed in -- so the
+   automatic nightly backup (lib/automatic-backup.ts) can run the exact
+   same load with the service-key connection when no one is signed in. */
+export async function loadAppState(supabase: DbClient): Promise<AppState | null> {
   const [
     blobResult,
     vasResult,
@@ -836,4 +843,4 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   }
 
   return state;
-});
+}

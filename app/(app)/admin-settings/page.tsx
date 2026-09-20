@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { isDemoMode } from "@/lib/demo-session";
+import { missingBackupEnv } from "@/lib/automatic-backup";
+import { BACKUP_BUCKET, demoBackupFiles, isBackupFileName } from "@/lib/backup-schedule";
+import { AutomaticBackups, type BackupFile } from "@/components/automatic-backups";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
@@ -7,7 +11,7 @@ import { PageBody } from "@/components/page-body";
 import { DownloadBackupButton } from "@/components/download-backup-button";
 import { ExportAllSchoolsButton } from "@/components/export-all-schools-button";
 import { SubmitButton } from "@/components/submit-button";
-import { restoreBackup, resetAllTasks } from "./actions";
+import { restoreBackup, resetAllTasks, backUpNow, getBackupDownloadUrl } from "./actions";
 
 export default async function AdminSettingsPage() {
   const user = await getCurrentUser();
@@ -19,10 +23,31 @@ export default async function AdminSettingsPage() {
   const me = findVaByEmail(state, user.email);
   if (!me || !isAdmin(me)) redirect("/overview");
 
+  /* The automatic backups, newest first. Listed under the admin's own
+     session (the storage policy allows admins only). The demo has no
+     storage, so it shows three sample rows to illustrate the panel. */
+  const demo = await isDemoMode();
+  let backupFiles: BackupFile[] = [];
+  if (demo) {
+    backupFiles = demoBackupFiles();
+  } else {
+    const supabase = await createClient();
+    const { data } = await supabase.storage.from(BACKUP_BUCKET).list("", { limit: 60, sortBy: { column: "name", order: "desc" } });
+    backupFiles = (data ?? [])
+      .filter((file) => isBackupFileName(file.name))
+      .map((file) => ({
+        name: file.name,
+        size: Number((file.metadata as { size?: number } | null)?.size ?? 0),
+        updatedAt: file.updated_at ?? file.created_at ?? new Date().toISOString(),
+      }));
+  }
+
   return (
     <div>
       <PageHeader title="Backup & School Year" />
       <PageBody gap={8}>
+      <AutomaticBackups files={backupFiles} missingEnv={missingBackupEnv()} demo={demo} backUpNow={backUpNow} getDownloadUrl={getBackupDownloadUrl} />
+
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="font-semibold">Backup &amp; Restore</h2>
         <p className="text-sm text-muted-foreground">

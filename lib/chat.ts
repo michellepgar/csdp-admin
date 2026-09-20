@@ -34,7 +34,7 @@ export interface ChatMessage {
    checks just give a friendly message before uploading. */
 export const CHAT_ATTACHMENT_BUCKET = "chat-attachments";
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-export const ATTACHMENT_RETENTION_DAYS = 30;
+export const ATTACHMENT_RETENTION_DAYS = 14;
 
 const EXTENSION_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -61,6 +61,14 @@ export function attachmentTypeOf(name: string, mime: string): string {
   if (mime && ALLOWED_ATTACHMENT_TYPES.includes(mime)) return mime;
   const extension = name.split(".").pop()?.toLowerCase() ?? "";
   return EXTENSION_TYPES[extension] ?? mime;
+}
+
+/* Whole days left before an attachment sent at `sentAt` is deleted
+   (0 = it goes today, negative = already past). Rounded UP, so a file
+   sent 13 days and 2 hours ago still reads "1 day left". */
+export function attachmentDaysLeft(sentAt: string, now: number = Date.now()): number {
+  const deletesAt = new Date(sentAt).getTime() + ATTACHMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return Math.ceil((deletesAt - now) / (24 * 60 * 60 * 1000));
 }
 
 export function isImageType(type: string): boolean {

@@ -255,7 +255,7 @@ export function FloatingChat({ me, people, canAddPriority }: { me: string; peopl
                       {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-[11px] font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
                       {m.attachment && (
                         <div className={m.body ? "mb-1" : undefined}>
-                          <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} compact messageId={m.id} onChanged={(updated) => mergeIn([updated])} />
+                          <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} compact messageId={m.id} onChanged={(updated) => mergeIn([updated])} sentAt={m.createdAt} />
                         </div>
                       )}
                       {m.body && <div className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</div>}

@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
+import { isDemoMode } from "@/lib/demo-session";
+import { runAutomaticBackup, missingBackupEnv } from "@/lib/automatic-backup";
+import { BACKUP_BUCKET, isBackupFileName } from "@/lib/backup-schedule";
 import {
   findVaByEmail,
   isAdmin,
@@ -403,9 +406,16 @@ export async function restoreBackup(formData: FormData) {
     orThrow(insNotesError);
   }
 
-  const { error: delPrivateError } = await supabase.from("private_notes").delete().neq("id", "");
-  orThrow(delPrivateError);
-  if (backup.privateNotes!.length) {
+  /* An automatic nightly backup deliberately leaves private notes out
+     (see lib/automatic-backup.ts), so restoring one must NOT clear the
+     private notes people have now -- only a manual backup, which does
+     carry them, replaces them. */
+  const keepPrivateNotes = !!backup.backupMeta?.excludes?.includes("privateNotes");
+  if (!keepPrivateNotes) {
+    const { error: delPrivateError } = await supabase.from("private_notes").delete().neq("id", "");
+    orThrow(delPrivateError);
+  }
+  if (!keepPrivateNotes && backup.privateNotes!.length) {
     const privateRows = backup.privateNotes!.map((n) => ({
       id: n.id,
       text: n.text,
@@ -602,4 +612,40 @@ export async function resetAllTasks(formData: FormData) {
   orThrow(error);
 
   revalidatePath("/", "layout");
+}
+
+/* --- Automatic backups (see lib/automatic-backup.ts) --------------------
+   Both actions return plain data instead of throwing, so the page can show
+   a real reason (a thrown error is redacted in production). */
+
+/* Runs the same backup the nightly job runs, right now. Admin only. */
+export async function backUpNow(): Promise<{ error: string | null }> {
+  if (await isDemoMode()) return { error: "Automatic backups aren't available in the demo." };
+  try {
+    await requireAdminAndState();
+  } catch {
+    return { error: "Only admins can run a backup." };
+  }
+  const missing = missingBackupEnv();
+  if (missing.includes("SUPABASE_SERVICE_ROLE_KEY")) return { error: "The backup isn't set up yet -- see the setup steps on this page." };
+  const result = await runAutomaticBackup();
+  if (!result.ok) return { error: result.error };
+  revalidatePath("/admin-settings");
+  return { error: null };
+}
+
+/* A short-lived link that saves one automatic backup to the admin's
+   device. Read under the admin's own session, so the storage policy (admins
+   only) is what decides. */
+export async function getBackupDownloadUrl(name: string): Promise<{ url: string | null; error: string | null }> {
+  if (await isDemoMode()) return { url: null, error: "Downloads aren't available in the demo." };
+  if (!isBackupFileName(name)) return { url: null, error: "That isn't a backup file." };
+  try {
+    const { supabase } = await requireAdminAndState();
+    const { data, error } = await supabase.storage.from(BACKUP_BUCKET).createSignedUrl(name, 120, { download: `csdp-tracker-backup-${name}` });
+    if (error || !data) return { url: null, error: "Couldn't prepare that download." };
+    return { url: data.signedUrl, error: null };
+  } catch {
+    return { url: null, error: "Only admins can download backups." };
+  }
 }

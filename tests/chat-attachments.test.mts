@@ -47,3 +47,14 @@ test("a message list preview shows the text, or what was attached when there is 
   assert.equal(messagePreview({ ...base, attachment: { path: "p", name: "pic.jpg", type: "image/jpeg", size: 1 } }), "Sent a photo");
   assert.equal(messagePreview({ ...base, attachment: { path: "p", name: "form.pdf", type: "application/pdf", size: 1 } }), "Sent form.pdf");
 });
+
+test("the days-left countdown rounds up and reaches zero on the last day", async () => {
+  const { attachmentDaysLeft, ATTACHMENT_RETENTION_DAYS } = await import("../lib/chat.ts");
+  assert.equal(ATTACHMENT_RETENTION_DAYS, 14);
+  const sent = "2026-09-01T00:00:00Z";
+  const at = (hoursAfter: number) => new Date(sent).getTime() + hoursAfter * 3600_000;
+  assert.equal(attachmentDaysLeft(sent, at(0)), 14);
+  assert.equal(attachmentDaysLeft(sent, at(24 * 13 + 2)), 1);
+  assert.equal(attachmentDaysLeft(sent, at(24 * 14)), 0);
+  assert.ok(attachmentDaysLeft(sent, at(24 * 15)) < 0);
+});

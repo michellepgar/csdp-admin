@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FileSpreadsheet, FileText, ImageIcon, Paperclip, Trash2, X } from "lucide-react";
+import { Clock, Download, FileSpreadsheet, FileText, ImageIcon, Paperclip, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getChatAttachmentDownloadUrl, getChatAttachmentUrls, removeChatAttachment, sendChatMessage } from "@/app/(app)/messages/actions";
 import { ImageLightbox } from "@/components/image-lightbox";
 import {
   ALLOWED_ATTACHMENT_TYPES,
   ATTACHMENT_RETENTION_DAYS,
+  attachmentDaysLeft,
   attachmentTypeOf,
   CHAT_ATTACHMENT_BUCKET,
   formatFileSize,
@@ -173,6 +174,29 @@ async function downloadAttachment(attachment: ChatAttachment): Promise<string | 
   return null;
 }
 
+/* How long the file has left, so nobody is surprised when it disappears:
+   calm while there's time, amber in the last three days, red on the last
+   day. The reminder to download what you want to keep. */
+function ExpiryPill({ sentAt, mine }: { sentAt: string; mine: boolean }) {
+  const days = attachmentDaysLeft(sentAt);
+  if (days < 0) return null;
+  const label = days === 0 ? "Deletes today" : days === 1 ? "Deletes tomorrow" : `Deletes in ${days} days`;
+  const tone =
+    days <= 1
+      ? "bg-red-100 text-red-800 dark:bg-red-500/25 dark:text-red-200"
+      : days <= 3
+        ? "bg-amber-100 text-amber-800 dark:bg-amber-500/25 dark:text-amber-200"
+        : mine
+          ? "bg-primary-foreground/20 text-primary-foreground"
+          : "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold", tone)} title="Download it to keep it -- files are deleted automatically">
+      <Clock className="h-3 w-3" />
+      {label}
+    </span>
+  );
+}
+
 /* An attachment inside a message bubble: a photo thumbnail (click to
    enlarge, with a download button in the popup) or a file card with a
    Download button. */
@@ -183,6 +207,7 @@ export function MessageAttachment({
   compact,
   messageId,
   onChanged,
+  sentAt,
 }: {
   attachment: ChatAttachment;
   url?: string;
@@ -191,6 +216,8 @@ export function MessageAttachment({
   /** With onChanged, lets the sender delete the file early. */
   messageId?: string;
   onChanged?: (message: ChatMessage) => void;
+  /** When the message was sent -- drives the "Deletes in N days" reminder. */
+  sentAt?: string;
 }) {
   const [zoomed, setZoomed] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -247,7 +274,8 @@ export function MessageAttachment({
           onClick={() => setZoomed(true)}
           className={cn("cursor-zoom-in rounded-lg object-cover", compact ? "max-h-40 max-w-full" : "max-h-56 max-w-full")}
         />
-        <div className="mt-1 flex items-center gap-1">
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          {sentAt && <ExpiryPill sentAt={sentAt} mine={mine} />}
           <button type="button" onClick={() => void download()} disabled={downloading} className={cn("flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] disabled:opacity-50", mine ? "hover:bg-primary-foreground/20" : "hover:bg-muted")}>
             <Download className="h-3.5 w-3.5" /> Download
           </button>
@@ -266,6 +294,11 @@ export function MessageAttachment({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-xs font-medium">{attachment.name}</span>
           <span className={cn("block text-[11px]", mine ? "text-primary-foreground/70" : "text-muted-foreground")}>{formatFileSize(attachment.size)}</span>
+          {sentAt && (
+            <span className="mt-1 block">
+              <ExpiryPill sentAt={sentAt} mine={mine} />
+            </span>
+          )}
         </span>
         <button
           type="button"

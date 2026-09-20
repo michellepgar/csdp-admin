@@ -255,7 +255,7 @@ export function ChatView({ me, people, initialRoom, canAddPriority }: { me: stri
                     {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-xs font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
                     {m.attachment && (
                       <div className={m.body ? "mb-1.5" : undefined}>
-                        <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} messageId={m.id} onChanged={(updated) => mergeIn([updated])} />
+                        <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} messageId={m.id} onChanged={(updated) => mergeIn([updated])} sentAt={m.createdAt} />
                       </div>
                     )}
                     {m.body && <div className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</div>}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ExternalLink, MessageCircle, Send, Users, X } from "lucide-react";
 import { fetchChatMessages, markChatRead } from "@/app/(app)/messages/actions";
+import { ChatMessageActions } from "@/components/chat-message-actions";
 import { AttachButton, fileFromClipboard, MessageAttachment, PendingAttachment, sendChat, useAttachmentUrls } from "@/components/chat-attachments";
 import { Avatar, dayKey, dayLabel, fmtTime, renderBody, STATUS_LABEL, useOnlineStatus } from "@/components/chat-parts";
 import type { ChatPerson } from "@/components/chat-view";
@@ -22,7 +23,7 @@ const DEMO_POLL_MS = 3_000;
    the Messages nav broadcasts ("chat:summary", "chat:message") and adds
    one of its own, "chat:open", which a new-message pop-up uses to open
    this window straight onto the chat that pinged you. */
-export function FloatingChat({ me, people }: { me: string; people: ChatPerson[] }) {
+export function FloatingChat({ me, people, canAddPriority }: { me: string; people: ChatPerson[]; canAddPriority: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [room, setRoom] = useState(TEAM_ROOM);
@@ -249,7 +250,8 @@ export function FloatingChat({ me, people }: { me: string; people: ChatPerson[] 
                     </div>
                   )}
                   <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
-                    <div className={cn("max-w-[85%] rounded-2xl px-2.5 py-1.5 text-xs shadow-sm", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
+                    <div className={cn("relative max-w-[85%] rounded-2xl px-2.5 py-1.5 text-xs shadow-sm", m.body && "pr-6", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
+                      <ChatMessageActions message={m} canAddPriority={canAddPriority} mine={mine} compact />
                       {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-[11px] font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
                       {m.attachment && (
                         <div className={m.body ? "mb-1" : undefined}>

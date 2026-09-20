@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Send, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchChatMessages, markChatRead } from "@/app/(app)/messages/actions";
+import { ChatMessageActions } from "@/components/chat-message-actions";
 import { AttachButton, attachmentHint, fileFromClipboard, MessageAttachment, PendingAttachment, sendChat, useAttachmentUrls } from "@/components/chat-attachments";
 import { attachmentTypeOf, canAccessRoom, dmRoom, MAX_CHAT_BODY, messagePreview, TEAM_ROOM, validateAttachment, type ChatMessage, type ChatSummary } from "@/lib/chat";
 import { Avatar, dayKey, dayLabel, fmtTime, renderBody, STATUS_LABEL, useOnlineStatus } from "@/components/chat-parts";
@@ -25,7 +26,7 @@ const DEMO_POLL_MS = 3_000;
    (components/messages-nav.tsx), which watches for new messages and
    broadcasts them as window events -- this component only listens, so
    there's a single realtime subscription per tab. */
-export function ChatView({ me, people, initialRoom }: { me: string; people: ChatPerson[]; initialRoom?: string }) {
+export function ChatView({ me, people, initialRoom, canAddPriority }: { me: string; people: ChatPerson[]; initialRoom?: string; canAddPriority: boolean }) {
   const startRoom = initialRoom && canAccessRoom(initialRoom, me) ? initialRoom : TEAM_ROOM;
   const [room, setRoom] = useState(startRoom);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -249,7 +250,8 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
                 )}
                 <div className={cn("flex items-end gap-2", mine ? "justify-end" : "justify-start")}>
                   {!mine && <Avatar name={m.senderName} color={colorByName.get(m.senderName)} className="h-7 w-7" />}
-                  <div className={cn("max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
+                  <div className={cn("relative max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm", m.body && "pr-6", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
+                    <ChatMessageActions message={m} canAddPriority={canAddPriority} mine={mine} />
                     {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-xs font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
                     {m.attachment && (
                       <div className={m.body ? "mb-1.5" : undefined}>

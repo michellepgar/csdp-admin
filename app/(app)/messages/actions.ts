@@ -1,6 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
+import { addGeneralNote } from "@/app/(app)/notes/actions";
+import { addPriority } from "@/app/(app)/overview/actions";
 import { isDemoMode, demoMutate, getDemoState } from "@/lib/demo-session";
 import {
   ATTACHMENT_RETENTION_DAYS,
@@ -268,5 +271,63 @@ export async function removeChatAttachment(messageId: string): Promise<{ error: 
     return { error: null, message: data ? fromRow(data as MessageRow) : undefined };
   } catch {
     return { error: "Couldn't delete that file. Try again." };
+  }
+}
+
+/* Send a chat message's text on to General Notes or Task Priorities, so
+   nobody retypes it. The text is read from the message itself on the
+   server (through the same access rules as the chat), never taken from
+   the browser, so a note's "From <name>" line can't be forged. Photos and
+   files aren't copied -- only text. */
+async function readOwnAccessibleMessage(messageId: string): Promise<{ message?: ChatMessage; error?: string }> {
+  if (await isDemoMode()) {
+    const state = await getDemoState();
+    const found = (state.chatMessages || []).find((m) => m.id === messageId);
+    return found ? { message: found } : { error: "That message isn't available." };
+  }
+  const { supabase } = await requireTeamMember();
+  const { data } = await supabase.from("chat_messages").select(MESSAGE_COLUMNS).eq("id", messageId).maybeSingle();
+  return data ? { message: fromRow(data as MessageRow) } : { error: "That message isn't available." };
+}
+
+function escapeChatHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export async function addChatMessageToGeneralNotes(messageId: string): Promise<{ error: string | null }> {
+  try {
+    const { message, error } = await readOwnAccessibleMessage(messageId);
+    if (!message) return { error: error ?? "That message isn't available." };
+    if (!message.body.trim()) return { error: "Only text can be added to General Notes." };
+
+    const when = new Date(message.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
+    const where = message.room === "team" ? "Team chat" : "chat";
+    const html = `${escapeChatHtml(message.body.trim()).replace(/\n/g, "<br>")}<br><br><i>From ${escapeChatHtml(message.senderName)} in ${where} · ${when}</i>`;
+
+    const formData = new FormData();
+    formData.set("text", html);
+    await addGeneralNote(formData);
+    revalidatePath("/notes");
+    return { error: null };
+  } catch {
+    return { error: "Couldn't add that to General Notes. Try again." };
+  }
+}
+
+export async function addChatMessageToPriorities(messageId: string): Promise<{ error: string | null }> {
+  try {
+    const { message, error } = await readOwnAccessibleMessage(messageId);
+    if (!message) return { error: error ?? "That message isn't available." };
+    const label = message.body.replace(/\s+/g, " ").trim().slice(0, 500);
+    if (!label) return { error: "Only text can be added to Task Priorities." };
+
+    const formData = new FormData();
+    formData.set("label", label);
+    const result = await addPriority(formData);
+    if (result.error) return { error: result.error === "Not authorized" ? "Only admins can add Task Priorities." : result.error };
+    revalidatePath("/overview");
+    return { error: null };
+  } catch {
+    return { error: "Couldn't add that to Task Priorities. Try again." };
   }
 }

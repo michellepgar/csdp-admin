@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { findVaByEmail } from "@/lib/app-state";
+import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { ChatView } from "@/components/chat-view";
@@ -26,7 +26,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
     <div>
       <PageHeader title="Messages" />
       <PageBody>
-        <ChatView me={me.name} people={people} initialRoom={room} />
+        <ChatView me={me.name} people={people} initialRoom={room} canAddPriority={isAdmin(me)} />
       </PageBody>
     </div>
   );

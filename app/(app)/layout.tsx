@@ -128,6 +128,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     </SidebarShell>
     <FloatingChat
       me={me.name}
+      canAddPriority={isAdmin(me)}
       people={state.vas.filter((v) => v.name !== me.name).sort((a, b) => a.name.localeCompare(b.name)).map((v) => ({ id: v.id, name: v.name, color: v.color }))}
     />
     </>

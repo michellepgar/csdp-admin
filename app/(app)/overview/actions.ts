@@ -420,6 +420,9 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
 export async function startMyDay(): Promise<PlanActionResult> {
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      const doneIds = new Set((state.planItems || []).filter((p) => p.kind !== "task" && p.vaName === "Jane" && p.completedAt).map((p) => p.id));
+      state.planItems = (state.planItems || []).filter((p) => !doneIds.has(p.id));
+      state.workNotes = (state.workNotes || []).filter((n) => !(n.vaName === "Jane" && doneIds.has(n.itemKey.replace(/^p:/, ""))));
       const existingTaskRefs = new Set(
         (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane").map((p) => p.taskFileCategoryId || p.generalTaskId)
       );
@@ -450,6 +453,24 @@ export async function startMyDay(): Promise<PlanActionResult> {
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
+
+    // A fresh day: reminders already checked off (shown as "✓ Reviewed")
+    // are done with -- clear them, and their notes, from Today.
+    const { data: doneReminders, error: doneError } = await supabase
+      .from("plan_items")
+      .select("id")
+      .eq("va_name", me.name)
+      .neq("kind", "task")
+      .not("completed_at", "is", null);
+    orThrow(doneError);
+    if ((doneReminders || []).length > 0) {
+      const ids = doneReminders!.map((r) => r.id);
+      const { error: notesError } = await supabase.from("work_notes").delete().eq("va_name", me.name).in("item_key", ids.map((id) => `p:${id}`));
+      orThrow(notesError);
+      const { error: deleteError } = await supabase.from("plan_items").delete().in("id", ids);
+      orThrow(deleteError);
+      revalidatePath("/overview");
+    }
 
     const { data: assignments, error: assignmentsError } = await supabase
       .from("task_file_categories")

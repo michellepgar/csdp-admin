@@ -561,10 +561,10 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
       if (taskFileCategoryId) {
         const assignment = state.schoolData[schoolId]?.taskFiles?.flatMap((f) => f.categories).find((c) => c.id === taskFileCategoryId);
         if (assignment) {
-          if (!assignment.vaAssigned.includes("Jane")) assignment.vaAssigned.push("Jane");
+          assignment.vaAssigned = ["Jane"];
           assignment.status = assignment.status === "Completed" ? "Review" : "In Progress";
           const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskFileCategoryId);
-          if (task) { if (!task.vaAssigned.includes("Jane")) task.vaAssigned.push("Jane"); task.status = assignment.status; }
+          if (task) { task.vaAssigned = ["Jane"]; task.status = assignment.status; }
         }
       } else if (generalTaskId) {
         const task = (state.generalTasks || []).find((t) => t.id === generalTaskId);
@@ -592,8 +592,8 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
         return;
       }
       const nextStatus = task.status === "Completed" ? "Review" : "In Progress";
-      const nextVaAssigned = task.va_assigned.includes(me.name) ? task.va_assigned : [...task.va_assigned, me.name];
-      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskFileCategoryId, p_patch: { status: nextStatus, va_assigned: nextVaAssigned } });
+      // One VA per file: starting it puts you on it in place of whoever was.
+      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskFileCategoryId, p_patch: { status: nextStatus, va_assigned: [me.name] } });
       orThrow(error);
       await supabase.from("plan_items").delete().eq("id", id);
       revalidatePath("/overview");
@@ -844,10 +844,10 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
       const existingFile = (sd.taskFiles || []).find((f) => f.fileName.trim().toLowerCase() === normalizedFileName && f.categories.some((c) => c.categoryId === categoryId));
       const existingAssignment = existingFile?.categories.find((c) => c.categoryId === categoryId);
       if (existingAssignment) {
-        if (!existingAssignment.vaAssigned.includes("Jane")) existingAssignment.vaAssigned.push("Jane");
+        existingAssignment.vaAssigned = ["Jane"];
         existingAssignment.status = existingAssignment.status === "Completed" ? "Review" : "In Progress";
         const task = sd.tasks?.find((t) => t.id === existingAssignment.id);
-        if (task) { if (!task.vaAssigned.includes("Jane")) task.vaAssigned.push("Jane"); task.status = existingAssignment.status; }
+        if (task) { task.vaAssigned = ["Jane"]; task.status = existingAssignment.status; }
       } else {
         const fileId = `demo-priority-file-${Date.now()}`;
         const category = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
@@ -877,9 +877,8 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
 
     if (existingAssignment) {
       const nextStatus = existingAssignment.status === "Completed" ? "Review" : "In Progress";
-      const vaAssigned: string[] = existingAssignment.va_assigned || [];
-      const nextVaAssigned = vaAssigned.includes(me.name) ? vaAssigned : [...vaAssigned, me.name];
-      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: existingAssignment.id, p_patch: { status: nextStatus, va_assigned: nextVaAssigned } });
+      // One VA per file: starting it puts you on it in place of whoever was.
+      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: existingAssignment.id, p_patch: { status: nextStatus, va_assigned: [me.name] } });
       orThrow(error);
     } else {
       const fileId = crypto.randomUUID();

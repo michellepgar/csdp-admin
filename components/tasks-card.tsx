@@ -110,7 +110,17 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
           <form action={signTask} className="shrink-0">
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="taskId" value={assignment.id} />
-            <SubmitButton pendingLabel="…" variant="outline" size="xs">+ Sign</SubmitButton>
+            <SubmitButton
+              pendingLabel="…"
+              variant="outline"
+              size="xs"
+              title={assignment.vaAssigned.length > 0 ? "Take this file over from " + assignment.vaAssigned.join(", ") : undefined}
+              onClick={(event) => {
+                if (assignment.vaAssigned.length > 0 && !window.confirm("Take this file over from " + assignment.vaAssigned.join(", ") + "? Your name replaces theirs.")) event.preventDefault();
+              }}
+            >
+              {assignment.vaAssigned.length > 0 ? "Take over" : "+ Sign"}
+            </SubmitButton>
           </form>
         )}
         {otherSigners.map(signerChip)}

@@ -400,10 +400,11 @@ export async function signTask(formData: FormData) {
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      // One VA per file: signing replaces whoever was on it.
       const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
-      if (task && !task.vaAssigned.includes("Jane")) task.vaAssigned.push("Jane");
+      if (task) task.vaAssigned = ["Jane"];
       const assignment = findDemoAssignment(state, schoolId, taskId);
-      if (assignment && !assignment.vaAssigned.includes("Jane")) assignment.vaAssigned.push("Jane");
+      if (assignment) assignment.vaAssigned = ["Jane"];
     });
     revalidateSchool(schoolId);
     return;
@@ -412,9 +413,10 @@ export async function signTask(formData: FormData) {
   const { supabase, me } = await requireTeamMember();
 
   const { data: task } = await supabase.from("task_file_categories").select("va_assigned, task_files!inner(school_id)").eq("id", taskId).eq("task_files.school_id", schoolId).maybeSingle();
-  if (!task || task.va_assigned.includes(me.name)) return;
+  // One VA per file: signing takes over from whoever was on it.
+  if (!task || (task.va_assigned.length === 1 && task.va_assigned[0] === me.name)) return;
 
-  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: [...task.va_assigned, me.name] } });
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: [me.name] } });
   orThrow(error);
   revalidateSchool(schoolId);
 }

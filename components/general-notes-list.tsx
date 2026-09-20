@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ZoomableHtml } from "@/components/image-lightbox";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
@@ -106,10 +107,7 @@ function GeneralNoteRow({
               before it's ever stored -- see notes/actions.ts's
               addGeneralNote/updateGeneralNote -- so this is safe to
               render as-is. */}
-          <div
-            className="overflow-x-auto text-sm [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
-            dangerouslySetInnerHTML={{ __html: n.text }}
-          />
+          <ZoomableHtml html={n.text} className="note-html overflow-x-auto text-sm [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded" />
           <p className="mt-1 text-xs text-muted-foreground">
             {n.author} · {formatDateTime(n.createdAt)}
             {n.urgency === "Urgent" && ackBy.length > 0 && ` · Seen by ${ackBy.join(", ")}`}

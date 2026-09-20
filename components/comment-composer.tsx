@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MentionAutocomplete } from "@/components/mention-autocomplete";
 import { SubmitButton } from "@/components/submit-button";
 import type { Va } from "@/lib/app-state";
+import { shrinkImageToDataUrl } from "@/lib/shrink-image";
 
 // Same rule as sticky-note-composer.tsx's hasContent -- a comment that's
 // nothing but a pasted screenshot has no innerText of its own.
@@ -142,12 +143,13 @@ export function CommentComposer({
     const selection = window.getSelection();
     const savedRange = selection && selection.rangeCount > 0 && editor?.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== "string" || !editor) return;
+    // Shrunk first (see lib/shrink-image.ts) -- a raw screenshot or phone
+    // photo would otherwise be saved into the note at full size.
+    void shrinkImageToDataUrl(file).then((dataUrl) => {
+      if (!editor) return;
       editor.focus();
       const img = document.createElement("img");
-      img.src = reader.result;
+      img.src = dataUrl;
       const range = savedRange ?? document.createRange();
       if (!savedRange) {
         range.selectNodeContents(editor);
@@ -161,8 +163,7 @@ export function CommentComposer({
       sel?.removeAllRanges();
       sel?.addRange(range);
       editor.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-    reader.readAsDataURL(file);
+    });
   }
 
   return (
@@ -178,7 +179,7 @@ export function CommentComposer({
           onKeyUp={detectMention}
           onClick={detectMention}
           onBlur={() => setMentionQuery(null)}
-          className="min-h-[2.25rem] w-full overflow-x-auto rounded-md border px-1.5 py-1 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
+          className="note-html min-h-[2.25rem] w-full overflow-x-auto rounded-md border px-1.5 py-1 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
         />
         <MentionAutocomplete query={mentionQuery} anchorRect={mentionAnchorRect} vas={vas} onSelect={selectMention} onClose={() => setMentionQuery(null)} />
       </div>

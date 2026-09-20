@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { MessageCircle } from "lucide-react";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { CommentComposer } from "@/components/comment-composer";
@@ -119,7 +120,7 @@ function CommentRow({
           )}
         </div>
         <div
-          className="overflow-x-auto whitespace-pre-wrap break-words text-sm [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:max-h-[200px] [&_img]:max-w-[240px] [&_img]:cursor-zoom-in [&_img]:rounded [&_img]:object-contain"
+          className="note-html overflow-x-auto whitespace-pre-wrap break-words text-sm [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:max-h-[200px] [&_img]:max-w-[240px] [&_img]:cursor-zoom-in [&_img]:rounded [&_img]:object-contain"
           dangerouslySetInnerHTML={{ __html: comment.text }}
           onClick={(e) => {
             const target = e.target as HTMLElement;
@@ -127,24 +128,6 @@ function CommentRow({
           }}
         />
       </div>
-    </div>
-  );
-}
-
-/* A full-screen dim overlay showing one image at natural size --
-   dismissed by clicking anywhere on it. This is a click-delegation
-   lightbox, not a real link around the image, because
-   lib/sanitize-note-html.ts's allowlist deliberately blocks a data:
-   scheme on <a href> (only <img src> is allowed to use data:) -- a
-   pasted screenshot has no other URL to link to. */
-function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/80 p-4"
-      onClick={onClose}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI, not something next/image can optimize. */}
-      <img src={src} alt="" className="max-h-full max-w-full rounded object-contain" />
     </div>
   );
 }

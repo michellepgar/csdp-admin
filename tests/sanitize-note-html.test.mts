@@ -51,3 +51,21 @@ test("omitting the roster entirely leaves @words untouched (backward compatible)
   const result = sanitizeNoteHtml("cc @faith");
   assert.equal(result, "cc @faith");
 });
+
+test("pasted table sizing (width/height/font-size) is stripped but colors and borders are kept", () => {
+  const html =
+    '<table width="1800" style="width:1800px;height:900px;border:1px solid #000"><tbody><tr height="40">' +
+    '<td width="600" style="width:600px;font-size:11pt;background-color:#ffff00;text-align:right">A</td></tr></tbody></table>';
+  const out = sanitizeNoteHtml(html);
+  assert.ok(!/width/i.test(out), out);
+  assert.ok(!/height/i.test(out), out);
+  assert.ok(!/font-size/i.test(out), out);
+  assert.ok(out.includes("background-color:#ffff00"), out);
+  assert.ok(out.includes("text-align:right"), out);
+  assert.ok(out.includes("border:1px solid #000"), out);
+});
+
+test("an image keeps its own width and height", () => {
+  const out = sanitizeNoteHtml('<img src="data:image/png;base64,AAAA" width="120" height="80" style="width:120px">');
+  assert.ok(out.includes('width="120"'), out);
+});

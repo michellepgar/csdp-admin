@@ -73,6 +73,25 @@ const ALLOWED_STYLES = {
   },
 };
 
+/* A pasted spreadsheet range brings its own fixed sizing on every table
+   element: width/height attributes, and inline width/height/font-size.
+   Dropped here so the saved note carries none of it (the display CSS in
+   app/globals.css, .note-html, handles notes saved before this). Colors,
+   borders, alignment and everything else are kept. */
+const SIZING_STYLE = /^s*(width|min-width|max-width|height|min-height|max-height|font-size)s*:/i;
+
+function stripTableSizing(tagName: string, attribs: sanitizeHtml.Attributes): sanitizeHtml.Tag {
+  const next = { ...attribs };
+  delete next.width;
+  delete next.height;
+  if (next.style) {
+    const kept = next.style.split(";").filter((declaration) => declaration.trim() && !SIZING_STYLE.test(declaration));
+    if (kept.length > 0) next.style = kept.join(";");
+    else delete next.style;
+  }
+  return { tagName, attribs: next };
+}
+
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -135,6 +154,12 @@ export function sanitizeNoteHtml(html: string, teamRoster: { name: string; color
     allowedSchemesByTag: { img: ["data", "http", "https"] },
     transformTags: {
       a: sanitizeHtml.simpleTransform("a", { target: "_blank", rel: "noopener noreferrer" }),
+      table: stripTableSizing,
+      thead: stripTableSizing,
+      tbody: stripTableSizing,
+      tr: stripTableSizing,
+      td: stripTableSizing,
+      th: stripTableSizing,
     },
     // input[type=checkbox] and img are the void/self-closing tags this
     // composer (or a browser's own paste handling) ever inserts.

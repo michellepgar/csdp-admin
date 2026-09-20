@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { MessageCircle, X } from "lucide-react";
-import { getChatSummary } from "@/app/(app)/messages/actions";
+import { getChatSummary, purgeExpiredChatAttachments } from "@/app/(app)/messages/actions";
 import { createClient } from "@/lib/supabase/client";
 import { playChime, readSoundOn } from "@/lib/notification-sound";
 import { getToastRoot } from "@/lib/toast-root";
-import { getFloatingChatRoom, TEAM_ROOM, type ChatMessage, type ChatSummary } from "@/lib/chat";
+import { getFloatingChatRoom, messagePreview, TEAM_ROOM, type ChatMessage, type ChatSummary } from "@/lib/chat";
 import { cn } from "@/lib/utils";
 
 const REAL_POLL_MS = 20_000;
@@ -69,9 +69,23 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
     previousUnread.current = next;
 
     if (fresh.length > 0) {
-      setToasts((current) => [...fresh.map((m) => ({ key: m.id, room: m.room, senderName: m.senderName, body: m.body })), ...current].slice(0, 3));
+      setToasts((current) => [...fresh.map((m) => ({ key: m.id, room: m.room, senderName: m.senderName, body: messagePreview(m) })), ...current].slice(0, 3));
       if (readSoundOn()) playChime();
     }
+  }, []);
+
+  // Deletes attachments past their retention period -- quietly, at most
+  // about once a day per browser (the database only acts on files that
+  // are actually expired, so an extra call is harmless).
+  useEffect(() => {
+    try {
+      const last = Number(localStorage.getItem("chat-attachments-purged-at") || 0);
+      if (Date.now() - last < 20 * 60 * 60 * 1000) return;
+      localStorage.setItem("chat-attachments-purged-at", String(Date.now()));
+    } catch {
+      // No storage -- just run it.
+    }
+    void purgeExpiredChatAttachments();
   }, []);
 
   useEffect(() => {
@@ -91,10 +105,29 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
       const channel = supabase
         .channel("chat-messages")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
-          const row = payload.new as { id: string; room: string; sender_name: string; body: string; created_at: string };
+          const row = payload.new as {
+            id: string;
+            room: string;
+            sender_name: string;
+            body: string;
+            created_at: string;
+            attachment_path?: string | null;
+            attachment_name?: string | null;
+            attachment_type?: string | null;
+            attachment_size?: number | null;
+          };
           window.dispatchEvent(
             new CustomEvent("chat:message", {
-              detail: { id: row.id, room: row.room, senderName: row.sender_name, body: row.body, createdAt: row.created_at } satisfies ChatMessage,
+              detail: {
+                id: row.id,
+                room: row.room,
+                senderName: row.sender_name,
+                body: row.body,
+                createdAt: row.created_at,
+                attachment: row.attachment_path
+                  ? { path: row.attachment_path, name: row.attachment_name ?? "file", type: row.attachment_type ?? "", size: Number(row.attachment_size ?? 0) }
+                  : undefined,
+              } satisfies ChatMessage,
             }),
           );
           void refresh();

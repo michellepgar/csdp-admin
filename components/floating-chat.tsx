@@ -4,10 +4,11 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ExternalLink, MessageCircle, Send, Users, X } from "lucide-react";
-import { fetchChatMessages, markChatRead, sendChatMessage } from "@/app/(app)/messages/actions";
+import { fetchChatMessages, markChatRead } from "@/app/(app)/messages/actions";
+import { AttachButton, fileFromClipboard, MessageAttachment, PendingAttachment, sendChat, useAttachmentUrls } from "@/components/chat-attachments";
 import { Avatar, dayKey, dayLabel, fmtTime, renderBody, STATUS_LABEL, useOnlineStatus } from "@/components/chat-parts";
 import type { ChatPerson } from "@/components/chat-view";
-import { canAccessRoom, dmRoom, MAX_CHAT_BODY, setFloatingChatRoom, TEAM_ROOM, type ChatMessage, type ChatSummary } from "@/lib/chat";
+import { attachmentTypeOf, canAccessRoom, dmRoom, MAX_CHAT_BODY, setFloatingChatRoom, TEAM_ROOM, validateAttachment, type ChatMessage, type ChatSummary } from "@/lib/chat";
 import { cn } from "@/lib/utils";
 
 const ROOM_KEY = "floating-chat-room";
@@ -31,6 +32,7 @@ export function FloatingChat({ me, people }: { me: string; people: ChatPerson[] 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<ChatSummary | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const roomRef = useRef(room);
   const openRef = useRef(open);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -150,18 +152,32 @@ export function FloatingChat({ me, people }: { me: string; people: ChatPerson[] 
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, open, room]);
 
+  const attachmentUrls = useAttachmentUrls(messages);
+
+  function pickFile(file: File) {
+    const problem = validateAttachment(file.name, attachmentTypeOf(file.name, file.type), file.size);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(null);
+    setPendingFile(file);
+    composerRef.current?.focus();
+  }
+
   async function send() {
     const text = draft.trim();
-    if (!text || sending) return;
+    if ((!text && !pendingFile) || sending) return;
     setSending(true);
     setError(null);
-    const result = await sendChatMessage(room, text);
+    const result = await sendChat(room, text, pendingFile);
     setSending(false);
     if (result.error) {
       setError(result.error);
       return;
     }
     setDraft("");
+    setPendingFile(null);
     if (result.message) mergeIn([result.message]);
     composerRef.current?.focus();
   }
@@ -235,7 +251,12 @@ export function FloatingChat({ me, people }: { me: string; people: ChatPerson[] 
                   <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
                     <div className={cn("max-w-[85%] rounded-2xl px-2.5 py-1.5 text-xs shadow-sm", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
                       {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-[11px] font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
-                      <div className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</div>
+                      {m.attachment && (
+                        <div className={m.body ? "mb-1" : undefined}>
+                          <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} compact messageId={m.id} onChanged={(updated) => mergeIn([updated])} />
+                        </div>
+                      )}
+                      {m.body && <div className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</div>}
                       <div className={cn("mt-0.5 text-right text-[10px]", mine ? "text-primary-foreground/70" : "text-muted-foreground")}>{fmtTime(m.createdAt)}</div>
                     </div>
                   </div>
@@ -246,11 +267,20 @@ export function FloatingChat({ me, people }: { me: string; people: ChatPerson[] 
 
           <div className="flex-none border-t bg-card p-2">
             {error && <p role="alert" className="mb-1 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+            {pendingFile && <PendingAttachment file={pendingFile} onRemove={() => setPendingFile(null)} disabled={sending} />}
             <div className="flex items-end gap-1.5">
+              <AttachButton onPick={pickFile} disabled={sending} className="h-9 w-9" />
               <textarea
                 ref={composerRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
+                onPaste={(e) => {
+                  const file = fileFromClipboard(e);
+                  if (file) {
+                    e.preventDefault();
+                    pickFile(file);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
@@ -266,7 +296,7 @@ export function FloatingChat({ me, people }: { me: string; people: ChatPerson[] 
               <button
                 type="button"
                 onClick={() => void send()}
-                disabled={sending || !draft.trim()}
+                disabled={sending || (!draft.trim() && !pendingFile)}
                 aria-label="Send message"
                 className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
               >

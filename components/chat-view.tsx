@@ -3,8 +3,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Send, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fetchChatMessages, markChatRead, sendChatMessage } from "@/app/(app)/messages/actions";
-import { canAccessRoom, dmRoom, MAX_CHAT_BODY, TEAM_ROOM, type ChatMessage, type ChatSummary } from "@/lib/chat";
+import { fetchChatMessages, markChatRead } from "@/app/(app)/messages/actions";
+import { AttachButton, attachmentHint, fileFromClipboard, MessageAttachment, PendingAttachment, sendChat, useAttachmentUrls } from "@/components/chat-attachments";
+import { attachmentTypeOf, canAccessRoom, dmRoom, MAX_CHAT_BODY, messagePreview, TEAM_ROOM, validateAttachment, type ChatMessage, type ChatSummary } from "@/lib/chat";
 import { Avatar, dayKey, dayLabel, fmtTime, renderBody, STATUS_LABEL, useOnlineStatus } from "@/components/chat-parts";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,8 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<ChatSummary | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
   const roomRef = useRef(room);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -123,18 +126,32 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, room]);
 
+  const attachmentUrls = useAttachmentUrls(messages);
+
+  function pickFile(file: File) {
+    const problem = validateAttachment(file.name, attachmentTypeOf(file.name, file.type), file.size);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(null);
+    setPendingFile(file);
+    composerRef.current?.focus();
+  }
+
   async function send() {
     const text = draft.trim();
-    if (!text || sending) return;
+    if ((!text && !pendingFile) || sending) return;
     setSending(true);
     setError(null);
-    const result = await sendChatMessage(room, text);
+    const result = await sendChat(room, text, pendingFile);
     setSending(false);
     if (result.error) {
       setError(result.error);
       return;
     }
     setDraft("");
+    setPendingFile(null);
     if (result.message) mergeIn([result.message]);
     composerRef.current?.focus();
   }
@@ -161,7 +178,7 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
           {info?.last && (
             <span className="block truncate text-xs text-muted-foreground">
               {info.last.senderName === me ? "You: " : roomKey === TEAM_ROOM ? `${info.last.senderName}: ` : ""}
-              {info.last.body}
+              {messagePreview(info.last)}
             </span>
           )}
         </span>
@@ -184,7 +201,22 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
         {people.map((p) => roomButton(dmRoom(me, p.name), p.name, <Avatar name={p.name} color={p.color} className="h-9 w-9" status={statusOf(p.name)} />))}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        className={cn("flex min-h-0 flex-1 flex-col", dragging && "ring-2 ring-inset ring-primary/50")}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) pickFile(file);
+        }}
+      >
         <div className="flex flex-none items-center gap-2.5 border-b bg-header-background px-4 py-2.5 text-white">
           {room === TEAM_ROOM ? (
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25"><Users className="h-4 w-4" /></span>
@@ -219,7 +251,12 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
                   {!mine && <Avatar name={m.senderName} color={colorByName.get(m.senderName)} className="h-7 w-7" />}
                   <div className={cn("max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
                     {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-xs font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
-                    <div className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</div>
+                    {m.attachment && (
+                      <div className={m.body ? "mb-1.5" : undefined}>
+                        <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} messageId={m.id} onChanged={(updated) => mergeIn([updated])} />
+                      </div>
+                    )}
+                    {m.body && <div className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</div>}
                     <div className={cn("mt-0.5 text-right text-[10px]", mine ? "text-primary-foreground/70" : "text-muted-foreground")}>{fmtTime(m.createdAt)}</div>
                   </div>
                 </div>
@@ -230,11 +267,20 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
 
         <div className="flex-none border-t bg-card p-3">
           {error && <p role="alert" className="mb-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+          {pendingFile && <PendingAttachment file={pendingFile} onRemove={() => setPendingFile(null)} disabled={sending} />}
           <div className="flex items-end gap-2">
+            <AttachButton onPick={pickFile} disabled={sending} />
             <textarea
               ref={composerRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              onPaste={(e) => {
+                const file = fileFromClipboard(e);
+                if (file) {
+                  e.preventDefault();
+                  pickFile(file);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
@@ -247,12 +293,13 @@ export function ChatView({ me, people, initialRoom }: { me: string; people: Chat
               aria-label="Write a message"
               className="min-h-10 flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             />
-            <Button type="button" onClick={() => void send()} disabled={sending || !draft.trim()} aria-label="Send message">
+            <Button type="button" onClick={() => void send()} disabled={sending || (!draft.trim() && !pendingFile)} aria-label="Send message">
               <Send className="h-4 w-4" />
               Send
             </Button>
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">Enter to send · Shift+Enter for a new line</p>
+          <p className="text-[11px] text-muted-foreground">{attachmentHint(room === TEAM_ROOM)}</p>
         </div>
       </div>
     </div>

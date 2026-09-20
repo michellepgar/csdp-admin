@@ -411,6 +411,37 @@
   font-size: 12px;
 }
 
+/* Rich text pasted into notes and comments (a copied spreadsheet range,
+   a screenshot) brings the SOURCE's sizing with it: each cell's fixed
+   width/height, a per-cell font size (10-11pt), sometimes a table wide
+   enough to fill a huge monitor. This reins all of that in wherever a
+   note body is shown or edited (.note-html): the table shrinks to its
+   content, capped at the note's own width, at a small uniform text
+   size; !important because the pasted values are inline styles. Notes
+   saved before the sanitizer started stripping these still display
+   correctly because this is applied at display time, not only on save. */
+.note-html table {
+  width: auto !important;
+  max-width: 100%;
+  table-layout: auto !important;
+}
+.note-html table,
+.note-html table * {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  height: auto !important;
+}
+.note-html td,
+.note-html th {
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 2px 6px;
+}
+.note-html img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* General Notes/Private Notes -- a proper sticky-note read, not just
    another record row: a stronger lifted shadow, and a small folded
    corner (a triangle cut into the bottom-right, the classic sticky-

@@ -5,6 +5,7 @@ import { Bold, Italic, Underline, List, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MentionAutocomplete } from "@/components/mention-autocomplete";
 import { NOTE_PAD_COLORS, NOTE_FONT_COLORS, type Va } from "@/lib/app-state";
+import { shrinkImageToDataUrl } from "@/lib/shrink-image";
 
 const FONT_FAMILIES = [
   { value: "", label: "Sans" },
@@ -370,12 +371,13 @@ export function StickyNoteComposer({
     // point has to be locked in now, not read again later.
     const savedRange = selection && selection.rangeCount > 0 && editor?.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== "string" || !editor) return;
+    // Shrunk first (see lib/shrink-image.ts) -- a raw screenshot or phone
+    // photo would otherwise be saved into the note at full size.
+    void shrinkImageToDataUrl(file).then((dataUrl) => {
+      if (!editor) return;
       editor.focus();
       const img = document.createElement("img");
-      img.src = reader.result;
+      img.src = dataUrl;
       const range = savedRange ?? document.createRange();
       if (!savedRange) {
         range.selectNodeContents(editor);
@@ -389,8 +391,7 @@ export function StickyNoteComposer({
       sel?.removeAllRanges();
       sel?.addRange(range);
       editor.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-    reader.readAsDataURL(file);
+    });
   }
 
   return (
@@ -511,7 +512,7 @@ export function StickyNoteComposer({
         // uses (general-notes-list.tsx/private-notes-list.tsx).
         // .note-checklist-item is defined in globals.css (its indent
         // and checkbox alignment).
-        className="min-h-24 w-full overflow-x-auto rounded-md border p-3 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
+        className="note-html min-h-24 w-full overflow-x-auto rounded-md border p-3 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
         style={{ backgroundColor: padColor }}
       />
       <MentionAutocomplete query={mentionQuery} anchorRect={mentionAnchorRect} vas={vas} onSelect={selectMention} onClose={() => setMentionQuery(null)} />

@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
+/* A list longer than this gets a search box, so a long one (every school,
+   say) can be filtered by typing a few letters instead of scrolled. */
+const SEARCH_THRESHOLD = 7;
+
 /* A drop-in replacement for a plain <select> -- same job (pick one of
    a few options, participates in a surrounding <form> via a hidden
    input with the given `name`), but built from our own div/button
@@ -46,6 +50,8 @@ export function Dropdown({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState("");
   const current = value ?? internalValue;
   const currentOption = options.find((o) => o.value === current);
 
@@ -71,6 +77,19 @@ export function Dropdown({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
+  // Focus the search box as soon as the list opens, so typing just works.
+  useEffect(() => {
+    if (open) searchRef.current?.focus();
+  }, [open]);
+
+  const searchable = options.length > SEARCH_THRESHOLD;
+  const needle = query.trim().toLowerCase();
+  // "+ Add new ..." style entries are actions, not results, so they stay visible.
+  const visibleOptions = searchable && needle
+    ? options.filter((o) => o.label.trim().startsWith("+") || o.label.toLowerCase().includes(needle))
+    : options;
+  const matchingOptions = visibleOptions.filter((o) => !o.label.trim().startsWith("+"));
+
   function choose(v: string) {
     // Write the hidden input's DOM value directly (not just React
     // state) before calling onChange -- a caller's onChange often
@@ -84,6 +103,7 @@ export function Dropdown({
     if (inputRef.current) inputRef.current.value = v;
     setInternalValue(v);
     setOpen(false);
+    setQuery("");
     onChange?.(v);
   }
 
@@ -93,14 +113,38 @@ export function Dropdown({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => { setOpen((o) => !o); setQuery(""); }}
         className={className ?? "w-full rounded-md border bg-background px-2 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-60"}
       >
         {currentOption?.label ?? placeholder ?? current ?? "—"}
       </button>
       {open && !disabled && (
         <div className={`absolute left-0 z-20 max-h-64 min-w-full overflow-y-auto rounded-md border bg-background shadow-lg ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}>
-          {options.map((o) => (
+          {searchable && (
+            <div className="sticky top-0 border-b bg-background p-1.5">
+              <input
+                ref={searchRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (matchingOptions[0]) choose(matchingOptions[0].value);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setOpen(false);
+                    setQuery("");
+                  }
+                }}
+                placeholder="Type to search…"
+                aria-label="Search options"
+                className="h-8 w-full rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+          )}
+          {searchable && needle && matchingOptions.length === 0 && <p className="px-2 py-1.5 text-sm text-muted-foreground">No matches</p>}
+          {visibleOptions.map((o) => (
             <button
               key={o.value || "none"}
               type="button"

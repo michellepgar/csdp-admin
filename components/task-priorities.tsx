@@ -52,7 +52,14 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
   const [fileName, setFileName] = useState(defaultFileName || "");
   const [addingNewFile, setAddingNewFile] = useState(!!defaultFileName && !filesForCategory.includes(defaultFileName));
 
-  const fileNameMissing = linkMode && !!categoryId && !fileName.trim();
+  // Linked to a task: the file itself says what to do, so there is no text to
+  // type -- the priority is named after it. A link needs all three choices.
+  const categoryName = categories.find((cat) => cat.id === categoryId)?.name || "";
+  const linkedLabel = fileName.trim() && categoryName ? `${fileName.trim()} — ${categoryName}` : "";
+  const assignDropdown = (
+    <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Assign to someone (optional)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
+  );
+  const linkIncomplete = linkMode && (!schoolId || !categoryId || !fileName.trim());
 
   return (
     <>
@@ -60,10 +67,14 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
         <Button type="button" size="xs" variant={linkMode ? "outline" : "default"} onClick={() => setLinkMode(false)}>Free text</Button>
         <Button type="button" size="xs" variant={linkMode ? "default" : "outline"} onClick={() => setLinkMode(true)}>Link to a task</Button>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <input name="label" required defaultValue={defaultLabel} placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border bg-card px-2 text-sm" />
-        <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Assign to someone (optional)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
-      </div>
+      {linkMode ? (
+        <input type="hidden" name="label" value={linkedLabel} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <input name="label" required defaultValue={defaultLabel} placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border bg-card px-2 text-sm" />
+          {assignDropdown}
+        </div>
+      )}
       {linkMode && (
         <div className="flex flex-wrap items-center gap-2">
           <Dropdown
@@ -101,10 +112,12 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
               </>
             )
           )}
+          {/* Same row as the school / category / file choices, at the far right. */}
+          <div className="ml-auto">{assignDropdown}</div>
         </div>
       )}
       <div className="flex items-center gap-2">
-        <SubmitButton variant="plan" className="bg-red-600 text-white hover:bg-red-700" size="xs" pendingLabel={pendingLabel} disabled={fileNameMissing}>{submitLabel}</SubmitButton>
+        <SubmitButton variant="plan" className="bg-red-600 text-white hover:bg-red-700" size="xs" pendingLabel={pendingLabel} disabled={linkIncomplete}>{submitLabel}</SubmitButton>
         {onCancel && <Button type="button" variant="ghost" size="xs" onClick={onCancel}>Cancel</Button>}
       </div>
     </>

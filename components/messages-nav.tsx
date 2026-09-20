@@ -102,9 +102,23 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
     let cleanupRealtime: (() => void) | undefined;
     if (!isDemoSession()) {
       const supabase = createClient();
-      const channel = supabase
-        .channel("chat-messages")
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
+      let cancelled = false;
+      // This project only allows PRIVATE realtime channels ("Allow public
+      // access" is off -- see supabase/phase36_team_presence.sql), so the
+      // channel must be private, and its access is granted by the policy
+      // in supabase/phase56_chat_realtime_private.sql. The session token
+      // is handed to the socket first so the join isn't checked before it
+      // has one (same race the presence channel guards against).
+      const channel = supabase.channel("chat-messages", { config: { private: true } });
+      void (async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (session?.access_token) await supabase.realtime.setAuth(session.access_token);
+        if (cancelled) return;
+        channel
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
           const row = payload.new as {
             id: string;
             room: string;
@@ -132,8 +146,17 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
           );
           void refresh();
         })
-        .subscribe();
-      cleanupRealtime = () => void supabase.removeChannel(channel);
+          .subscribe((status) => {
+            // If the live connection can't be opened, stop it -- left alone
+            // it retries every few seconds forever. The background check
+            // below still delivers messages (just up to 20s later).
+            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") void supabase.removeChannel(channel);
+          });
+      })();
+      cleanupRealtime = () => {
+        cancelled = true;
+        void supabase.removeChannel(channel);
+      };
     }
 
     return () => {

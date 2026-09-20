@@ -90,6 +90,9 @@ export function TeamPresence({ currentMember, collapsed }: { currentMember: Curr
         .subscribe((status) => {
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             setUnavailable(true);
+            // Stop retrying -- an unauthorized/failed join would otherwise
+            // repeat every few seconds for as long as the tab is open.
+            void supabase.removeChannel(channel);
             return;
           }
           if (status !== "SUBSCRIBED") return;

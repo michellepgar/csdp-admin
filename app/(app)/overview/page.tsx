@@ -137,7 +137,6 @@ export default async function OverviewPage() {
             taskCategories={state.taskCategories || []}
             schoolData={state.schoolData}
             isCurrentUserAdmin={!!me && isAdmin(me)}
-            currentUserName={me?.name ?? ""}
             addPriority={addPriority}
             updatePriorityPlanItem={updatePriorityPlanItem}
             removePlanItem={removePlanItem}

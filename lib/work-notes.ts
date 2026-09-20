@@ -14,7 +14,7 @@ export const planNoteKey = (planItemId: string) => `p:${planItemId}`;
 
 /* The key a plan item's note is filed under. A task item on your plan
    shares its note with the task itself -- so a note written in Currently
-   Working On follows the task into Next Shift Plan and Your Plan. A
+   Working On follows the task into Planned Work and Your Plan. A
    priority or reminder has no task behind it, so it's filed under its own
    id. */
 export function planItemNoteKey(item: PlanItem): string {

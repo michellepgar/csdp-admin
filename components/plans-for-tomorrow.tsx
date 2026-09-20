@@ -102,7 +102,7 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">Next Shift Plan</h2>
+        <h2 className="font-semibold">Planned Work</h2>
         <div className="flex flex-wrap items-center gap-2">
         {addPlan}
         {allVaNames.length > 0 && (

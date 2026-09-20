@@ -341,7 +341,7 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
       (state.planItems ??= []).push({
         id: `demo-priority-${Date.now()}`,
         kind: "priority",
-        assignedTo,
+        vaName: assignedTo,
         label,
         createdBy: "Jane",
         createdAt: new Date().toISOString(),
@@ -359,7 +359,7 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
     const { supabase, me } = await requireAdmin();
     const { error } = await supabase.from("plan_items").insert({
       kind: "priority",
-      assigned_to: assignedTo ?? null,
+      va_name: assignedTo ?? null,
       label,
       created_by: me.name,
       suggested_school_id: suggestedSchoolId ?? null,
@@ -390,9 +390,9 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
     await demoMutate((state) => {
       const item = (state.planItems || []).find((p) => p.id === id && p.kind === "priority");
       if (!item) return;
-      const previousAssignee = item.assignedTo;
+      const previousAssignee = item.vaName;
       item.label = label;
-      item.assignedTo = assignedTo;
+      item.vaName = assignedTo;
       if (assignedTo && assignedTo !== previousAssignee && assignedTo !== "Jane") pushDemoAssignmentNotice(state, assignedTo, label);
       item.suggestedSchoolId = suggestedSchoolId;
       item.suggestedCategoryId = suggestedCategoryId;
@@ -404,12 +404,12 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireAdmin();
-    const { data: existing } = await supabase.from("plan_items").select("assigned_to").eq("id", id).eq("kind", "priority").maybeSingle();
+    const { data: existing } = await supabase.from("plan_items").select("va_name").eq("id", id).eq("kind", "priority").maybeSingle();
     const { error } = await supabase
       .from("plan_items")
       .update({
         label,
-        assigned_to: assignedTo ?? null,
+        va_name: assignedTo ?? null,
         suggested_school_id: suggestedSchoolId ?? null,
         suggested_category_id: suggestedCategoryId ?? null,
         suggested_file_name: suggestedFileName ?? null,
@@ -419,7 +419,7 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
     orThrow(error);
     // Only a NEW assignee gets told -- re-saving an edit that leaves the
     // same person assigned doesn't re-notify them.
-    if (existing && assignedTo && assignedTo !== existing.assigned_to && assignedTo !== me.name) {
+    if (existing && assignedTo && assignedTo !== existing.va_name && assignedTo !== me.name) {
       await notifyPriorityAssigned(supabase, assignedTo, me.name, label);
     }
     revalidatePath("/overview");
@@ -479,8 +479,7 @@ export async function claimPriorityPlanItem(formData: FormData): Promise<PlanAct
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const item = (state.planItems || []).find((p) => p.id === id && p.kind === "priority" && !p.vaName);
-      // Assigned to someone else? Only they (or an admin) can grab it.
-      if (item && (!item.assignedTo || item.assignedTo === "Jane")) item.vaName = "Jane";
+      if (item) item.vaName = "Jane";
     });
     revalidatePath("/overview");
     return { error: null };
@@ -488,9 +487,6 @@ export async function claimPriorityPlanItem(formData: FormData): Promise<PlanAct
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
-    const { data: target, error: targetError } = await supabase.from("plan_items").select("assigned_to").eq("id", id).eq("kind", "priority").maybeSingle();
-    orThrow(targetError);
-    if (target?.assigned_to && target.assigned_to !== me.name && !isAdmin(me)) throw new Error(`This priority is assigned to ${target.assigned_to}. They can grab it.`);
     const { error } = await supabase.from("plan_items").update({ va_name: me.name }).eq("id", id).eq("kind", "priority").is("va_name", null);
     orThrow(error);
     revalidatePath("/overview");
@@ -903,7 +899,7 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
 }
 
 /* Add, change or remove YOUR OWN note on a task or reminder (Currently
-   Working On, Next Shift Plan, Your Plan). A note is only an explanation
+   Working On, Planned Work, Your Plan). A note is only an explanation
    -- it never changes the task, priority or reminder it sits on, so the
    boss's assignments stay exactly as set. Empty text removes the note.
 

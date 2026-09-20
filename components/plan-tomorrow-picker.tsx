@@ -41,7 +41,7 @@ function plainText(html: string, max: number): string {
    - "end": the End Today's Work button. Ends the shift -- saving also
      closes it (endShift), so Start my day unlocks. Tasks still In Progress
      start out checked, as the default carry-over.
-   - "add": the Add button on Next Shift Plan, for a plan someone forgot
+   - "add": the Add button on Planned Work, for a plan someone forgot
      to make when they ended their day. Doesn't touch the shift, and
      starts with only what's already planned checked.
    Either way everything saves together through one submit (savePlan); the
@@ -226,8 +226,8 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
     { id: "reminder", label: "Reminder", hint: "Things to remember", icon: <Bell className="h-4 w-4" />, count: pendingReminders.length },
   ];
   const taskTotal = checked.size + newItems.length;
-  const title = mode === "end" ? "Plan your next shift" : "Add to your next shift plan";
-  const subtitle = mode === "end" ? "Choose what carries into your next shift, then save to end today's work." : "Add anything you forgot. This doesn't end your day.";
+  const title = mode === "end" ? "Plan your upcoming work" : "Add to your Planned Work";
+  const subtitle = mode === "end" ? "Choose what you'll work on next, then save to end today's work." : "Add anything you forgot. This doesn't end your day.";
 
   return (
     <div>
@@ -273,7 +273,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
               <div className="min-h-64 flex-1 space-y-2 overflow-y-auto p-4">
                 {tab === "inProgress" && (
                   <>
-                    <p className="text-sm text-muted-foreground">{mode === "end" ? "Still in progress today. Uncheck anything that shouldn't be in your next shift plan." : "Tasks you're working on now. Check the ones to add."}</p>
+                    <p className="text-sm text-muted-foreground">{mode === "end" ? "Still in progress today. Uncheck anything that shouldn't be in your Planned Work." : "Tasks you're working on now. Check the ones to add."}</p>
                     {carryOver.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Nothing in progress right now.</p>}
                     {carryOver.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
@@ -281,7 +281,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                         <span className="min-w-0"><span className="font-medium">{t.fileName}</span><span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span></span>
                       </label>
                     ))}
-                    <p className="pt-1 text-xs text-muted-foreground">Reminders you checked off today count as done. They aren&apos;t carried into the next shift.</p>
+                    <p className="pt-1 text-xs text-muted-foreground">Reminders you checked off today count as done. They aren&apos;t carried forward.</p>
                   </>
                 )}
                 {tab === "general" && (

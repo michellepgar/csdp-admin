@@ -253,7 +253,7 @@ export function todayActivityByVa(
   for (const item of planItems) {
     if (item.kind === "task" || !item.completedAt || !item.vaName || !isRecentFor(item.completedAt, item.vaName)) continue;
     // A checked reminder is DONE: it shows here only as reviewed (a check
-    // mark), and is never carried into the next shift's plan.
+    // mark), and is never carried into Planned Work.
     push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "Reviewed", itemKey: `p:${item.id}` });
   }
 

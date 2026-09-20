@@ -10,7 +10,7 @@ import { MAX_WORK_NOTE } from "@/lib/work-notes";
 import { cn } from "@/lib/utils";
 
 /* A small note button on YOUR OWN task or reminder (Currently Working On,
-   Next Shift Plan, Your Plan). It opens a window to write a short
+   Planned Work, Your Plan). It opens a window to write a short
    explanation -- why you couldn't finish or continue -- shown next to the
    item for the team. It only ever adds a note; it can't change the task,
    priority or reminder itself. Filled/amber when a note already exists. */

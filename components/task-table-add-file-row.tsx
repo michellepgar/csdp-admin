@@ -12,8 +12,9 @@ import { submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task
    hidden, so adding a file here never requires picking a category.
    Reuses the same addTask action the top-of-card form uses; the only
    difference is which categoryIds get submitted. */
-export function TaskTableAddFileRow({ schoolId, categoryIds, addTask }: {
+export function TaskTableAddFileRow({ schoolId, tableId, categoryIds, addTask }: {
   schoolId: string;
+  tableId: string;
   categoryIds: string[];
   addTask: (formData: FormData) => Promise<TaskFileActionResult>;
 }) {
@@ -35,6 +36,7 @@ export function TaskTableAddFileRow({ schoolId, categoryIds, addTask }: {
       className="flex items-center gap-2 border-t px-2 py-1.5"
     >
       <input type="hidden" name="schoolId" value={schoolId} />
+      <input type="hidden" name="tableId" value={tableId} />
       {categoryIds.map((id) => <input key={id} type="hidden" name="categoryIds" value={id} />)}
       <Input name="fileName" placeholder="File name" required autoFocus value={fileName} onChange={(event) => setFileName(event.target.value)} className="h-7 max-w-xs" />
       <SubmitButton pendingLabel="Adding…" size="xs">Add</SubmitButton>

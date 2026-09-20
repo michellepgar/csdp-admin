@@ -170,6 +170,8 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
   const schoolId = formData.get("schoolId") as string;
   const categoryIds = normalizeSelectedCategoryIds(formData.getAll("categoryIds").map(String));
   const fileName = ((formData.get("fileName") as string) || "").trim();
+  // Set when a table's own "Add file" row is used, so the new file joins that exact table.
+  const tableId = String(formData.get("tableId") || "");
   if (!fileName || categoryIds.length === 0) return { error: "Enter a file name and choose at least one category." };
 
   if (await isDemoMode()) {
@@ -181,7 +183,7 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
         const category = state.taskCategories?.find((item) => item.id === categoryId)?.name || "Uncategorized";
         return { id: `${fileId}-${index}`, taskFileId: fileId, categoryId, category, status: "", vaAssigned: [], sortOrder: index, createdAt };
       });
-      (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: selected });
+      (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: selected, ...(tableId ? { tableId } : {}) });
       for (const assignment of selected) (sd.tasks ??= []).push({ id: assignment.id, category: assignment.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
     }));
     if (!result.error) revalidateSchool(schoolId);
@@ -191,13 +193,18 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
   const { supabase } = await requireTeamMember();
 
   const result = await saveTaskFile(async () => {
+    const newFileId = crypto.randomUUID();
     const { error } = await supabase.rpc("add_task_file", {
-      p_id: crypto.randomUUID(),
+      p_id: newFileId,
       p_school_id: schoolId,
       p_file_name: fileName,
       p_category_ids: categoryIds,
     });
     if (error) throw error;
+    if (tableId) {
+      const { error: tableError } = await supabase.from("task_files").update({ table_id: tableId }).eq("id", newFileId).eq("school_id", schoolId);
+      if (tableError) throw tableError;
+    }
   });
   if (!result.error) revalidateSchool(schoolId);
   return result;

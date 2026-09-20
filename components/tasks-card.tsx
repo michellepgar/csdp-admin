@@ -457,7 +457,7 @@ export function TasksCard(props: TasksCardProps) {
               </tbody>
             </table>
             </div>
-            {canEdit && <TaskTableAddFileRow schoolId={schoolId} categoryIds={group.categories.map((category) => category.id)} addTask={props.addTask} />}
+            {canEdit && <TaskTableAddFileRow schoolId={schoolId} tableId={group.key} categoryIds={group.categories.map((category) => category.id)} addTask={props.addTask} />}
             {canEdit && <TaskTableCategoryPicker schoolId={schoolId} tableId={group.key} files={group.files} categories={orderedCategories} action={props.addCategoryToFiles} />}
             </>
             )}

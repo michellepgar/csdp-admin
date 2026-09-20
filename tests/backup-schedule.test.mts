@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BACKUPS_TO_KEEP, backupFileName, backupHealth, backupsToPrune, formatBackupSize, isBackupFileName, STALE_AFTER_HOURS } from "../lib/backup-schedule.ts";
+import {
+  BACKUPS_TO_KEEP,
+  backupDateOf,
+  backupFileName,
+  backupHealth,
+  backupsToPrune,
+  formatBackupSize,
+  isBackupFileName,
+  isSafetyBackupName,
+  safetyBackupFileName,
+  STALE_AFTER_HOURS,
+} from "../lib/backup-schedule.ts";
 
 test("backup files are named by the Eastern-time date", () => {
   // 03:30 UTC on Sep 21 is still the evening of Sep 20 in New York.
@@ -26,6 +37,26 @@ test("by default only the newest 14 backups are kept", () => {
   const removed = backupsToPrune(names);
   assert.equal(removed.length, 6);
   assert.deepEqual(removed, ["2026-09-06.json", "2026-09-05.json", "2026-09-04.json", "2026-09-03.json", "2026-09-02.json", "2026-09-01.json"]);
+});
+
+test("a before-restore safety copy is named to the second and recognised as a backup", () => {
+  const name = safetyBackupFileName(new Date("2026-09-21T03:30:05Z")); // 11:30:05 pm on Sep 20 in New York
+  assert.equal(name, "before-restore-2026-09-20-233005.json");
+  assert.equal(isSafetyBackupName(name), true);
+  assert.equal(isBackupFileName(name), true);
+  assert.equal(isSafetyBackupName("2026-09-20.json"), false);
+  assert.equal(backupDateOf(name), "2026-09-20");
+  assert.equal(backupDateOf("2026-09-19.json"), "2026-09-19");
+});
+
+test("safety copies are pruned separately, keeping only the newest few", () => {
+  const nightly = ["2026-09-01.json", "2026-09-02.json", "2026-09-03.json"];
+  const safety = Array.from({ length: 7 }, (_, i) => `before-restore-2026-09-0${i + 1}-120000.json`);
+  const removed = backupsToPrune([...nightly, ...safety], 2);
+  assert.deepEqual(removed.filter((n) => !n.startsWith("before")), ["2026-09-01.json"]);
+  assert.equal(removed.filter((n) => n.startsWith("before")).length, 2);
+  assert.ok(removed.includes("before-restore-2026-09-01-120000.json"));
+  assert.ok(!removed.includes("before-restore-2026-09-07-120000.json"));
 });
 
 test("health is ok for a recent backup, stale after a day and a half, none when there is no backup", () => {

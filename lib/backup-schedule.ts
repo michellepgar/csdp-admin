@@ -5,31 +5,53 @@
 
 export const BACKUP_BUCKET = "backups";
 export const BACKUPS_TO_KEEP = 14;
+/* "Before restore" safety copies (saved automatically just before a
+   restore, so it can be undone) -- only the newest few are worth keeping. */
+export const SAFETY_BACKUPS_TO_KEEP = 5;
 /* The job runs once a day. Past this many hours with no new file, the
    Backup page warns that something's wrong instead of showing a calm
    "everything's fine". */
 export const STALE_AFTER_HOURS = 36;
 
-const FILE_PATTERN = /^\d{4}-\d{2}-\d{2}\.json$/;
+const NIGHTLY_PATTERN = /^\d{4}-\d{2}-\d{2}\.json$/;
+const SAFETY_PATTERN = /^before-restore-\d{4}-\d{2}-\d{2}-\d{6}\.json$/;
 
 export function backupFileName(when: Date): string {
   const day = when.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
   return `${day}.json`;
 }
 
+export function isSafetyBackupName(name: string): boolean {
+  return SAFETY_PATTERN.test(name);
+}
+
 export function isBackupFileName(name: string): boolean {
-  return FILE_PATTERN.test(name);
+  return NIGHTLY_PATTERN.test(name) || SAFETY_PATTERN.test(name);
+}
+
+/* "before-restore-2026-09-20-143005.json" -- Eastern date and time, to the
+   second, so two restores in one day never collide. */
+export function safetyBackupFileName(when: Date): string {
+  const day = when.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  const time = when
+    .toLocaleTimeString("en-GB", { timeZone: "America/New_York", hour12: false })
+    .replace(/:/g, "");
+  return `before-restore-${day}-${time}.json`;
+}
+
+/* The calendar date a backup file was made for, "YYYY-MM-DD". */
+export function backupDateOf(name: string): string | undefined {
+  return name.match(/(\d{4}-\d{2}-\d{2})/)?.[1];
 }
 
 /* Which files to delete so only the newest `keep` remain. Names sort
    chronologically, so newest = lexicographically largest. Anything that
    isn't one of our backup files is never touched. */
-export function backupsToPrune(names: string[], keep: number = BACKUPS_TO_KEEP): string[] {
-  return names
-    .filter(isBackupFileName)
-    .sort()
-    .reverse()
-    .slice(keep);
+export function backupsToPrune(names: string[], keep: number = BACKUPS_TO_KEEP, keepSafety: number = SAFETY_BACKUPS_TO_KEEP): string[] {
+  const newestFirst = (list: string[]) => [...list].sort().reverse();
+  const nightly = newestFirst(names.filter((name) => NIGHTLY_PATTERN.test(name)));
+  const safety = newestFirst(names.filter((name) => SAFETY_PATTERN.test(name)));
+  return [...nightly.slice(keep), ...safety.slice(keepSafety)];
 }
 
 export type BackupHealth = "ok" | "stale" | "none";
@@ -43,11 +65,13 @@ export function backupHealth(lastBackupAt: string | undefined, now: number = Dat
 /* Three made-up recent backups, for the demo (which has no storage) to
    show what the Backup page's panel looks like. */
 export function demoBackupFiles(): { name: string; size: number; updatedAt: string }[] {
-  return [0, 1, 2].map((daysAgo) => {
+  const nightly = [0, 1, 2].map((daysAgo) => {
     const when = new Date(Date.now() - daysAgo * 86_400_000);
     when.setHours(8, 0, 12, 0);
     return { name: backupFileName(when), size: 2_400_000 - daysAgo * 90_000, updatedAt: when.toISOString() };
   });
+  const before = new Date(Date.now() - 3 * 3_600_000);
+  return [{ name: safetyBackupFileName(before), size: 2_450_000, updatedAt: before.toISOString() }, ...nightly];
 }
 
 /* What kind of key is this? Reads only the harmless label part -- the

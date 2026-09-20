@@ -11,7 +11,7 @@ import { PageBody } from "@/components/page-body";
 import { DownloadBackupButton } from "@/components/download-backup-button";
 import { ExportAllSchoolsButton } from "@/components/export-all-schools-button";
 import { SubmitButton } from "@/components/submit-button";
-import { restoreBackup, resetAllTasks, backUpNow, getBackupDownloadUrl } from "./actions";
+import { restoreBackup, resetAllTasks, backUpNow, getBackupDownloadUrl, restoreFromAutomaticBackup } from "./actions";
 
 export default async function AdminSettingsPage() {
   const user = await getCurrentUser();
@@ -39,14 +39,16 @@ export default async function AdminSettingsPage() {
         name: file.name,
         size: Number((file.metadata as { size?: number } | null)?.size ?? 0),
         updatedAt: file.updated_at ?? file.created_at ?? new Date().toISOString(),
-      }));
+      }))
+      // Newest first, so a "before restore" copy sits where it happened among the nightly ones.
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
   return (
     <div>
       <PageHeader title="Backup & School Year" />
       <PageBody gap={8}>
-      <AutomaticBackups files={backupFiles} missingEnv={missingBackupEnv()} demo={demo} backUpNow={backUpNow} getDownloadUrl={getBackupDownloadUrl} />
+      <AutomaticBackups files={backupFiles} missingEnv={missingBackupEnv()} demo={demo} backUpNow={backUpNow} getDownloadUrl={getBackupDownloadUrl} restoreBackup={restoreFromAutomaticBackup} />
 
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="font-semibold">Backup &amp; Restore</h2>

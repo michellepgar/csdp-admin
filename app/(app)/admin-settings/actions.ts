@@ -287,6 +287,13 @@ export async function restoreBackup(formData: FormData) {
   } catch {
     return;
   }
+  await performRestore(supabase, parsed);
+}
+
+/* The restore itself, shared by the "restore from a file" form above and
+   the Restore button beside each automatic backup. Returns false (having
+   changed nothing) if the file doesn't pass the up-front sanity checks. */
+async function performRestore(supabase: Awaited<ReturnType<typeof createClient>>, parsed: unknown): Promise<boolean> {
   /* Sanity check before touching anything: a real backup always has
      non-empty vas/schools/taskCategories/checklistTemplate arrays, and
      every row in them must at least look like the real thing -- vas
@@ -354,7 +361,7 @@ export async function restoreBackup(formData: FormData) {
     !Array.isArray((parsed as AppState).distributionGroups) ||
     !(parsed as AppState).distributionGroups!.every(isValidDistributionGroupRow)
   ) {
-    return;
+    return false;
   }
 
   const backup = parsed as AppState;
@@ -601,6 +608,7 @@ export async function restoreBackup(formData: FormData) {
 
   await saveState(supabase, backup);
   revalidatePath("/", "layout");
+  return true;
 }
 
 export async function resetAllTasks(formData: FormData) {
@@ -648,4 +656,50 @@ export async function getBackupDownloadUrl(name: string): Promise<{ url: string 
   } catch {
     return { url: null, error: "Only admins can download backups." };
   }
+}
+
+/* The Restore button beside an automatic backup. Admin only, and it must be
+   confirmed by typing RESTORE (same as the file form).
+
+   Restoring replaces everything with the backup, so BEFORE touching
+   anything it saves a "before restore" safety copy of how things are right
+   now -- if that can't be saved, nothing is restored. That copy shows in
+   the list and can itself be restored, which is the undo. Private notes are
+   left alone (automatic backups don't contain them; see
+   lib/automatic-backup.ts). The restore isn't one single all-or-nothing
+   step, so if it stops partway the message says so and points at the
+   safety copy. */
+export async function restoreFromAutomaticBackup(name: string, confirm: string): Promise<{ error: string | null }> {
+  if (await isDemoMode()) return { error: "Restoring isn't available in the demo." };
+  if (confirm !== "RESTORE") return { error: "Type RESTORE to confirm." };
+  if (!isBackupFileName(name)) return { error: "That isn't a backup file." };
+
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  try {
+    ({ supabase } = await requireAdminAndState());
+  } catch {
+    return { error: "Only admins can restore a backup." };
+  }
+
+  const safety = await runAutomaticBackup({ safety: true });
+  if (!safety.ok) return { error: `Nothing was restored: a safety copy of the current data couldn't be saved first. (${safety.error})` };
+
+  const { data: blob, error: downloadError } = await supabase.storage.from(BACKUP_BUCKET).download(name);
+  if (downloadError || !blob) return { error: "Nothing was restored: that backup file couldn't be read." };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await blob.text());
+  } catch {
+    return { error: "Nothing was restored: that backup file is damaged." };
+  }
+
+  try {
+    const restored = await performRestore(supabase, parsed);
+    if (!restored) return { error: "Nothing was restored: that backup file didn't pass the safety checks." };
+  } catch {
+    return { error: `The restore stopped partway. A safety copy of how things were was saved (${safety.name}) -- restore that one to undo, then try again.` };
+  }
+  revalidatePath("/", "layout");
+  return { error: null };
 }

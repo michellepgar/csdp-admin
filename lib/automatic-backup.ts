@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { loadAppState } from "@/lib/fetch-app-state";
-import { BACKUP_BUCKET, backupFileName, backupsToPrune, describeSupabaseKey, headersWithoutKeyBearer, keyProjectRef, projectRefFromUrl } from "@/lib/backup-schedule";
+import { BACKUP_BUCKET, backupFileName, backupsToPrune, describeSupabaseKey, headersWithoutKeyBearer, keyProjectRef, projectRefFromUrl, safetyBackupFileName } from "@/lib/backup-schedule";
 
 /* The automatic nightly backup -- server-only. Runs from the cron route
    (app/api/cron/backup/route.ts, scheduled in vercel.json) and from the
@@ -55,7 +55,9 @@ async function explainEmptyLoad(client: Client, serviceKey: string, couldNotLoad
       status === 401
         ? "The key was rejected -- it may be cut off, from the wrong project, or an old-style key that's been turned off. Copy the secret key again (the newer one starting with sb_secret_ is best), paste it into Vercel with no spaces or quotes, and redeploy."
         : status === 403
-          ? "The key connected but was denied. Copy the secret key again into Vercel and redeploy."
+          ? error?.code === "42501"
+            ? "The key is right and connected, but the database hasn't given its service_role permission to read your tables. Run supabase/phase58_grant_service_role_read.sql in the Supabase SQL editor, then press Back up now again (no redeploy needed)."
+            : "The key connected but was denied. Copy the secret key again into Vercel and redeploy."
           : "Try again in a minute; if it keeps happening, tell me this message.";
     const direct = await restProbe(url, serviceKey);
     return `Nothing was saved: Supabase answered ${status || "no response"} ${statusText || ""} (${reason}). Direct check -> ${direct}. ${advice}`.replace(/\s+/g, " ");
@@ -95,7 +97,7 @@ async function restProbe(url: string, key: string): Promise<string> {
   return results.join(", ");
 }
 
-export async function runAutomaticBackup(): Promise<BackupResult> {
+export async function runAutomaticBackup(options: { safety?: boolean } = {}): Promise<BackupResult> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   // trim(): a stray space or line break from pasting would break the key.
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -117,7 +119,8 @@ export async function runAutomaticBackup(): Promise<BackupResult> {
       backupMeta: { automatic: true, createdAt: now.toISOString(), excludes: ["privateNotes"] },
     };
     const json = JSON.stringify(payload);
-    const name = backupFileName(now);
+    // A "before restore" safety copy gets its own timestamped name so it never overwrites tonight's backup.
+    const name = options.safety ? safetyBackupFileName(now) : backupFileName(now);
 
     const { error: uploadError } = await client.storage
       .from(BACKUP_BUCKET)

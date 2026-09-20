@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CalendarDays, CheckCircle2, DatabaseBackup, Download, KeyRound, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, DatabaseBackup, Download, History, KeyRound, Loader2, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { backupHealth, BACKUPS_TO_KEEP, formatBackupSize } from "@/lib/backup-schedule";
+import { backupDateOf, backupHealth, BACKUPS_TO_KEEP, formatBackupSize, isSafetyBackupName } from "@/lib/backup-schedule";
 import { cn } from "@/lib/utils";
 
 export interface BackupFile {
@@ -17,11 +17,11 @@ export interface BackupFile {
 const TZ = "America/New_York";
 
 function dayLabel(name: string): { chip: string; long: string } {
-  const [y, m, d] = name.replace(".json", "").split("-").map(Number);
+  const key = backupDateOf(name) ?? "";
+  const [y, m, d] = key.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d, 12));
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
   const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString("en-CA", { timeZone: TZ });
-  const key = name.replace(".json", "");
   return {
     chip: key === today ? "Today" : key === yesterday ? "Yesterday" : date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }),
     long: date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }),
@@ -43,18 +43,26 @@ export function AutomaticBackups({
   demo,
   backUpNow,
   getDownloadUrl,
+  restoreBackup,
 }: {
   files: BackupFile[];
   missingEnv: string[];
   demo: boolean;
   backUpNow: () => Promise<{ error: string | null }>;
   getDownloadUrl: (name: string) => Promise<{ url: string | null; error: string | null }>;
+  restoreBackup: (name: string, confirm: string) => Promise<{ error: string | null }>;
 }) {
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<BackupFile | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
-  const latest = files[0];
+  // The banner and health look at the NIGHTLY backups; a "before restore"
+  // safety copy is newer but says nothing about whether the schedule runs.
+  const latest = files.find((file) => !isSafetyBackupName(file.name));
   const health = backupHealth(latest?.updatedAt);
   const notSetUp = !demo && missingEnv.length > 0;
 
@@ -64,6 +72,27 @@ export function AutomaticBackups({
     const result = await backUpNow();
     setRunning(false);
     setMessage(result.error ? { text: result.error, ok: false } : { text: "Backup saved.", ok: true });
+  }
+
+  function openRestore(file: BackupFile) {
+    setRestoreTarget(file);
+    setConfirmText("");
+    setRestoreError(null);
+  }
+
+  async function restore() {
+    if (!restoreTarget) return;
+    setRestoring(true);
+    setRestoreError(null);
+    const result = await restoreBackup(restoreTarget.name, confirmText);
+    setRestoring(false);
+    if (result.error) {
+      setRestoreError(result.error);
+      return;
+    }
+    const when = dayLabel(restoreTarget.name).long;
+    setRestoreTarget(null);
+    setMessage({ text: `Restored from ${when}. A safety copy of how things were just before is in the list (\"Before restore\").`, ok: true });
   }
 
   async function download(name: string) {
@@ -90,6 +119,14 @@ export function AutomaticBackups({
         title: "Almost there — two quick settings to finish setup",
         detail: "The nightly backup can't run until they're added in Vercel.",
       }
+    : !latest
+      ? {
+          tone: "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-100",
+          chip: "bg-sky-600 text-white",
+          icon: <DatabaseBackup className="h-5 w-5" />,
+          title: "No automatic backup yet",
+          detail: "The first one runs tonight, or press Back up now to make one immediately.",
+        }
     : health === "ok"
       ? {
           tone: "border-green-300 bg-green-50 text-green-900 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-100",
@@ -166,7 +203,7 @@ export function AutomaticBackups({
 
         {files.length > 0 && (
           <ul className="max-h-80 divide-y overflow-y-auto rounded-xl border bg-background">
-            {files.map((file, index) => {
+            {files.map((file) => {
               const label = dayLabel(file.name);
               return (
                 <li key={file.name} className="flex items-center gap-3 border-l-4 border-l-transparent px-3 py-2.5 transition-colors hover:border-l-primary hover:bg-primary/5">
@@ -178,8 +215,27 @@ export function AutomaticBackups({
                     <span className="block truncate text-sm font-semibold">{label.long}</span>
                     <span className="block text-xs text-muted-foreground">{timeLabel(file.updatedAt)}</span>
                   </span>
-                  {index === 0 && <span className="hidden rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800 sm:inline dark:bg-green-500/20 dark:text-green-200">Latest</span>}
+                  {isSafetyBackupName(file.name) ? (
+                    <span className="hidden items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 sm:inline-flex dark:bg-amber-500/20 dark:text-amber-200">
+                      <History className="h-3 w-3" />
+                      Before restore
+                    </span>
+                  ) : (
+                    file.name === latest?.name && <span className="hidden rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800 sm:inline dark:bg-green-500/20 dark:text-green-200">Latest</span>
+                  )}
                   <span className="flex-none rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{formatBackupSize(file.size)}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openRestore(file)}
+                    disabled={notSetUp}
+                    className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-500/50 dark:text-red-300 dark:hover:bg-red-500/10"
+                    aria-label={`Restore the backup from ${label.long}`}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Restore
+                  </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => void download(file.name)} disabled={downloading === file.name} aria-label={`Download the backup from ${label.long}`}>
                     {downloading === file.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     Download
@@ -192,10 +248,77 @@ export function AutomaticBackups({
 
         <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           <strong>Private Notes are not in automatic backups</strong>, so nobody (admins included) can read them from a backup file, and restoring one leaves
-          everyone&apos;s private notes as they are. To restore, download a backup and use the restore form below. Downloading a backup yourself
-          (above) still includes the private notes you can see.
+          everyone&apos;s private notes as they are. Press <strong>Restore</strong> beside a backup to put everything back to that day; a safety copy of
+          the current data is saved first, so it can be undone. The manual Download Backup button below still includes the private
+          notes you can see.
         </p>
       </div>
+
+      {restoreTarget && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !restoring && setRestoreTarget(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Restore this backup"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-background shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center gap-2 bg-red-600 px-4 py-3 text-white">
+              <RotateCcw className="h-5 w-5" />
+              <p className="text-base font-semibold">Restore this backup?</p>
+            </div>
+            <div className="space-y-3 p-4 text-sm">
+              <p>
+                Everything in the tracker will go back to how it was on <strong>{dayLabel(restoreTarget.name).long}</strong> at{" "}
+                <strong>{timeLabel(restoreTarget.updatedAt)}</strong>.
+              </p>
+              <ul className="space-y-2 rounded-xl bg-muted/50 p-3 text-xs">
+                <li className="flex gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-red-600" />
+                  <span>
+                    <strong>Anything added or changed since then is lost</strong> — schools, tasks, notes, contacts, and the rest.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 flex-none text-green-600" />
+                  <span>Private Notes are not touched.</span>
+                </li>
+                <li className="flex gap-2">
+                  <History className="mt-0.5 h-4 w-4 flex-none text-amber-600" />
+                  <span>
+                    First, a <strong>safety copy of right now</strong> is saved (it shows in the list as “Before restore”), so you can undo this by restoring it.
+                  </span>
+                </li>
+              </ul>
+              <label className="block text-xs font-semibold">
+                Type RESTORE to confirm
+                <input
+                  value={confirmText}
+                  onChange={(event) => setConfirmText(event.target.value)}
+                  autoComplete="off"
+                  autoFocus
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                  placeholder="RESTORE"
+                />
+              </label>
+              {restoreError && (
+                <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                  {restoreError}
+                </p>
+              )}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setRestoreTarget(null)} disabled={restoring}>
+                  Cancel
+                </Button>
+                <Button type="button" variant="destructive" onClick={() => void restore()} disabled={restoring || confirmText !== "RESTORE"}>
+                  {restoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                  {restoring ? "Restoring…" : "Restore now"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

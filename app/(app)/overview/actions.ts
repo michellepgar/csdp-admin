@@ -320,6 +320,59 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
   });
 }
 
+/* When a priority linked to a real file (school + category + file name) is
+   assigned to a VA, that VA's name goes onto the file on the school page
+   right away -- creating the file first if it isn't there yet -- so the
+   school page already shows who it is for. One VA per file, so it replaces
+   whoever was on it. Status is left alone; the VA starts it later. */
+async function signAssigneeOnLinkedFile(
+  supabase: Awaited<ReturnType<typeof requireTeamMember>>["supabase"],
+  schoolId: string,
+  categoryId: string,
+  fileName: string,
+  vaName: string,
+) {
+  const name = fileName.trim();
+  const { data: files, error: lookupError } = await supabase
+    .from("task_files")
+    .select("id, task_file_categories(id, category_id)")
+    .eq("school_id", schoolId)
+    .ilike("file_name", name);
+  orThrow(lookupError);
+  let assignmentId = (files || []).flatMap((f) => f.task_file_categories).find((a) => a.category_id === categoryId)?.id as string | undefined;
+  if (!assignmentId) {
+    const fileId = crypto.randomUUID();
+    const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: name, p_category_ids: [categoryId] });
+    orThrow(createError);
+    const { data: created, error: createdError } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
+    orThrow(createdError);
+    if (!created) return;
+    assignmentId = created.id as string;
+  }
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: assignmentId, p_patch: { va_assigned: [vaName] } });
+  orThrow(error);
+  revalidatePath(`/schools/${schoolId}`);
+}
+
+function signAssigneeOnLinkedFileDemo(state: import("@/lib/app-state").AppState, schoolId: string, categoryId: string, fileName: string, vaName: string) {
+  const name = fileName.trim();
+  const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
+  const existingFile = (sd.taskFiles || []).find((f) => f.fileName.trim().toLowerCase() === name.toLowerCase() && f.categories.some((c) => c.categoryId === categoryId));
+  const existing = existingFile?.categories.find((c) => c.categoryId === categoryId);
+  if (existing) {
+    existing.vaAssigned = [vaName];
+    const task = sd.tasks?.find((t) => t.id === existing.id);
+    if (task) task.vaAssigned = [vaName];
+    return;
+  }
+  const categoryName = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
+  const fileId = `demo-file-${Date.now()}`;
+  const assignmentId = `${fileId}-0`;
+  const createdAt = new Date().toISOString();
+  (sd.taskFiles ??= []).push({ id: fileId, fileName: name, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category: categoryName, status: "", vaAssigned: [vaName], sortOrder: 0, createdAt }] });
+  (sd.tasks ??= []).push({ id: assignmentId, category: categoryName, fileName: name, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [vaName], createdAt });
+}
+
 /* Boss-only: add a priority, either freeform or linked to a real file
    (school + category + file name) so PlanPriorityStartForm can later
    pre-fill the Start picker instead of starting blank. Linking is
@@ -350,6 +403,7 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
         suggestedFileName,
       });
       if (assignedTo && assignedTo !== "Jane") pushDemoAssignmentNotice(state, assignedTo, label);
+      if (assignedTo && suggestedSchoolId && suggestedCategoryId && suggestedFileName) signAssigneeOnLinkedFileDemo(state, suggestedSchoolId, suggestedCategoryId, suggestedFileName, assignedTo);
     });
     revalidatePath("/overview");
     return { error: null };
@@ -368,6 +422,9 @@ export async function addPriority(formData: FormData): Promise<PlanActionResult>
     });
     orThrow(error);
     if (assignedTo && assignedTo !== me.name) await notifyPriorityAssigned(supabase, assignedTo, me.name, label);
+    if (assignedTo && suggestedSchoolId && suggestedCategoryId && suggestedFileName) {
+      await signAssigneeOnLinkedFile(supabase, suggestedSchoolId, suggestedCategoryId, suggestedFileName, assignedTo);
+    }
     revalidatePath("/overview");
   });
 }
@@ -397,6 +454,7 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
       item.suggestedSchoolId = suggestedSchoolId;
       item.suggestedCategoryId = suggestedCategoryId;
       item.suggestedFileName = suggestedFileName;
+      if (assignedTo && assignedTo !== previousAssignee && suggestedSchoolId && suggestedCategoryId && suggestedFileName) signAssigneeOnLinkedFileDemo(state, suggestedSchoolId, suggestedCategoryId, suggestedFileName, assignedTo);
     });
     revalidatePath("/overview");
     return { error: null };
@@ -421,6 +479,10 @@ export async function updatePriorityPlanItem(formData: FormData): Promise<PlanAc
     // same person assigned doesn't re-notify them.
     if (existing && assignedTo && assignedTo !== existing.va_name && assignedTo !== me.name) {
       await notifyPriorityAssigned(supabase, assignedTo, me.name, label);
+    }
+    // A newly assigned person also goes onto the linked file on its school page.
+    if (existing && assignedTo && assignedTo !== existing.va_name && suggestedSchoolId && suggestedCategoryId && suggestedFileName) {
+      await signAssigneeOnLinkedFile(supabase, suggestedSchoolId, suggestedCategoryId, suggestedFileName, assignedTo);
     }
     revalidatePath("/overview");
   });

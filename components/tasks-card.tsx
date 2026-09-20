@@ -67,7 +67,6 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
 }) {
   const iSigned = assignment.vaAssigned.includes(currentUserName);
   const [moving, setMoving] = useState(false);
-  const [assigning, setAssigning] = useState(false);
   const [moveTargetId, setMoveTargetId] = useState("");
   const [moveError, setMoveError] = useState<string | null>(null);
   const moveTargets = categories.filter((category) => category.id !== assignment.categoryId);
@@ -92,31 +91,6 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
           <Button type="button" variant="ghost" size="xs" onClick={() => { setMoving(false); setMoveError(null); setMoveTargetId(""); }}>Cancel</Button>
         </div>
       </form>
-    );
-  }
-
-  if (assigning) {
-    return (
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground">Assign this file to:</p>
-        <div className="flex flex-wrap gap-1.5">
-          {vas.map((va) => (
-            <form key={va.id} action={(formData) => { assignTaskToVa(formData); setAssigning(false); }}>
-              <input type="hidden" name="schoolId" value={schoolId} />
-              <input type="hidden" name="taskId" value={assignment.id} />
-              <input type="hidden" name="vaName" value={va.name} />
-              <button
-                type="submit"
-                className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium shadow-sm transition-colors hover:bg-muted"
-              >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: va.color || "#94a3b8" }} aria-hidden />
-                {va.name}
-              </button>
-            </form>
-          ))}
-        </div>
-        <Button type="button" variant="ghost" size="xs" onClick={() => setAssigning(false)}>Cancel</Button>
-      </div>
     );
   }
 
@@ -167,7 +141,27 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
         <KebabMenu
           ariaLabel={`More actions for the ${assignment.category} task`}
           items={[
-            ...(isAdmin ? [{ label: "Assign to a VA", onClick: () => setAssigning(true) }] : []),
+            ...(isAdmin ? [{
+              label: "Assign to a VA",
+              panel: (close: () => void) => (
+                <div className="w-56 space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Assign this file to:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {vas.map((va) => (
+                      <form key={va.id} action={(formData) => { assignTaskToVa(formData); close(); }}>
+                        <input type="hidden" name="schoolId" value={schoolId} />
+                        <input type="hidden" name="taskId" value={assignment.id} />
+                        <input type="hidden" name="vaName" value={va.name} />
+                        <button type="submit" className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium shadow-sm transition-colors hover:bg-muted">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: va.color || "#94a3b8" }} aria-hidden />
+                          {va.name}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </div>
+              ),
+            }] : []),
             ...(moveTargets.length > 0 ? [{ label: "Move to another category", onClick: () => setMoving(true) }] : []),
             {
               label: "Remove",

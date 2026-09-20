@@ -15,6 +15,7 @@ import {
   setChecklistNotNeeded,
   addChecklistTemplateItem,
   removeChecklistTemplateItem,
+  updateChecklistTemplateItem,
   reorderChecklistTemplate,
   addTask,
   addCategoryToFiles,
@@ -205,6 +206,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
           setChecklistNotNeeded={setChecklistNotNeeded}
           addChecklistTemplateItem={addChecklistTemplateItem}
           removeChecklistTemplateItem={removeChecklistTemplateItem}
+          updateChecklistTemplateItem={updateChecklistTemplateItem}
           reorderChecklistTemplate={reorderChecklistTemplate}
         />
       </div>

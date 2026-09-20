@@ -128,11 +128,30 @@ export async function removeChecklistTemplateItem(formData: FormData) {
 
   const { supabase } = await requireTeamMember();
 
-  const { data: templateItem, error: templateItemError } = await supabase.from("checklist_template").select("task_category_id").eq("id", id).maybeSingle();
-  orThrow(templateItemError);
-  if (templateItem?.task_category_id) throw new Error("This checklist item is managed by its school-only category.");
-
+  // Any checklist item can be removed from Edit template -- the checklist
+  // is managed only there, not by task categories.
   const { error } = await supabase.from("checklist_template").delete().eq("id", id);
+  orThrow(error);
+  revalidatePath("/", "layout");
+}
+
+/* Rename a checklist item from Edit template (changes it for every school). */
+export async function updateChecklistTemplateItem(formData: FormData) {
+  const id = formData.get("id") as string;
+  const description = ((formData.get("description") as string) || "").trim();
+  if (!id || !description) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const item = state.checklistTemplate.find((t) => t.id === id);
+      if (item) item.description = description;
+    });
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const { error } = await supabase.from("checklist_template").update({ description }).eq("id", id);
   orThrow(error);
   revalidatePath("/", "layout");
 }

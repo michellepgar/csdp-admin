@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, GripVertical, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, Pencil, X } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SignatureChip } from "@/components/signature-chip";
@@ -22,6 +22,7 @@ export function ChecklistCard({
   setChecklistNotNeeded,
   addChecklistTemplateItem,
   removeChecklistTemplateItem,
+  updateChecklistTemplateItem,
   reorderChecklistTemplate,
 }: {
   schoolId: string;
@@ -45,6 +46,7 @@ export function ChecklistCard({
   setChecklistNotNeeded: (formData: FormData) => void;
   addChecklistTemplateItem: (formData: FormData) => void;
   removeChecklistTemplateItem: (formData: FormData) => void;
+  updateChecklistTemplateItem: (formData: FormData) => void;
   reorderChecklistTemplate: (orderedIds: string[]) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
@@ -61,6 +63,7 @@ export function ChecklistCard({
   // stale order in between.
   const [orderedItems, setOrderedItems] = useState(template);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- This is the intentional server-data refresh for an optimistic drag order.
     setOrderedItems(template);
@@ -136,8 +139,8 @@ export function ChecklistCard({
       <div className="space-y-3 p-3">
           {editorOpen && (
             <div className="space-y-2 rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">Editing this list changes the checklist for every school. Drag by the handle to reorder.</p>
-              {orderedItems.filter((item) => !item.taskCategoryId).map((item) => (
+              <p className="text-xs text-muted-foreground">Add, edit and remove checklist items here. Changes apply to every school. Drag by the handle to reorder.</p>
+              {orderedItems.map((item) => (
                 <div
                   key={item.id}
                   draggable
@@ -147,10 +150,23 @@ export function ChecklistCard({
                   onDragEnd={() => setDraggedId(null)}
                   className={`flex items-center justify-between gap-2 rounded-md text-sm ${draggedId === item.id ? "opacity-40" : ""}`}
                 >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <GripVertical className="h-4 w-4 flex-none cursor-grab text-muted-foreground active:cursor-grabbing" />
-                    {item.description}
-                  </span>
+                  {editingItemId === item.id ? (
+                    <form
+                      action={(formData) => { updateChecklistTemplateItem(formData); setEditingItemId(null); }}
+                      className="flex min-w-0 flex-1 items-center gap-1.5"
+                    >
+                      <input type="hidden" name="id" value={item.id} />
+                      <Input name="description" defaultValue={item.description} required autoFocus className="h-8 min-w-0" />
+                      <SubmitButton pendingLabel="…" size="xs">Save</SubmitButton>
+                      <Button type="button" variant="ghost" size="xs" onClick={() => setEditingItemId(null)}>Cancel</Button>
+                    </form>
+                  ) : (
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <GripVertical className="h-4 w-4 flex-none cursor-grab text-muted-foreground active:cursor-grabbing" />
+                      <span className="min-w-0 break-words">{item.description}</span>
+                      <Button type="button" variant="ghost" size="icon-xs" className="text-muted-foreground/60" aria-label={`Edit ${item.description}`} onClick={() => setEditingItemId(item.id)}><Pencil className="h-3 w-3" /></Button>
+                    </span>
+                  )}
                   <form action={removeChecklistTemplateItem}>
                     <input type="hidden" name="id" value={item.id} />
                     <ConfirmDeleteButton confirmMessage={`Remove "${item.description}" from the checklist for every school?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>

@@ -6,6 +6,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { StatusBadge } from "@/components/status-badge";
 import { Dropdown } from "@/components/dropdown";
+import { SegmentedToggle } from "@/components/segmented-toggle";
 import { WorkNoteButton } from "@/components/work-note-button";
 import { makeNoteLookup, planItemNoteKey } from "@/lib/work-notes";
 import { openEmailItemsByVa } from "@/lib/shared-task-files";
@@ -115,10 +116,7 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
               options={[{ value: "", label: "All VAs" }, ...allVaNames.map((name) => ({ value: name, label: name }))]}
               className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
             />
-            <div className="flex overflow-hidden rounded-md border bg-card">
-              <button type="button" onClick={() => setViewMode("columns")} className={`px-3 py-1.5 text-sm ${viewMode === "columns" ? "bg-primary text-primary-foreground" : ""}`}>Columns</button>
-              <button type="button" onClick={() => setViewMode("list")} className={`px-3 py-1.5 text-sm ${viewMode === "list" ? "bg-primary text-primary-foreground" : ""}`}>List</button>
-            </div>
+            <SegmentedToggle value={viewMode} onChange={setViewMode} options={[{ value: "columns", label: "Columns" }, { value: "list", label: "List" }]} />
           </>
         )}
         </div>

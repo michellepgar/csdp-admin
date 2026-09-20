@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /* A list longer than this gets a search box, so a long one (every school,
    say) can be filtered by typing a few letters instead of scrolled. */
@@ -113,15 +115,24 @@ export function Dropdown({
       <button
         type="button"
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => { setOpen((o) => !o); setQuery(""); }}
-        className={className ?? "w-full rounded-md border bg-background px-2 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-60"}
+        className={cn(
+          // Raised, softly tinted field with a chevron -- not a flat box.
+          "group flex w-full items-center justify-between gap-2 rounded-lg border border-ring/40 bg-linear-to-b from-card to-ring/5 px-2.5 py-1.5 text-left text-sm text-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.6),0_1px_2px_rgb(0_0_0/0.08)] transition-all hover:border-ring hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.6),0_3px_8px_-3px_rgb(0_0_0/0.22)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none aria-expanded:border-ring aria-expanded:ring-3 aria-expanded:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none dark:from-input/40 dark:to-input/20 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_1px_2px_rgb(0_0_0/0.4)]",
+          className,
+        )}
       >
-        {currentOption?.label ?? placeholder ?? current ?? "—"}
+        <span className={cn("min-w-0 flex-1 truncate", !currentOption && "text-muted-foreground")}>{currentOption?.label ?? placeholder ?? current ?? "—"}</span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-ring/70 transition-transform group-hover:text-ring", open && "rotate-180")} aria-hidden />
       </button>
       {open && !disabled && (
-        <div className={`absolute left-0 z-20 max-h-64 min-w-full overflow-y-auto rounded-md border bg-background shadow-lg ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}>
+        <div role="listbox" className={`absolute left-0 z-30 max-h-64 w-max min-w-full max-w-[min(24rem,85vw)] overflow-x-hidden overflow-y-auto rounded-xl border border-ring/25 bg-background p-1 shadow-xl ring-1 ring-black/5 ${openUpward ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}>
           {searchable && (
-            <div className="sticky top-0 border-b bg-background p-1.5">
+            <div className="sticky top-0 z-10 -mx-1 -mt-1 mb-1 border-b bg-background p-1.5">
+              <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <input
                 ref={searchRef}
                 type="text"
@@ -139,21 +150,31 @@ export function Dropdown({
                 }}
                 placeholder="Type to search…"
                 aria-label="Search options"
-                className="h-8 w-full rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-8 w-full rounded-lg border border-ring/30 bg-card pl-8 pr-2 text-sm shadow-inner outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
               />
+              </div>
             </div>
           )}
           {searchable && needle && matchingOptions.length === 0 && <p className="px-2 py-1.5 text-sm text-muted-foreground">No matches</p>}
-          {visibleOptions.map((o) => (
-            <button
-              key={o.value || "none"}
-              type="button"
-              onClick={() => choose(o.value)}
-              className="block w-full px-2 py-1.5 text-left text-sm whitespace-nowrap text-foreground hover:bg-muted"
-            >
-              {o.label}
-            </button>
-          ))}
+          {visibleOptions.map((o) => {
+            const selected = o.value === current && o.value !== "";
+            return (
+              <button
+                key={o.value || "none"}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => choose(o.value)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-ring/10",
+                  selected && "bg-ring/10 font-medium text-ring",
+                )}
+              >
+                <span className="min-w-0 break-words">{o.label}</span>
+                {selected && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

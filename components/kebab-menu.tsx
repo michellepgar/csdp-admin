@@ -85,7 +85,7 @@ export function KebabMenu({ items, ariaLabel }: { items: KebabMenuItem[]; ariaLa
         onClick={() => { if (open) close(); else setOpen(true); }}
         aria-label={ariaLabel}
         aria-expanded={open}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-ring/10 hover:text-ring aria-expanded:bg-ring/15 aria-expanded:text-ring"
       >
         <MoreVertical className="h-4 w-4" />
       </button>
@@ -93,7 +93,7 @@ export function KebabMenu({ items, ariaLabel }: { items: KebabMenuItem[]; ariaLa
         <div
           ref={popoverRef}
           style={{ position: "fixed", top: 0, left: 0, visibility: "hidden" }}
-          className="z-[70] max-h-[calc(100vh-1rem)] min-w-40 max-w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-md border bg-background shadow-lg"
+          className="z-[70] max-h-[calc(100vh-1rem)] min-w-40 max-w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-ring/25 bg-background p-1 shadow-xl ring-1 ring-black/5"
         >
           {panelItem?.panel ? (
             <div className="p-2">
@@ -112,7 +112,7 @@ export function KebabMenu({ items, ariaLabel }: { items: KebabMenuItem[]; ariaLa
                   item.onClick?.();
                   close();
                 }}
-                className={`block w-full whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-muted ${item.destructive ? "text-destructive" : "text-foreground"}`}
+                className={`block w-full whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${item.destructive ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-ring/10"}`}
               >
                 {item.label}
               </button>

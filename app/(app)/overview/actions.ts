@@ -592,8 +592,7 @@ export async function claimPriorityPlanItem(formData: FormData): Promise<PlanAct
 }
 
 /* An UNCLAIMED item (no vaName -- only ever a shared priority sitting
-   in Task Priorities) can be removed by anyone, same as this app's
-   existing team-wide trust model everywhere else. But once an item has
+   in Task Priorities) can only be deleted by an admin. Once an item has
    a vaName -- it's on someone's own Plans for Tomorrow -- only that VA
    can remove it; Michelle asked for this specifically so one person
    can't clear another's plan out from under them.
@@ -627,6 +626,9 @@ export async function removePlanItem(formData: FormData): Promise<PlanActionResu
     const { data: item } = await supabase.from("plan_items").select("kind, va_name").eq("id", id).maybeSingle();
     if (!item) return;
     if (item.va_name && item.va_name !== me.name) throw new Error("You can only remove items from your own plan.");
+    // A priority still sitting in Task Priorities (nobody has grabbed it) can only
+    // be deleted by an admin. Someone who grabbed one can still put it back.
+    if (item.kind === "priority" && !item.va_name && !isAdmin(me)) throw new Error("Only an admin can delete a priority from Task Priorities.");
     if (item.kind === "priority" && item.va_name) {
       const { error } = await supabase.from("plan_items").update({ va_name: null }).eq("id", id);
       orThrow(error);

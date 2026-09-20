@@ -247,7 +247,8 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                     </div>
                   )}
                   {isCurrentUserAdmin && <Button type="button" variant="ghost" size="xs" onClick={() => { setEditingId(item.id); setEditError(null); }}>Edit</Button>}
-                  <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}"?`} pendingLabel="…">✕</ConfirmDeleteButton></form>
+                  {/* Only admins delete a priority; everyone else can grab it. */}
+                  {isCurrentUserAdmin && <form action={removePlanItem}><input type="hidden" name="id" value={item.id} /><ConfirmDeleteButton confirmMessage={`Remove "${item.label}"?`} pendingLabel="…">✕</ConfirmDeleteButton></form>}
                 </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 border-t border-red-500/15 pt-2">

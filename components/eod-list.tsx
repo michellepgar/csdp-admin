@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SegmentedToggle } from "@/components/segmented-toggle";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/dropdown";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -236,10 +237,7 @@ export function EodList({
             className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
           />
         )}
-        <div className="flex overflow-hidden rounded-md border bg-card">
-          <button type="button" onClick={() => setViewMode("notes")} className={`px-3 py-1.5 text-sm ${viewMode === "notes" ? "bg-primary text-primary-foreground" : ""}`}>Notes</button>
-          <button type="button" onClick={() => setViewMode("table")} className={`px-3 py-1.5 text-sm ${viewMode === "table" ? "bg-primary text-primary-foreground" : ""}`}>Table</button>
-        </div>
+        <SegmentedToggle value={viewMode} onChange={setViewMode} options={[{ value: "notes", label: "Notes" }, { value: "table", label: "Table" }]} />
       </div>
 
       <p className="text-sm text-muted-foreground">

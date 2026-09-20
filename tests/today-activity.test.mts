@@ -54,3 +54,18 @@ test("a completed-today note reminder shows up as its own entry, marked Reviewed
     { schoolName: "Reminder", category: "", fileName: "Call the front desk back", status: "Reviewed", itemKey: "p:p1" },
   ]);
 });
+
+test("Start my day clears work completed before it, even earlier the same day", () => {
+  const start = new Date().toISOString();
+  const before = new Date(Date.now() - 3 * 3600e3).toISOString();
+  const after = new Date(Date.now() + 60e3).toISOString();
+  const generalTasks: GeneralTask[] = [
+    { id: "g1", category: "Admin", description: "Done this morning", status: "Completed", vaAssigned: ["Jane"], createdAt: before },
+    { id: "g2", category: "Admin", description: "Done after start", status: "Completed", vaAssigned: ["Jane"], createdAt: before },
+    { id: "g3", category: "Admin", description: "Someone else's, no shift", status: "Completed", vaAssigned: ["John"], createdAt: before },
+  ];
+  const result = todayActivityByVa([], {}, generalTasks, { g1: before, g2: after, g3: before }, [], { Jane: start });
+  assert.deepEqual(result.get("Jane")?.map((i) => i.fileName), ["Done after start"]);
+  // John has no open shift, so the calendar date decides.
+  assert.deepEqual(result.get("John")?.map((i) => i.fileName), ["Someone else's, no shift"]);
+});

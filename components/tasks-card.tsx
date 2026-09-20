@@ -107,8 +107,8 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
 
   return (
     <div className="grid grid-cols-[1fr_88px_24px] items-start gap-1">
-      <div className="flex min-w-0 items-center gap-1 overflow-hidden">
-        <div className="flex w-24 shrink-0 items-center overflow-hidden">{firstSigner && signerChip(firstSigner)}</div>
+      <div className="flex min-w-0 flex-wrap items-center gap-1">
+        <div className="flex min-h-6 w-24 shrink-0 items-center overflow-hidden">{firstSigner && signerChip(firstSigner)}</div>
         {!iSigned && (
           <form action={signTask} className="shrink-0">
             <input type="hidden" name="schoolId" value={schoolId} />
@@ -446,7 +446,54 @@ export function TasksCard(props: TasksCardProps) {
             </button>
             {!collapsed && (
             <>
-            <div className="overflow-x-auto">
+            {/* Phones: one card per file (name, then each category with its count
+                and VA/status) instead of a wide table that scrolls sideways. */}
+            <div className="space-y-2 p-2 sm:hidden">
+              {group.files.map((file) => {
+                const countCategoryIds = new Set(columns.find((column) => column.kind === "count")?.categories.map((category) => category.id));
+                return (
+                  <div key={file.id} className="space-y-2 rounded-lg border bg-card p-2.5 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      {editingFileId === file.id ? (
+                        <form action={(formData) => submitTaskFileForm(props.updateTaskFileName, formData, setEditFileError, () => setEditingFileId(null))} className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                          <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskFileId" value={file.id} />
+                          <Input name="fileName" value={editedFileName} onChange={(event) => setEditedFileName(event.target.value)} required autoFocus className="h-8 min-w-0" />
+                          <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton><Button type="button" variant="ghost" size="xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
+                          {editFileError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{editFileError}</p>}
+                        </form>
+                      ) : (
+                        <p className="min-w-0 flex-1 break-words font-bold" style={{ overflowWrap: "anywhere" }}>
+                          {file.fileName}
+                          {canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 align-middle text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}
+                        </p>
+                      )}
+                      <DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} icon={<Trash2 className="h-3 w-3" />} />
+                    </div>
+                    {group.categories.map((category) => {
+                      const assignment = file.categories.find((item) => item.categoryId === category.id);
+                      if (!assignment) return null;
+                      return (
+                        <div key={category.id} className="space-y-1 border-t pt-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category.name}</span>
+                            {countCategoryIds.has(category.id) && (
+                              <AutoSubmitForm action={props.setTaskCount}>
+                                <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskId" value={assignment.id} />
+                                <label className="flex items-center gap-1 text-xs text-muted-foreground">Count
+                                  <input key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit} className="h-7 w-16 rounded-md border px-1.5 py-0.5 text-sm" />
+                                </label>
+                              </AutoSubmitForm>
+                            )}
+                          </div>
+                          <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} categories={orderedCategories} currentUserName={currentUserName} canEdit={canEdit} isAdmin={props.isAdmin} actions={props} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
             <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
               <colgroup>{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
               {/* Category header cells get their own bg-title-background

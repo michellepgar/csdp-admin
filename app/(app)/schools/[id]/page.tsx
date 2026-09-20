@@ -152,72 +152,56 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
       </div>
 
       <PageBody>
-      {/* flex, not grid -- Yearly Checklist can collapse to just its
-          header (its own "Hide" button) and shrink to that header's
-          width instead of always taking a fixed half-width column;
-          Tasks grows to fill whatever space that frees up.
+      {/* Checklist on top and Tasks under it, both the full width of the page --
+          the same width as Email Tracker / Contact Info below -- so the tables
+          line up and use whatever the screen gives them. (The checklist used to
+          sit in a narrow column beside Tasks, which left an empty strip under it
+          and squeezed the tables on small screens.) */}
+      <ChecklistCard
+        schoolId={schoolId}
+        template={checklistTemplate}
+        progress={checklistProgressForSchool}
+        vas={state.vas}
+        initialHidden={checklistCollapsed}
+        toggleChecklistItem={toggleChecklistItem}
+        setChecklistNotNeeded={setChecklistNotNeeded}
+        addChecklistTemplateItem={addChecklistTemplateItem}
+        removeChecklistTemplateItem={removeChecklistTemplateItem}
+        updateChecklistTemplateItem={updateChecklistTemplateItem}
+        reorderChecklistTemplate={reorderChecklistTemplate}
+      />
 
-          flex-col sm:flex-row (not flex-wrap on a row) -- flex-wrap
-          only forces a line break once the row's items can't fit at
-          their natural (min-content) width, but Tasks opts OUT of
-          that via min-w-0 specifically so it CAN shrink. Combined,
-          those fought each other on a narrow phone screen: confirmed
-          directly from a screenshot showing Checklist's own open
-          panel rendered on the same row as Tasks, which just got
-          squeezed down to a sliver instead of the row ever wrapping.
-          Stacking unconditionally below `sm` sidesteps that fight
-          entirely instead of trying to out-tune it. */}
-      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start">
-        <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:basis-0">
-          <TasksCard
-            schoolId={schoolId}
-            categories={categories}
-            taskFiles={taskFiles}
-            vas={state.vas}
-            canEdit={canEdit}
-            currentUserName={me.name}
-            addTask={addTask}
-            addCategoryToFiles={addCategoryToFiles}
-            setTaskStatus={setTaskStatus}
-            setTaskCount={setTaskCount}
-            signTask={signTask}
-            assignTaskToVa={assignTaskToVa}
-            isAdmin={isAdmin(me)}
-            removeVaFromTask={removeVaFromTask}
-            removeTask={removeTask}
-            removeTaskAssignment={removeTaskAssignment}
-            moveTaskFileCategory={moveTaskFileCategory}
-            addTaskCategory={addTaskCategory}
-            removeTaskCategory={removeTaskCategory}
-            reorderTaskCategories={reorderTaskCategories}
-            renameTaskCategory={renameTaskCategory}
-            setTaskCategoryHasCount={setTaskCategoryHasCount}
-            reorderTasks={reorderTasks}
-            updateTaskFileName={updateTaskFileName}
-            setCommsStatus={setCommsStatus}
-            signComms={signComms}
-            removeVaFromComms={removeVaFromComms}
-          />
-        </div>
-        <ChecklistCard
+        <TasksCard
           schoolId={schoolId}
-          template={checklistTemplate}
-          progress={checklistProgressForSchool}
+          categories={categories}
+          taskFiles={taskFiles}
           vas={state.vas}
-          initialHidden={checklistCollapsed}
-          toggleChecklistItem={toggleChecklistItem}
-          setChecklistNotNeeded={setChecklistNotNeeded}
-          addChecklistTemplateItem={addChecklistTemplateItem}
-          removeChecklistTemplateItem={removeChecklistTemplateItem}
-          updateChecklistTemplateItem={updateChecklistTemplateItem}
-          reorderChecklistTemplate={reorderChecklistTemplate}
+          canEdit={canEdit}
+          currentUserName={me.name}
+          addTask={addTask}
+          addCategoryToFiles={addCategoryToFiles}
+          setTaskStatus={setTaskStatus}
+          setTaskCount={setTaskCount}
+          signTask={signTask}
+          assignTaskToVa={assignTaskToVa}
+          isAdmin={isAdmin(me)}
+          removeVaFromTask={removeVaFromTask}
+          removeTask={removeTask}
+          removeTaskAssignment={removeTaskAssignment}
+          moveTaskFileCategory={moveTaskFileCategory}
+          addTaskCategory={addTaskCategory}
+          removeTaskCategory={removeTaskCategory}
+          reorderTaskCategories={reorderTaskCategories}
+          renameTaskCategory={renameTaskCategory}
+          setTaskCategoryHasCount={setTaskCategoryHasCount}
+          reorderTasks={reorderTasks}
+          updateTaskFileName={updateTaskFileName}
+          setCommsStatus={setCommsStatus}
+          signComms={signComms}
+          removeVaFromComms={removeVaFromComms}
         />
-      </div>
 
-      {/* flex, matching the Tasks/Checklist row above (see its own
-          comment for why flex-col sm:flex-row rather than flex-wrap on
-          a row) -- Michelle asked for Email Notes right beside Email
-          Tracker. */}
+      {/* Email Notes sits right beside Email Tracker (Michelle asked); the two stack on a phone. */}
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start">
         <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:basis-0">
           <EmailTrackerCard

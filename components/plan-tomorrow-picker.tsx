@@ -123,8 +123,20 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   const [reminderText, setReminderText] = useState("");
   const [selectedNoteId, setSelectedNoteId] = useState("");
 
-  function toggle(id: string) {
-    setChecked((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  /* What each ticked item is (its school, its label), remembered at the moment
+     it was ticked. The lists above only hold the school/category currently
+     chosen, so without this an item ticked under one school and then a
+     different school picked would look like a General Task when saved. */
+  const [itemInfo, setItemInfo] = useState<Record<string, { label: string; schoolId?: string }>>({});
+  const remember = (items: OpenItem[]) => setItemInfo((prev) => {
+    const next = { ...prev };
+    for (const t of items) next[t.id] = { label: `${t.fileName} — ${t.category}`, schoolId: t.schoolId };
+    return next;
+  });
+
+  function toggle(item: OpenItem) {
+    if (!checked.has(item.id)) remember([item]);
+    setChecked((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
   }
 
   function addPendingReminderFreeText() {
@@ -150,6 +162,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
     // Already on the list? Tick it instead of creating a duplicate.
     const matches = !isNew ? browseSchoolTasks.filter((t) => t.fileName.trim().toLowerCase() === name.toLowerCase()) : [];
     if (matches.length > 0) {
+      remember(matches);
       setChecked((prev) => { const next = new Set(prev); for (const m of matches) next.add(m.id); return next; });
     } else {
       setNewItems((prev) => [...prev, {
@@ -169,6 +182,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
     if (!name || !categoryName) return;
     const existing = !isNew && browseGeneralTasks.find((t) => t.fileName.trim().toLowerCase() === name.toLowerCase());
     if (existing) {
+      remember([existing]);
       setChecked((prev) => new Set(prev).add(existing.id));
     } else {
       setNewItems((prev) => [...prev, { key: `general-${Date.now()}`, kind: "general", categoryName, isNewCategory: isNew, name }]);
@@ -184,17 +198,26 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
     setPendingReminders((prev) => prev.filter((r) => r.key !== key));
   }
 
+  // Where an id came from: what was remembered when ticked, else what's already
+  // on the plan, else the lists currently showing.
+  function infoFor(id: string): { label: string; schoolId?: string } | undefined {
+    if (itemInfo[id]) return itemInfo[id];
+    const planned = myPlanItems.find((p) => p.kind === "task" && (p.taskFileCategoryId === id || p.generalTaskId === id));
+    if (planned) return { label: planned.label, schoolId: planned.taskFileCategoryId ? planned.schoolId : undefined };
+    const listed = [...carryOver, ...browseSchoolTasks, ...browseGeneralTasks].find((t) => t.id === id);
+    return listed ? { label: `${listed.fileName} — ${listed.category}`, schoolId: listed.schoolId } : undefined;
+  }
+
   function buildLabels(): Record<string, { label: string; schoolId?: string }> {
-    const all = [...carryOver, ...browseSchoolTasks, ...browseGeneralTasks];
     const labels: Record<string, { label: string; schoolId?: string }> = {};
     for (const id of checked) {
-      const item = all.find((t) => t.id === id);
-      if (item) labels[id] = { label: `${item.fileName} — ${item.category}`, schoolId: item.schoolId };
+      const info = infoFor(id);
+      if (info) labels[id] = info;
     }
     return labels;
   }
 
-  const isSchoolId = (id: string) => [...carryOver, ...browseSchoolTasks].some((t) => t.id === id && t.schoolId);
+  const isSchoolId = (id: string) => !!infoFor(id)?.schoolId || myPlanItems.some((p) => p.kind === "task" && p.taskFileCategoryId === id);
 
   const tabs: { id: Tab; label: string; hint: string; icon: React.ReactNode; count: number }[] = [
     { id: "inProgress", label: "In Progress", hint: mode === "end" ? "Still open from today" : "What you're working on now", icon: <ListChecks className="h-4 w-4" />, count: carryOver.filter((t) => checked.has(t.id)).length },
@@ -254,7 +277,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                     {carryOver.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Nothing in progress right now.</p>}
                     {carryOver.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
-                        <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t.id)} />
+                        <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t)} />
                         <span className="min-w-0"><span className="font-medium">{t.fileName}</span><span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span></span>
                       </label>
                     ))}
@@ -277,7 +300,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                     {generalCategory !== "" && generalCategory !== NEW_CATEGORY && browseGeneralTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">No tasks in this category yet.</p>}
                     {browseGeneralTasks.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
-                        <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t.id)} />
+                        <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t)} />
                         <span className="min-w-0"><span className="font-medium">{t.fileName}</span>{t.status === "Completed" && <span className="text-muted-foreground"> (Completed)</span>}</span>
                       </label>
                     ))}
@@ -344,7 +367,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                     {school && (pickedCategory || pickedTable) && browseSchoolTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">{pickedTable ? "No other files in this table." : "No other files in this category at this school."}</p>}
                     {browseSchoolTasks.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
-                        <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t.id)} />
+                        <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t)} />
                         <span className="min-w-0"><span className="font-medium">{t.fileName}</span>{pickedTable && <span className="text-muted-foreground"> — {t.category}</span>}{t.status === "Completed" && <span className="text-muted-foreground"> (Completed)</span>}</span>
                       </label>
                     ))}

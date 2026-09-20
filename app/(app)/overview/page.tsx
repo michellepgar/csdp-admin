@@ -52,7 +52,9 @@ export default async function OverviewPage() {
   const user = await getCurrentUser();
   const me = user?.email ? findVaByEmail(state, user.email) : undefined;
 
-  const todayByVa = todayActivityByVa(state.schools, state.schoolData, state.generalTasks || [], state.statusChangedAt || {}, state.planItems || []);
+  // When each person clicked Start my day (only while they're in that shift).
+  const shiftStartByVa = Object.fromEntries((state.shiftStates || []).filter((s) => s.status === "working").map((s) => [s.vaName, s.changedAt]));
+  const todayByVa = todayActivityByVa(state.schools, state.schoolData, state.generalTasks || [], state.statusChangedAt || {}, state.planItems || [], shiftStartByVa);
 
   const myPlanItems = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === me?.name);
 
@@ -135,6 +137,7 @@ export default async function OverviewPage() {
             taskCategories={state.taskCategories || []}
             schoolData={state.schoolData}
             isCurrentUserAdmin={!!me && isAdmin(me)}
+            currentUserName={me?.name ?? ""}
             addPriority={addPriority}
             updatePriorityPlanItem={updatePriorityPlanItem}
             removePlanItem={removePlanItem}

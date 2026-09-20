@@ -8,15 +8,16 @@ import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { visibleSchoolItems, type PlanItem, type GeneralTaskCategory, type TaskCategory, type SchoolDataEntry, type Va } from "@/lib/app-state";
+import { visibleSchoolItems, vaColorByName, type PlanItem, type GeneralTaskCategory, type TaskCategory, type SchoolDataEntry, type Va } from "@/lib/app-state";
 
 const ADD_NEW_FILE_OPTION = "__add_new_file__";
 
 /* Boss-only "what should someone work on next" list, shown beside
    Alerts since both are "things that need attention" at a glance --
-   only UNASSIGNED/shared priorities show here (once a VA is attached,
-   whether by the boss or by claiming, it's accounted for and shows in
-   the full Plans for Tomorrow section below instead). */
+   priorities nobody has grabbed yet show here. One the boss assigned to a
+   person stays here, labelled with who it is for, until that person grabs
+   it (Today or Next plan) -- they may not have room for it next shift.
+   Once grabbed it is on their plan and shows in Next Shift Plan. */
 /* The Add form's fields, reused as-is for editing an existing priority
    in place -- editing is the same shape as adding, just pre-filled and
    posting to updatePriorityPlanItem (with a hidden id) instead of
@@ -62,7 +63,7 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input name="label" required defaultValue={defaultLabel} placeholder="What should someone work on next?" className="h-8 min-w-48 flex-1 rounded-md border bg-card px-2 text-sm" />
-        <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Anyone (shared)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
+        <Dropdown name="assignedTo" value={assignedTo} onChange={setAssignedTo} placeholder="Assign to someone (optional)" options={vas.map((va) => ({ value: va.name, label: va.name }))} />
       </div>
       {linkMode && (
         <div className="flex flex-wrap items-center gap-2">
@@ -111,13 +112,15 @@ function PriorityFields({ vas, schools, taskCategories, schoolData, defaultLabel
   );
 }
 
-export function TaskPriorities({ planItems, vas, schools, taskCategories, schoolData, isCurrentUserAdmin, addPriority, removePlanItem, claimPriorityPlanItem, movePriorityPlanItem, resolvePriorityPlanItem, generalTaskCategories, updatePriorityPlanItem }: {
+export function TaskPriorities({ planItems, vas, schools, taskCategories, schoolData, isCurrentUserAdmin, currentUserName, addPriority, removePlanItem, claimPriorityPlanItem, movePriorityPlanItem, resolvePriorityPlanItem, generalTaskCategories, updatePriorityPlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
   schoolData: Record<string, SchoolDataEntry>;
   isCurrentUserAdmin: boolean;
+  /** Used to show Today / Next plan only to the person a priority is assigned to. */
+  currentUserName: string;
   addPriority: (formData: FormData) => Promise<{ error: string | null }>;
   removePlanItem: (formData: FormData) => void;
   claimPriorityPlanItem: (formData: FormData) => void;
@@ -199,7 +202,7 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                     taskCategories={taskCategories}
                     schoolData={schoolData}
                     defaultLabel={item.label}
-                    defaultAssignedTo={item.vaName}
+                    defaultAssignedTo={item.assignedTo}
                     defaultLinkMode={!!item.suggestedSchoolId}
                     defaultSchoolId={item.suggestedSchoolId}
                     defaultCategoryId={item.suggestedCategoryId}
@@ -218,6 +221,12 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                   <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-red-600 text-[11px] font-bold text-white shadow-sm" title={`Priority ${index + 1}`}>{index + 1}</span>
                   <div className="min-w-0">
                   <span className="flex items-center font-medium"><span className="priority-dot" aria-hidden />{item.label}</span>
+                  {item.assignedTo && (
+                    <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-xs font-medium shadow-sm">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: vaColorByName(vas, item.assignedTo) || "#94a3b8" }} aria-hidden />
+                      Assigned to {item.assignedTo}
+                    </span>
+                  )}
                   {item.suggestedSchoolId && (
                     <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                       <Link2 className="h-3 w-3 shrink-0" />
@@ -238,8 +247,14 @@ export function TaskPriorities({ planItems, vas, schools, taskCategories, school
                 </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 border-t border-red-500/15 pt-2">
+                  {item.assignedTo && item.assignedTo !== currentUserName ? (
+                    <span className="text-xs text-muted-foreground">Waiting for {item.assignedTo} to grab it.</span>
+                  ) : (
+                  <>
                   <Button type="button" variant="plan" size="xs" className="bg-red-600 text-white hover:bg-red-700" title="Claim it and start it now" onClick={async () => { const data = new FormData(); data.set("id", item.id); await claimPriorityPlanItem(data); setStartingToday(item); }}><Play className="h-3 w-3" /> Today</Button>
                   <form action={claimPriorityPlanItem}><input type="hidden" name="id" value={item.id} /><SubmitButton variant="outline" size="xs" pendingLabel="…" title="Add to my next shift plan"><CalendarClock className="h-3 w-3" /> Next plan</SubmitButton></form>
+                  </>
+                  )}
                 </div>
               </li>
             ))}

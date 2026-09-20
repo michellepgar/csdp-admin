@@ -30,13 +30,15 @@ export function taskTableColumns(categories: TaskCategory[]): (
 export function taskTableLayout(columns: ReturnType<typeof taskTableColumns>): {
   columnWidths: (number | undefined)[]; minWidth: number;
 } {
-  // 340px per task column -- wide enough for two SignatureChips (the
-  // usual max: "we just usually have 2 VAs working on a file") side by
-  // side in the VA/sign area alongside the fixed-width Status and
-  // remove tracks (see SignAndStatus in components/tasks-card.tsx),
-  // without wrapping to a second line the way the previous 240px did.
-  const columnWidths = columns.map((column) => column.kind === "count" ? 72 : column.kind === "task" ? 340 : column.kind === "remove" ? 28 : undefined);
-  return {columnWidths, minWidth: columnWidths.reduce<number>((total, width) => total + (width ?? 256), 0)};
+  // Only Count and the remove button have a fixed width. The file name and
+  // every task column share whatever room the screen gives them (the table
+  // is table-fixed and w-full), so a wide screen fills the card and a narrow
+  // one only scrolls sideways below minWidth. A file has one VA now, so a task
+  // column just needs room for one signature chip, the sign/take-over button,
+  // Status and the 3-dot menu (SignAndStatus wraps if it gets tighter).
+  const columnWidths = columns.map((column) => column.kind === "count" ? 64 : column.kind === "remove" ? 28 : undefined);
+  const minimum = (column: (typeof columns)[number], width: number | undefined) => width ?? (column.kind === "task" ? 250 : 180);
+  return {columnWidths, minWidth: columns.reduce<number>((total, column, index) => total + minimum(column, columnWidths[index]), 0)};
 }
 
 // Only return safe, actionable messages; raw database errors stay on the server.
@@ -201,15 +203,26 @@ export function isToday(iso: string): boolean {
    each VA's list now also carries anything they completed today (status
    Completed or Review, per the new status_changed_at column) alongside
    what's still In Progress -- statusChangedAt is keyed by task id (school
-   tasks) or general task id, matching Task.id/GeneralTask.id. */
+   tasks) or general task id, matching Task.id/GeneralTask.id.
+
+   "Today" for a VA who has clicked Start my day means SINCE that click
+   (shiftStartByVa): anything completed before it is yesterday's work and is
+   cleared, even if it happened earlier on the same calendar date. A VA with
+   no open shift falls back to the calendar date. */
 export function todayActivityByVa(
   schools: School[],
   schoolData: Record<string, SchoolDataEntry>,
   generalTasks: GeneralTask[],
   statusChangedAt: Record<string, string>,
   planItems: PlanItem[] = [],
+  shiftStartByVa: Record<string, string> = {},
 ): Map<string, TodayActivityItem[]> {
   const byVa = new Map<string, TodayActivityItem[]>();
+  const isRecentFor = (iso: string | undefined, vaName: string): boolean => {
+    if (!iso) return false;
+    const start = shiftStartByVa[vaName];
+    return start ? new Date(iso).getTime() >= new Date(start).getTime() : isToday(iso);
+  };
   const push = (vaName: string, item: TodayActivityItem) => {
     if (!byVa.has(vaName)) byVa.set(vaName, []);
     byVa.get(vaName)!.push(item);
@@ -218,21 +231,27 @@ export function todayActivityByVa(
   for (const school of schools) {
     for (const task of schoolData[school.id]?.tasks || []) {
       const changedAt = statusChangedAt[task.id];
-      const completedToday = (task.status === "Completed" || task.status === "Review") && !!changedAt && isToday(changedAt);
-      if (task.status !== "In Progress" && !completedToday) continue;
-      for (const vaName of task.vaAssigned) push(vaName, { schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName, status: task.status, itemKey: `t:${task.id}` });
+      const done = task.status === "Completed" || task.status === "Review";
+      if (task.status !== "In Progress" && !done) continue;
+      for (const vaName of task.vaAssigned) {
+        if (task.status !== "In Progress" && !isRecentFor(changedAt, vaName)) continue;
+        push(vaName, { schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName, status: task.status, itemKey: `t:${task.id}` });
+      }
     }
   }
 
   for (const task of generalTasks) {
     const changedAt = statusChangedAt[task.id];
-    const completedToday = (task.status === "Completed" || task.status === "Review") && !!changedAt && isToday(changedAt);
-    if (task.status !== "In Progress" && !completedToday) continue;
-    for (const vaName of task.vaAssigned) push(vaName, { schoolName: "General", category: task.category, fileName: task.description, status: task.status, itemKey: `g:${task.id}` });
+    const done = task.status === "Completed" || task.status === "Review";
+    if (task.status !== "In Progress" && !done) continue;
+    for (const vaName of task.vaAssigned) {
+      if (task.status !== "In Progress" && !isRecentFor(changedAt, vaName)) continue;
+      push(vaName, { schoolName: "General", category: task.category, fileName: task.description, status: task.status, itemKey: `g:${task.id}` });
+    }
   }
 
   for (const item of planItems) {
-    if (item.kind === "task" || !item.completedAt || !item.vaName || !isToday(item.completedAt)) continue;
+    if (item.kind === "task" || !item.completedAt || !item.vaName || !isRecentFor(item.completedAt, item.vaName)) continue;
     // A checked reminder is DONE: it shows here only as reviewed (a check
     // mark), and is never carried into the next shift's plan.
     push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "Reviewed", itemKey: `p:${item.id}` });

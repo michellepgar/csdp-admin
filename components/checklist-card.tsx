@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, GripVertical, Pencil, X } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Pencil, X } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HoverLabel } from "@/components/hover-label";
 import { checklistSummary, vaColorByName, type ChecklistTemplateItem, type ChecklistProgressEntry, type Va } from "@/lib/app-state";
 
 const COLLAPSED_COOKIE_NAME = "checklist-collapsed";
@@ -97,28 +96,20 @@ export function ChecklistCard({
      mirroring how the sidebar's own collapsed button sits on the left. */
   if (hidden) {
     return (
-      <HoverLabel label="Yearly Checklist" side="left" className="ml-auto">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setHiddenAndRemember(false)}
-          aria-label="Show Yearly Checklist"
-          className="border bg-background"
-        >
-          <ChevronLeft className="h-4 w-4" />
+      <div className="flex items-center justify-between gap-2 rounded-md border bg-header-background px-3 py-1 text-white">
+        <h2 className="font-semibold whitespace-nowrap">
+          Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/70">{summary.done}/{summary.total}</span>}
+        </h2>
+        <Button type="button" variant="ghost" size="sm" className="text-white hover:bg-white/20 hover:text-white" onClick={() => setHiddenAndRemember(false)} aria-label="Show Yearly Checklist">
+          Show <ChevronDown className="h-4 w-4" />
         </Button>
-      </HoverLabel>
+      </div>
     );
   }
 
   return (
-    // Sized to its own content (not a fixed 50/50 split with Tasks) --
-    // a checklist with a handful of short items shouldn't claim half
-    // the row's width. Tasks (flex-1 on its own wrapper in
-    // schools/[id]/page.tsx) takes whatever this leaves. ml-auto docks
-    // it to the row's right edge explicitly.
-    <div className="ml-auto w-fit max-w-full rounded-md border bg-card sm:max-w-xs">
+    // Full width, like Tasks under it and the cards below it.
+    <div className="w-full rounded-md border bg-card">
       <div className="flex items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
         <h2 className="font-semibold whitespace-nowrap">
           Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/70">{summary.done}/{summary.total}</span>}
@@ -132,7 +123,7 @@ export function ChecklistCard({
               right next to this button already, so a tooltip repeating
               the same text would be redundant while it's open. */}
           <Button type="button" variant="ghost" size="icon-sm" className="text-white hover:bg-white/20 hover:text-white" onClick={() => setHiddenAndRemember(true)} aria-label="Hide Yearly Checklist">
-            <ChevronRight className="h-4 w-4" />
+            <ChevronUp className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -184,6 +175,7 @@ export function ChecklistCard({
             <p className="text-sm text-muted-foreground">No checklist items yet — use &quot;Edit template&quot; to add the first one.</p>
           )}
 
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {template.map((item) => {
             const entry = progress[item.id];
             const done = entry?.status === "Done";
@@ -222,6 +214,7 @@ export function ChecklistCard({
               </div>
             );
           })}
+          </div>
         </div>
     </div>
   );

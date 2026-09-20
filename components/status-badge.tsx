@@ -24,7 +24,7 @@ export function StatusBadge({
   children: React.ReactNode;
 }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_CLASSES[tone]}`}>
+    <span className={`inline-flex flex-none items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_CLASSES[tone]}`}>
       {children}
     </span>
   );

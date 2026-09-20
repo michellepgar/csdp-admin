@@ -99,8 +99,11 @@ export function CategoryColumns({ columns, accentColor }: { columns: CategoryCol
                     )}
                     {row.action}
                   </div>
-                  <div className="flex items-center justify-between gap-1">
-                    {row.sublabel ? <span className="min-w-0 truncate text-xs text-muted-foreground">{row.sublabel}</span> : <span />}
+                  {/* Wraps: the school name keeps its full width and a long
+                      status ("Waiting on Them") drops underneath it instead
+                      of squeezing into two lines or cutting the name short. */}
+                  <div className="flex flex-wrap items-center justify-between gap-x-1 gap-y-1">
+                    {row.sublabel ? <span className="max-w-full min-w-0 truncate text-xs text-muted-foreground" title={row.sublabel}>{row.sublabel}</span> : <span />}
                     {row.status && <StatusBadge tone={row.statusTone ?? "neutral"}>{row.status}</StatusBadge>}
                   </div>
                 </li>

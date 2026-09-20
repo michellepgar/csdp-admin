@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
-import { checklistCompletion, findVaByEmail, isAdmin, vaColorByName, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { checklistCompletion, findVaByEmail, isAdmin, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { todayActivityByVa, isToday } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
@@ -121,8 +121,26 @@ export default async function OverviewPage() {
         removePlanItem={removePlanItem}
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left: alerts -- what needs attention right now. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        {/* Left, and the wider column: boss-added priorities -- they need room
+            for the full text, linked task and actions. The full plan for every
+            VA (including these same priorities) lives below. */}
+        <div className="space-y-4">
+          <TaskPriorities
+            planItems={state.planItems || []}
+            vas={state.vas}
+            schools={state.schools}
+            taskCategories={state.taskCategories || []}
+            schoolData={state.schoolData}
+            isCurrentUserAdmin={!!me && isAdmin(me)}
+            addPriority={addPriority}
+            updatePriorityPlanItem={updatePriorityPlanItem}
+            removePlanItem={removePlanItem}
+            claimPriorityPlanItem={claimPriorityPlanItem}
+          />
+        </div>
+
+        {/* Right: alerts -- what needs attention right now (only a few details each). */}
         <div className="space-y-4">
           <h2 className="font-semibold">Alerts</h2>
 
@@ -181,23 +199,6 @@ export default async function OverviewPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-
-        {/* Right: boss-added priorities only -- the full plan for every
-            VA (including these same priorities) lives below. */}
-        <div className="space-y-4">
-          <TaskPriorities
-            planItems={state.planItems || []}
-            vas={state.vas}
-            schools={state.schools}
-            taskCategories={state.taskCategories || []}
-            schoolData={state.schoolData}
-            isCurrentUserAdmin={!!me && isAdmin(me)}
-            addPriority={addPriority}
-            updatePriorityPlanItem={updatePriorityPlanItem}
-            removePlanItem={removePlanItem}
-            claimPriorityPlanItem={claimPriorityPlanItem}
-          />
         </div>
       </div>
 

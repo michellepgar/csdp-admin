@@ -302,7 +302,7 @@ export function GeneralTasksList({
     const scroll = setTimeout(() => {
       document.querySelector(`[data-task-id="${flashId}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
-    const clear = setTimeout(() => setFlashId(null), 3500);
+    const clear = setTimeout(() => setFlashId(null), 1900);
     return () => { clearTimeout(scroll); clearTimeout(clear); };
   }, [flashId]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);

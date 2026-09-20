@@ -266,7 +266,7 @@ export function TasksCard(props: TasksCardProps) {
       // The table and the phone cards both exist; scroll to whichever is showing.
       (targets.find((el) => el.offsetParent !== null) ?? targets[0])?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
-    const clear = setTimeout(() => setFlashId(null), 3500);
+    const clear = setTimeout(() => setFlashId(null), 1900);
     return () => { clearTimeout(scroll); clearTimeout(clear); };
   }, [flashId]);
   const [orderedCategories, setOrderedCategories] = useState(categories);

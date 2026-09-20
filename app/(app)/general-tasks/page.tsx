@@ -21,7 +21,8 @@ import {
   moveGeneralTasksToSchool,
 } from "./actions";
 
-export default async function GeneralTasksPage() {
+export default async function GeneralTasksPage({ searchParams }: { searchParams: Promise<{ highlightTask?: string }> }) {
+  const { highlightTask } = await searchParams;
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
@@ -52,6 +53,7 @@ export default async function GeneralTasksPage() {
       <PageHeader title="General Tasks" />
       <PageBody>
         <GeneralTasksList
+          highlightTaskId={highlightTask}
           tasks={state.generalTasks || []}
           categories={state.generalTaskCategories || []}
           vas={state.vas}

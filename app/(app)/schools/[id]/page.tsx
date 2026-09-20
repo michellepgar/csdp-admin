@@ -59,8 +59,9 @@ function websiteHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
-export default async function SchoolPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SchoolPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ highlightTask?: string }> }) {
   const { id: schoolId } = await params;
+  const { highlightTask } = await searchParams;
 
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
@@ -172,6 +173,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
       />
 
         <TasksCard
+          highlightTaskId={highlightTask}
           schoolId={schoolId}
           categories={categories}
           taskFiles={taskFiles}

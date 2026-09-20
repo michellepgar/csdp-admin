@@ -10,7 +10,7 @@ import { StickyNote } from "lucide-react";
 import { SegmentedToggle } from "@/components/segmented-toggle";
 import { WorkNoteButton } from "@/components/work-note-button";
 import { CompleteTaskButton } from "@/components/complete-task-button";
-import { makeNoteLookup } from "@/lib/work-notes";
+import { makeNoteLookup, parseNoteKey } from "@/lib/work-notes";
 import type { TodayActivityItem } from "@/lib/shared-task-files";
 
 /* Same status/tone pairing as tasks-card.tsx and general-tasks-list.tsx
@@ -38,6 +38,15 @@ function canComplete(t: TodayActivityItem): boolean {
   return t.schoolName !== "Reminder" && t.status !== "Completed" && !!t.itemKey && (t.itemKey.startsWith("t:") || t.itemKey.startsWith("g:"));
 }
 
+// Where a task's link goes: its school page (or General Tasks) with the task
+// flagged, so the page scrolls to it and flashes it on arrival.
+function itemHref(t: TodayActivityItem): string {
+  const base = t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks";
+  const target = t.itemKey ? parseNoteKey(t.itemKey) : null;
+  if (target && (target.type === "task" || target.type === "general")) return `${base}?highlightTask=${target.id}`;
+  return `${base}${t.linkSuffix || ""}`;
+}
+
 function vaListRow(t: TodayActivityItem, key: number, note?: string, action?: React.ReactNode) {
   return (
     <li key={key} className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -45,7 +54,7 @@ function vaListRow(t: TodayActivityItem, key: number, note?: string, action?: Re
         <span className="font-bold">{t.fileName}</span>
       ) : (
         <>
-          <Link href={`${t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"}${t.linkSuffix || ""}`} className="font-bold underline-offset-2 hover:underline">
+          <Link href={itemHref(t)} className="font-bold underline-offset-2 hover:underline">
             {t.fileName}
           </Link>
           <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
@@ -76,7 +85,7 @@ function columnsFor(items: TodayActivityItem[], noteFor: (item: TodayActivityIte
       key: `${category}-${i}`,
       label: t.fileName,
       sublabel: t.schoolName === "Reminder" ? undefined : t.schoolName,
-      href: t.schoolName === "Reminder" ? undefined : `${t.schoolId ? `/schools/${t.schoolId}` : "/general-tasks"}${t.linkSuffix || ""}`,
+      href: t.schoolName === "Reminder" ? undefined : itemHref(t),
       status: t.status ? statusText(t.status) : undefined,
       statusTone: TODAY_STATUS_TONE[t.status] ?? "neutral",
       note: noteFor(t),

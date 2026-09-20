@@ -213,6 +213,8 @@ function AssignmentCell({ schoolId, assignment, vas, categories, currentUserName
 }
 
 type TasksCardProps = {
+  /** A task to scroll to and flash on arrival (from an Overview link). */
+  highlightTaskId?: string;
   schoolId: string;
   categories: TaskCategory[];
   taskFiles: TaskFile[];
@@ -252,6 +254,21 @@ const ADD_FILE_PICKER_CLASS =
 export function TasksCard(props: TasksCardProps) {
   const { schoolId, categories, taskFiles, vas, canEdit, currentUserName } = props;
   const [editorOpen, setEditorOpen] = useState(false);
+  // The task an Overview link pointed at: scrolled into view and flashed for a
+  // few seconds so it's obvious where you landed.
+  const [flashId, setFlashId] = useState<string | null>(
+    props.highlightTaskId && taskFiles.some((file) => file.categories.some((a) => a.id === props.highlightTaskId)) ? props.highlightTaskId : null,
+  );
+  useEffect(() => {
+    if (!flashId) return;
+    const scroll = setTimeout(() => {
+      const targets = Array.from(document.querySelectorAll<HTMLElement>(`[data-assignment-id="${flashId}"]`));
+      // The table and the phone cards both exist; scroll to whichever is showing.
+      (targets.find((el) => el.offsetParent !== null) ?? targets[0])?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 250);
+    const clear = setTimeout(() => setFlashId(null), 3500);
+    return () => { clearTimeout(scroll); clearTimeout(clear); };
+  }, [flashId]);
   const [orderedCategories, setOrderedCategories] = useState(categories);
   const [orderedFiles, setOrderedFiles] = useState(taskFiles);
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
@@ -473,7 +490,7 @@ export function TasksCard(props: TasksCardProps) {
                       const assignment = file.categories.find((item) => item.categoryId === category.id);
                       if (!assignment) return null;
                       return (
-                        <div key={category.id} className="space-y-1 border-t pt-2">
+                        <div key={category.id} data-assignment-id={assignment.id} className={`space-y-1 border-t pt-2 ${assignment.id === flashId ? "task-highlight-flash" : ""}`}>
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category.name}</span>
                             {countCategoryIds.has(category.id) && (
@@ -523,7 +540,7 @@ export function TasksCard(props: TasksCardProps) {
                       if (column.kind === "task") {
                         const category = column.category;
                         const assignment = file.categories.find((item) => item.categoryId === category.id);
-                        return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${dividerClass(index)}`}>
+                        return <td key={`${column.kind}:${category.id}`} data-assignment-id={assignment?.id} className={`px-4 py-2 align-top ${dividerClass(index)} ${assignment && assignment.id === flashId ? "task-highlight-flash" : ""}`}>
                           {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} categories={orderedCategories} currentUserName={currentUserName} canEdit={canEdit} isAdmin={props.isAdmin} actions={props} /> : null}
                         </td>;
                       }

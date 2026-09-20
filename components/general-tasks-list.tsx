@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SubmitButton } from "@/components/submit-button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
@@ -250,6 +250,7 @@ function BulkMoveForm({ taskIds, tasks, schools, taskCategories, schoolTables, m
    are (Michelle asked for this, not a fixed list) -- see
    addGeneralTaskCategory/removeGeneralTaskCategory. */
 export function GeneralTasksList({
+  highlightTaskId,
   tasks,
   categories,
   vas,
@@ -270,6 +271,8 @@ export function GeneralTasksList({
   moveGeneralTasksToSchool,
   addTaskCategory,
 }: {
+  /** A task to scroll to and flash on arrival (from an Overview link). */
+  highlightTaskId?: string;
   tasks: GeneralTask[];
   categories: GeneralTaskCategory[];
   vas: Va[];
@@ -291,6 +294,17 @@ export function GeneralTasksList({
   addTaskCategory: (formData: FormData) => void;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
+  // The task an Overview link pointed at: scrolled into view and flashed for a
+  // few seconds so it's obvious where you landed.
+  const [flashId, setFlashId] = useState<string | null>(highlightTaskId && tasks.some((t) => t.id === highlightTaskId) ? highlightTaskId : null);
+  useEffect(() => {
+    if (!flashId) return;
+    const scroll = setTimeout(() => {
+      document.querySelector(`[data-task-id="${flashId}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 250);
+    const clear = setTimeout(() => setFlashId(null), 3500);
+    return () => { clearTimeout(scroll); clearTimeout(clear); };
+  }, [flashId]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkMoving, setBulkMoving] = useState(false);
   const openCount = tasks.filter((t) => t.status === "In Progress").length;
@@ -350,7 +364,7 @@ export function GeneralTasksList({
         ) : (
           <div className="divide-y rounded-md border">
             {[...tasks].reverse().map((task) => (
-              <div key={task.id} className="flex items-start gap-2 bg-record-background px-1">
+              <div key={task.id} data-task-id={task.id} className={`flex items-start gap-2 bg-record-background px-1 ${task.id === flashId ? "task-highlight-flash" : ""}`}>
                 <input type="checkbox" className="mt-2" checked={selectedIds.includes(task.id)} onChange={() => toggleSelected(task.id)} />
                 <div className="flex-1">
                   <GeneralTaskRow

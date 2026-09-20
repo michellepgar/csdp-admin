@@ -32,11 +32,11 @@ function resolveTaskItem(item: PlanItem, schools: School[], schoolData: Record<s
   if (item.taskFileCategoryId && item.schoolId) {
     const task = schoolData[item.schoolId]?.tasks?.find((t) => t.id === item.taskFileCategoryId);
     if (task) {
-      return { category: task.category, fileName: task.fileName, schoolName: schools.find((s) => s.id === item.schoolId)?.name, href: `/schools/${item.schoolId}` };
+      return { category: task.category, fileName: task.fileName, schoolName: schools.find((s) => s.id === item.schoolId)?.name, href: `/schools/${item.schoolId}?highlightTask=${item.taskFileCategoryId}` };
     }
   } else if (item.generalTaskId) {
     const task = generalTasks.find((t) => t.id === item.generalTaskId);
-    if (task) return { category: task.category, fileName: task.description, schoolName: "General", href: "/general-tasks" };
+    if (task) return { category: task.category, fileName: task.description, schoolName: "General", href: `/general-tasks?highlightTask=${item.generalTaskId}` };
   }
   return { category: "Other", fileName: item.label, schoolName: undefined, href: undefined };
 }

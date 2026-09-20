@@ -866,13 +866,10 @@ export function isAdmin(va: Va): boolean {
   return !!(va.admin || va.role === "owner");
 }
 
-/* Same rule as the HTML app's canDeleteNote: the author can always
-   delete their own suggestion; once they're no longer on the team,
-   anyone can clean it up (there's otherwise no way to ever remove it). */
-export function canDeleteSuggestion(state: AppState, suggestion: Suggestion, currentName: string): boolean {
-  if (suggestion.author === currentName) return true;
-  const authorStillOnTeam = state.vas.some((v) => v.name === suggestion.author);
-  return !authorStillOnTeam;
+/* Only the person who posted a suggestion, or the owner (Michelle), can
+   delete it. */
+export function canDeleteSuggestion(suggestion: Suggestion, currentName: string): boolean {
+  return suggestion.author === currentName || currentName === SUPERADMIN_NAME;
 }
 
 /* Same rule as the HTML app's canDeleteNote for general-scope notes: the

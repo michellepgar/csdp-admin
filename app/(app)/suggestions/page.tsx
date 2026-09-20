@@ -37,7 +37,7 @@ export default async function SuggestionsPage() {
           suggestions={state.suggestions || []}
           currentUserName={me.name}
           isMichelle={me.name === SUPERADMIN_NAME}
-          teamNames={state.vas.map((v) => v.name)}
+          vas={state.vas}
           setSuggestionStatus={setSuggestionStatus}
           removeSuggestion={removeSuggestion}
         />

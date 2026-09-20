@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SUPERADMIN_NAME } from "@/lib/app-state";
+import { SUPERADMIN_NAME, canDeleteSuggestion } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 
@@ -59,16 +59,14 @@ export async function setSuggestionStatus(formData: FormData) {
   revalidatePath("/suggestions");
 }
 
-/* Same rule as canDeleteSuggestion in lib/app-state.ts (the author can
-   always delete their own; once they're no longer on the team, anyone
-   can clean it up), reimplemented as two targeted queries instead of
-   fetchAppState()'s full ~19-table fetch. */
+/* Same rule as canDeleteSuggestion in lib/app-state.ts: only the person
+   who posted it, or Michelle. */
 export async function removeSuggestion(formData: FormData) {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      state.suggestions = (state.suggestions || []).filter((s) => s.id !== id);
+      state.suggestions = (state.suggestions || []).filter((s) => !(s.id === id && canDeleteSuggestion(s, "Jane")));
     });
     revalidatePath("/suggestions");
     return;
@@ -79,12 +77,7 @@ export async function removeSuggestion(formData: FormData) {
   const { data: suggestion } = await supabase.from("suggestions").select("author").eq("id", id).maybeSingle();
   if (!suggestion) return;
 
-  let canDelete = suggestion.author === me.name;
-  if (!canDelete) {
-    const { data: authorVa } = await supabase.from("vas").select("id").eq("name", suggestion.author).maybeSingle();
-    canDelete = !authorVa;
-  }
-  if (!canDelete) return;
+  if (!canDeleteSuggestion({ id, text: "", author: suggestion.author, createdAt: "", status: "Requested" }, me.name)) return;
 
   const { error } = await supabase.from("suggestions").delete().eq("id", id);
   orThrow(error);

@@ -164,11 +164,19 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
         const info = labels[id];
         if (!info) continue;
         state.planItems.push({ id: `demo-plan-${id}`, kind: "task", vaName: "Jane", schoolId: info.schoolId, taskFileCategoryId: id, label: info.label, createdBy: "Jane", createdAt: new Date().toISOString() });
+        // Planning it puts your name on the file (one VA per file).
+        const sd = info.schoolId ? state.schoolData[info.schoolId] : undefined;
+        const task = sd?.tasks?.find((t) => t.id === id);
+        if (task) task.vaAssigned = ["Jane"];
+        const assignment = sd?.taskFiles?.flatMap((f) => f.categories).find((a) => a.id === id);
+        if (assignment) assignment.vaAssigned = ["Jane"];
       }
       for (const id of generalDiff.toInsert) {
         const info = labels[id];
         if (!info) continue;
         state.planItems.push({ id: `demo-plan-${id}`, kind: "task", vaName: "Jane", generalTaskId: id, label: info.label, createdBy: "Jane", createdAt: new Date().toISOString() });
+        const generalTask = (state.generalTasks || []).find((t) => t.id === id);
+        if (generalTask) generalTask.vaAssigned = ["Jane"];
       }
       for (const [i, reminder] of reminders.entries()) {
         state.planItems.push({ id: `demo-reminder-${Date.now()}-${i}`, kind: "note", vaName: "Jane", noteId: reminder.noteId, label: reminder.label, createdBy: "Jane", createdAt: new Date().toISOString() });
@@ -309,13 +317,27 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
       const { error } = await supabase.from("plan_items").insert(rows);
       orThrow(error);
     }
+    // Planning work puts your name on it -- the school page (or General Tasks)
+    // shows you on the file right away. One VA per file, so it replaces
+    // whoever was on it.
+    for (const id of taskDiff.toInsert) {
+      const schoolId = labels[id]?.schoolId;
+      if (!schoolId) continue;
+      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: id, p_patch: { va_assigned: [me.name] } });
+      orThrow(error);
+      touchedSchoolIds.add(schoolId);
+    }
+    if (generalDiff.toInsert.length > 0) {
+      const { error } = await supabase.from("general_tasks").update({ va_assigned: [me.name] }).in("id", generalDiff.toInsert);
+      orThrow(error);
+    }
     if (endShift) {
       const { error } = await supabase.from("shift_state").upsert({ va_name: me.name, status: "ended", changed_at: new Date().toISOString() }, { onConflict: "va_name" });
       orThrow(error);
     }
     revalidatePath("/overview");
     for (const schoolId of touchedSchoolIds) revalidatePath(`/schools/${schoolId}`);
-    if (newItems.some((i) => i.kind === "general")) revalidatePath("/general-tasks");
+    if (newItems.some((i) => i.kind === "general") || generalDiff.toInsert.length > 0) revalidatePath("/general-tasks");
     if (newItems.some((i) => i.isNewCategory)) revalidatePath("/", "layout");
   });
 }
@@ -541,7 +563,11 @@ export async function claimPriorityPlanItem(formData: FormData): Promise<PlanAct
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const item = (state.planItems || []).find((p) => p.id === id && p.kind === "priority" && !p.vaName);
-      if (item) item.vaName = "Jane";
+      if (item) {
+        item.vaName = "Jane";
+        // A priority linked to a file puts your name on that file when you take it.
+        if (item.suggestedSchoolId && item.suggestedCategoryId && item.suggestedFileName) signAssigneeOnLinkedFileDemo(state, item.suggestedSchoolId, item.suggestedCategoryId, item.suggestedFileName, "Jane");
+      }
     });
     revalidatePath("/overview");
     return { error: null };
@@ -549,8 +575,18 @@ export async function claimPriorityPlanItem(formData: FormData): Promise<PlanAct
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
-    const { error } = await supabase.from("plan_items").update({ va_name: me.name }).eq("id", id).eq("kind", "priority").is("va_name", null);
+    const { data: taken, error } = await supabase
+      .from("plan_items")
+      .update({ va_name: me.name })
+      .eq("id", id)
+      .eq("kind", "priority")
+      .is("va_name", null)
+      .select("suggested_school_id, suggested_category_id, suggested_file_name");
     orThrow(error);
+    const link = taken?.[0];
+    if (link?.suggested_school_id && link.suggested_category_id && link.suggested_file_name) {
+      await signAssigneeOnLinkedFile(supabase, link.suggested_school_id, link.suggested_category_id, link.suggested_file_name, me.name);
+    }
     revalidatePath("/overview");
   });
 }

@@ -11,6 +11,7 @@ import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
 import { StartMyDayButton } from "@/components/start-my-day-button";
+import { shiftAvailability } from "@/lib/shift";
 import { savePlan, addPriority, updatePriorityPlanItem, removePlanItem, claimPriorityPlanItem, movePriorityPlanItem, resolvePriorityPlanItem, startMyDay } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
@@ -56,6 +57,16 @@ export default async function OverviewPage() {
   const myPlanItems = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === me?.name);
 
     const myReminderNotes = (state.privateNotes || []).filter((n) => n.author === me?.name && n.isReminder);
+  const shift = shiftAvailability(state.shiftStates, me?.name ?? "");
+  const pickerProps = me && {
+    currentUserName: me.name,
+    schools: state.schools,
+    schoolData: state.schoolData,
+    generalTasks: state.generalTasks || [],
+    myPlanItems,
+    myReminderNotes,
+    savePlan,
+  };
 
   return (
     <div>
@@ -86,17 +97,14 @@ export default async function OverviewPage() {
       <CurrentlyWorkingOn todayByVa={Array.from(todayByVa.entries())} vas={state.vas} workNotes={state.workNotes || []} currentUserName={me?.name ?? ""} />
 
       {me && (
-        <div className="flex flex-wrap items-start gap-2">
-          <StartMyDayButton startMyDay={startMyDay} />
-          <PlanTomorrowPicker
-            currentUserName={me.name}
-            schools={state.schools}
-            schoolData={state.schoolData}
-            generalTasks={state.generalTasks || []}
-            myPlanItems={myPlanItems}
-            myReminderNotes={myReminderNotes}
-            savePlan={savePlan}
-          />
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-start gap-2">
+            <StartMyDayButton startMyDay={startMyDay} disabled={!shift.canStart} disabledReason={shift.startHint} />
+            <PlanTomorrowPicker mode="end" disabled={!shift.canEnd} disabledReason={shift.endHint} {...pickerProps!} />
+          </div>
+          {(!shift.canStart || !shift.canEnd) && (
+            <p className="text-xs text-muted-foreground">{!shift.canStart ? shift.startHint : shift.endHint}</p>
+          )}
         </div>
       )}
 
@@ -109,6 +117,7 @@ export default async function OverviewPage() {
         taskCategories={state.taskCategories || []}
         workNotes={state.workNotes || []}
         currentUserName={me?.name ?? ""}
+        addPlan={pickerProps ? <PlanTomorrowPicker mode="add" {...pickerProps} /> : undefined}
         removePlanItem={removePlanItem}
       />
 

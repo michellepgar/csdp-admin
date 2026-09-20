@@ -7,6 +7,7 @@ import { isAdmin } from "@/lib/app-state";
 import { diffPlanSelection } from "@/lib/shared-task-files";
 import { MAX_WORK_NOTE, parseNoteKey } from "@/lib/work-notes";
 import { comparePriorities, movePriorityId } from "@/lib/plan-order";
+import { shiftAvailability } from "@/lib/shift";
 
 type PlanActionResult = { error: string | null };
 
@@ -92,9 +93,18 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
   // stages ones that aren't already pending).
   const remindersJson = formData.get("reminders") as string;
   const reminders: { label: string; noteId?: string }[] = remindersJson ? JSON.parse(remindersJson) : [];
+  // Set by the End Today's Work window (not by the plain "Add" on Next
+  // Shift Plan): saving the plan also closes the shift.
+  const endShift = formData.get("endShift") === "1";
 
   if (await isDemoMode()) {
+    let demoError: string | null = null;
     await demoMutate((state) => {
+      if (endShift && !shiftAvailability(state.shiftStates, "Jane").canEnd) {
+        demoError = "You haven't started your day yet. Click Start my day first.";
+        return;
+      }
+      if (endShift) state.shiftStates = [...(state.shiftStates || []).filter((s) => s.vaName !== "Jane"), { vaName: "Jane", status: "ended", changedAt: new Date().toISOString() }];
       const existingTask = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane" && p.taskFileCategoryId).map((p) => ({ id: p.id, refId: p.taskFileCategoryId }));
       const existingGeneral = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane" && p.generalTaskId).map((p) => ({ id: p.id, refId: p.generalTaskId }));
       const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);
@@ -116,11 +126,18 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
       }
     });
     revalidatePath("/overview");
-    return { error: null };
+    return { error: demoError };
   }
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
+
+    if (endShift) {
+      const { data: shiftRows, error: shiftError } = await supabase.from("shift_state").select("va_name, status, changed_at").eq("va_name", me.name);
+      orThrow(shiftError);
+      const states = (shiftRows || []).map((r) => ({ vaName: r.va_name, status: r.status as "working" | "ended", changedAt: r.changed_at }));
+      if (!shiftAvailability(states, me.name).canEnd) throw new Error("You haven't started your day yet. Click Start my day first.");
+    }
 
     const { data: existingRows, error: selectError } = await supabase.from("plan_items").select("id, task_file_category_id, general_task_id").eq("kind", "task").eq("va_name", me.name);
     orThrow(selectError);
@@ -142,6 +159,10 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
     ];
     if (rows.length > 0) {
       const { error } = await supabase.from("plan_items").insert(rows);
+      orThrow(error);
+    }
+    if (endShift) {
+      const { error } = await supabase.from("shift_state").upsert({ va_name: me.name, status: "ended", changed_at: new Date().toISOString() }, { onConflict: "va_name" });
       orThrow(error);
     }
     revalidatePath("/overview");
@@ -460,7 +481,13 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
    pauses for them too. */
 export async function startMyDay(): Promise<PlanActionResult> {
   if (await isDemoMode()) {
+    let demoError: string | null = null;
     await demoMutate((state) => {
+      if (!shiftAvailability(state.shiftStates, "Jane").canStart) {
+        demoError = "You're already in a shift. Click End Today's Work first.";
+        return;
+      }
+      state.shiftStates = [...(state.shiftStates || []).filter((s) => s.vaName !== "Jane"), { vaName: "Jane", status: "working", changedAt: new Date().toISOString() }];
       const doneIds = new Set((state.planItems || []).filter((p) => p.kind !== "task" && p.vaName === "Jane" && p.completedAt).map((p) => p.id));
       state.planItems = (state.planItems || []).filter((p) => !doneIds.has(p.id));
       state.workNotes = (state.workNotes || []).filter((n) => !(n.vaName === "Jane" && doneIds.has(n.itemKey.replace(/^p:/, ""))));
@@ -489,11 +516,16 @@ export async function startMyDay(): Promise<PlanActionResult> {
       }
     });
     revalidatePath("/overview");
-    return { error: null };
+    return { error: demoError };
   }
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
+
+    const { data: shiftRows, error: shiftError } = await supabase.from("shift_state").select("va_name, status, changed_at").eq("va_name", me.name);
+    orThrow(shiftError);
+    const states = (shiftRows || []).map((r) => ({ vaName: r.va_name, status: r.status as "working" | "ended", changedAt: r.changed_at }));
+    if (!shiftAvailability(states, me.name).canStart) throw new Error("You're already in a shift. Click End Today's Work first.");
 
     // A fresh day: reminders already checked off (shown as "✓ Reviewed")
     // are done with -- clear them, and their notes, from Today.
@@ -526,6 +558,9 @@ export async function startMyDay(): Promise<PlanActionResult> {
       .eq("status", "In Progress")
       .contains("va_assigned", [me.name]);
     orThrow(generalError);
+
+    const { error: shiftUpsertError } = await supabase.from("shift_state").upsert({ va_name: me.name, status: "working", changed_at: new Date().toISOString() }, { onConflict: "va_name" });
+    orThrow(shiftUpsertError);
 
     if ((assignments || []).length === 0 && (generalTasks || []).length === 0) return;
 

@@ -273,6 +273,13 @@ export function canEditSchoolRecords(sd: SchoolDataEntry | undefined, currentNam
   return true;
 }
 
+/* Where a person is in their working day: 'working' after Start my day, 'ended' after End Today's Work. */
+export interface ShiftState {
+  vaName: string;
+  status: "working" | "ended";
+  changedAt: string;
+}
+
 export interface Suggestion {
   id: string;
   text: string;
@@ -487,6 +494,7 @@ export interface AppState {
   chatMessages?: import("@/lib/chat").ChatMessage[];
   chatReads?: Record<string, string>;
   workNotes?: WorkNote[];
+  shiftStates?: ShiftState[];
   /** Present only on an AUTOMATIC nightly backup file (see lib/automatic-backup.ts). `excludes` lists what was left out on purpose -- currently "privateNotes" -- so Restore knows not to clear those. */
   backupMeta?: { automatic: boolean; createdAt: string; excludes: string[] };
   issueCategories?: IssueCategory[];

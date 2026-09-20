@@ -602,6 +602,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     generalTaskCategoriesResult,
     planItemsResult,
     workNotesResult,
+    shiftStateResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -636,6 +637,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
     supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at, sort_order").order("created_at"),
     supabase.from("work_notes").select("item_key, va_name, note, updated_at"),
+    supabase.from("shift_state").select("va_name, status, changed_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -803,6 +805,15 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
         vaName: r.va_name,
         note: r.note,
         updatedAt: r.updated_at,
+      }));
+  // Tolerant like work notes: without the shift_state table, nobody is
+  // "in a shift", so both buttons behave (Start on, End off).
+  state.shiftStates = shiftStateResult.error
+    ? []
+    : ((shiftStateResult.data || []) as { va_name: string; status: "working" | "ended"; changed_at: string }[]).map((r) => ({
+        vaName: r.va_name,
+        status: r.status,
+        changedAt: r.changed_at,
       }));
   state.statusChangedAt = {
     ...Object.fromEntries((taskFileCategoriesResult.data || []).map((r) => [(r as { id: string }).id, (r as { status_changed_at: string }).status_changed_at])),

@@ -8,7 +8,7 @@ import { SubmitButton } from "@/components/submit-button";
    comment in app/(app)/overview/actions.ts for the full mechanics. A
    VA with nothing In Progress gets a silent no-op, so there's nothing
    to show on success; only a real error surfaces. */
-export function StartMyDayButton({ startMyDay }: { startMyDay: () => Promise<{ error: string | null }> }) {
+export function StartMyDayButton({ startMyDay, disabled, disabledReason }: { startMyDay: () => Promise<{ error: string | null }>; disabled?: boolean; disabledReason?: string }) {
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -19,7 +19,7 @@ export function StartMyDayButton({ startMyDay }: { startMyDay: () => Promise<{ e
         if (result.error) setError(result.error);
       }}
     >
-      <SubmitButton variant="plan" size="sm" pendingLabel="Starting…">Start my day</SubmitButton>
+      <SubmitButton variant="plan" size="sm" pendingLabel="Starting…" disabled={disabled} title={disabled ? disabledReason : undefined}>Start my day</SubmitButton>
       {error && <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </form>
   );

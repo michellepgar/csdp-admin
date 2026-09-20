@@ -66,7 +66,7 @@ function resolveTaskItem(item: PlanItem, schools: School[], schoolData: Record<s
    Plan already use, so it still reads as a priority sitting among
    ordinary tasks. A genuinely free-text priority has no real category
    to join, so it gets its own dedicated "Priorities" column instead. */
-export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, taskCategories, workNotes, currentUserName, removePlanItem }: {
+export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, taskCategories, workNotes, currentUserName, addPlan, removePlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
   schools: School[];
@@ -75,6 +75,8 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
   taskCategories: TaskCategory[];
   workNotes: WorkNote[];
   currentUserName: string;
+  /** The "Add" button (an ReactNode so this list stays a plain display component). */
+  addPlan?: React.ReactNode;
   removePlanItem: (formData: FormData) => void;
 }) {
   const noteLookup = makeNoteLookup(workNotes);
@@ -101,8 +103,10 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">Next Shift Plan</h2>
+        <div className="flex flex-wrap items-center gap-2">
+        {addPlan}
         {allVaNames.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
+          <>
             <Dropdown
               name="vaFilter"
               value={vaFilter}
@@ -115,8 +119,9 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
               <button type="button" onClick={() => setViewMode("columns")} className={`px-3 py-1.5 text-sm ${viewMode === "columns" ? "bg-primary text-primary-foreground" : ""}`}>Columns</button>
               <button type="button" onClick={() => setViewMode("list")} className={`px-3 py-1.5 text-sm ${viewMode === "list" ? "bg-primary text-primary-foreground" : ""}`}>List</button>
             </div>
-          </div>
+          </>
         )}
+        </div>
       </div>
       {vaNames.length === 0 && <p className="text-sm text-muted-foreground">Nothing planned yet.</p>}
       <div className="space-y-3">

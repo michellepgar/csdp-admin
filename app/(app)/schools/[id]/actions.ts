@@ -7,7 +7,7 @@ import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
 import { groupTaskTables, selectedCategoryFiles, normalizeSelectedCategoryIds, saveTaskFile, type TaskFileActionResult } from "@/lib/shared-task-files";
-import { nextChecklistNotNeededEntry } from "@/lib/app-state";
+import { isAdmin, nextChecklistNotNeededEntry } from "@/lib/app-state";
 import type { AppState, TaskFileCategory } from "@/lib/app-state";
 
 /* Every action in this file used to start with a helper that ran
@@ -417,6 +417,37 @@ export async function signTask(formData: FormData) {
   if (!task || (task.va_assigned.length === 1 && task.va_assigned[0] === me.name)) return;
 
   const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: [me.name] } });
+  orThrow(error);
+  revalidateSchool(schoolId);
+}
+
+/* Admins only: put a chosen VA on a file in place of whoever was on it
+   (the 3-dot menu's "Assign to a VA"). One VA per file. */
+export async function assignTaskToVa(formData: FormData) {
+  const schoolId = formData.get("schoolId") as string;
+  const taskId = formData.get("taskId") as string;
+  const vaName = ((formData.get("vaName") as string) || "").trim();
+  if (!vaName) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      if (!state.vas.some((v) => v.name === vaName)) return;
+      const task = state.schoolData[schoolId]?.tasks?.find((t) => t.id === taskId);
+      if (task) task.vaAssigned = [vaName];
+      const assignment = findDemoAssignment(state, schoolId, taskId);
+      if (assignment) assignment.vaAssigned = [vaName];
+    });
+    revalidateSchool(schoolId);
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+  if (!isAdmin(me)) throw new Error("Only an admin can assign a file to someone else.");
+
+  const { data: va } = await supabase.from("vas").select("name").eq("name", vaName).maybeSingle();
+  if (!va) throw new Error("That person isn't on the team.");
+
+  const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { va_assigned: [vaName] } });
   orThrow(error);
   revalidateSchool(schoolId);
 }

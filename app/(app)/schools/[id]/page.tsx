@@ -22,6 +22,7 @@ import {
   setTaskStatus,
   setTaskCount,
   signTask,
+  assignTaskToVa,
   removeVaFromTask,
   removeTask,
   removeTaskAssignment,
@@ -180,6 +181,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ id: str
             setTaskStatus={setTaskStatus}
             setTaskCount={setTaskCount}
             signTask={signTask}
+            assignTaskToVa={assignTaskToVa}
+            isAdmin={isAdmin(me)}
             removeVaFromTask={removeVaFromTask}
             removeTask={removeTask}
             removeTaskAssignment={removeTaskAssignment}

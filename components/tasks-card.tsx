@@ -49,13 +49,16 @@ const TASK_STATUS_TONE: Record<string, StatusTone> = {
    "+ Sign" right after it (any further signers follow), so every
    "+ Sign" lines up in the same spot next to the first VA rather than
    drifting out toward Status. */
-function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName, canEdit, signTask, removeVaFromTask, setTaskStatus, removeTaskAssignment, moveTaskFileCategory }: {
+function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName, canEdit, isAdmin, assignTaskToVa, signTask, removeVaFromTask, setTaskStatus, removeTaskAssignment, moveTaskFileCategory }: {
   schoolId: string;
   assignment: TaskFileCategory;
   vas: Va[];
   categories: TaskCategory[];
   currentUserName: string;
   canEdit: boolean;
+  /** Admins get "Assign to a VA" in the 3-dot menu. */
+  isAdmin: boolean;
+  assignTaskToVa: (formData: FormData) => void;
   signTask: (formData: FormData) => void;
   removeVaFromTask: (formData: FormData) => void;
   setTaskStatus: (formData: FormData) => void;
@@ -64,6 +67,7 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
 }) {
   const iSigned = assignment.vaAssigned.includes(currentUserName);
   const [moving, setMoving] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const [moveTargetId, setMoveTargetId] = useState("");
   const [moveError, setMoveError] = useState<string | null>(null);
   const moveTargets = categories.filter((category) => category.id !== assignment.categoryId);
@@ -88,6 +92,31 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
           <Button type="button" variant="ghost" size="xs" onClick={() => { setMoving(false); setMoveError(null); setMoveTargetId(""); }}>Cancel</Button>
         </div>
       </form>
+    );
+  }
+
+  if (assigning) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground">Assign this file to:</p>
+        <div className="flex flex-wrap gap-1.5">
+          {vas.map((va) => (
+            <form key={va.id} action={(formData) => { assignTaskToVa(formData); setAssigning(false); }}>
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="taskId" value={assignment.id} />
+              <input type="hidden" name="vaName" value={va.name} />
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium shadow-sm transition-colors hover:bg-muted"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: va.color || "#94a3b8" }} aria-hidden />
+                {va.name}
+              </button>
+            </form>
+          ))}
+        </div>
+        <Button type="button" variant="ghost" size="xs" onClick={() => setAssigning(false)}>Cancel</Button>
+      </div>
     );
   }
 
@@ -138,6 +167,7 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
         <KebabMenu
           ariaLabel={`More actions for the ${assignment.category} task`}
           items={[
+            ...(isAdmin ? [{ label: "Assign to a VA", onClick: () => setAssigning(true) }] : []),
             ...(moveTargets.length > 0 ? [{ label: "Move to another category", onClick: () => setMoving(true) }] : []),
             {
               label: "Remove",
@@ -157,14 +187,15 @@ function SignAndStatus({ schoolId, assignment, vas, categories, currentUserName,
   );
 }
 
-function AssignmentCell({ schoolId, assignment, vas, categories, currentUserName, canEdit, actions }: {
+function AssignmentCell({ schoolId, assignment, vas, categories, currentUserName, canEdit, isAdmin, actions }: {
   schoolId: string;
   assignment: TaskFileCategory;
   vas: Va[];
   categories: TaskCategory[];
   currentUserName: string;
   canEdit: boolean;
-  actions: Pick<TasksCardProps, "setTaskStatus" | "setTaskCount" | "signTask" | "removeVaFromTask" | "setCommsStatus" | "signComms" | "removeVaFromComms" | "removeTaskAssignment" | "moveTaskFileCategory">;
+  isAdmin: boolean;
+  actions: Pick<TasksCardProps, "assignTaskToVa" | "setTaskStatus" | "setTaskCount" | "signTask" | "removeVaFromTask" | "setCommsStatus" | "signComms" | "removeVaFromComms" | "removeTaskAssignment" | "moveTaskFileCategory">;
 }) {
   return (
     <div className="min-w-0">
@@ -175,6 +206,8 @@ function AssignmentCell({ schoolId, assignment, vas, categories, currentUserName
         categories={categories}
         currentUserName={currentUserName}
         canEdit={canEdit}
+        isAdmin={isAdmin}
+        assignTaskToVa={actions.assignTaskToVa}
         signTask={actions.signTask}
         removeVaFromTask={actions.removeVaFromTask}
         setTaskStatus={actions.setTaskStatus}
@@ -197,6 +230,9 @@ type TasksCardProps = {
   setTaskStatus: (formData: FormData) => void;
   setTaskCount: (formData: FormData) => void;
   signTask: (formData: FormData) => void;
+  assignTaskToVa: (formData: FormData) => void;
+  /** Whether the viewer is an admin (shows "Assign to a VA" in a file's 3-dot menu). */
+  isAdmin: boolean;
   removeVaFromTask: (formData: FormData) => void;
   removeTask: (formData: FormData) => void;
   removeTaskAssignment: (formData: FormData) => void;
@@ -447,7 +483,7 @@ export function TasksCard(props: TasksCardProps) {
                         const category = column.category;
                         const assignment = file.categories.find((item) => item.categoryId === category.id);
                         return <td key={`${column.kind}:${category.id}`} className={`px-4 py-2 align-top ${dividerClass(index)}`}>
-                          {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} categories={orderedCategories} currentUserName={currentUserName} canEdit={canEdit} actions={props} /> : null}
+                          {assignment ? <AssignmentCell schoolId={schoolId} assignment={assignment} vas={vas} categories={orderedCategories} currentUserName={currentUserName} canEdit={canEdit} isAdmin={props.isAdmin} actions={props} /> : null}
                         </td>;
                       }
                       return <td key="file" className="px-2 py-2 align-top">

@@ -6,8 +6,10 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { StatusBadge } from "@/components/status-badge";
 import { Dropdown } from "@/components/dropdown";
+import { WorkNoteButton } from "@/components/work-note-button";
+import { makeNoteLookup, planItemNoteKey } from "@/lib/work-notes";
 import { openEmailItemsByVa } from "@/lib/shared-task-files";
-import { vaColorByName, type GeneralTask, type PlanItem, type School, type SchoolDataEntry, type TaskCategory, type Va } from "@/lib/app-state";
+import { vaColorByName, type GeneralTask, type PlanItem, type School, type SchoolDataEntry, type TaskCategory, type Va, type WorkNote } from "@/lib/app-state";
 
 /* Same status/tone pairing as email-tracker-card.tsx's own copy --
    kept separate rather than a shared import for the same reason
@@ -64,16 +66,18 @@ function resolveTaskItem(item: PlanItem, schools: School[], schoolData: Record<s
    Plan already use, so it still reads as a priority sitting among
    ordinary tasks. A genuinely free-text priority has no real category
    to join, so it gets its own dedicated "Priorities" column instead. */
-export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, taskCategories, currentUserName, removePlanItem }: {
+export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, taskCategories, workNotes, currentUserName, removePlanItem }: {
   planItems: PlanItem[];
   vas: Va[];
   schools: School[];
   schoolData: Record<string, SchoolDataEntry>;
   generalTasks: GeneralTask[];
   taskCategories: TaskCategory[];
+  workNotes: WorkNote[];
   currentUserName: string;
   removePlanItem: (formData: FormData) => void;
 }) {
+  const noteLookup = makeNoteLookup(workNotes);
   const [vaFilter, setVaFilter] = useState("");
   const [viewMode, setViewMode] = useState<"columns" | "list">("columns");
 
@@ -134,11 +138,15 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
               label: resolved.fileName,
               sublabel: resolved.schoolName,
               href: resolved.href,
+              note: noteLookup(planItemNoteKey(item), vaName),
               action: vaName === currentUserName ? (
-                <form action={removePlanItem}>
-                  <input type="hidden" name="id" value={item.id} />
-                  <ConfirmDeleteButton confirmMessage={`Remove "${resolved.fileName}" from your plan?`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
-                </form>
+                <>
+                  <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), vaName)} label={resolved.fileName} />
+                  <form action={removePlanItem}>
+                    <input type="hidden" name="id" value={item.id} />
+                    <ConfirmDeleteButton confirmMessage={`Remove "${resolved.fileName}" from your plan?`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
+                  </form>
+                </>
               ) : undefined,
             });
           }
@@ -150,11 +158,15 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
               sublabel: item.suggestedSchoolId ? schools.find((s) => s.id === item.suggestedSchoolId)?.name : undefined,
               href: item.suggestedSchoolId ? `/schools/${item.suggestedSchoolId}` : undefined,
               dot: true,
+              note: noteLookup(planItemNoteKey(item), vaName),
               action: vaName === currentUserName ? (
-                <form action={removePlanItem}>
-                  <input type="hidden" name="id" value={item.id} />
-                  <ConfirmDeleteButton confirmMessage={`Remove "${item.label}" from your plan? It'll go back to Task Priorities for anyone to claim.`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
-                </form>
+                <>
+                  <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), vaName)} label={item.label} />
+                  <form action={removePlanItem}>
+                    <input type="hidden" name="id" value={item.id} />
+                    <ConfirmDeleteButton confirmMessage={`Remove "${item.label}" from your plan? It'll go back to Task Priorities for anyone to claim.`} pendingLabel="…" iconSize="icon-2xs">✕</ConfirmDeleteButton>
+                  </form>
+                </>
               ) : undefined,
             });
           }
@@ -190,6 +202,9 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
                         {row.status && <StatusBadge tone={row.statusTone ?? "neutral"}>{row.status}</StatusBadge>}
                         {row.action}
                       </span>
+                      {row.note && (
+                        <span className="w-full rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">{row.note}</span>
+                      )}
                     </li>
                   ))}
                 </ul>

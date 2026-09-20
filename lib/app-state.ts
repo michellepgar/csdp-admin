@@ -233,6 +233,15 @@ export interface PlanItem {
   completedAt?: string;
 }
 
+/* A VA's short explanation attached to one of their own tasks or
+   reminders -- see lib/work-notes.ts and supabase/phase59_work_notes.sql. */
+export interface WorkNote {
+  itemKey: string;
+  vaName: string;
+  note: string;
+  updatedAt: string;
+}
+
 export interface SchoolDataEntry {
   vaAssigned: string;
   tasks?: Task[];
@@ -475,6 +484,7 @@ export interface AppState {
   /** Demo mode only -- real chat lives in its own tables (chat_messages / chat_reads), read directly by the messages actions rather than through fetchAppState(). */
   chatMessages?: import("@/lib/chat").ChatMessage[];
   chatReads?: Record<string, string>;
+  workNotes?: WorkNote[];
   /** Present only on an AUTOMATIC nightly backup file (see lib/automatic-backup.ts). `excludes` lists what was left out on purpose -- currently "privateNotes" -- so Restore knows not to clear those. */
   backupMeta?: { automatic: boolean; createdAt: string; excludes: string[] };
   issueCategories?: IssueCategory[];

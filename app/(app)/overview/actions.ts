@@ -5,6 +5,7 @@ import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { isAdmin } from "@/lib/app-state";
 import { diffPlanSelection } from "@/lib/shared-task-files";
+import { MAX_WORK_NOTE, parseNoteKey } from "@/lib/work-notes";
 
 type PlanActionResult = { error: string | null };
 
@@ -648,4 +649,74 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
     revalidatePath("/overview");
     revalidatePath(`/schools/${schoolId}`);
   });
+}
+
+/* Add, change or remove YOUR OWN note on a task or reminder (Currently
+   Working On, Next Shift Plan, Your Plan). A note is only an explanation
+   -- it never changes the task, priority or reminder it sits on, so the
+   boss's assignments stay exactly as set. Empty text removes the note.
+
+   Only your own work: a school/general task must be one you're signed on
+   to, a plan item must be on your own plan, and the note is always filed
+   under your name. The database enforces the same (see
+   supabase/phase59_work_notes.sql); this check just gives a clear message. */
+export async function saveWorkNote(formData: FormData): Promise<PlanActionResult> {
+  const itemKey = String(formData.get("itemKey") || "");
+  const note = String(formData.get("note") || "").replace(/\s+/g, " ").trim();
+  const target = parseNoteKey(itemKey);
+  if (!target) return { error: "That item can't take a note." };
+  if (note.length > MAX_WORK_NOTE) return { error: `Notes can be up to ${MAX_WORK_NOTE} characters.` };
+
+  if (await isDemoMode()) {
+    let outcome: PlanActionResult = { error: null };
+    await demoMutate((state) => {
+      const me = "Jane";
+      const mine =
+        target.type === "task"
+          ? Object.values(state.schoolData).some((school) => (school.tasks || []).some((t) => t.id === target.id && t.vaAssigned.includes(me)))
+          : target.type === "general"
+            ? (state.generalTasks || []).some((t) => t.id === target.id && t.vaAssigned.includes(me))
+            : (state.planItems || []).some((p) => p.id === target.id && p.vaName === me);
+      if (!mine) {
+        outcome = { error: "You can only add notes to your own work." };
+        return;
+      }
+      const others = (state.workNotes || []).filter((n) => !(n.itemKey === itemKey && n.vaName === me));
+      state.workNotes = note ? [...others, { itemKey, vaName: me, note, updatedAt: new Date().toISOString() }] : others;
+    });
+    if (!outcome.error) revalidatePath("/", "layout");
+    return outcome;
+  }
+
+  try {
+    const { supabase, me } = await requireTeamMember();
+
+    let mine = false;
+    if (target.type === "task") {
+      const { data } = await supabase.from("task_file_categories").select("va_assigned").eq("id", target.id).maybeSingle();
+      mine = !!data && (data.va_assigned || []).includes(me.name);
+    } else if (target.type === "general") {
+      const { data } = await supabase.from("general_tasks").select("va_assigned").eq("id", target.id).maybeSingle();
+      mine = !!data && (data.va_assigned || []).includes(me.name);
+    } else {
+      const { data } = await supabase.from("plan_items").select("va_name").eq("id", target.id).maybeSingle();
+      mine = !!data && data.va_name === me.name;
+    }
+    if (!mine) return { error: "You can only add notes to your own work." };
+
+    if (!note) {
+      const { error } = await supabase.from("work_notes").delete().eq("item_key", itemKey).eq("va_name", me.name);
+      orThrow(error);
+    } else {
+      const { error } = await supabase
+        .from("work_notes")
+        .upsert({ item_key: itemKey, va_name: me.name, note, updated_at: new Date().toISOString() }, { onConflict: "item_key,va_name" });
+      orThrow(error);
+    }
+    revalidatePath("/", "layout");
+    return { error: null };
+  } catch (error) {
+    console.error("Saving a work note failed", error);
+    return { error: "Couldn't save that note. Try again." };
+  }
 }

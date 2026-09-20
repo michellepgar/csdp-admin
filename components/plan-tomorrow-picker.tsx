@@ -21,18 +21,12 @@ function plainText(html: string, max: number): string {
    scroll. Everything still saves together through one Save Plan click
    (savePlan), same as before -- the tabs only change what's visible
    while building that one submission, they don't submit separately. */
-export function PlanTomorrowPicker({ currentUserName, schools, schoolData, generalTasks, myPlanItems, myTodayReminders, myReminderNotes, savePlan }: {
+export function PlanTomorrowPicker({ currentUserName, schools, schoolData, generalTasks, myPlanItems, myReminderNotes, savePlan }: {
   currentUserName: string;
   schools: School[];
   schoolData: Record<string, SchoolDataEntry>;
   generalTasks: GeneralTask[];
   myPlanItems: PlanItem[];
-  /** Today's completed reminders for this VA (a checked-off private
-   *  note, or a priority resolved as "just a reminder") -- a reminder
-   *  has no "In Progress" status to carry over the way a task does, so
-   *  this is the explicit "bring this back for the next shift" choice
-   *  Michelle asked for instead. */
-  myTodayReminders: { id: string; label: string; noteId?: string }[];
   /** This VA's own private notes flagged as reminders -- the "From
    *  Private Notes" option under the Reminder tab picks from these. */
   myReminderNotes: PrivateNote[];
@@ -67,7 +61,6 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
     .filter((t) => !generalCarryOver.some((c) => c.id === t.id))
     .map((t) => ({ id: t.id, schoolName: "General", category: t.category, fileName: t.description, status: t.status }));
 
-  const [carryOverReminderIds, setCarryOverReminderIds] = useState<Set<string>>(new Set());
   const [pendingReminders, setPendingReminders] = useState<{ key: string; label: string; noteId?: string }[]>([]);
   const [reminderMode, setReminderMode] = useState<"freeText" | "fromNotes">("freeText");
   const [reminderText, setReminderText] = useState("");
@@ -75,10 +68,6 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
 
   function toggle(id: string) {
     setChecked((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
-  }
-
-  function toggleReminderCarryOver(id: string) {
-    setCarryOverReminderIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
 
   function addPendingReminderFreeText() {
@@ -142,17 +131,7 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
                     <input type="checkbox" checked={checked.has(t.id)} onChange={() => toggle(t.id)} /> {t.fileName} — {t.schoolName} · {t.category}
                   </label>
                 ))}
-                {myTodayReminders.length > 0 && (
-                  <>
-                    <div className="my-1.5 border-t" />
-                    <p className="text-xs text-muted-foreground">Today&apos;s reminders — check to carry into your next shift:</p>
-                    {myTodayReminders.map((r) => (
-                      <label key={r.id} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={carryOverReminderIds.has(r.id)} onChange={() => toggleReminderCarryOver(r.id)} /> {r.label}
-                      </label>
-                    ))}
-                  </>
-                )}
+                <p className="pt-1 text-xs text-muted-foreground">Reminders you checked off today count as done — they aren&apos;t carried into the next shift.</p>
               </>
             )}
             {tab === "general" && (
@@ -215,10 +194,7 @@ export function PlanTomorrowPicker({ currentUserName, schools, schoolData, gener
               setError(null);
               for (const id of checked) formData.append(isSchoolId(id) ? "taskFileCategoryIds" : "generalTaskIds", id);
               formData.set("labels", JSON.stringify(buildLabels()));
-              const reminders = [
-                ...myTodayReminders.filter((r) => carryOverReminderIds.has(r.id)).map((r) => ({ label: r.label, noteId: r.noteId })),
-                ...pendingReminders.map((r) => ({ label: r.label, noteId: r.noteId })),
-              ];
+              const reminders = pendingReminders.map((r) => ({ label: r.label, noteId: r.noteId }));
               formData.set("reminders", JSON.stringify(reminders));
               const result = await savePlan(formData);
               if (result.error) setError(result.error);

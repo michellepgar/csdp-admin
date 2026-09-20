@@ -144,6 +144,8 @@ export interface TodayActivityItem {
    *  that section instead of just the top of the school page. Absent
    *  for every other kind of Today item. */
   linkSuffix?: string;
+  /** What a work note on this item is filed under (lib/work-notes.ts). Absent for email items, which take no notes. */
+  itemKey?: string;
 }
 
 export interface OpenEmailItem {
@@ -218,7 +220,7 @@ export function todayActivityByVa(
       const changedAt = statusChangedAt[task.id];
       const completedToday = (task.status === "Completed" || task.status === "Review") && !!changedAt && isToday(changedAt);
       if (task.status !== "In Progress" && !completedToday) continue;
-      for (const vaName of task.vaAssigned) push(vaName, { schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName, status: task.status });
+      for (const vaName of task.vaAssigned) push(vaName, { schoolId: school.id, schoolName: school.name, category: task.category, fileName: task.fileName, status: task.status, itemKey: `t:${task.id}` });
     }
   }
 
@@ -226,12 +228,14 @@ export function todayActivityByVa(
     const changedAt = statusChangedAt[task.id];
     const completedToday = (task.status === "Completed" || task.status === "Review") && !!changedAt && isToday(changedAt);
     if (task.status !== "In Progress" && !completedToday) continue;
-    for (const vaName of task.vaAssigned) push(vaName, { schoolName: "General", category: task.category, fileName: task.description, status: task.status });
+    for (const vaName of task.vaAssigned) push(vaName, { schoolName: "General", category: task.category, fileName: task.description, status: task.status, itemKey: `g:${task.id}` });
   }
 
   for (const item of planItems) {
     if (item.kind === "task" || !item.completedAt || !item.vaName || !isToday(item.completedAt)) continue;
-    push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "" });
+    // A checked reminder is DONE: it shows here only as reviewed (a check
+    // mark), and is never carried into the next shift's plan.
+    push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "Reviewed", itemKey: `p:${item.id}` });
   }
 
   for (const [vaName, items] of openEmailItemsByVa(schools, schoolData)) {

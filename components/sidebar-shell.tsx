@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import { PlanBubble } from "@/components/plan-bubble";
 import type { OpenEmailItem } from "@/lib/shared-task-files";
-import type { PlanItem, TaskCategory, GeneralTaskCategory, Va, Mention } from "@/lib/app-state";
+import type { PlanItem, TaskCategory, GeneralTaskCategory, Va, Mention, WorkNote } from "@/lib/app-state";
 import type { CurrentPresenceMember } from "@/components/team-presence";
 
 const COOKIE_NAME = "sidebar-collapsed";
@@ -46,6 +46,7 @@ export function SidebarShell({
   myMentions,
   markMentionRead,
   myPlanItems,
+  myWorkNotes,
   myOpenEmailItems,
   taskCategories,
   generalTaskCategories,
@@ -70,6 +71,7 @@ export function SidebarShell({
   myMentions: Mention[];
   markMentionRead: (formData: FormData) => void;
   myPlanItems: PlanItem[];
+  myWorkNotes: WorkNote[];
   myOpenEmailItems: OpenEmailItem[];
   taskCategories: TaskCategory[];
   generalTaskCategories: GeneralTaskCategory[];
@@ -244,6 +246,8 @@ export function SidebarShell({
       <main className="min-w-0 flex-1">{children}</main>
 
       <PlanBubble
+        myWorkNotes={myWorkNotes}
+        currentUserName={currentName}
         myPlanItems={myPlanItems}
         myOpenEmailItems={myOpenEmailItems}
         schools={schools}

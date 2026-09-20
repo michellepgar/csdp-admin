@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
 import type { OpenEmailItem } from "@/lib/shared-task-files";
-import type { PlanItem, TaskCategory, GeneralTaskCategory } from "@/lib/app-state";
+import { WorkNoteButton } from "@/components/work-note-button";
+import { makeNoteLookup, planItemNoteKey } from "@/lib/work-notes";
+import type { PlanItem, TaskCategory, GeneralTaskCategory, WorkNote } from "@/lib/app-state";
 
 /* Shared shape for every row in the expanded panel -- a plain
    bordered box before, now a slightly raised card with a colored left
@@ -18,7 +20,9 @@ import type { PlanItem, TaskCategory, GeneralTaskCategory } from "@/lib/app-stat
    items rather than active work). */
 const ROW_BASE = "flex items-center justify-between gap-2 rounded-lg border-l-4 border bg-background/60 p-2.5 text-sm shadow-sm transition-shadow hover:shadow-md";
 
-export function PlanBubble({ myPlanItems, myOpenEmailItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, completeNoteReminder, setEmailStatus }: {
+export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEmailItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, completeNoteReminder, setEmailStatus }: {
+  myWorkNotes: WorkNote[];
+  currentUserName: string;
   myPlanItems: PlanItem[];
   myOpenEmailItems: OpenEmailItem[];
   schools: { id: string; name: string }[];
@@ -29,6 +33,7 @@ export function PlanBubble({ myPlanItems, myOpenEmailItems, schools, taskCategor
   completeNoteReminder: (formData: FormData) => void;
   setEmailStatus: (formData: FormData) => void;
 }) {
+  const noteLookup = makeNoteLookup(myWorkNotes);
   const [expanded, setExpanded] = useState(false);
   const [startingPriority, setStartingPriority] = useState<PlanItem | null>(null);
   const dockRef = useRef<HTMLDivElement>(null);
@@ -82,7 +87,13 @@ export function PlanBubble({ myPlanItems, myOpenEmailItems, schools, taskCategor
                 <div className="flex items-center gap-1 text-xs font-semibold uppercase text-muted-foreground"><ListChecks className="h-3.5 w-3.5" /> To Do</div>
                 {actionableItems.map((item) => (
                   <div key={item.id} className={`${ROW_BASE} items-start ${item.kind === "priority" ? "border-l-plan-accent" : "border-l-border"}`}>
-                    <span className="min-w-0 flex-1 break-words">{item.label}</span>
+                    <span className="min-w-0 flex-1 break-words">
+                      {item.label}
+                      {noteLookup(planItemNoteKey(item), currentUserName) && (
+                        <span className="mt-1 block rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">{noteLookup(planItemNoteKey(item), currentUserName)}</span>
+                      )}
+                    </span>
+                    <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), currentUserName)} label={item.label} />
                     {item.kind === "priority" ? (
                       <Button type="button" variant="plan" size="xs" className="shrink-0" onClick={() => setStartingPriority(item)}><Play className="h-3 w-3" /> Start</Button>
                     ) : (
@@ -108,7 +119,13 @@ export function PlanBubble({ myPlanItems, myOpenEmailItems, schools, taskCategor
                 <div className="flex items-center gap-1 text-xs font-semibold uppercase text-muted-foreground"><Bell className="h-3.5 w-3.5" /> Reminders</div>
                 {reminders.map((item) => (
                   <div key={item.id} className={`${ROW_BASE} items-start border-l-plan-accent-secondary`}>
-                    <span className="min-w-0 flex-1 break-words">{item.label}</span>
+                    <span className="min-w-0 flex-1 break-words">
+                      {item.label}
+                      {noteLookup(planItemNoteKey(item), currentUserName) && (
+                        <span className="mt-1 block rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">{noteLookup(planItemNoteKey(item), currentUserName)}</span>
+                      )}
+                    </span>
+                    <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), currentUserName)} label={item.label} />
                     <form action={completeNoteReminder} className="shrink-0">
                       <input type="hidden" name="id" value={item.id} />
                       <SubmitButton size="xs" pendingLabel="…" variant="outline"><Check className="h-3 w-3" /></SubmitButton>

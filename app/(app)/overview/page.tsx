@@ -3,7 +3,7 @@ import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { checklistCompletion, findVaByEmail, isAdmin, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { todayActivityByVa, isToday } from "@/lib/shared-task-files";
+import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrentlyWorkingOn } from "@/components/currently-working-on";
@@ -55,16 +55,7 @@ export default async function OverviewPage() {
 
   const myPlanItems = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === me?.name);
 
-  /* Today's completed reminders (a checked-off private note, or a
-     priority resolved as "just a reminder") for just this VA -- End
-     Today's Work lets them re-instate any of these as a fresh pending
-     reminder for the next shift, since a reminder has no "In Progress"
-     status of its own to naturally carry over the way a task does. */
-  const myTodayReminders = (state.planItems || [])
-    .filter((p) => p.kind !== "task" && p.vaName === me?.name && p.completedAt && isToday(p.completedAt))
-    .map((p) => ({ id: p.id, label: p.label, noteId: p.noteId }));
-
-  const myReminderNotes = (state.privateNotes || []).filter((n) => n.author === me?.name && n.isReminder);
+    const myReminderNotes = (state.privateNotes || []).filter((n) => n.author === me?.name && n.isReminder);
 
   return (
     <div>
@@ -92,7 +83,7 @@ export default async function OverviewPage() {
       </div>
 
       <PageBody>
-      <CurrentlyWorkingOn todayByVa={Array.from(todayByVa.entries())} vas={state.vas} />
+      <CurrentlyWorkingOn todayByVa={Array.from(todayByVa.entries())} vas={state.vas} workNotes={state.workNotes || []} currentUserName={me?.name ?? ""} />
 
       {me && (
         <div className="flex flex-wrap items-start gap-2">
@@ -103,7 +94,6 @@ export default async function OverviewPage() {
             schoolData={state.schoolData}
             generalTasks={state.generalTasks || []}
             myPlanItems={myPlanItems}
-            myTodayReminders={myTodayReminders}
             myReminderNotes={myReminderNotes}
             savePlan={savePlan}
           />
@@ -117,6 +107,7 @@ export default async function OverviewPage() {
         schoolData={state.schoolData}
         generalTasks={state.generalTasks || []}
         taskCategories={state.taskCategories || []}
+        workNotes={state.workNotes || []}
         currentUserName={me?.name ?? ""}
         removePlanItem={removePlanItem}
       />

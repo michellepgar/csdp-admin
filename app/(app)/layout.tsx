@@ -116,6 +116,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       myMentions={myMentions}
       markMentionRead={markMentionRead}
       myPlanItems={myPlanItems}
+      myWorkNotes={(state.workNotes || []).filter((n) => n.vaName === me.name)}
       myOpenEmailItems={myOpenEmailItems}
       taskCategories={state.taskCategories || []}
       generalTaskCategories={state.generalTaskCategories || []}

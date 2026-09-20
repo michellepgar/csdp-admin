@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StickyNote } from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 export interface CategoryColumnRow {
@@ -18,6 +19,8 @@ export interface CategoryColumnRow {
    *  tasks in that same column, not just when it's off in its own
    *  "Priorities" column. */
   dot?: boolean;
+  /** The owner's own explanation for this item (a work note), shown under it. */
+  note?: string;
 }
 
 export interface CategoryColumn {
@@ -106,6 +109,12 @@ export function CategoryColumns({ columns, accentColor }: { columns: CategoryCol
                     {row.sublabel ? <span className="max-w-full min-w-0 truncate text-xs text-muted-foreground" title={row.sublabel}>{row.sublabel}</span> : <span />}
                     {row.status && <StatusBadge tone={row.statusTone ?? "neutral"}>{row.status}</StatusBadge>}
                   </div>
+                  {row.note && (
+                    <p className="flex items-start gap-1 rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
+                      <StickyNote className="mt-0.5 h-3 w-3 flex-none" />
+                      <span className="min-w-0 break-words">{row.note}</span>
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

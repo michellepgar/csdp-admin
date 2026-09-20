@@ -599,6 +599,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     generalTasksResult,
     generalTaskCategoriesResult,
     planItemsResult,
+    workNotesResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -632,6 +633,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at, status_changed_at").order("created_at"),
     supabase.from("general_task_categories").select("id, name").order("sort_order"),
     supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at").order("created_at"),
+    supabase.from("work_notes").select("item_key, va_name, note, updated_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -790,6 +792,16 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
   state.generalTaskCategories = (generalTaskCategoriesResult.data || []) as GeneralTaskCategory[];
 
   state.planItems = (planItemsResult.data || []).map((r) => mapPlanItemRow(r as PlanItemRow));
+  // Tolerant on purpose: if the work_notes table isn't there yet (its SQL
+  // not run), the app just shows no notes instead of failing every page.
+  state.workNotes = workNotesResult.error
+    ? []
+    : ((workNotesResult.data || []) as { item_key: string; va_name: string; note: string; updated_at: string }[]).map((r) => ({
+        itemKey: r.item_key,
+        vaName: r.va_name,
+        note: r.note,
+        updatedAt: r.updated_at,
+      }));
   state.statusChangedAt = {
     ...Object.fromEntries((taskFileCategoriesResult.data || []).map((r) => [(r as { id: string }).id, (r as { status_changed_at: string }).status_changed_at])),
     ...Object.fromEntries((generalTasksResult.data || []).map((r) => [(r as { id: string }).id, (r as { status_changed_at: string }).status_changed_at])),

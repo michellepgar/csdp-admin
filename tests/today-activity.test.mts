@@ -28,10 +28,10 @@ test("groups in-progress and completed-today tasks by VA, ignoring older complet
   const result = todayActivityByVa(schools, schoolData, generalTasks, statusChangedAt);
 
   assert.deepEqual(result.get("Jane"), [
-    { schoolId: "s1", schoolName: "Angelo Elementary", category: "Initial", fileName: "a.pdf", status: "In Progress" },
+    { schoolId: "s1", schoolName: "Angelo Elementary", category: "Initial", fileName: "a.pdf", status: "In Progress", itemKey: "t:t1" },
   ]);
   assert.deepEqual(result.get("John"), [
-    { schoolId: "s1", schoolName: "Angelo Elementary", category: "Review", fileName: "c.pdf", status: "Review" },
+    { schoolId: "s1", schoolName: "Angelo Elementary", category: "Review", fileName: "c.pdf", status: "Review", itemKey: "t:t3" },
   ]);
 });
 
@@ -41,16 +41,16 @@ test("general tasks completed today show up under 'General' with no schoolId", (
   ];
   const result = todayActivityByVa([], {}, generalTasks, { g1: TODAY });
   assert.deepEqual(result.get("Jane"), [
-    { schoolName: "General", category: "Admin", fileName: "File paperwork", status: "Completed" },
+    { schoolName: "General", category: "Admin", fileName: "File paperwork", status: "Completed", itemKey: "g:g1" },
   ]);
 });
 
-test("a completed-today note reminder shows up as its own entry", () => {
+test("a completed-today note reminder shows up as its own entry, marked Reviewed", () => {
   const planItems: PlanItem[] = [
     { id: "p1", kind: "note", vaName: "Jane", label: "Call the front desk back", createdBy: "Jane", createdAt: TODAY, completedAt: TODAY },
   ];
   const result = todayActivityByVa([], {}, [], {}, planItems);
   assert.deepEqual(result.get("Jane"), [
-    { schoolName: "Reminder", category: "", fileName: "Call the front desk back", status: "" },
+    { schoolName: "Reminder", category: "", fileName: "Call the front desk back", status: "Reviewed", itemKey: "p:p1" },
   ]);
 });

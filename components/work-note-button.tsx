@@ -62,7 +62,7 @@ export function WorkNoteButton({ itemKey, note, label, className }: { itemKey: s
                 {label}
               </p>
               <label className="block text-xs font-semibold">
-                Why couldn&apos;t you finish or continue this?
+                Note
                 <textarea
                   name="note"
                   value={draft}

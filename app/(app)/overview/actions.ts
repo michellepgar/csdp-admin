@@ -302,6 +302,34 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
     const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);
     const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds);
 
+    /* Whatever's about to be newly inserted must still exist. checkedTaskIds/
+       checkedGeneralIds came from the browser's own "checked" set, built once
+       when the planning window opened (carried-over "In Progress" work and
+       whatever was already on the plan) -- if the task or general task one of
+       them points at was completed and removed, or deleted outright, by
+       someone else while the window sat open, inserting a plan_items row for
+       it violates the table's own foreign key and fails the WHOLE save with a
+       raw database error, even though nothing the person actually did caused
+       it (confirmed directly: Michelle saw exactly this clicking "Save plan &
+       end day" having changed nothing at all). Dropping the now-nonexistent
+       id here is the right call -- there's nothing left to plan for it -- and
+       keeps saving-with-no-changes a true no-op instead of an error. Only the
+       about-to-be-inserted ids need checking: anything already in
+       existingTask/existingGeneral is already a row that satisfies this same
+       foreign key today, since a deleted task/general task would have
+       cascade-deleted its plan_items row (see supabase/phase43_daily_plan.sql)
+       and so wouldn't still be in the fresh existingRows query above. */
+    const [validTaskIds, validGeneralIds] = await Promise.all([
+      taskDiff.toInsert.length > 0
+        ? supabase.from("task_file_categories").select("id").in("id", taskDiff.toInsert).then((r) => new Set((r.data || []).map((row) => row.id as string)))
+        : Promise.resolve(new Set<string>()),
+      generalDiff.toInsert.length > 0
+        ? supabase.from("general_tasks").select("id").in("id", generalDiff.toInsert).then((r) => new Set((r.data || []).map((row) => row.id as string)))
+        : Promise.resolve(new Set<string>()),
+    ]);
+    taskDiff.toInsert = taskDiff.toInsert.filter((id) => validTaskIds.has(id));
+    generalDiff.toInsert = generalDiff.toInsert.filter((id) => validGeneralIds.has(id));
+
     const toDeleteIds = [...taskDiff.toDeleteIds, ...generalDiff.toDeleteIds];
     if (toDeleteIds.length > 0) {
       const { error } = await supabase.from("plan_items").delete().in("id", toDeleteIds);

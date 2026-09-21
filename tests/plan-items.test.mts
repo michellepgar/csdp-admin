@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { diffPlanSelection } from "../lib/shared-task-files.ts";
 
@@ -13,4 +14,17 @@ test("diffPlanSelection returns ids to insert and rows to delete, by refId (work
 
   assert.deepEqual(toInsert, ["tfc-3"]);
   assert.deepEqual(toDeleteIds, ["p1"]);
+});
+
+test("savePlan drops a newly-checked id that no longer exists, instead of letting the insert fail the whole save", () => {
+  const source = readFileSync("app/(app)/overview/actions.ts", "utf8");
+  const savePlan = source.slice(source.indexOf("export async function savePlan"), source.indexOf("export async function addPriority"));
+  // Only the about-to-be-inserted ids are re-checked against the real tables...
+  assert.match(savePlan, /supabase\.from\("task_file_categories"\)\.select\("id"\)\.in\("id", taskDiff\.toInsert\)/);
+  assert.match(savePlan, /supabase\.from\("general_tasks"\)\.select\("id"\)\.in\("id", generalDiff\.toInsert\)/);
+  // ...and that filtered set is what actually gets inserted.
+  assert.match(savePlan, /taskDiff\.toInsert = taskDiff\.toInsert\.filter\(\(id\) => validTaskIds\.has\(id\)\)/);
+  assert.match(savePlan, /generalDiff\.toInsert = generalDiff\.toInsert\.filter\(\(id\) => validGeneralIds\.has\(id\)\)/);
+  // The validation runs before the delete/insert, not after.
+  assert.ok(savePlan.indexOf("validTaskIds") < savePlan.indexOf('supabase.from("plan_items").insert(rows)'));
 });

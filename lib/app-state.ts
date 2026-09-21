@@ -191,6 +191,9 @@ export interface EmailTrackerItem {
   status: string;
   addedBy: string;
   createdAt: string;
+  /** When it was marked Done (supabase/phase67_email_done_at.sql) -- lets it
+   *  show on Overview's Currently Working On card as completed. */
+  doneAt?: string;
 }
 
 export const TASK_STATUS_OPTIONS = ["", "In Progress", "Paused", "Completed", "Review"];

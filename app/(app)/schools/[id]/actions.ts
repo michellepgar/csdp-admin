@@ -963,17 +963,30 @@ export async function setEmailStatus(formData: FormData) {
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const item = state.schoolData[schoolId]?.emailTracker?.find((e) => e.id === itemId);
-      if (item) item.status = status;
+      if (item) {
+        item.status = status;
+        if (status === "Done") item.doneAt = new Date().toISOString();
+        else delete item.doneAt;
+      }
     });
     revalidateSchool(schoolId);
+    revalidatePath("/overview");
     return;
   }
 
   const { supabase } = await requireTeamMember();
 
-  const { error } = await supabase.from("email_tracker_items").update({ status }).eq("id", itemId);
-  orThrow(error);
+  // Marking Done also records when, so it shows as completed on Currently Working On.
+  const { error } = await supabase.from("email_tracker_items").update({ status, done_at: status === "Done" ? new Date().toISOString() : null }).eq("id", itemId);
+  if (error && /done_at/.test(error.message)) {
+    // phase67_email_done_at.sql hasn't been run yet: still save the status itself.
+    const { error: plainError } = await supabase.from("email_tracker_items").update({ status }).eq("id", itemId);
+    orThrow(plainError);
+  } else {
+    orThrow(error);
+  }
   revalidateSchool(schoolId);
+  revalidatePath("/overview");
 }
 
 export async function removeEmailItem(formData: FormData) {

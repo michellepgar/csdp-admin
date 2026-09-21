@@ -609,6 +609,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     suggestionAttachmentsResult,
     issueTypesResult,
     issueTypeLinksResult,
+    emailDoneResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -651,6 +652,9 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     // these fail, which just means "no custom issue types" instead of failing the whole load.
     supabase.from("issue_types").select("id, name").order("sort_order"),
     supabase.from("issues").select("id, custom_type_id"),
+    // Tolerant too: until phase67_email_done_at.sql has been run this fails, which just
+    // means finished email items don't show on Currently Working On.
+    supabase.from("email_tracker_items").select("id, done_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -801,11 +805,18 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
       });
     }
   }
+  const emailDoneAt = new Map<string, string>();
+  if (!emailDoneResult.error) {
+    for (const row of (emailDoneResult.data || []) as { id: string; done_at: string | null }[]) {
+      if (row.done_at) emailDoneAt.set(row.id, row.done_at);
+    }
+  }
   for (const e of emailTrackerResult.data || []) {
     if (!state.schoolData[e.school_id]) state.schoolData[e.school_id] = { vaAssigned: "" };
     const sd = state.schoolData[e.school_id];
     sd.emailTracker = sd.emailTracker || [];
-    sd.emailTracker.push(mapEmailTrackerRow(e as EmailTrackerRow));
+    const doneAt = emailDoneAt.get(e.id);
+    sd.emailTracker.push({ ...mapEmailTrackerRow(e as EmailTrackerRow), ...(doneAt ? { doneAt } : {}) });
   }
 
   state.emailTemplates = (emailTemplatesResult.data || []).map((r) => mapEmailTemplateRow(r as EmailTemplateRow));

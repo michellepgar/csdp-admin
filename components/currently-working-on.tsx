@@ -25,11 +25,13 @@ const TODAY_STATUS_TONE: Record<string, StatusTone> = {
   "Waiting on Them": "paused",
   // A reminder that was checked off in Your Plan.
   Reviewed: "success",
+  // An Email Tracker item marked Done.
+  Done: "success",
 };
 
 // What the status badge says -- a checked reminder shows a check mark.
 function statusText(status: string): string {
-  return status === "Reviewed" ? "✓ Reviewed" : status;
+  return status === "Reviewed" ? "✓ Reviewed" : status === "Done" ? "✓ Done" : status;
 }
 
 // A task can be checked off here unless it's already done. Reminders

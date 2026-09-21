@@ -257,6 +257,17 @@ export function todayActivityByVa(
     push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "Reviewed", itemKey: `p:${item.id}` });
   }
 
+  // An email item marked Done today shows as completed (its school's VA gets it),
+  // the same way a finished task or a reviewed reminder does.
+  for (const school of schools) {
+    const vaName = schoolData[school.id]?.vaAssigned;
+    if (!vaName) continue;
+    for (const item of schoolData[school.id]?.emailTracker || []) {
+      if (item.status !== "Done" || !isRecentFor(item.doneAt, vaName)) continue;
+      push(vaName, { schoolId: school.id, schoolName: school.name, category: "Email", fileName: item.description, status: "Done", linkSuffix: "#email-tracker" });
+    }
+  }
+
   for (const [vaName, items] of openEmailItemsByVa(schools, schoolData)) {
     for (const item of items) push(vaName, { schoolId: item.schoolId, schoolName: item.schoolName, category: "Email", fileName: item.description, status: item.status, linkSuffix: "#email-tracker" });
   }

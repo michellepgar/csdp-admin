@@ -69,3 +69,19 @@ test("Start my day clears work completed before it, even earlier the same day", 
   // John has no open shift, so the calendar date decides.
   assert.deepEqual(result.get("John")?.map((i) => i.fileName), ["Someone else's, no shift"]);
 });
+
+test("an email item marked Done shows as done for its school's VA, until the shift restarts", () => {
+  const schools = [school("s1", "Angelo Elementary"), school("s2", "Baker Middle")];
+  const email = (id: string, status: string, doneAt?: string) => ({ id, description: `Email ${id}`, status, addedBy: "Jane", createdAt: YESTERDAY, ...(doneAt ? { doneAt } : {}) });
+  const schoolData: Record<string, SchoolDataEntry> = {
+    s1: { vaAssigned: "Jane", emailTracker: [email("a", "Done", TODAY), email("b", "Done", YESTERDAY), email("c", "Done"), email("d", "Waiting on Them")] },
+    s2: { vaAssigned: "", emailTracker: [email("e", "Done", TODAY)] },
+  };
+  const items = todayActivityByVa(schools, schoolData, [], {}).get("Jane") ?? [];
+  // Done today -> shown as Done; done on an earlier day, or with no time recorded, or on a school
+  // nobody has -> not shown; still-open items keep their own status.
+  assert.deepEqual(items.map((i) => [i.fileName, i.status]), [["Email a", "Done"], ["Email d", "Waiting on Them"]]);
+  // After "Start my day", what was finished before it is cleared.
+  const cleared = todayActivityByVa(schools, schoolData, [], {}, [], { Jane: new Date(Date.now() + 60e3).toISOString() }).get("Jane") ?? [];
+  assert.deepEqual(cleared.map((i) => i.fileName), ["Email d"]);
+});

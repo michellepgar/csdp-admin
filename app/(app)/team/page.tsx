@@ -7,7 +7,7 @@ import { PageBody } from "@/components/page-body";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { SubmitButton } from "@/components/submit-button";
-import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { RemoveVaButton } from "@/components/remove-va-button";
 import { Input } from "@/components/ui/input";
 import {
   addVa,
@@ -123,10 +123,7 @@ export default async function TeamPage() {
                     </label>
                   </AutoSubmitForm>
 
-                  <form action={removeVa} className="ml-auto">
-                    <input type="hidden" name="id" value={va.id} />
-                    <ConfirmDeleteButton confirmMessage={`Remove ${va.name} from the team?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
-                  </form>
+                  <RemoveVaButton id={va.id} name={va.name} removeVa={removeVa} />
                 </div>
               );
             })}

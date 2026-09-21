@@ -70,26 +70,69 @@ export async function addVa(formData: FormData) {
   revalidatePath("/team");
 }
 
-export async function removeVa(formData: FormData) {
+type RemoveVaResult = { error: string | null };
+
+/* What "still has open work" means for the block below: a school task or
+   general task assigned to them that isn't Completed yet -- a Completed one
+   is just history, nothing to hand off. Doesn't check who a school's own
+   assigned VA is (schoolData.vaAssigned) -- that still lives in the legacy
+   app_state JSON blob, not its own column (see setSchoolAssignment's own
+   comment), and reading it cheaply isn't possible without the same
+   ~39-table fetchAppState() this file's other actions were just changed to
+   stop paying for on every click. An admin can check and fix a school's own
+   assigned VA in School Assignments below either way. */
+function blockedMessage(name: string, openTaskCount: number, openGeneralCount: number): string | null {
+  const parts: string[] = [];
+  if (openTaskCount > 0) parts.push(`${openTaskCount} school task${openTaskCount === 1 ? "" : "s"}`);
+  if (openGeneralCount > 0) parts.push(`${openGeneralCount} general task${openGeneralCount === 1 ? "" : "s"}`);
+  if (parts.length === 0) return null;
+  return `${name} still has ${parts.join(" and ")} assigned. Reassign or complete ${parts.length > 1 || openTaskCount + openGeneralCount > 1 ? "them" : "it"} first.`;
+}
+
+export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
+    let result: RemoveVaResult = { error: null };
     await demoMutate((state) => {
+      const va = state.vas.find((v) => v.id === id);
+      if (!va) return;
       // Removing the demo visitor's own "Jane" row would lock her out
       // of the rest of her own demo session (the next page load's
       // findVaByEmail() check would no longer find her) -- silently
       // refused rather than let a demo click end the demo.
-      state.vas = state.vas.filter((v) => v.id === id ? v.email !== DEMO_USER_EMAIL : true);
+      if (va.email === DEMO_USER_EMAIL) return;
+      const openTaskCount = Object.values(state.schoolData).flatMap((sd) => sd.tasks || []).filter((t) => t.status !== "Completed" && t.vaAssigned.includes(va.name)).length;
+      const openGeneralCount = (state.generalTasks || []).filter((t) => t.status !== "Completed" && t.vaAssigned.includes(va.name)).length;
+      const message = blockedMessage(va.name, openTaskCount, openGeneralCount);
+      if (message) {
+        result = { error: message };
+        return;
+      }
+      state.vas = state.vas.filter((v) => v.id !== id);
     });
     revalidatePath("/team");
-    return;
+    return result;
   }
 
   const { supabase } = await requireAdmin();
+  const { data: va } = await supabase.from("vas").select("name").eq("id", id).maybeSingle();
+  if (!va) return { error: null };
+
+  // Two cheap, targeted counts -- not the full fetchAppState() this file's
+  // other actions were just changed to stop paying for on every click (see
+  // this function's own comment above).
+  const [{ count: openTaskCount }, { count: openGeneralCount }] = await Promise.all([
+    supabase.from("task_file_categories").select("id", { count: "exact", head: true }).contains("va_assigned", [va.name]).neq("status", "Completed"),
+    supabase.from("general_tasks").select("id", { count: "exact", head: true }).contains("va_assigned", [va.name]).neq("status", "Completed"),
+  ]);
+  const message = blockedMessage(va.name, openTaskCount ?? 0, openGeneralCount ?? 0);
+  if (message) return { error: message };
 
   const { error } = await supabase.from("vas").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/team");
+  return { error: null };
 }
 
 export async function updateVaField(formData: FormData) {

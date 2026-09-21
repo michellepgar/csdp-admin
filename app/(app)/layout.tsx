@@ -5,6 +5,7 @@ import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { openEmailItemsByVa } from "@/lib/shared-task-files";
 import { SidebarShell } from "@/components/sidebar-shell";
+import { LiveRefresh } from "@/components/live-refresh";
 import { addSchool } from "./layout-actions";
 import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overview/actions";
 import { completeNoteReminder } from "@/app/(app)/private-notes/actions";
@@ -127,6 +128,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {children}
     </SidebarShell>
+    <LiveRefresh />
     <FloatingChat
       me={me.name}
       canAddPriority={isAdmin(me)}

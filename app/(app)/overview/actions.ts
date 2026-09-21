@@ -812,6 +812,9 @@ export async function startMyDay(): Promise<PlanActionResult> {
 
     const { error: shiftUpsertError } = await supabase.from("shift_state").upsert({ va_name: me.name, status: "working", changed_at: new Date().toISOString() }, { onConflict: "va_name" });
     orThrow(shiftUpsertError);
+    // The shift just changed, so the page must refresh even when there was
+    // nothing In Progress to pause (which returns early below).
+    revalidatePath("/", "layout");
 
     if ((assignments || []).length === 0 && (generalTasks || []).length === 0) return;
 

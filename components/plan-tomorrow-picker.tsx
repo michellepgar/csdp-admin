@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Bell, CalendarClock, ClipboardList, ListChecks, Plus, School as SchoolIcon, X } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   myReminderNotes: PrivateNote[];
   savePlan: (formData: FormData) => Promise<{ error: string | null }>;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("inProgress");
   const [schoolId, setSchoolId] = useState("");
@@ -434,7 +436,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                 if (mode === "end") formData.set("endShift", "1");
                 const result = await savePlan(formData);
                 if (result.error) setError(result.error);
-                else { setPendingReminders([]); setNewItems([]); setOpen(false); }
+                else { setPendingReminders([]); setNewItems([]); setOpen(false); router.refresh(); }
               }}
               className="flex flex-wrap items-center gap-3 border-t bg-muted/30 px-5 py-3"
             >

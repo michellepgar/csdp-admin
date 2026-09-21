@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 
 /* Pauses everything this VA has In Progress and drops it off Today
@@ -10,6 +11,7 @@ import { SubmitButton } from "@/components/submit-button";
    to show on success; only a real error surfaces. */
 export function StartMyDayButton({ startMyDay, disabled, disabledReason }: { startMyDay: () => Promise<{ error: string | null }>; disabled?: boolean; disabledReason?: string }) {
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   return (
     <form
@@ -18,7 +20,11 @@ export function StartMyDayButton({ startMyDay, disabled, disabledReason }: { sta
         const result = await startMyDay();
         if (result.error) setError(result.error);
         // Pop open Your Plan so the paused tasks are right there to Start.
-        else window.dispatchEvent(new Event("plan:open"));
+        else {
+          // Show the new state right away (buttons, cards, plan) -- no manual refresh.
+          router.refresh();
+          window.dispatchEvent(new Event("plan:open"));
+        }
       }}
     >
       <SubmitButton variant="plan" size="sm" pendingLabel="Starting…" disabled={disabled} title={disabled ? disabledReason : undefined}>Start my day</SubmitButton>

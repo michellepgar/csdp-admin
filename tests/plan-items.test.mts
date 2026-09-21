@@ -28,3 +28,14 @@ test("savePlan drops a newly-checked id that no longer exists, instead of lettin
   // The validation runs before the delete/insert, not after.
   assert.ok(savePlan.indexOf("validTaskIds") < savePlan.indexOf('supabase.from("plan_items").insert(rows)'));
 });
+
+test("savePlan tells the picker apart a real save from a click that changed nothing", () => {
+  const source = readFileSync("app/(app)/overview/actions.ts", "utf8");
+  const savePlan = source.slice(source.indexOf("export async function savePlan"), source.indexOf("export async function addPriority"));
+  assert.match(savePlan, /return \{ error: demoError, changed \};/);
+  assert.match(savePlan, /return \{ changed: toDeleteIds\.length \+ rows\.length \};/);
+  const picker = readFileSync("components/plan-tomorrow-picker.tsx", "utf8");
+  assert.match(picker, /No plans saved — nothing was added or changed\./);
+  // Only a genuine no-op (result.changed falsy, no error) keeps the window open with that message.
+  assert.match(picker, /else if \(!result\.changed\) \{/);
+});

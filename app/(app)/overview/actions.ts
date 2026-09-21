@@ -10,6 +10,14 @@ import { comparePriorities, movePriorityId } from "@/lib/plan-order";
 import { shiftAvailability } from "@/lib/shift";
 
 type PlanActionResult = { error: string | null };
+/* savePlan's own result -- `changed` is the number of plan_items rows
+   actually inserted or deleted (so a VA/reminder update to an item that
+   was already on the plan doesn't itself count). Undefined on error.
+   Lets the picker (components/plan-tomorrow-picker.tsx) tell a real save
+   apart from clicking Save with nothing new to add -- including the case
+   where everything checked turned out to be stale and got dropped (see
+   savePlan's own comment on that). */
+type SavePlanResult = PlanActionResult & { changed?: number };
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -29,10 +37,12 @@ async function requireAdmin() {
    TODO once the current daily-plan rollout stabilizes: switch to a
    fixed safe message here (matching lib/shared-task-files.ts's
    saveTaskFile()) instead of forwarding the raw DB error text. */
-async function runPlanAction(operation: () => Promise<void>): Promise<PlanActionResult> {
+async function runPlanAction(operation: () => Promise<void>): Promise<PlanActionResult>;
+async function runPlanAction<T extends object>(operation: () => Promise<T>): Promise<PlanActionResult & Partial<T>>;
+async function runPlanAction(operation: () => Promise<object | void>): Promise<PlanActionResult & Partial<object>> {
   try {
-    await operation();
-    return { error: null };
+    const data = await operation();
+    return { error: null, ...(data ?? {}) };
   } catch (error) {
     console.error("Daily plan action failed", error);
     return { error: error instanceof Error ? error.message : "Something went wrong. Please try again." };
@@ -79,7 +89,7 @@ function pushDemoAssignmentNotice(state: import("@/lib/app-state").AppState, ass
    converges instead of duplicating rows. `labels` covers both kinds of
    id in one map, keyed by whichever id it is, since ids never collide
    across the two tables in practice (both are app-generated uuids). */
-export async function savePlan(formData: FormData): Promise<PlanActionResult> {
+export async function savePlan(formData: FormData): Promise<SavePlanResult> {
   const checkedTaskIds = formData.getAll("taskFileCategoryIds").map(String);
   const checkedGeneralIds = formData.getAll("generalTaskIds").map(String);
   const labelsJson = formData.get("labels") as string; // { [id]: { label, schoolId? } } -- schoolId absent for General Tasks
@@ -103,6 +113,7 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
 
   if (await isDemoMode()) {
     let demoError: string | null = null;
+    let changed = 0;
     await demoMutate((state) => {
       if (endShift && !shiftAvailability(state.shiftStates, "Jane").canEnd) {
         demoError = "You haven't started your day yet. Click Start my day first.";
@@ -160,10 +171,12 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
       const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds);
       const toDeleteIds = [...taskDiff.toDeleteIds, ...generalDiff.toDeleteIds];
       state.planItems = (state.planItems || []).filter((p) => !toDeleteIds.includes(p.id));
+      changed += toDeleteIds.length;
       for (const id of taskDiff.toInsert) {
         const info = labels[id];
         if (!info) continue;
         state.planItems.push({ id: `demo-plan-${id}`, kind: "task", vaName: "Jane", schoolId: info.schoolId, taskFileCategoryId: id, label: info.label, createdBy: "Jane", createdAt: new Date().toISOString() });
+        changed += 1;
         // Planning it puts your name on the file (one VA per file).
         const sd = info.schoolId ? state.schoolData[info.schoolId] : undefined;
         const task = sd?.tasks?.find((t) => t.id === id);
@@ -175,15 +188,17 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
         const info = labels[id];
         if (!info) continue;
         state.planItems.push({ id: `demo-plan-${id}`, kind: "task", vaName: "Jane", generalTaskId: id, label: info.label, createdBy: "Jane", createdAt: new Date().toISOString() });
+        changed += 1;
         const generalTask = (state.generalTasks || []).find((t) => t.id === id);
         if (generalTask) generalTask.vaAssigned = ["Jane"];
       }
       for (const [i, reminder] of reminders.entries()) {
         state.planItems.push({ id: `demo-reminder-${Date.now()}-${i}`, kind: "note", vaName: "Jane", noteId: reminder.noteId, label: reminder.label, createdBy: "Jane", createdAt: new Date().toISOString() });
+        changed += 1;
       }
     });
     revalidatePath("/overview");
-    return { error: demoError };
+    return { error: demoError, changed };
   }
 
   return runPlanAction(async () => {
@@ -367,6 +382,7 @@ export async function savePlan(formData: FormData): Promise<PlanActionResult> {
     for (const schoolId of touchedSchoolIds) revalidatePath(`/schools/${schoolId}`);
     if (newItems.some((i) => i.kind === "general") || generalDiff.toInsert.length > 0) revalidatePath("/general-tasks");
     if (newItems.some((i) => i.isNewCategory)) revalidatePath("/", "layout");
+    return { changed: toDeleteIds.length + rows.length };
   });
 }
 

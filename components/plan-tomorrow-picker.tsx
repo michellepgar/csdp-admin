@@ -62,7 +62,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   /** This VA's own private notes flagged as reminders -- the "From
    *  Private Notes" option under the Reminder tab picks from these. */
   myReminderNotes: PrivateNote[];
-  savePlan: (formData: FormData) => Promise<{ error: string | null }>;
+  savePlan: (formData: FormData) => Promise<{ error: string | null; changed?: number }>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -78,6 +78,10 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   const [newGeneralTaskName, setNewGeneralTaskName] = useState("");
   const [newItems, setNewItems] = useState<NewItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Set when a save went through but changed nothing -- e.g. Save clicked with
+  // nothing new checked, or everything checked turned out to be stale and was
+  // dropped server-side (see savePlan's own comment on that).
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   const schoolCarryOver: OpenItem[] = schools.flatMap((school) =>
     (schoolData[school.id]?.tasks || [])
@@ -234,9 +238,9 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   return (
     <div>
       {mode === "end" ? (
-        <Button type="button" variant="plan" size="sm" disabled={disabled} title={disabled ? disabledReason : undefined} onClick={() => setOpen(true)}>End Today&apos;s Work</Button>
+        <Button type="button" variant="plan" size="sm" disabled={disabled} title={disabled ? disabledReason : undefined} onClick={() => { setSavedMessage(null); setOpen(true); }}>End Today&apos;s Work</Button>
       ) : (
-        <Button type="button" variant="plan" size="xs" onClick={() => setOpen(true)}><Plus className="h-3 w-3" /> Add</Button>
+        <Button type="button" variant="plan" size="xs" onClick={() => { setSavedMessage(null); setOpen(true); }}><Plus className="h-3 w-3" /> Add</Button>
       )}
       {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-3 sm:p-6" onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label={title}>
@@ -429,6 +433,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
             <form
               action={async (formData) => {
                 setError(null);
+                setSavedMessage(null);
                 for (const id of checked) formData.append(isSchoolId(id) ? "taskFileCategoryIds" : "generalTaskIds", id);
                 formData.set("labels", JSON.stringify(buildLabels()));
                 formData.set("reminders", JSON.stringify(pendingReminders.map((r) => ({ label: r.label, noteId: r.noteId }))));
@@ -436,7 +441,16 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                 if (mode === "end") formData.set("endShift", "1");
                 const result = await savePlan(formData);
                 if (result.error) setError(result.error);
-                else { setPendingReminders([]); setNewItems([]); setOpen(false); router.refresh(); }
+                else if (!result.changed) {
+                  // Nothing to save -- leave the window open so it's clear the click
+                  // registered, rather than silently closing like a real save does.
+                  setSavedMessage("No plans saved — nothing was added or changed.");
+                } else {
+                  setPendingReminders([]);
+                  setNewItems([]);
+                  setOpen(false);
+                  router.refresh();
+                }
               }}
               className="flex flex-wrap items-center gap-3 border-t bg-muted/30 px-5 py-3"
             >
@@ -444,6 +458,7 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                 <b className="text-foreground">{taskTotal}</b> task{taskTotal === 1 ? "" : "s"} · <b className="text-foreground">{pendingReminders.length}</b> new reminder{pendingReminders.length === 1 ? "" : "s"}
               </p>
               {error && <p role="alert" className="w-full text-sm text-red-600 sm:order-first dark:text-red-400">{error}</p>}
+              {!error && savedMessage && <p role="status" className="w-full text-sm text-muted-foreground sm:order-first">{savedMessage}</p>}
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <SubmitButton variant="plan" pendingLabel="Saving…">{mode === "end" ? "Save plan & end day" : "Add to plan"}</SubmitButton>
             </form>

@@ -72,28 +72,25 @@ export async function addVa(formData: FormData) {
 
 type RemoveVaResult = { error: string | null };
 
-/* What "still has open work" means for the block below: a school task or
-   general task assigned to them that isn't Completed yet -- a Completed one
-   is just history, nothing to hand off. Doesn't check who a school's own
-   assigned VA is (schoolData.vaAssigned) -- that still lives in the legacy
-   app_state JSON blob, not its own column (see setSchoolAssignment's own
-   comment), and reading it cheaply isn't possible without the same
-   ~39-table fetchAppState() this file's other actions were just changed to
-   stop paying for on every click. An admin can check and fix a school's own
-   assigned VA in School Assignments below either way. */
-function blockedMessage(name: string, openTaskCount: number, openGeneralCount: number): string | null {
-  const parts: string[] = [];
-  if (openTaskCount > 0) parts.push(`${openTaskCount} school task${openTaskCount === 1 ? "" : "s"}`);
-  if (openGeneralCount > 0) parts.push(`${openGeneralCount} general task${openGeneralCount === 1 ? "" : "s"}`);
-  if (parts.length === 0) return null;
-  return `${name} still has ${parts.join(" and ")} assigned. Reassign or complete ${parts.length > 1 || openTaskCount + openGeneralCount > 1 ? "them" : "it"} first.`;
-}
-
+/* Removing a team member clears their name off whatever isn't done yet --
+   Michelle: "we just want to track what's completed from the removed VA" --
+   so a Completed task/general task keeps their name (that's the record of
+   who did it), but anything still open (any other status, including never-
+   started) has their name taken off, leaving it unassigned rather than
+   assigned to someone no longer on the team. Their own plan (Your Plan --
+   plan_items) is cleared entirely: none of it is "completed work" to keep,
+   it's just workflow state that no longer means anything once they're gone.
+   Doesn't touch who a school's own assigned VA is (schoolData.vaAssigned) --
+   that still lives in the legacy app_state JSON blob, not its own column
+   (see setSchoolAssignment's own comment), and reading/writing it cheaply
+   isn't possible without the same ~39-table fetchAppState() this file's
+   other actions were just changed to stop paying for on every click. An
+   admin can check and fix a school's own assigned VA in School Assignments
+   below either way. */
 export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
-    let result: RemoveVaResult = { error: null };
     await demoMutate((state) => {
       const va = state.vas.find((v) => v.id === id);
       if (!va) return;
@@ -102,36 +99,66 @@ export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
       // findVaByEmail() check would no longer find her) -- silently
       // refused rather than let a demo click end the demo.
       if (va.email === DEMO_USER_EMAIL) return;
-      const openTaskCount = Object.values(state.schoolData).flatMap((sd) => sd.tasks || []).filter((t) => t.status !== "Completed" && t.vaAssigned.includes(va.name)).length;
-      const openGeneralCount = (state.generalTasks || []).filter((t) => t.status !== "Completed" && t.vaAssigned.includes(va.name)).length;
-      const message = blockedMessage(va.name, openTaskCount, openGeneralCount);
-      if (message) {
-        result = { error: message };
-        return;
+      for (const sd of Object.values(state.schoolData)) {
+        for (const task of sd.tasks || []) if (task.status !== "Completed") task.vaAssigned = task.vaAssigned.filter((n) => n !== va.name);
+        for (const file of sd.taskFiles || []) for (const assignment of file.categories) if (assignment.status !== "Completed") assignment.vaAssigned = assignment.vaAssigned.filter((n) => n !== va.name);
       }
+      for (const task of state.generalTasks || []) if (task.status !== "Completed") task.vaAssigned = task.vaAssigned.filter((n) => n !== va.name);
+      state.planItems = (state.planItems || []).filter((p) => p.vaName !== va.name);
       state.vas = state.vas.filter((v) => v.id !== id);
     });
     revalidatePath("/team");
-    return result;
+    return { error: null };
   }
 
   const { supabase } = await requireAdmin();
   const { data: va } = await supabase.from("vas").select("name").eq("id", id).maybeSingle();
   if (!va) return { error: null };
 
-  // Two cheap, targeted counts -- not the full fetchAppState() this file's
-  // other actions were just changed to stop paying for on every click (see
-  // this function's own comment above).
-  const [{ count: openTaskCount }, { count: openGeneralCount }] = await Promise.all([
-    supabase.from("task_file_categories").select("id", { count: "exact", head: true }).contains("va_assigned", [va.name]).neq("status", "Completed"),
-    supabase.from("general_tasks").select("id", { count: "exact", head: true }).contains("va_assigned", [va.name]).neq("status", "Completed"),
-  ]);
-  const message = blockedMessage(va.name, openTaskCount ?? 0, openGeneralCount ?? 0);
-  if (message) return { error: message };
+  // Not-Completed school tasks with this VA on them -- each carries the row's
+  // own school_id (needed by update_task_assignment below) via its file.
+  const { data: openTaskRows, error: openTaskError } = await supabase
+    .from("task_file_categories")
+    .select("id, va_assigned, task_files!inner(school_id)")
+    .contains("va_assigned", [va.name])
+    .neq("status", "Completed");
+  if (openTaskError) throw new Error(openTaskError.message);
+  const touchedSchoolIds = new Set<string>();
+  for (const row of openTaskRows ?? []) {
+    const schoolId = (row.task_files as unknown as { school_id: string }).school_id;
+    const nextAssigned = ((row.va_assigned as string[]) || []).filter((n) => n !== va.name);
+    // Same RPC (and the auth/lock/ownership checks it does) every other
+    // reassignment already goes through -- not a raw column update.
+    const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: row.id, p_patch: { va_assigned: nextAssigned } });
+    if (error) throw new Error(error.message);
+    touchedSchoolIds.add(schoolId);
+  }
+
+  const { data: openGeneralRows, error: openGeneralError } = await supabase
+    .from("general_tasks")
+    .select("id, va_assigned")
+    .contains("va_assigned", [va.name])
+    .neq("status", "Completed");
+  if (openGeneralError) throw new Error(openGeneralError.message);
+  for (const row of openGeneralRows ?? []) {
+    const nextAssigned = ((row.va_assigned as string[]) || []).filter((n) => n !== va.name);
+    const { error } = await supabase.from("general_tasks").update({ va_assigned: nextAssigned }).eq("id", row.id);
+    if (error) throw new Error(error.message);
+  }
+
+  const { error: planItemsError } = await supabase.from("plan_items").delete().eq("va_name", va.name);
+  if (planItemsError) throw new Error(planItemsError.message);
 
   const { error } = await supabase.from("vas").delete().eq("id", id);
   if (error) throw new Error(error.message);
-  revalidatePath("/team");
+
+  // A rare, wide-blast-radius admin action (touches whichever schools had
+  // open work, General Tasks, and Overview's plan) -- a full revalidate here
+  // is the right call, same as this file's other rare actions (rename a
+  // category, restore a backup) already do, unlike the routine single-item
+  // actions elsewhere in this file that were narrowed for exactly the
+  // opposite reason (see requireAdmin's own comment).
+  revalidatePath("/", "layout");
   return { error: null };
 }
 

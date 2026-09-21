@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 
-/* Remove a team member -- a plain <form action={removeVa}> couldn't show
-   removeVa's own "still has open work" message (a Server Action that just
-   throws gets redacted to a generic error in production; removeVa returns
-   {error} instead specifically so this can show the real reason). */
+/* Remove a team member -- removeVa itself clears their name off anything not
+   yet Completed (see its own comment), so the confirm message says that up
+   front. Still shown via {error}, not a thrown exception (which gets
+   redacted to a generic message in production), in case the remove itself
+   genuinely fails partway through. */
 export function RemoveVaButton({ id, name, removeVa }: {
   id: string;
   name: string;
@@ -24,7 +25,7 @@ export function RemoveVaButton({ id, name, removeVa }: {
         }}
       >
         <input type="hidden" name="id" value={id} />
-        <ConfirmDeleteButton confirmMessage={`Remove ${name} from the team?`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
+        <ConfirmDeleteButton confirmMessage={`Remove ${name} from the team? Their name will be cleared from anything of theirs that isn't done yet -- completed work keeps their name.`} pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
       </form>
       {error && <p role="alert" className="max-w-56 text-right text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>

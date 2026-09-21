@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { GripVertical, Lightbulb, Hammer, CheckCircle2, type LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, FileText, GripVertical, Lightbulb, Hammer, CheckCircle2, Video, type LucideIcon } from "lucide-react";
+import { getSuggestionAttachmentUrls, getSuggestionDownloadUrl } from "@/app/(app)/suggestions/actions";
+import { ImageLightbox } from "@/components/image-lightbox";
+import { formatSuggestionFileSize, isPreviewableSuggestionImage, isVideoFile } from "@/lib/suggestions";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/dropdown";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
-import { canDeleteSuggestion, vaColorByName, type Suggestion, type Va } from "@/lib/app-state";
+import { cn } from "@/lib/utils";
+import { canDeleteSuggestion, vaColorByName, type Suggestion, type SuggestionAttachment, type Va } from "@/lib/app-state";
 
 const STATUSES = ["Requested", "Working On It", "Added"] as const;
 type Status = (typeof STATUSES)[number];
@@ -52,6 +56,95 @@ const COLUMN: Record<Status, { icon: LucideIcon; band: string; pill: string; car
    disagree causes an intermittent React hydration mismatch. */
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "America/New_York" });
+}
+
+/* The long description on a card: a few lines, then "Show more". */
+function SuggestionDetails({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 220 || text.split("\n").length > 4;
+  return (
+    <div>
+      <p className={cn("whitespace-pre-wrap break-words text-sm text-muted-foreground", !open && long && "line-clamp-4")}>{text}</p>
+      {long && (
+        <button type="button" onClick={() => setOpen((o) => !o)} className="mt-0.5 text-xs font-medium text-ring hover:underline">
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* The screenshots and files on a card: pictures as thumbnails (click to
+   enlarge), everything else as a small file card with a download button. */
+function SuggestionFiles({ attachments }: { attachments: SuggestionAttachment[] }) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [zoomed, setZoomed] = useState<SuggestionAttachment | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const wanted = attachments.filter((a) => isPreviewableSuggestionImage(a.type)).map((a) => a.path);
+    if (wanted.length === 0) return;
+    let cancelled = false;
+    void getSuggestionAttachmentUrls(wanted).then((found) => {
+      if (!cancelled) setUrls((current) => ({ ...current, ...found }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachments]);
+
+  async function download(attachment: SuggestionAttachment) {
+    setError(null);
+    const result = await getSuggestionDownloadUrl(attachment.path, attachment.name);
+    if (!result.url) {
+      setError(result.error ?? "Couldn't download that file.");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = result.url;
+    link.download = attachment.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  const images = attachments.filter((a) => isPreviewableSuggestionImage(a.type));
+  const files = attachments.filter((a) => !isPreviewableSuggestionImage(a.type));
+
+  return (
+    <div className="space-y-2">
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {images.map((image) =>
+            urls[image.path] ? (
+              <button key={image.id} type="button" onClick={() => setZoomed(image)} title={image.name} className="overflow-hidden rounded-lg border shadow-sm transition hover:shadow-md">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a private, signed picture link */}
+                <img src={urls[image.path]} alt={image.name} className="h-24 w-auto max-w-full object-cover" />
+              </button>
+            ) : (
+              <span key={image.id} className="flex h-24 w-32 items-center justify-center rounded-lg border bg-muted/40 text-[11px] text-muted-foreground">{image.name}</span>
+            ),
+          )}
+        </div>
+      )}
+      {files.length > 0 && (
+        <ul className="space-y-1">
+          {files.map((file) => (
+            <li key={file.id} className="flex items-center gap-2 rounded-lg border bg-muted/30 px-2 py-1.5 text-xs">
+              {isVideoFile(file.type) ? <Video className="h-4 w-4 flex-none text-ring" /> : <FileText className="h-4 w-4 flex-none text-ring" />}
+              <span className="min-w-0 flex-1 truncate font-medium" title={file.name}>{file.name}</span>
+              <span className="flex-none text-muted-foreground">{formatSuggestionFileSize(file.size)}</span>
+              <button type="button" onClick={() => void download(file)} aria-label={`Download ${file.name}`} className="flex h-6 w-6 flex-none items-center justify-center rounded-md text-ring hover:bg-ring/10">
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p role="alert" className="text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+      {zoomed && urls[zoomed.path] && <ImageLightbox src={urls[zoomed.path]} onClose={() => setZoomed(null)} onDownload={() => void download(zoomed)} />}
+    </div>
+  );
 }
 
 /* Suggestions as a kanban board: one column per stage. Michelle drags a
@@ -153,7 +246,7 @@ export function SuggestionsList({
                     >
                       <div className="flex items-start gap-1.5">
                         {isMichelle && <GripVertical className="mt-0.5 h-3.5 w-3.5 flex-none text-muted-foreground/50" aria-hidden />}
-                        <p className="min-w-0 flex-1 break-words text-sm">{s.text}</p>
+                        <p className="min-w-0 flex-1 break-words text-sm font-medium">{s.text}</p>
                         {canDeleteSuggestion(s, currentUserName) && (
                           <form action={removeSuggestion} className="flex-none">
                             <input type="hidden" name="id" value={s.id} />
@@ -161,6 +254,8 @@ export function SuggestionsList({
                           </form>
                         )}
                       </div>
+                      {s.details && <SuggestionDetails text={s.details} />}
+                      {s.attachments && s.attachments.length > 0 && <SuggestionFiles attachments={s.attachments} />}
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: color || "#64748b" }} aria-hidden>

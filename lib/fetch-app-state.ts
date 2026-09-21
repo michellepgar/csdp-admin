@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getDemoState } from "@/lib/demo-session";
 import { groupTaskFileRows } from "@/lib/app-state";
-import type {
+import type { SuggestionAttachment,
   AppState,
   Va,
   School,
@@ -605,6 +605,8 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     planItemsResult,
     workNotesResult,
     shiftStateResult,
+    suggestionDetailsResult,
+    suggestionAttachmentsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -640,6 +642,9 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at, sort_order, assigned_to").order("created_at"),
     supabase.from("work_notes").select("item_key, va_name, note, updated_at"),
     supabase.from("shift_state").select("va_name, status, changed_at"),
+    // Both tolerant: until phase65's SQL is run these just come back empty.
+    supabase.from("suggestions").select("id, details"),
+    supabase.from("suggestion_attachments").select("id, suggestion_id, path, name, type, size, created_at").order("created_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -679,7 +684,24 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
   state.schools = (schoolsResult.data || []).map((r) => mapSchoolRow(r as SchoolRow));
   state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined, hasCount: !!row.has_count })) as TaskCategory[];
   state.checklistTemplate = (checklistTemplateResult.data || []).map((row) => ({ id: row.id, description: row.description, schoolId: row.school_id ?? undefined, taskCategoryId: row.task_category_id ?? undefined })) as ChecklistTemplateItem[];
-  state.suggestions = (suggestionsResult.data || []).map((r) => mapSuggestionRow(r as SuggestionRow));
+  const suggestionDetails = new Map<string, string>();
+  if (!suggestionDetailsResult.error) {
+    for (const row of (suggestionDetailsResult.data || []) as { id: string; details: string | null }[]) {
+      if (row.details) suggestionDetails.set(row.id, row.details);
+    }
+  }
+  const suggestionAttachments = new Map<string, SuggestionAttachment[]>();
+  if (!suggestionAttachmentsResult.error) {
+    for (const row of (suggestionAttachmentsResult.data || []) as { id: string; suggestion_id: string; path: string; name: string; type: string; size: number }[]) {
+      const list = suggestionAttachments.get(row.suggestion_id) ?? [];
+      list.push({ id: row.id, path: row.path, name: row.name, type: row.type, size: Number(row.size) || 0 });
+      suggestionAttachments.set(row.suggestion_id, list);
+    }
+  }
+  state.suggestions = (suggestionsResult.data || []).map((r) => {
+    const base = mapSuggestionRow(r as SuggestionRow);
+    return { ...base, details: suggestionDetails.get(base.id), attachments: suggestionAttachments.get(base.id) };
+  });
   const generalNoteCommentsByNoteId = new Map<string, Comment[]>();
   for (const c of (generalNoteCommentsResult.data || []) as NoteCommentRow[]) {
     const list = generalNoteCommentsByNoteId.get(c.note_id) ?? [];

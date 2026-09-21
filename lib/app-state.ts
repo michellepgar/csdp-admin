@@ -282,9 +282,22 @@ export interface ShiftState {
   changedAt: string;
 }
 
+export interface SuggestionAttachment {
+  id: string;
+  /** Object path inside the private suggestion-attachments bucket. */
+  path: string;
+  name: string;
+  type: string;
+  size: number;
+}
+
 export interface Suggestion {
   id: string;
+  /** The short headline. */
   text: string;
+  /** The long description, if one was written. */
+  details?: string;
+  attachments?: SuggestionAttachment[];
   author: string;
   createdAt: string;
   status: "Requested" | "Working On It" | "Added";

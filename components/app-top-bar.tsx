@@ -9,6 +9,7 @@ import { MentionsBell } from "@/components/mentions-bell";
 import { QuickAddDialog, type QuickAddData } from "@/components/quick-add-dialog";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { Mention } from "@/lib/app-state";
+import type { PrivateNoteHit } from "@/app/(app)/private-notes/actions";
 
 /* The bar across the very top of every page: the sidebar toggle, the app
    name, jump-to-anything search, Quick add, notifications and the account
@@ -88,6 +89,7 @@ export function AppTopBar({
   myMentions,
   markMentionRead,
   quickAdd,
+  searchNotes,
 }: {
   onToggleSidebar: () => void;
   sidebarCollapsed: boolean;
@@ -98,6 +100,7 @@ export function AppTopBar({
   myMentions: Mention[];
   markMentionRead: (formData: FormData) => void;
   quickAdd: QuickAddData;
+  searchNotes: (query: string) => Promise<PrivateNoteHit[]>;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -134,11 +137,11 @@ export function AppTopBar({
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
-        aria-label="Search pages and schools"
+        aria-label="Search pages, schools and notes"
         className="flex h-9 min-w-0 max-w-md flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-left text-sm text-slate-500 shadow-sm transition-colors hover:border-black/25 dark:bg-slate-900 dark:text-slate-400"
       >
         <Search className="h-4 w-4 flex-none" />
-        <span className="min-w-0 flex-1 truncate">Search pages and schools…</span>
+        <span className="min-w-0 flex-1 truncate">Search pages, schools and notes…</span>
         <kbd className="hidden flex-none rounded border bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 sm:block dark:bg-slate-800 dark:text-slate-300">Ctrl K</kbd>
       </button>
 
@@ -182,7 +185,7 @@ export function AppTopBar({
         )}
       </HeaderMenu>
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} schools={schools} isAdmin={isAdmin} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} schools={schools} isAdmin={isAdmin} searchNotes={searchNotes} />
       {quickAddOpen && <QuickAddDialog onClose={() => setQuickAddOpen(false)} data={quickAdd} />}
     </header>
   );

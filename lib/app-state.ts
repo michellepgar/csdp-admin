@@ -513,6 +513,8 @@ export interface AppState {
   /** Present only on an AUTOMATIC nightly backup file (see lib/automatic-backup.ts). `excludes` lists what was left out on purpose -- currently "privateNotes" -- so Restore knows not to clear those. */
   backupMeta?: { automatic: boolean; createdAt: string; excludes: string[] };
   issueCategories?: IssueCategory[];
+  /** Issue types the team added (see IssueCustomType). */
+  issueTypes?: IssueCustomType[];
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];
   generalTaskCategories?: GeneralTaskCategory[];
@@ -671,6 +673,15 @@ export function distributionRowConsentPacketsTotal(row: DistributionRow): number
    table columns) are left in place, just permanently unused now. */
 export type IssueType = "software_issue" | "correction" | "charting";
 
+/* A kind of issue the team added themselves (Issues & Concerns page), next to
+   the three built-in types above. Issues of a custom type are stored with
+   type "custom" plus the id of their custom type; they carry just a
+   description and an optional note (remarks). */
+export interface IssueCustomType {
+  id: string;
+  name: string;
+}
+
 export interface IssueSubcategory {
   id: string;
   name: string;
@@ -702,7 +713,9 @@ export const NO_SUBCATEGORY = "-";
 
 export interface Issue {
   id: string;
-  type: IssueType;
+  type: IssueType | "custom";
+  /** Set when type is "custom": which of state.issueTypes this issue is filed under. */
+  customTypeId?: string;
   reportedBy: string;
   status: string;
   createdAt: string;

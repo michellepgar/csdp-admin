@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppTopBar } from "@/components/app-top-bar";
 import type { QuickAddData } from "@/components/quick-add-dialog";
+import type { PrivateNoteHit } from "@/app/(app)/private-notes/actions";
 import { Sidebar } from "@/components/sidebar";
 import { PlanBubble } from "@/components/plan-bubble";
 import type { OpenEmailItem } from "@/lib/shared-task-files";
@@ -55,6 +56,7 @@ export function SidebarShell({
   completeNoteReminder,
   setEmailStatus,
   quickAdd,
+  searchNotes,
   children,
 }: {
   currentName: string;
@@ -81,6 +83,7 @@ export function SidebarShell({
   completeNoteReminder: (formData: FormData) => void;
   setEmailStatus: (formData: FormData) => void;
   quickAdd: QuickAddData;
+  searchNotes: (query: string) => Promise<PrivateNoteHit[]>;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -153,6 +156,7 @@ export function SidebarShell({
         myMentions={myMentions}
         markMentionRead={markMentionRead}
         quickAdd={quickAdd}
+        searchNotes={searchNotes}
       />
 
       <div className="flex flex-1">

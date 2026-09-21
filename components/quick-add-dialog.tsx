@@ -9,7 +9,7 @@ import { QuickAddIssuePanel } from "@/components/quick-add-issue-panel";
 import { QuickAddNotePanel } from "@/components/quick-add-note-panel";
 import { QuickAddSuggestionPanel } from "@/components/quick-add-suggestion-panel";
 import { QuickAddTaskPanel } from "@/components/quick-add-task-panel";
-import type { GeneralTaskCategory, IssueCategory, TaskCategory } from "@/lib/app-state";
+import type { GeneralTaskCategory, IssueCategory, IssueCustomType, TaskCategory } from "@/lib/app-state";
 import type { TaskFileActionResult } from "@/lib/shared-task-files";
 
 /* One existing table on a school's Tasks card, boiled down to what the file
@@ -27,6 +27,7 @@ export type QuickAddData = {
   tablesBySchool: Record<string, QuickAddTable[]>;
   generalTaskCategories: GeneralTaskCategory[];
   issueCategories: IssueCategory[];
+  issueTypes: IssueCustomType[];
   addTask: (formData: FormData) => Promise<TaskFileActionResult>;
   addGeneralTask: (formData: FormData) => Promise<void>;
   addPrivateNote: (formData: FormData) => Promise<void>;

@@ -64,6 +64,7 @@ function PrivateNoteRow({
       <form
         action={updatePrivateNote}
         onSubmit={() => setEditing(false)}
+        data-private-note-id={n.id}
         className="note-card space-y-2 rounded-md border bg-muted/30 p-3"
       >
         <input type="hidden" name="id" value={n.id} />
@@ -86,6 +87,7 @@ function PrivateNoteRow({
 
   return (
     <div
+      data-private-note-id={n.id}
       className={`note-card relative rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
       style={n.padColor ? { backgroundColor: n.padColor } : undefined}
     >

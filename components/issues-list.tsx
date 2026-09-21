@@ -16,6 +16,7 @@ import {
   type Issue,
   type IssueType,
   type IssueCategory,
+  type IssueCustomType,
   type Va,
 } from "@/lib/app-state";
 
@@ -52,6 +53,9 @@ function fmtDate(iso: string) {
    in local state too. */
 export function AddIssueForm({
   addIssue,
+  issueTypes,
+  addIssueType,
+  removeIssueType,
   issueCategories,
   addIssueCategory,
   removeIssueCategory,
@@ -59,34 +63,59 @@ export function AddIssueForm({
   removeIssueSubcategory,
 }: {
   addIssue: (formData: FormData) => void;
+  issueTypes: IssueCustomType[];
+  addIssueType: (formData: FormData) => Promise<{ error: string | null }>;
+  removeIssueType: (formData: FormData) => Promise<{ error: string | null }>;
   issueCategories: IssueCategory[];
   addIssueCategory: (formData: FormData) => void;
   removeIssueCategory: (formData: FormData) => void;
   addIssueSubcategory: (formData: FormData) => void;
   removeIssueSubcategory: (formData: FormData) => void;
 }) {
-  const [type, setType] = useState<IssueType>("software_issue");
+  // A built-in type's key, or "custom:<id>" for one the team added.
+  const [type, setType] = useState<string>("software_issue");
   const [categoryName, setCategoryName] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [typesOpen, setTypesOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [typeError, setTypeError] = useState<string | null>(null);
+  const customType = issueTypes.find((t) => `custom:${t.id}` === type);
   const selectedCategory = issueCategories.find((c) => c.name === categoryName);
 
   return (
     <div className="space-y-2">
       <form action={addIssue} className="space-y-2 rounded-md border bg-card p-3">
         <div className="flex items-center justify-between gap-2">
+          <input type="hidden" name="type" value={customType ? "custom" : type} />
+          {customType && <input type="hidden" name="customTypeId" value={customType.id} />}
           <Dropdown
-            name="type"
+            name="typeChoice"
             value={type}
-            onChange={(v) => setType(v as IssueType)}
-            options={(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((t) => ({ value: t, label: ISSUE_TYPE_LABELS[t] }))}
+            onChange={setType}
+            options={[
+              ...(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((t) => ({ value: t, label: ISSUE_TYPE_LABELS[t] })),
+              ...issueTypes.map((t) => ({ value: `custom:${t.id}`, label: t.name })),
+            ]}
             className="rounded-md border bg-card px-2 py-1.5 text-left text-sm font-medium"
           />
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setTypesOpen((o) => !o)} className="text-sm text-primary underline underline-offset-2">
+              {typesOpen ? "Close type editor" : "+ New type"}
+            </button>
           {type === "software_issue" && (
             <button type="button" onClick={() => setEditorOpen((o) => !o)} className="text-sm text-primary underline underline-offset-2">
               {editorOpen ? "Close category editor" : "Edit categories"}
             </button>
           )}
+          </div>
         </div>
+
+        {customType && (
+          <div className="flex flex-wrap gap-2">
+            <Input name="description" placeholder={`Describe the ${customType.name.toLowerCase()}`} required className="max-w-md flex-1" />
+            <Input name="note" placeholder="Note (optional)" className="max-w-xs" />
+          </div>
+        )}
 
         {type === "software_issue" && (
           <div className="flex flex-wrap gap-2">
@@ -142,6 +171,43 @@ export function AddIssueForm({
 
         <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
       </form>
+
+      {typesOpen && (
+        <div className="space-y-3 rounded-md border bg-card p-3">
+          <p className="text-xs text-muted-foreground">Add your own kind of issue or concern. It gets its own list on this page and shows up in the type menu above.</p>
+          <form
+            action={async (formData) => {
+              const result = await addIssueType(formData);
+              setTypeError(result.error);
+              if (!result.error) setNewTypeName("");
+            }}
+            className="flex gap-2"
+          >
+            <Input name="name" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="New type, e.g. Scanner problem" required maxLength={60} />
+            <SubmitButton pendingLabel="Adding…">Add type</SubmitButton>
+          </form>
+          {typeError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{typeError}</p>}
+          {issueTypes.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {issueTypes.map((t) => (
+                <form
+                  key={t.id}
+                  action={async (formData) => {
+                    const result = await removeIssueType(formData);
+                    setTypeError(result.error);
+                    if (!result.error && type === `custom:${t.id}`) setType("software_issue");
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-sm"
+                >
+                  <input type="hidden" name="id" value={t.id} />
+                  <span>{t.name}</span>
+                  <ConfirmDeleteButton confirmMessage={`Remove the "${t.name}" type? A type that still has issues filed under it can't be removed.`} pendingLabel="…" variant="ghost" size="xs">✕</ConfirmDeleteButton>
+                </form>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {editorOpen && type === "software_issue" && (
         <div className="space-y-3 rounded-md border bg-card p-3">
@@ -234,9 +300,9 @@ type TableProps = {
    every field visible, at the cost of repeating the Reported By/Date/
    Status/delete/Comments columns four times. */
 
-export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
+export function SoftwareIssueTable({ showCategory = true, emptyText = "No software issues reported.", issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { showCategory?: boolean; emptyText?: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
-  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No software issues reported.</p>;
+  if (issues.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   const reversed = [...issues].reverse();
   return (
     <>
@@ -247,9 +313,14 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-              <th className="px-2 py-1">Category</th>
-              <th className="px-2 py-1">Subcategory</th>
+              {showCategory && (
+                <>
+                  <th className="px-2 py-1">Category</th>
+                  <th className="px-2 py-1">Subcategory</th>
+                </>
+              )}
               <th className="px-2 py-1">Description</th>
+              {!showCategory && <th className="px-2 py-1">Note</th>}
               <th className="px-2 py-1">Reported By</th>
               <th className="px-2 py-1">Date</th>
               <th className="px-2 py-1">Status</th>
@@ -261,9 +332,14 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
             {reversed.map((issue) => (
               <Fragment key={issue.id}>
                 <tr className="border-b bg-record-background align-top">
-                  <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
-                  <td className="px-2 py-1 whitespace-nowrap">{issue.subcategory || "—"}</td>
+                  {showCategory && (
+                    <>
+                      <td className="px-2 py-1 whitespace-nowrap">{issue.category || "—"}</td>
+                      <td className="px-2 py-1 whitespace-nowrap">{issue.subcategory || "—"}</td>
+                    </>
+                  )}
                   <td className="px-2 py-1">{issue.description}</td>
+                  {!showCategory && <td className="px-2 py-1 text-muted-foreground">{issue.remarks || "—"}</td>}
                   <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                   <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
                   <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
@@ -285,7 +361,7 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
                 </tr>
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background no-record-hover">
-                    <td colSpan={8} className="p-2">
+                    <td colSpan={showCategory ? 8 : 7} className="p-2">
                       <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
                   </tr>
@@ -298,20 +374,28 @@ export function SoftwareIssueTable({ issues, currentUserName, currentIsAdmin, va
       <div className="space-y-2 sm:hidden">
         {reversed.map((issue) => (
           <div key={issue.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Category</div>
-                <div>{issue.category || "—"}</div>
+            {showCategory && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Category</div>
+                  <div>{issue.category || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Subcategory</div>
+                  <div>{issue.subcategory || "—"}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Subcategory</div>
-                <div>{issue.subcategory || "—"}</div>
-              </div>
-            </div>
+            )}
             <div>
               <div className="text-xs font-semibold uppercase text-muted-foreground">Description</div>
               <div>{issue.description}</div>
             </div>
+            {!showCategory && issue.remarks && (
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Note</div>
+                <div>{issue.remarks}</div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <div className="text-xs font-semibold uppercase text-muted-foreground">Reported By</div>

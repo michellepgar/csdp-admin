@@ -22,6 +22,8 @@ import {
   removeIssueCategory,
   addIssueSubcategory,
   removeIssueSubcategory,
+  addIssueType,
+  removeIssueType,
 } from "./actions";
 
 export default async function IssuesPage({ searchParams }: { searchParams: Promise<{ expandIssue?: string }> }) {
@@ -39,6 +41,7 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
   const software = issues.filter((i) => i.type === "software_issue");
   const corrections = issues.filter((i) => i.type === "correction");
   const charting = issues.filter((i) => i.type === "charting");
+  const issueTypes = state.issueTypes || [];
 
   const tableProps = { currentUserName: me.name, currentIsAdmin: isAdmin(me), vas: state.vas || [], expandIssueId: expandIssue, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments };
 
@@ -48,6 +51,9 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
       <PageBody gap={8}>
         <AddIssueForm
           addIssue={addIssue}
+          issueTypes={issueTypes}
+          addIssueType={addIssueType}
+          removeIssueType={removeIssueType}
           issueCategories={state.issueCategories || []}
           addIssueCategory={addIssueCategory}
           removeIssueCategory={removeIssueCategory}
@@ -69,6 +75,19 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
           <h2 className="font-semibold">Charting Questions</h2>
           <ChartingTable issues={charting} {...tableProps} />
         </section>
+
+        {/* One section per type the team added (see "+ New type" above). */}
+        {issueTypes.map((customType) => (
+          <section key={customType.id} className="space-y-3">
+            <h2 className="font-semibold">{customType.name}</h2>
+            <SoftwareIssueTable
+              showCategory={false}
+              emptyText={`No ${customType.name.toLowerCase()} reported.`}
+              issues={issues.filter((i) => i.type === "custom" && i.customTypeId === customType.id)}
+              {...tableProps}
+            />
+          </section>
+        ))}
       </PageBody>
     </div>
   );

@@ -142,6 +142,7 @@ function BoardNote({
   return (
     <div
       ref={cardRef}
+      data-private-note-id={note.id}
       draggable={reorderMode}
       onDragStart={reorderMode ? onDragStart : undefined}
       onDragOver={reorderMode ? onDragOver : undefined}
@@ -305,7 +306,7 @@ export function PrivateNotesBoard({
         // "cork" surface that's still part of the current palette
         // instead of a leftover color from before the page background
         // changed.
-        className="flex min-h-[500px] flex-wrap content-start gap-3 rounded-md border bg-muted p-4"
+        className="flex min-h-[240px] flex-wrap content-start gap-3 rounded-md border bg-muted p-4"
       >
         {orderedNotes.length === 0 && (
           <p className="text-sm text-muted-foreground">Drag a note from the list onto this board to pin it.</p>

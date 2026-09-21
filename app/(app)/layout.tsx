@@ -14,7 +14,7 @@ import { markMentionRead } from "@/app/(app)/mentions/actions";
 import { FloatingChat } from "@/components/floating-chat";
 import { addTask, setEmailStatus } from "@/app/(app)/schools/[id]/actions";
 import { addGeneralTask } from "@/app/(app)/general-tasks/actions";
-import { addPrivateNote } from "@/app/(app)/private-notes/actions";
+import { addPrivateNote, searchPrivateNotes } from "@/app/(app)/private-notes/actions";
 import { addIssue } from "@/app/(app)/issues/actions";
 import { addSuggestion } from "@/app/(app)/suggestions/actions";
 
@@ -127,6 +127,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     tablesBySchool: quickAddTables,
     generalTaskCategories: state.generalTaskCategories || [],
     issueCategories: state.issueCategories || [],
+    issueTypes: state.issueTypes || [],
     addTask,
     addGeneralTask,
     addPrivateNote,
@@ -161,6 +162,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       completeNoteReminder={completeNoteReminder}
       setEmailStatus={setEmailStatus}
       quickAdd={quickAdd}
+      searchNotes={searchPrivateNotes}
     >
       {children}
     </SidebarShell>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Bell, Check, ChevronDown, ClipboardList, ListChecks, Mail, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
+import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
 import type { OpenEmailItem } from "@/lib/shared-task-files";
 import { WorkNoteButton } from "@/components/work-note-button";
@@ -128,16 +129,25 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
                 {reminders.map((item) => (
                   <div key={item.id} className={`${ROW_BASE} items-start border-l-plan-accent-secondary`}>
                     <span className="min-w-0 flex-1 break-words">
-                      {item.label}
+                      {/* Opening the reminder just shows you the note -- it is only
+                          marked reviewed by ticking the checkbox on the right. */}
+                      {item.noteId ? (
+                        <Link href={`/private-notes?highlightNote=${item.noteId}`} prefetch={false} title="Open this note" className="hover:underline">{item.label}</Link>
+                      ) : (
+                        item.label
+                      )}
                       {noteLookup(planItemNoteKey(item), currentUserName) && (
                         <span className="mt-1 block rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">{noteLookup(planItemNoteKey(item), currentUserName)}</span>
                       )}
                     </span>
                     <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), currentUserName)} label={item.label} />
-                    <form action={completeNoteReminder} className="shrink-0">
+                    <AutoSubmitForm action={completeNoteReminder} className="shrink-0">
                       <input type="hidden" name="id" value={item.id} />
-                      <SubmitButton size="xs" pendingLabel="…" variant="outline"><Check className="h-3 w-3" /></SubmitButton>
-                    </form>
+                      <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground" title="Tick to mark this reminder as reviewed">
+                        <input type="checkbox" aria-label={`Mark "${item.label}" as reviewed`} className="h-4 w-4" />
+                        Reviewed
+                      </label>
+                    </AutoSubmitForm>
                   </div>
                 ))}
               </div>

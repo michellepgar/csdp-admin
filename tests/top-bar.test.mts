@@ -35,3 +35,32 @@ test("Quick add offers files, general tasks, private notes, issues and suggestio
   const layout = readFileSync("app/(app)/layout.tsx", "utf8");
   for (const action of ["addTask", "addGeneralTask", "addPrivateNote", "addIssue", "addSuggestion"]) assert.match(layout, new RegExp(`\\b${action},`));
 });
+
+test("the top bar search also finds private notes, and the Private Notes page filters by ?q=", () => {
+  const palette = readFileSync("components/command-palette.tsx", "utf8");
+  assert.match(palette, /searchNotes\(trimmed\)/);
+  assert.match(palette, /highlightNote=\$\{hit\.id\}/);
+  assert.match(readFileSync("app/(app)/layout.tsx", "utf8"), /searchNotes=\{searchPrivateNotes\}/);
+  const page = readFileSync("app/(app)/private-notes/page.tsx", "utf8");
+  assert.match(page, /noteMatches\(n\.text, words\)/);
+  assert.match(page, /<NoteFocus id=\{highlightNote\}/);
+});
+
+test("the priority board sits above the notes list and folds away, remembered by a cookie", () => {
+  const page = readFileSync("app/(app)/private-notes/page.tsx", "utf8");
+  assert.ok(page.indexOf("<PrivateNotesBoard") < page.indexOf("<PrivateNotesList"));
+  assert.match(page, /<CollapsibleSection title="My Priority Board"[^>]*cookieName="priority-board-collapsed"/);
+  assert.match(readFileSync("components/collapsible-section.tsx", "utf8"), /document\.cookie = `\$\{cookieName\}=/);
+});
+
+test("a reminder in Your Plan is only marked reviewed by its checkbox, never by opening it", () => {
+  const bubble = readFileSync("components/plan-bubble.tsx", "utf8");
+  const start = bubble.indexOf("reminders.map");
+  const reminders = bubble.slice(start, bubble.indexOf("myOpenEmailItems.length > 0", start));
+  // Opening the reminder is just a link to the note...
+  assert.match(reminders, /<Link href=\{`\/private-notes\?highlightNote=\$\{item\.noteId\}`\}/);
+  // ...and the only thing that completes it is the checkbox's auto-submitting form.
+  assert.match(reminders, /<AutoSubmitForm action=\{completeNoteReminder\}/);
+  assert.match(reminders, /type="checkbox"/);
+  assert.doesNotMatch(reminders, /SubmitButton/);
+});

@@ -4,12 +4,53 @@ import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { sanitizeNoteHtml } from "@/lib/sanitize-note-html";
+import { fetchAppState } from "@/lib/fetch-app-state";
+import { visiblePrivateNotes } from "@/lib/app-state";
+import { noteMatches, noteSnippet, searchWords } from "@/lib/private-note-search";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 type NoteActionResult = { error: string | null };
+
+export type PrivateNoteHit = { id: string; snippet: string; createdAt: string };
+
+/* Keyword search for the top bar: the notes you can see (yours, or shared with
+   you) that contain every word typed, newest first, a few at a time. Runs on
+   the server so the whole set of notes never has to be sent to every page. A
+   failed search just returns nothing -- it's a convenience, not something to
+   interrupt typing with an error. */
+export async function searchPrivateNotes(query: string): Promise<PrivateNoteHit[]> {
+  const words = searchWords(query);
+  if (words.length === 0 || query.length > 200) return [];
+  try {
+    if (await isDemoMode()) {
+      const state = await fetchAppState();
+      if (!state) return [];
+      return visiblePrivateNotes(state, "Jane")
+        .filter((n) => noteMatches(n.text, words))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 8)
+        .map((n) => ({ id: n.id, snippet: noteSnippet(n.text, words), createdAt: n.createdAt }));
+    }
+    const { supabase, me } = await requireTeamMember();
+    const { data, error } = await supabase
+      .from("private_notes")
+      .select("id, text, author, shared_with, created_at")
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (error) return [];
+    return (data ?? [])
+      .filter((n) => n.author === me.name || ((n.shared_with as string[] | null) ?? []).includes(me.name))
+      .filter((n) => noteMatches(n.text ?? "", words))
+      .slice(0, 8)
+      .map((n) => ({ id: n.id as string, snippet: noteSnippet(n.text ?? "", words), createdAt: n.created_at as string }));
+  } catch (error) {
+    console.error("Private note search failed", error);
+    return [];
+  }
+}
 
 /* Pins a private note into "Your Plan" as a plain reminder -- unlike
    task/priority plan_items, this never resolves into a real task; it

@@ -17,10 +17,12 @@ import {
   MessageSquarePlus,
   School,
   Search,
+  StickyNote,
   Send,
   Users,
   type LucideIcon,
 } from "lucide-react";
+import type { PrivateNoteHit } from "@/app/(app)/private-notes/actions";
 import { cn } from "@/lib/utils";
 
 type PaletteItem = { key: string; label: string; hint: string; href: string; icon: LucideIcon };
@@ -45,25 +47,31 @@ const ADMIN_PAGES: PaletteItem[] = [
 ];
 
 /* Jump-to-anywhere search (Ctrl/Cmd + K, or the search box in the top bar):
-   type a few letters of a page or a school and press Enter. */
+   type a few letters of a page or a school and press Enter. From two letters
+   on it also searches your private notes by keyword (every word typed has to
+   be in the note) and lists the matches, each opening on that note. */
 export function CommandPalette({
   open,
   onClose,
   schools,
   isAdmin,
+  searchNotes,
 }: {
   open: boolean;
   onClose: () => void;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
+  searchNotes: (query: string) => Promise<PrivateNoteHit[]>;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [noteHits, setNoteHits] = useState<PrivateNoteHit[]>([]);
+  const searchId = useRef(0);
 
-  const items = useMemo(() => {
+  const pageAndSchoolItems = useMemo(() => {
     const schoolItems: PaletteItem[] = [...schools]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((s) => ({ key: `s-${s.id}`, label: s.name, hint: "School", href: `/schools/${s.id}`, icon: School }));
@@ -71,6 +79,39 @@ export function CommandPalette({
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return words.length === 0 ? all : all.filter((item) => words.every((w) => item.label.toLowerCase().includes(w)));
   }, [schools, isAdmin, query]);
+
+  const trimmed = query.trim();
+  const searchingNotes = trimmed.length >= 2;
+  const noteItems = useMemo<PaletteItem[]>(
+    () =>
+      searchingNotes
+        ? [
+            { key: "n-all", label: `Search private notes for “${trimmed}”`, hint: "Private notes", href: `/private-notes?q=${encodeURIComponent(trimmed)}`, icon: Search },
+            ...noteHits.map((hit) => ({ key: `n-${hit.id}`, label: hit.snippet, hint: "Private note", href: `/private-notes?highlightNote=${hit.id}`, icon: StickyNote })),
+          ]
+        : [],
+    [searchingNotes, trimmed, noteHits],
+  );
+  const items = useMemo(() => [...pageAndSchoolItems, ...noteItems], [pageAndSchoolItems, noteItems]);
+
+  // Looks up matching notes a moment after you stop typing; an answer that
+  // arrives after you've typed more is thrown away.
+  useEffect(() => {
+    if (!open || trimmed.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Too little typed to search: clear the previous matches.
+      setNoteHits([]);
+      return;
+    }
+    const id = ++searchId.current;
+    const timer = setTimeout(async () => {
+      const hits = await searchNotes(trimmed).catch(() => []);
+      if (id === searchId.current) setNoteHits(hits);
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      searchId.current += 1;
+    };
+  }, [open, trimmed, searchNotes]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,7 +168,7 @@ export function CommandPalette({
               setActive(0);
             }}
             onKeyDown={onKeyDown}
-            placeholder="Jump to a page or a school"
+            placeholder="Jump to a page or school, or search your notes"
             aria-label="Search"
             className="h-12 w-full border-0 bg-transparent px-1 text-base shadow-none outline-none focus-visible:ring-0"
           />

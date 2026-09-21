@@ -45,9 +45,10 @@ export default async function OverviewPage() {
   const completedSchoolsCount = state.schools.filter((school) => checklistCompletion(state, school.id) === 100).length;
 
   const openIssues = (state.issues || []).filter((i) => i.status !== "Resolved");
-  const issueTypeCounts = (Object.keys(ISSUE_TYPE_LABELS) as IssueType[])
-    .map((type) => ({ type, label: ISSUE_TYPE_LABELS[type], count: openIssues.filter((i) => i.type === type).length }))
-    .filter((t) => t.count > 0);
+  const issueTypeCounts = [
+    ...(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((type) => ({ type: type as string, label: ISSUE_TYPE_LABELS[type], count: openIssues.filter((i) => i.type === type).length })),
+    ...(state.issueTypes || []).map((t) => ({ type: `custom:${t.id}`, label: t.name, count: openIssues.filter((i) => i.type === "custom" && i.customTypeId === t.id).length })),
+  ].filter((t) => t.count > 0);
 
   const user = await getCurrentUser();
   const me = user?.email ? findVaByEmail(state, user.email) : undefined;

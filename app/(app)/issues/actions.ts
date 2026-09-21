@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAdmin, NO_SUBCATEGORY, type Issue } from "@/lib/app-state";
+import { isAdmin, ISSUE_TYPE_LABELS, NO_SUBCATEGORY, type Issue } from "@/lib/app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { extractMentionedNames, snippetFromHtml } from "@/lib/mentions";
@@ -63,6 +63,11 @@ export async function addIssue(formData: FormData) {
         const question = ((formData.get("question") as string) || "").trim();
         if (!studentRecordLink || !question) return;
         issue = { ...baseIssueRow("Jane", "charting"), studentRecordLink, question, fixedBy: [] };
+      } else if (type === "custom") {
+        const customTypeId = ((formData.get("customTypeId") as string) || "").trim();
+        const description = ((formData.get("description") as string) || "").trim();
+        if (!description || !(state.issueTypes || []).some((t) => t.id === customTypeId)) return;
+        issue = { ...baseIssueRow("Jane", "custom"), customTypeId, description, remarks: (formData.get("note") as string) || "" };
       }
       if (issue) (state.issues ??= []).push(issue);
     });
@@ -109,11 +114,98 @@ export async function addIssue(formData: FormData) {
       fixed_by: [],
     });
     orThrow(error);
+  } else if (type === "custom") {
+    const customTypeId = ((formData.get("customTypeId") as string) || "").trim();
+    const description = ((formData.get("description") as string) || "").trim();
+    if (!description || !customTypeId) return;
+    const { error } = await supabase.from("issues").insert({
+      ...baseIssueInsert(me, "custom"),
+      custom_type_id: customTypeId,
+      description,
+      remarks: (formData.get("note") as string) || "",
+    });
+    orThrow(error);
   } else {
     return;
   }
 
   revalidatePath("/issues");
+}
+
+/* The team's own issue types (Issues & Concerns page), next to the built-in
+   Software Issue / Correction / Charting. Return {error} rather than throwing
+   so a duplicate name reads as a message instead of a redacted server error. */
+type IssueTypeResult = { error: string | null };
+
+export async function addIssueType(formData: FormData): Promise<IssueTypeResult> {
+  const name = ((formData.get("name") as string) || "").trim().replace(/\s+/g, " ");
+  if (!name) return { error: "Type a name for the new type." };
+  if (name.length > 60) return { error: "Keep the name under 60 characters." };
+  const lower = name.toLowerCase();
+  if (Object.values(ISSUE_TYPE_LABELS).some((label) => label.toLowerCase() === lower) || lower === "correction / verification" || lower === "charting questions") {
+    return { error: `"${name}" is already a type.` };
+  }
+
+  if (await isDemoMode()) {
+    let duplicate = false;
+    await demoMutate((state) => {
+      if ((state.issueTypes || []).some((t) => t.name.toLowerCase() === lower)) {
+        duplicate = true;
+        return;
+      }
+      (state.issueTypes ??= []).push({ id: `demo-type-${Date.now()}`, name });
+    });
+    if (duplicate) return { error: `"${name}" is already a type.` };
+    revalidatePath("/", "layout");
+    return { error: null };
+  }
+
+  try {
+    const { supabase } = await requireTeamMember();
+    const { data: existing } = await supabase.from("issue_types").select("id").ilike("name", name).maybeSingle();
+    if (existing) return { error: `"${name}" is already a type.` };
+    const { data: maxRow } = await supabase.from("issue_types").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    const { error } = await supabase.from("issue_types").insert({ id: crypto.randomUUID(), name, sort_order: (maxRow?.sort_order ?? -1) + 1 });
+    if (error) return { error: error.message.includes("issue_types") ? "The new issue types feature needs its database update first (phase66_issue_types.sql)." : error.message };
+  } catch (error) {
+    console.error("Add issue type failed", error);
+    return { error: "The type could not be added. Please try again." };
+  }
+  revalidatePath("/", "layout");
+  return { error: null };
+}
+
+export async function removeIssueType(formData: FormData): Promise<IssueTypeResult> {
+  const id = ((formData.get("id") as string) || "").trim();
+  if (!id) return { error: "Choose a type to remove." };
+
+  if (await isDemoMode()) {
+    let inUse = false;
+    await demoMutate((state) => {
+      if ((state.issues || []).some((i) => i.customTypeId === id)) {
+        inUse = true;
+        return;
+      }
+      state.issueTypes = (state.issueTypes || []).filter((t) => t.id !== id);
+    });
+    if (inUse) return { error: "Issues are still filed under this type. Remove them first." };
+    revalidatePath("/", "layout");
+    return { error: null };
+  }
+
+  try {
+    const { supabase } = await requireTeamMember();
+    const { count, error: countError } = await supabase.from("issues").select("id", { count: "exact", head: true }).eq("custom_type_id", id);
+    if (countError) return { error: countError.message };
+    if (count) return { error: "Issues are still filed under this type. Remove them first." };
+    const { error } = await supabase.from("issue_types").delete().eq("id", id);
+    if (error) return { error: error.message };
+  } catch (error) {
+    console.error("Remove issue type failed", error);
+    return { error: "The type could not be removed. Please try again." };
+  }
+  revalidatePath("/", "layout");
+  return { error: null };
 }
 
 export async function setIssueStatus(formData: FormData) {

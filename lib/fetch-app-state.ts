@@ -607,6 +607,8 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     shiftStateResult,
     suggestionDetailsResult,
     suggestionAttachmentsResult,
+    issueTypesResult,
+    issueTypeLinksResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -645,6 +647,10 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     // Both tolerant: until phase65's SQL is run these just come back empty.
     supabase.from("suggestions").select("id, details"),
     supabase.from("suggestion_attachments").select("id, suggestion_id, path, name, type, size, created_at").order("created_at"),
+      // Tolerant like the two above: until supabase/phase66_issue_types.sql has been run
+    // these fail, which just means "no custom issue types" instead of failing the whole load.
+    supabase.from("issue_types").select("id, name").order("sort_order"),
+    supabase.from("issues").select("id, custom_type_id"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -868,10 +874,22 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     list.push(mapIssueCommentRow(c));
     issueCommentsByIssueId.set(c.issue_id, list);
   }
-  state.issues = (issuesResult.data || []).map((r) => ({
-    ...mapIssueRow(r as unknown as IssueRow),
-    comments: issueCommentsByIssueId.get((r as unknown as IssueRow).id) || [],
-  }));
+  const customTypeByIssueId = new Map<string, string>();
+  if (!issueTypesResult.error && !issueTypeLinksResult.error) {
+    for (const row of (issueTypeLinksResult.data || []) as { id: string; custom_type_id: string | null }[]) {
+      if (row.custom_type_id) customTypeByIssueId.set(row.id, row.custom_type_id);
+    }
+  }
+  state.issueTypes = issueTypesResult.error ? [] : (issueTypesResult.data || []).map((t) => ({ id: t.id as string, name: t.name as string }));
+  state.issues = (issuesResult.data || []).map((r) => {
+    const id = (r as unknown as IssueRow).id;
+    const customTypeId = customTypeByIssueId.get(id);
+    return {
+      ...mapIssueRow(r as unknown as IssueRow),
+      ...(customTypeId ? { customTypeId } : {}),
+      comments: issueCommentsByIssueId.get(id) || [],
+    };
+  });
   state.mentions = (mentionsResult.data || []).map((r) => mapMentionRow(r as MentionRow));
 
   state.issueCategories = (issueCategoriesResult.data || []).map(

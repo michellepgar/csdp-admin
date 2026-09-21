@@ -7,14 +7,16 @@ import { Chip, Feedback, Field } from "@/components/quick-add-parts";
 import type { QuickAddData } from "@/components/quick-add-dialog";
 import { CORRECTION_KINDS, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 
-const TYPES = Object.keys(ISSUE_TYPE_LABELS) as IssueType[];
+const BUILT_IN_TYPES = Object.keys(ISSUE_TYPE_LABELS) as IssueType[];
 
-/* Report an issue: the same three types and fields as the Issues page, with
-   the type picked from chips instead of a dropdown. Category editing stays on
-   the Issues page. */
+/* Report an issue: the same types and fields as the Issues page (the three
+   built-in ones plus any the team added there), with the type picked from
+   chips instead of a dropdown. Category and type editing stay on the Issues
+   page. A type the team added takes a description and an optional note. */
 export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
-  const { issueCategories, addIssue } = data;
-  const [type, setType] = useState<IssueType>("software_issue");
+  const { issueCategories, issueTypes, addIssue } = data;
+  // A built-in type's key, or "custom:<id>" for one the team added.
+  const [type, setType] = useState<string>("software_issue");
   const [categoryName, setCategoryName] = useState("");
   const [subcategory, setSubcategory] = useState("");
   const [description, setDescription] = useState("");
@@ -28,16 +30,22 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [added, setAdded] = useState<string | null>(null);
   const selectedCategory = issueCategories.find((c) => c.name === categoryName);
+  const customType = issueTypes.find((t) => `custom:${t.id}` === type);
+  const typeLabel = customType ? customType.name : ISSUE_TYPE_LABELS[type as IssueType];
 
   const ready =
-    type === "software_issue" ? description.trim().length > 0
+    type === "software_issue" || customType ? description.trim().length > 0
     : type === "correction" ? link.trim().length > 0
     : link.trim().length > 0 && question.trim().length > 0;
 
   function build(): FormData {
     const form = new FormData();
-    form.set("type", type);
-    if (type === "software_issue") {
+    form.set("type", customType ? "custom" : type);
+    if (customType) {
+      form.set("customTypeId", customType.id);
+      form.set("description", description.trim());
+      form.set("note", note.trim());
+    } else if (type === "software_issue") {
       form.set("description", description.trim());
       form.set("category", categoryName);
       if (subcategory) form.set("subcategory", subcategory);
@@ -77,7 +85,7 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
     try {
       await addIssue(build());
       clear();
-      setAdded(`${ISSUE_TYPE_LABELS[type]} reported. It's on the Issues page.`);
+      setAdded(`${typeLabel} reported. It's on the Issues page.`);
     } catch {
       setErrors(["The issue could not be saved. Please refresh and try again."]);
     }
@@ -88,13 +96,29 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
     <form onSubmit={submit} className="space-y-4">
       <Field label="Type">
         <div className="flex flex-wrap gap-1.5">
-          {TYPES.map((t) => (
+          {BUILT_IN_TYPES.map((t) => (
             <Chip key={t} on={type === t} onClick={() => { setType(t); setAdded(null); setErrors([]); }}>
               {ISSUE_TYPE_LABELS[t]}
             </Chip>
           ))}
+          {issueTypes.map((t) => (
+            <Chip key={t.id} on={type === `custom:${t.id}`} onClick={() => { setType(`custom:${t.id}`); setAdded(null); setErrors([]); }}>
+              {t.name}
+            </Chip>
+          ))}
         </div>
       </Field>
+
+      {customType && (
+        <>
+          <Field label="Describe it">
+            <Input autoFocus value={description} onChange={(e) => { setDescription(e.target.value); setAdded(null); }} placeholder={`Describe the ${customType.name.toLowerCase()}`} />
+          </Field>
+          <Field label="Note (optional)">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything else worth knowing" />
+          </Field>
+        </>
+      )}
 
       {type === "software_issue" && (
         <>

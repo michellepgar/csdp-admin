@@ -11,6 +11,10 @@ import { canDeleteSuggestion, vaColorByName, type Suggestion, type Va } from "@/
 const STATUSES = ["Requested", "Working On It", "Added"] as const;
 type Status = (typeof STATUSES)[number];
 
+// What each stage is called on screen. The saved value for the last stage is
+// still "Added" (nothing in the database changes); it is shown as "Deployed".
+const STATUS_LABEL: Record<Status, string> = { Requested: "Requested", "Working On It": "Working On It", Added: "Deployed" };
+
 /* Each column gets its own color identity: header band, count pill and
    the top edge of every card in it, so a card reads as "in this stage"
    at a glance. Spelled out as full class names so Tailwind's scanner
@@ -126,7 +130,7 @@ export function SuggestionsList({
             >
               <div className={`flex items-center gap-2 px-3 py-2.5 ${col.band}`}>
                 <Icon className="h-4 w-4" />
-                <h2 className="bg-transparent px-0 py-0 text-sm font-semibold text-inherit">{status}</h2>
+                <h2 className="bg-transparent px-0 py-0 text-sm font-semibold text-inherit">{STATUS_LABEL[status]}</h2>
                 <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-bold ${col.pill}`}>{list.length}</span>
               </div>
               <div className="min-h-24 space-y-2.5 p-2.5">
@@ -170,7 +174,7 @@ export function SuggestionsList({
                             hiddenFields={{ id: s.id }}
                             name="status"
                             value={statusOf(s)}
-                            options={STATUSES.map((st) => ({ value: st, label: st }))}
+                            options={STATUSES.map((st) => ({ value: st, label: STATUS_LABEL[st] }))}
                             className="rounded-md border px-2 py-1 text-left text-xs"
                           />
                         )}

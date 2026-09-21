@@ -152,7 +152,7 @@ export function AutomaticBackups({
           };
 
   return (
-    <section className="overflow-hidden rounded-xl border shadow-sm">
+    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border shadow-sm">
       <div className="flex flex-wrap items-center gap-2 bg-header-background px-4 py-3 text-white">
         <ShieldCheck className="h-5 w-5" />
         <h2 className="static bg-transparent px-0 py-0 text-base font-semibold text-white">Automatic backups</h2>
@@ -160,7 +160,7 @@ export function AutomaticBackups({
         {demo && <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-semibold text-amber-950">Demo sample</span>}
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className="min-w-0 space-y-4 p-4">
         <div className={cn("flex items-start gap-3 rounded-xl border p-3", banner.tone)}>
           <span className={cn("flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-sm", banner.chip)}>{banner.icon}</span>
           <div className="min-w-0">
@@ -206,12 +206,12 @@ export function AutomaticBackups({
             {files.map((file) => {
               const label = dayLabel(file.name);
               return (
-                <li key={file.name} className="flex items-center gap-3 border-l-4 border-l-transparent px-3 py-2.5 transition-colors hover:border-l-primary hover:bg-primary/5">
+                <li key={file.name} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-l-4 border-l-transparent px-3 py-2.5 transition-colors hover:border-l-primary hover:bg-primary/5">
                   <span className="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <CalendarDays className="h-4 w-4" />
                     <span className="text-[10px] font-semibold leading-none">{label.chip}</span>
                   </span>
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-1 basis-32">
                     <span className="block truncate text-sm font-semibold">{label.long}</span>
                     <span className="block text-xs text-muted-foreground">{timeLabel(file.updatedAt)}</span>
                   </span>
@@ -224,6 +224,7 @@ export function AutomaticBackups({
                     file.name === latest?.name && <span className="hidden rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800 sm:inline dark:bg-green-500/20 dark:text-green-200">Latest</span>
                   )}
                   <span className="flex-none rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{formatBackupSize(file.size)}</span>
+                  <span className="flex flex-none flex-wrap items-center gap-2 max-sm:w-full max-sm:justify-end">
                   <Button
                     type="button"
                     variant="outline"
@@ -240,13 +241,14 @@ export function AutomaticBackups({
                     {downloading === file.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     Download
                   </Button>
+                  </span>
                 </li>
               );
             })}
           </ul>
         )}
 
-        <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        <p className="break-words rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           <strong>Private Notes are not in automatic backups</strong>, so nobody (admins included) can read them from a backup file, and restoring one leaves
           everyone&apos;s private notes as they are. Press <strong>Restore</strong> beside a backup to put everything back to that day; a safety copy of
           the current data is saved first, so it can be undone. The manual Download Backup button below still includes the private

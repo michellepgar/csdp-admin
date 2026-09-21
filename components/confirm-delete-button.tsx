@@ -32,11 +32,20 @@ export function ConfirmDeleteButton({
 }: ComponentProps<typeof SubmitButton> & { confirmMessage: string; iconSize?: "icon-xs" | "icon-2xs" }) {
   void _variant;
   void _size;
+  // A word or two ("Remove group") is a real button that sizes to its text --
+  // squeezing it into the square icon size made the text spill out of the
+  // button (and out of its header). A symbol or icon (✕, trash) stays compact.
+  const isText = typeof props.children === "string" && props.children.trim().length > 2;
   return (
     <SubmitButton
       {...props}
-      variant="ghost"
-      size={iconSize}
+      variant={isText ? "outline" : "ghost"}
+      size={isText ? "xs" : iconSize}
+      className={
+        isText
+          ? "w-auto shrink-0 whitespace-nowrap border-destructive/45 bg-background from-background to-destructive/10 px-2.5 text-destructive hover:border-destructive hover:from-destructive/10 hover:to-destructive/20"
+          : "hover:bg-destructive/10"
+      }
       onClick={(e) => {
         if (!window.confirm(confirmMessage)) e.preventDefault();
       }}

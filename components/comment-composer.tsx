@@ -179,7 +179,7 @@ export function CommentComposer({
           onKeyUp={detectMention}
           onClick={detectMention}
           onBlur={() => setMentionQuery(null)}
-          className="note-html min-h-[2.25rem] w-full overflow-x-auto rounded-md border px-1.5 py-1 text-sm empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
+          className="note-html min-h-[2.25rem] w-full overflow-x-auto rounded-[0.65rem] border border-ring/40 bg-linear-to-b from-transparent to-ring/5 px-2 py-1.5 text-sm shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_1px_2px_rgb(0_0_0/0.07)] transition-shadow outline-none focus:border-ring focus:ring-3 focus:ring-ring/25 empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
         />
         <MentionAutocomplete query={mentionQuery} anchorRect={mentionAnchorRect} vas={vas} onSelect={selectMention} onClose={() => setMentionQuery(null)} />
       </div>

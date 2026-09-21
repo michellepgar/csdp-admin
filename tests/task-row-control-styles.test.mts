@@ -16,5 +16,8 @@ test("keeps task drag and edit controls compact, muted, and separated from the f
 test("keeps delete controls at the smallest visible icon size, ignoring any size a caller passes", async () => {
   const source = await readFile(new URL("../components/confirm-delete-button.tsx", import.meta.url), "utf8");
   assert.match(source, /iconSize = "icon-xs"/);
-  assert.match(source, /variant="ghost"\s+size=\{iconSize\}/);
+  // A symbol or icon (✕, trash) stays at the compact icon size; only a real word
+  // ("Remove group") sizes to its text so it never spills out of the button.
+  assert.match(source, /isText \? "outline" : "ghost"/);
+  assert.match(source, /isText \? "xs" : iconSize/);
 });

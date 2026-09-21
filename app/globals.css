@@ -575,6 +575,10 @@
   textarea:hover {
     border-color: color-mix(in oklab, var(--ring) 45%, var(--border));
   }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]),
+  textarea {
+    border-color: color-mix(in oklab, var(--ring) 28%, var(--border));
+  }
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]):focus-visible,
   textarea:focus-visible {
     outline: none;
@@ -599,4 +603,18 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .task-highlight-flash { animation: none; background-color: color-mix(in oklab, var(--plan-accent) 38%, transparent); }
+}
+
+/* One look for every text box and text area (Suggest something, notes, email
+   items, comments...). Rounded corners and a soft top-to-bottom tint are set
+   outside the layers so they apply to every field whatever its own utility
+   classes say; colors of borders are left to each field so error states still
+   show. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]):not([type="number"]),
+textarea {
+  border-radius: 0.6rem;
+  background-image: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--ring) 5%, transparent));
+}
+input[type="number"] {
+  border-radius: 0.5rem;
 }

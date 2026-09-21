@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Calculator } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /* A small "add these up for me" helper that sits next to a numeric
    input -- Michelle's team sometimes has several separate counts to
@@ -22,14 +24,46 @@ export function CalculatorButton({ inputRef }: { inputRef: React.RefObject<HTMLI
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    // Floats over the page, so close it if the page moves underneath.
+    function onMove(e: Event) {
+      if (e.target instanceof Node && popoverRef.current?.contains(e.target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open]);
+
+  // Sits under the icon (above it when there's no room), outside the table's
+  // layout so a scrolling or clipping parent can't cut it off.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const popover = popoverRef.current;
+    if (!trigger || !popover) return;
+    const rect = trigger.getBoundingClientRect();
+    const width = popover.offsetWidth;
+    const height = popover.offsetHeight;
+    const below = window.innerHeight - rect.bottom - 14;
+    const top = below >= height ? rect.bottom + 6 : Math.max(8, rect.top - 6 - height);
+    popover.style.top = `${top}px`;
+    popover.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+    popover.style.visibility = "visible";
   }, [open]);
 
   const numbers = text.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? [];
@@ -53,16 +87,22 @@ export function CalculatorButton({ inputRef }: { inputRef: React.RefObject<HTMLI
   return (
     <div ref={containerRef} className="relative inline-block">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         title="Add up several numbers"
         aria-label="Add up several numbers"
-        className="text-muted-foreground hover:text-primary"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-ring/10 hover:text-ring aria-expanded:bg-ring/15 aria-expanded:text-ring"
+        aria-expanded={open}
       >
         <Calculator className="h-4 w-4" />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 z-20 mt-1 w-52 space-y-2 rounded-md border bg-background p-2 shadow-lg">
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={popoverRef}
+          style={{ position: "fixed", top: 0, left: 0, visibility: "hidden" }}
+          className="z-[95] w-56 space-y-2.5 rounded-xl border border-ring/25 bg-background p-2.5 shadow-xl ring-1 ring-black/5"
+        >
           <input
             autoFocus
             value={text}
@@ -76,21 +116,18 @@ export function CalculatorButton({ inputRef }: { inputRef: React.RefObject<HTMLI
               }
             }}
             placeholder="10+15+20, then Enter"
-            className="w-full rounded border px-2 py-1 text-sm"
+            className="h-8 w-full rounded-lg border px-2.5 text-sm"
           />
           <div className="flex items-center justify-between gap-2 text-sm">
             <span>
               Total: <span className="font-semibold tabular-nums">{total}</span>
             </span>
-            <button
-              type="button"
-              onClick={applyTotal}
-              className="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/80"
-            >
+            <Button type="button" size="xs" onClick={applyTotal}>
               Use total
-            </button>
+            </Button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

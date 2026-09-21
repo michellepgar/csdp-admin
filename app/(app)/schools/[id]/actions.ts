@@ -394,6 +394,20 @@ export async function setTaskCount(formData: FormData) {
   revalidateSchool(schoolId);
 }
 
+/* A task's status and its "file — category" name, read with plain lookups (no
+   joins) so it works whatever the table relationships look like. */
+async function describeAssignment(
+  supabase: Awaited<ReturnType<typeof requireTeamMember>>["supabase"],
+  taskId: string,
+): Promise<{ status: string; fileName: string; categoryName: string } | null> {
+  const { data: assignment, error } = await supabase.from("task_file_categories").select("status, task_file_id, category_id").eq("id", taskId).maybeSingle();
+  orThrow(error);
+  if (!assignment) return null;
+  const { data: file } = await supabase.from("task_files").select("file_name").eq("id", assignment.task_file_id).maybeSingle();
+  const { data: category } = await supabase.from("task_categories").select("name").eq("id", assignment.category_id).maybeSingle();
+  return { status: assignment.status || "", fileName: file?.file_name || "File", categoryName: category?.name || "" };
+}
+
 /* Whoever is put on a file from the school page also gets it in their
    Planned Work (unless it's already In Progress, when it shows in their
    Currently Working On instead), and the previous person's planned copy
@@ -405,12 +419,7 @@ async function syncPlannedWorkForAssignment(
   vaName: string,
   createdBy: string,
 ) {
-  const { data: task, error } = await supabase
-    .from("task_file_categories")
-    .select("status, task_files(file_name), task_categories(name)")
-    .eq("id", taskId)
-    .maybeSingle();
-  orThrow(error);
+  const task = await describeAssignment(supabase, taskId);
   if (!task) return;
 
   const { error: clearError } = await supabase.from("plan_items").delete().eq("kind", "task").eq("task_file_category_id", taskId).neq("va_name", vaName);
@@ -421,8 +430,8 @@ async function syncPlannedWorkForAssignment(
   orThrow(existingError);
   if (existing) return;
 
-  const fileName = (task.task_files as unknown as { file_name: string } | null)?.file_name || "File";
-  const categoryName = (task.task_categories as unknown as { name: string } | null)?.name || "";
+  const fileName = task.fileName;
+  const categoryName = task.categoryName;
   const { error: insertError } = await supabase.from("plan_items").insert({
     kind: "task",
     va_name: vaName,
@@ -443,13 +452,9 @@ async function notifyTaskAssigned(
   assigner: string,
   taskId: string,
 ) {
-  const { data: task } = await supabase
-    .from("task_file_categories")
-    .select("task_files(file_name), task_categories(name)")
-    .eq("id", taskId)
-    .maybeSingle();
-  const fileName = (task?.task_files as unknown as { file_name: string } | null)?.file_name || "A file";
-  const categoryName = (task?.task_categories as unknown as { name: string } | null)?.name || "";
+  const task = await describeAssignment(supabase, taskId).catch(() => null);
+  const fileName = task?.fileName || "A file";
+  const categoryName = task?.categoryName || "";
   const { error } = await supabase.from("mentions").insert({
     id: crypto.randomUUID(),
     mentioned_name: assignee,

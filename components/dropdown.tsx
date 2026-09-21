@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,8 @@ export function Dropdown({
   const [internalValue, setInternalValue] = useState(value ?? defaultValue ?? "");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -73,11 +76,55 @@ export function Dropdown({
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || listRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    // The list floats over the page at a fixed spot, so if the page scrolls or
+    // resizes behind it, close it rather than leave it hanging in the wrong
+    // place. (Scrolling the list itself is fine.)
+    function onMove(e: Event) {
+      if (e.target instanceof Node && listRef.current?.contains(e.target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
   }, [open]);
+
+  // Place the floating list under the trigger (or above it when there isn't
+  // room), as wide as the trigger at least, and never taller than the space
+  // available. It lives outside the page's layout, so a parent with
+  // overflow-hidden (a card, a column) can never clip it.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const list = listRef.current;
+    if (!trigger || !list) return;
+    const rect = trigger.getBoundingClientRect();
+    const EDGE = 8;
+    const GAP = 6;
+    list.style.minWidth = `${rect.width}px`;
+    list.style.maxHeight = "16rem";
+    const width = list.offsetWidth;
+    const naturalHeight = list.scrollHeight;
+    const roomBelow = window.innerHeight - rect.bottom - GAP - EDGE;
+    const roomAbove = rect.top - GAP - EDGE;
+    const goUp = openUpward ? roomAbove >= Math.min(naturalHeight, 160) || roomAbove > roomBelow : roomBelow < Math.min(naturalHeight, 160) && roomAbove > roomBelow;
+    const room = Math.max(96, goUp ? roomAbove : roomBelow);
+    list.style.maxHeight = `${Math.min(256, room)}px`;
+    const height = Math.min(list.offsetHeight, room);
+    const top = goUp ? rect.top - GAP - height : rect.bottom + GAP;
+    const left = Math.max(EDGE, Math.min(rect.left, window.innerWidth - width - EDGE));
+    list.style.top = `${Math.max(EDGE, top)}px`;
+    list.style.left = `${left}px`;
+    list.style.visibility = "visible";
+  }, [open, query, openUpward]);
 
   // Focus the search box as soon as the list opens, so typing just works.
   useEffect(() => {
@@ -113,6 +160,7 @@ export function Dropdown({
     <div ref={containerRef} className="relative inline-block">
       <input ref={inputRef} type="hidden" name={name} defaultValue={current} required={required} />
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         aria-haspopup="listbox"
@@ -127,8 +175,13 @@ export function Dropdown({
         <span className={cn("min-w-0 flex-1 truncate", !currentOption && "text-muted-foreground")}>{currentOption?.label ?? placeholder ?? current ?? "—"}</span>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-ring/70 transition-transform group-hover:text-ring", open && "rotate-180")} aria-hidden />
       </button>
-      {open && !disabled && (
-        <div role="listbox" className={`absolute left-0 z-30 max-h-64 w-max min-w-full max-w-[min(24rem,85vw)] overflow-x-hidden overflow-y-auto rounded-xl border border-ring/25 bg-background p-1 shadow-xl ring-1 ring-black/5 ${openUpward ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}>
+      {open && !disabled && typeof document !== "undefined" && createPortal(
+        <div
+          ref={listRef}
+          role="listbox"
+          style={{ position: "fixed", top: 0, left: 0, visibility: "hidden" }}
+          className="z-[95] w-max max-w-[min(24rem,85vw)] overflow-x-hidden overflow-y-auto rounded-xl border border-ring/25 bg-background p-1 shadow-xl ring-1 ring-black/5"
+        >
           {searchable && (
             <div className="sticky top-0 z-10 -mx-1 -mt-1 mb-1 border-b bg-background p-1.5">
               <div className="relative">
@@ -175,7 +228,8 @@ export function Dropdown({
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

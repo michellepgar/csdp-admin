@@ -33,14 +33,22 @@ export function Field({ label, children }: { label: string; children: React.Reac
   );
 }
 
-/* What happened on the last Add: anything that failed (with why), then a
+/* What happened on the last Add: anything that failed (with why), anything
+   that saved but is worth a second look (e.g. a duplicate file name), then a
    green line for what worked. */
-export function Feedback({ errors, added }: { errors: string[]; added: string | null }) {
+export function Feedback({ errors, warnings, added }: { errors: string[]; warnings?: string[]; added: string | null }) {
   return (
     <>
       {errors.length > 0 && (
         <div role="alert" className="space-y-0.5 text-sm text-red-600 dark:text-red-400">
           {errors.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      )}
+      {warnings && warnings.length > 0 && (
+        <div role="status" className="space-y-0.5 text-sm text-amber-600 dark:text-amber-400">
+          {warnings.map((message) => (
             <p key={message}>{message}</p>
           ))}
         </div>

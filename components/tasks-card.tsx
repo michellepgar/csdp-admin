@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, GripVertical, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, GripVertical, Pencil, Trash2 } from "lucide-react";
 import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
 import { TaskTableAddFileRow } from "@/components/task-table-add-file-row";
 import { KebabMenu } from "@/components/kebab-menu";
@@ -15,7 +15,7 @@ import { Dropdown } from "@/components/dropdown";
 import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { groupTaskTables, taskTableColumns, taskTableLayout, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
+import { groupTaskTables, taskTableColumns, taskTableLayout, duplicateFileNamesInTable, submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
   vaColorByName,
@@ -449,6 +449,10 @@ export function TasksCard(props: TasksCardProps) {
           // them apart).
           const dividerClass = (index: number) => columns[index - 1]?.kind === "task" ? "border-l border-border/40" : "";
           const collapsed = collapsedTables.has(group.key);
+          // Two files here with the same name, front and center -- Michelle
+          // asked to be told, not just quietly allowed it (a file name is a
+          // label, not an identity: see supabase/phase40_unrestricted_file_names.sql).
+          const duplicateNames = duplicateFileNamesInTable(group.files);
           return (
           <div key={group.key} className="rounded-md border">
             <button
@@ -479,8 +483,9 @@ export function TasksCard(props: TasksCardProps) {
                           {editFileError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{editFileError}</p>}
                         </form>
                       ) : (
-                        <p className="min-w-0 flex-1 break-words font-bold" style={{ overflowWrap: "anywhere" }}>
+                        <p className="min-w-0 flex-1 break-words font-bold" style={{ overflowWrap: "anywhere" }} title={duplicateNames.has(file.fileName.trim().toLowerCase()) ? "Another file in this table has this same name" : undefined}>
                           {file.fileName}
+                          {duplicateNames.has(file.fileName.trim().toLowerCase()) && <Copy className="ml-1 inline h-3 w-3 shrink-0 align-middle text-amber-600 dark:text-amber-400" aria-label="Another file in this table has this same name" />}
                           {canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 align-middle text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}
                         </p>
                       )}
@@ -559,7 +564,7 @@ export function TasksCard(props: TasksCardProps) {
                             <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton><Button type="button" variant="ghost" size="xs" onClick={() => setEditingFileId(null)}>Cancel</Button>
                             {editFileError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{editFileError}</p>}
                           </form>
-                        ) : <><span className="font-bold break-words" style={{minWidth: 0, overflowWrap: "anywhere"}}>{file.fileName}</span>{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}</>}
+                        ) : <><span className="font-bold break-words" style={{minWidth: 0, overflowWrap: "anywhere"}} title={duplicateNames.has(file.fileName.trim().toLowerCase()) ? "Another file in this table has this same name" : undefined}>{file.fileName}</span>{duplicateNames.has(file.fileName.trim().toLowerCase()) && <Copy className="ml-1 inline h-3 w-3 shrink-0 align-middle text-amber-600 dark:text-amber-400" aria-label="Another file in this table has this same name" />}{canEdit && <Button type="button" variant="ghost" size="icon-xs" className="ml-1 text-muted-foreground/60" aria-label={`Edit ${file.fileName}`} onClick={() => { setEditingFileId(file.id); setEditedFileName(file.fileName); setEditFileError(null); }}><Pencil className="h-3 w-3" /></Button>}</>}
                       </div>
                     </td>;
                     })}

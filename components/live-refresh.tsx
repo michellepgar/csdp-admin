@@ -3,7 +3,14 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const INTERVAL_MS = 15_000;
+// Was 15s -- every firing re-runs the layout's own ~39-table Promise.all
+// (see lib/fetch-app-state.ts) plus the current page's own query, for every
+// tab anyone on the team has open, whether or not anything actually
+// changed. 30s halves that background load (Michelle: "the tracker is kinda
+// slow right now") while still keeping a page current well within a shift;
+// coming back to a tab still refreshes right away (onReturn below) so it's
+// never stale for longer than that on return.
+const INTERVAL_MS = 30_000;
 const MIN_GAP_MS = 5_000;
 
 /* Keeps the page current with what teammates are doing, without anyone

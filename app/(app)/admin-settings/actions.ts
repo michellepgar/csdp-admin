@@ -2,12 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
+import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode } from "@/lib/demo-session";
 import { runAutomaticBackup, missingBackupEnv } from "@/lib/automatic-backup";
 import { BACKUP_BUCKET, isBackupFileName } from "@/lib/backup-schedule";
 import {
-  findVaByEmail,
   isAdmin,
   type AppState,
   type Va,
@@ -30,20 +29,21 @@ import {
   type DistributionRow,
 } from "@/lib/app-state";
 
-async function requireAdminAndState() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !user.email) throw new Error("Not signed in");
-
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-
-  const me = findVaByEmail(state, user.email);
-  if (!me || !isAdmin(me)) throw new Error("Not authorized");
-
-  return { supabase, state };
+/* Was requireAdminAndState(): fetchAppState() -- the whole app's ~39-table
+   Promise.all -- just to check isAdmin(), same pattern already found and
+   fixed in app/(app)/team/actions.ts's own requireAdmin() (see its comment).
+   None of this file's actions ever read the state that call used to return
+   (confirmed directly: a grep for `state.` in this file turns up nothing
+   outside the backup-file shape checks below, which validate an UPLOADED
+   file's contents, not this). requireTeamMember() also gives every action
+   here the same friendly demo-mode message every other Server Action in the
+   app already shows, instead of "Not signed in" -- restoreBackup and
+   resetAllTasks used to skip that entirely and hit auth.getUser() with no
+   real session in demo mode. */
+async function requireAdmin() {
+  const { supabase, me } = await requireTeamMember();
+  if (!isAdmin(me)) throw new Error("Not authorized");
+  return { supabase, me };
 }
 
 async function saveState(
@@ -274,7 +274,7 @@ function isValidEodReportRow(r: unknown): r is EodReport {
 }
 
 export async function restoreBackup(formData: FormData) {
-  const { supabase } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
   const confirm = (formData.get("confirm") as string) || "";
   if (confirm !== "RESTORE") return;
 
@@ -612,7 +612,7 @@ async function performRestore(supabase: Awaited<ReturnType<typeof createClient>>
 }
 
 export async function resetAllTasks(formData: FormData) {
-  const { supabase } = await requireAdminAndState();
+  const { supabase } = await requireAdmin();
   const confirm = (formData.get("confirm") as string) || "";
   if (confirm !== "RESET") return;
 
@@ -630,7 +630,7 @@ export async function resetAllTasks(formData: FormData) {
 export async function backUpNow(): Promise<{ error: string | null }> {
   if (await isDemoMode()) return { error: "Automatic backups aren't available in the demo." };
   try {
-    await requireAdminAndState();
+    await requireAdmin();
   } catch {
     return { error: "Only admins can run a backup." };
   }
@@ -649,7 +649,7 @@ export async function getBackupDownloadUrl(name: string): Promise<{ url: string 
   if (await isDemoMode()) return { url: null, error: "Downloads aren't available in the demo." };
   if (!isBackupFileName(name)) return { url: null, error: "That isn't a backup file." };
   try {
-    const { supabase } = await requireAdminAndState();
+    const { supabase } = await requireAdmin();
     const { data, error } = await supabase.storage.from(BACKUP_BUCKET).createSignedUrl(name, 120, { download: `csdp-tracker-backup-${name}` });
     if (error || !data) return { url: null, error: "Couldn't prepare that download." };
     return { url: data.signedUrl, error: null };
@@ -676,7 +676,7 @@ export async function restoreFromAutomaticBackup(name: string, confirm: string):
 
   let supabase: Awaited<ReturnType<typeof createClient>>;
   try {
-    ({ supabase } = await requireAdminAndState());
+    ({ supabase } = await requireAdmin());
   } catch {
     return { error: "Only admins can restore a backup." };
   }

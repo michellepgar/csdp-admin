@@ -34,6 +34,7 @@ export function QuickAddFilePanel({ data }: { data: QuickAddData }) {
   const [fileNames, setFileNames] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [added, setAdded] = useState<string | null>(null);
   const namesRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -66,8 +67,10 @@ export function QuickAddFilePanel({ data }: { data: QuickAddData }) {
     if (!ready || busy) return;
     setBusy(true);
     setErrors([]);
+    setWarnings([]);
     setAdded(null);
     const failed: { name: string; message: string }[] = [];
+    const newWarnings: string[] = [];
     let ok = 0;
     for (const name of names) {
       const form = new FormData();
@@ -79,7 +82,10 @@ export function QuickAddFilePanel({ data }: { data: QuickAddData }) {
       try {
         const result = await addTask(form);
         if (result.error) failed.push({ name, message: result.error });
-        else ok += 1;
+        else {
+          ok += 1;
+          if (result.warning) newWarnings.push(result.warning);
+        }
       } catch {
         failed.push({ name, message: "Could not be saved. Please refresh and try again." });
       }
@@ -88,6 +94,7 @@ export function QuickAddFilePanel({ data }: { data: QuickAddData }) {
     // Whatever didn't save stays in the box so it can be fixed and retried.
     setFileNames(failed.map((f) => f.name).join("\n"));
     setErrors(failed.map((f) => `${f.name}: ${f.message}`));
+    setWarnings(newWarnings);
     if (ok > 0) setAdded(`Added ${ok} file${ok === 1 ? "" : "s"} to ${schoolName}, ${categoryNames}${vaName ? `, assigned to ${vaName}` : ""}. Type more names to add more.`);
     namesRef.current?.focus();
   }
@@ -175,7 +182,7 @@ export function QuickAddFilePanel({ data }: { data: QuickAddData }) {
         <p className="text-xs text-muted-foreground">Paste or type as many as you like, one per line. Ctrl+Enter adds them.</p>
       </Field>
 
-      <Feedback errors={errors} added={added} />
+      <Feedback errors={errors} warnings={warnings} added={added} />
       <div className="flex justify-end">
         <Button type="submit" disabled={!ready || busy}>
           {busy ? "Adding…" : names.length > 1 ? `Add ${names.length} files` : "Add file"}

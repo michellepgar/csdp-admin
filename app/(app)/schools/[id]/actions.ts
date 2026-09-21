@@ -6,7 +6,7 @@ import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
-import { groupTaskTables, selectedCategoryFiles, normalizeSelectedCategoryIds, saveTaskFile, type TaskFileActionResult } from "@/lib/shared-task-files";
+import { groupTaskTables, selectedCategoryFiles, normalizeSelectedCategoryIds, saveTaskFile, duplicateFileNameInTable, type TaskFileActionResult } from "@/lib/shared-task-files";
 import { isAdmin, nextChecklistNotNeededEntry } from "@/lib/app-state";
 import type { AppState, TaskFileCategory } from "@/lib/app-state";
 
@@ -196,6 +196,7 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
   if (!fileName || categoryIds.length === 0) return { error: "Enter a file name and choose at least one category." };
 
   if (await isDemoMode()) {
+    let demoWarning: string | null = null;
     const result = await saveTaskFile(() => demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
       const fileId = `demo-file-${Date.now()}`;
@@ -205,6 +206,10 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
         return { id: `${fileId}-${index}`, taskFileId: fileId, categoryId, category, status: "", vaAssigned: [] as string[], sortOrder: index, createdAt };
       });
       if (vaName && !state.vas.some((v) => v.name === vaName)) throw new Error("That person isn't on the team.");
+      const isDuplicate = duplicateFileNameInTable(
+        (sd.taskFiles || []).map((f) => ({ fileName: f.fileName, tableId: f.tableId, categoryIds: f.categories.map((c) => c.categoryId) })),
+        tableId, categoryIds, fileName,
+      );
       (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: selected, ...(tableId ? { tableId } : {}) });
       for (const assignment of selected) {
         (sd.tasks ??= []).push({ id: assignment.id, category: assignment.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
@@ -214,9 +219,10 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
         syncPlannedWorkForAssignmentDemo(state, schoolId, assignment.id, vaName, "Jane");
         if (vaName !== "Jane") (state.mentions ??= []).push({ id: `demo-${Date.now()}-${assignment.id}`, mentionedName: vaName, mentionerName: "Jane", source: "task_assignment", snippet: `${fileName} — ${assignment.category}`, createdAt });
       }
+      demoWarning = isDuplicate ? `A file named "${fileName}" is already in this table.` : null;
     }));
     if (!result.error) revalidateSchool(schoolId);
-    return result;
+    return { ...result, ...(demoWarning ? { warning: demoWarning } : {}) };
   }
 
   const { supabase, me } = await requireTeamMember();
@@ -225,6 +231,18 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
     const { data: va } = await supabase.from("vas").select("name").eq("name", vaName).maybeSingle();
     if (!va) return { error: "That person isn't on the team." };
   }
+
+  // Cheap, school-scoped duplicate check -- not the app's own full fetchAppState()
+  // (see lib/require-team-member.ts's own comment on that being the real cause of
+  // "saving feels slow"), just the handful of columns duplicateFileNameInTable needs.
+  const { data: existingFileRows } = await supabase
+    .from("task_files")
+    .select("file_name, table_id, task_file_categories(category_id)")
+    .eq("school_id", schoolId);
+  const isDuplicate = duplicateFileNameInTable(
+    (existingFileRows ?? []).map((f) => ({ fileName: f.file_name, tableId: f.table_id ?? undefined, categoryIds: (f.task_file_categories ?? []).map((c) => c.category_id) })),
+    tableId, categoryIds, fileName,
+  );
 
   const result = await saveTaskFile(async () => {
     const newFileId = crypto.randomUUID();
@@ -253,7 +271,7 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
     }
   });
   if (!result.error) revalidateSchool(schoolId);
-  return result;
+  return { ...result, ...(!result.error && isDuplicate ? { warning: `A file named "${fileName}" is already in this table.` } : {}) };
 }
 
 export async function addCategoryToFiles(formData: FormData): Promise<TaskFileActionResult> {

@@ -33,3 +33,10 @@ test("the Issues page, Overview and Quick add all know about custom types", () =
   assert.match(readFileSync("components/quick-add-issue-panel.tsx", "utf8"), /issueTypes\.map/);
   assert.match(readFileSync("app/(app)/layout.tsx", "utf8"), /issueTypes: state\.issueTypes/);
 });
+
+test("the Issues form's description/link inputs have a min-width, so a narrow window wraps them onto their own line instead of squeezing them unreadably", () => {
+  const source = readFileSync("components/issues-list.tsx", "utf8");
+  const flexOneInputs = [...source.matchAll(/<Input[^>]*flex-1[^>]*\/>/g)].map((m) => m[0]);
+  assert.ok(flexOneInputs.length >= 4, "expected the description/link inputs in AddIssueForm");
+  for (const input of flexOneInputs) assert.match(input, /min-w-40/, input);
+});

@@ -39,3 +39,13 @@ test("savePlan tells the picker apart a real save from a click that changed noth
   // Only a genuine no-op (result.changed falsy, no error) keeps the window open with that message.
   assert.match(picker, /else if \(!result\.changed\) \{/);
 });
+
+test("admin-settings actions use the cheap admin gate, not a full fetchAppState(), for every action", () => {
+  const source = readFileSync("app/(app)/admin-settings/actions.ts", "utf8");
+  assert.doesNotMatch(source, /async function requireAdminAndState/);
+  assert.match(source, /async function requireAdmin\(\)/);
+  assert.match(source, /requireTeamMember\(\)/);
+  // Every call site uses the cheap gate.
+  const callSites = [...source.matchAll(/await requireAdmin\(\)/g)];
+  assert.ok(callSites.length >= 5, `expected every admin-settings action to use requireAdmin(), found ${callSites.length}`);
+});

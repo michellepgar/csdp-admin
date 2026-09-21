@@ -112,7 +112,7 @@ export function AddIssueForm({
 
         {customType && (
           <div className="flex flex-wrap gap-2">
-            <Input name="description" placeholder={`Describe the ${customType.name.toLowerCase()}`} required className="max-w-md flex-1" />
+            <Input name="description" placeholder={`Describe the ${customType.name.toLowerCase()}`} required className="min-w-40 max-w-md flex-1" />
             <Input name="note" placeholder="Note (optional)" className="max-w-xs" />
           </div>
         )}
@@ -135,7 +135,7 @@ export function AddIssueForm({
               options={(selectedCategory?.subcategories || []).map((s) => ({ value: s.name, label: s.name }))}
               className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
             />
-            <Input name="description" placeholder="What's the issue?" required className="max-w-md flex-1" />
+            <Input name="description" placeholder="What's the issue?" required className="min-w-40 max-w-md flex-1" />
             <Input name="note" placeholder="Note (optional)" className="max-w-xs" />
           </div>
         )}
@@ -149,7 +149,7 @@ export function AddIssueForm({
               options={CORRECTION_KINDS.map((k) => ({ value: k, label: k }))}
               className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
             />
-            <Input name="studentRecordLink" placeholder="Link to student record" required className="max-w-md flex-1" />
+            <Input name="studentRecordLink" placeholder="Link to student record" required className="min-w-40 max-w-md flex-1" />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className="text-xs text-muted-foreground">Needs correction/verification:</span>
@@ -165,7 +165,7 @@ export function AddIssueForm({
       {type === "charting" && (
         <div className="flex flex-wrap gap-2">
           <Input name="studentRecordLink" placeholder="Link to student record" required className="max-w-sm" />
-          <Input name="question" placeholder="What's the question or concern?" required className="max-w-md flex-1" />
+          <Input name="question" placeholder="What's the question or concern?" required className="min-w-40 max-w-md flex-1" />
         </div>
       )}
 

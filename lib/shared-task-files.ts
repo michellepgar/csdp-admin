@@ -1,19 +1,80 @@
 import type { Task, TaskCategory, TaskFile, School, SchoolDataEntry, GeneralTask, PlanItem } from "@/lib/app-state";
 
-export type TaskFileActionResult = { error: string | null };
+/* `warning` is set on an otherwise-successful result to flag something worth
+   knowing without stopping the save -- currently just addTask's duplicate
+   file name notice (see duplicateFileNameInTable below). */
+export type TaskFileActionResult = { error: string | null; warning?: string };
 
 export async function submitTaskFileForm(
   action: (formData: FormData) => Promise<TaskFileActionResult>, formData: FormData,
   onError: (error: string | null) => void, onSuccess: () => void,
+  onWarning?: (warning: string | null) => void,
 ): Promise<void> {
   onError(null);
+  onWarning?.(null);
   try {
     const result = await action(formData);
     onError(result.error);
-    if (!result.error) onSuccess();
+    if (!result.error) {
+      onWarning?.(result.warning ?? null);
+      onSuccess();
+    }
   } catch {
     onError("The file could not be saved. Please refresh and try again.");
   }
+}
+
+/* One existing file, boiled down to what duplicateFileNameInTable needs --
+   shared by addTask's demo branch (from full TaskFile records) and its real
+   branch (from a lightweight column-only query), so both go through the
+   exact same matching rule. */
+export type FileTableRef = { fileName: string; tableId?: string; categoryIds: string[] };
+
+/* Whether `name` already names a file in the exact same table that
+   tableId/categoryIds describes -- matching is by trimmed name, case-
+   insensitive, and "same table" uses the identical rule groupTaskTables
+   uses to group files in the first place (a saved table_id, else the same
+   set of category ids). A file name is a label, not an identity (see
+   supabase/phase40_unrestricted_file_names.sql), so this only warns --
+   Michelle asked to be told, not stopped, when a new file repeats one
+   that's already in the same table. */
+export function duplicateFileNameInTable(existing: FileTableRef[], tableId: string, categoryIds: string[], name: string): boolean {
+  const trimmedName = name.trim().toLowerCase();
+  if (!trimmedName) return false;
+  // Same "what table is this really" key groupTaskTables itself groups by: a
+  // saved table_id if there is one, else the sorted set of category ids --
+  // computed the same way for the incoming file and each existing one, so a
+  // sibling that hasn't (yet) had a table_id written to it (see addTask's own
+  // comment on when that happens) still counts as the same table. Comparing
+  // raw tableId strings instead would miss exactly that case: confirmed
+  // directly, adding a second file through a table's own "Add file" row
+  // showed no warning because only the NEW row gets table_id written to it.
+  const key = tableId || JSON.stringify([...new Set(categoryIds)].sort());
+  return existing.some((file) => {
+    if (file.fileName.trim().toLowerCase() !== trimmedName) return false;
+    const fileKey = file.tableId || JSON.stringify([...new Set(file.categoryIds)].sort());
+    return fileKey === key;
+  });
+}
+
+/* Every file name (trimmed, case-insensitive) that appears more than once
+   within one table -- computed straight from the same data every render, so
+   it never goes stale and never depends on catching a one-off message before
+   the next server revalidate replaces it (confirmed directly: a transient
+   "just added a duplicate" toast next to the add-file row got wiped by the
+   revalidate that same successful add triggers, often before it could be
+   read). Used to flag every duplicate a table has, not just ones created
+   going forward. */
+export function duplicateFileNamesInTable(files: { fileName: string }[]): Set<string> {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const file of files) {
+    const name = file.fileName.trim().toLowerCase();
+    if (!name) continue;
+    if (seen.has(name)) dupes.add(name);
+    else seen.add(name);
+  }
+  return dupes;
 }
 
 export function taskTableColumns(categories: TaskCategory[]): (

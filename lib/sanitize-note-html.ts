@@ -96,6 +96,20 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/* sanitize-html hands textFilter each text node with its entities still
+   encoded (a typed "&" arrives as "&amp;"). escapeHtml below escapes by hand,
+   so without decoding first every "&", "<" and ">" was escaped twice and showed
+   up as "&amp;" / "&lt;" in the saved note. "&amp;" is decoded last so
+   "&amp;lt;" (a literal "&lt;" typed on purpose) comes out as "&lt;", not "<". */
+function decodeBasicEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&(?:#39|#x27|apos);/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
 function escapeAttr(text: string): string {
   return escapeHtml(text).replace(/"/g, "&quot;");
 }
@@ -174,6 +188,9 @@ export function sanitizeNoteHtml(html: string, teamRoster: { name: string; color
     // branch must escape its own output by hand since nothing else
     // will: this callback fully replaces the library's default escaping
     // for whichever text node it's called on.
-    textFilter: (text, tagName) => (tagName === "a" ? escapeHtml(text) : linkifyPlainText(text, mentionColorByLowerName)),
+    textFilter: (text, tagName) => {
+      const plain = decodeBasicEntities(text);
+      return tagName === "a" ? escapeHtml(plain) : linkifyPlainText(plain, mentionColorByLowerName);
+    },
   });
 }

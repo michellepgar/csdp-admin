@@ -191,6 +191,8 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
   const fileName = ((formData.get("fileName") as string) || "").trim();
   // Set when a table's own "Add file" row is used, so the new file joins that exact table.
   const tableId = String(formData.get("tableId") || "");
+  // Admins only (Quick add): put this person on the new file straight away.
+  const vaName = String(formData.get("vaName") || "").trim();
   if (!fileName || categoryIds.length === 0) return { error: "Enter a file name and choose at least one category." };
 
   if (await isDemoMode()) {
@@ -200,16 +202,29 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
       const createdAt = new Date().toISOString();
       const selected = categoryIds.map((categoryId, index) => {
         const category = state.taskCategories?.find((item) => item.id === categoryId)?.name || "Uncategorized";
-        return { id: `${fileId}-${index}`, taskFileId: fileId, categoryId, category, status: "", vaAssigned: [], sortOrder: index, createdAt };
+        return { id: `${fileId}-${index}`, taskFileId: fileId, categoryId, category, status: "", vaAssigned: [] as string[], sortOrder: index, createdAt };
       });
+      if (vaName && !state.vas.some((v) => v.name === vaName)) throw new Error("That person isn't on the team.");
       (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: selected, ...(tableId ? { tableId } : {}) });
-      for (const assignment of selected) (sd.tasks ??= []).push({ id: assignment.id, category: assignment.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
+      for (const assignment of selected) {
+        (sd.tasks ??= []).push({ id: assignment.id, category: assignment.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "", vaAssigned: [], createdAt });
+        if (!vaName) continue;
+        assignment.vaAssigned = [vaName];
+        sd.tasks[sd.tasks.length - 1].vaAssigned = [vaName];
+        syncPlannedWorkForAssignmentDemo(state, schoolId, assignment.id, vaName, "Jane");
+        if (vaName !== "Jane") (state.mentions ??= []).push({ id: `demo-${Date.now()}-${assignment.id}`, mentionedName: vaName, mentionerName: "Jane", source: "task_assignment", snippet: `${fileName} — ${assignment.category}`, createdAt });
+      }
     }));
     if (!result.error) revalidateSchool(schoolId);
     return result;
   }
 
-  const { supabase } = await requireTeamMember();
+  const { supabase, me } = await requireTeamMember();
+  if (vaName) {
+    if (!isAdmin(me)) return { error: "Only an admin can assign a file to someone else." };
+    const { data: va } = await supabase.from("vas").select("name").eq("name", vaName).maybeSingle();
+    if (!va) return { error: "That person isn't on the team." };
+  }
 
   const result = await saveTaskFile(async () => {
     const newFileId = crypto.randomUUID();
@@ -223,6 +238,18 @@ export async function addTask(formData: FormData): Promise<TaskFileActionResult>
     if (tableId) {
       const { error: tableError } = await supabase.from("task_files").update({ table_id: tableId }).eq("id", newFileId).eq("school_id", schoolId);
       if (tableError) throw tableError;
+    }
+    if (vaName) {
+      // Same steps as "Assign to a VA" on the school page, for each category the new file is in.
+      const { data: created, error: createdError } = await supabase.from("task_file_categories").select("id").eq("task_file_id", newFileId);
+      if (createdError) throw createdError;
+      for (const row of created ?? []) {
+        const { error: assignError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: row.id, p_patch: { va_assigned: [vaName] } });
+        if (assignError) throw assignError;
+        await syncPlannedWorkForAssignment(supabase, schoolId, row.id, vaName, me.name);
+        if (vaName !== me.name) await notifyTaskAssigned(supabase, vaName, me.name, row.id);
+      }
+      revalidatePath("/overview");
     }
   });
   if (!result.error) revalidateSchool(schoolId);

@@ -74,24 +74,12 @@ export default async function OverviewPage() {
 
   return (
     <div>
-      {/* Sticky, spans <main>'s full width naturally since <main> now
-          carries no padding of its own (components/sidebar-shell.tsx)
-          -- h1 cancels the global rule's own sticky/background, same
-          trick every other page's PageHeader uses. This page still
-          builds its own title row (rather than using PageHeader
-          directly) for the LayoutDashboard icon next to the text, but
-          the text itself is the same uniform h1 size as every other
-          page now (see app/globals.css's own h1 rule) -- it used to be
-          its own larger size, deliberately set apart from the rest;
-          Michelle later asked for every header to be uniform instead.
-          pl-12 (see PageHeader's own comment) reserves room for the
-          floating "show sidebar" button so it doesn't sit on top of
-          the title's first letter when collapsed/closed. h-14, not
-          padding-driven, so this lines up with the sidebar's own top
-          corner and every other page's header (see PageHeader's own
-          comment for why this shrank from h-16). */}
-      <div className="sticky top-0 z-10 flex h-14 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
-        <h1 className="static flex items-center gap-2 bg-transparent px-0 py-0">
+      {/* Sticky under the top bar, spanning <main>'s full width -- see
+          PageHeader's own comment for why this is a light row now. This
+          page builds its own title row (rather than using PageHeader
+          directly) for the LayoutDashboard icon next to the text. */}
+      <div className="sticky top-14 z-10 flex h-14 items-center border-b bg-background px-4 sm:px-6 md:px-8">
+        <h1 className="static flex items-center gap-2 bg-transparent px-0 py-0 text-foreground">
           <LayoutDashboard className="h-5 w-5" />
           Overview
         </h1>

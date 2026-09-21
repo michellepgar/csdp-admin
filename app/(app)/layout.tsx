@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
-import { openEmailItemsByVa } from "@/lib/shared-task-files";
+import { groupTaskTables, openEmailItemsByVa } from "@/lib/shared-task-files";
+import type { QuickAddData, QuickAddTable } from "@/components/quick-add-dialog";
 import { SidebarShell } from "@/components/sidebar-shell";
 import { LiveRefresh } from "@/components/live-refresh";
 import { addSchool } from "./layout-actions";
@@ -11,7 +12,11 @@ import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overvi
 import { completeNoteReminder } from "@/app/(app)/private-notes/actions";
 import { markMentionRead } from "@/app/(app)/mentions/actions";
 import { FloatingChat } from "@/components/floating-chat";
-import { setEmailStatus } from "@/app/(app)/schools/[id]/actions";
+import { addTask, setEmailStatus } from "@/app/(app)/schools/[id]/actions";
+import { addGeneralTask } from "@/app/(app)/general-tasks/actions";
+import { addPrivateNote } from "@/app/(app)/private-notes/actions";
+import { addIssue } from "@/app/(app)/issues/actions";
+import { addSuggestion } from "@/app/(app)/suggestions/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Demo mode has no real Supabase session for is_team_member() to check
@@ -99,6 +104,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name && !p.completedAt);
   const myOpenEmailItems = openEmailItemsByVa(state.schools, state.schoolData).get(me.name) || [];
 
+  /* What the header's Quick add needs to put a file into an existing table:
+     each school's tables, boiled down to a label and their categories. */
+  const quickAddTables: Record<string, QuickAddTable[]> = {};
+  for (const school of state.schools) {
+    const groups = groupTaskTables(state.taskCategories || [], state.schoolData[school.id]?.taskFiles || []);
+    if (groups.length === 0) continue;
+    quickAddTables[school.id] = groups.map((g) => ({
+      key: g.key,
+      // A table with no saved id is identified only by its category combination.
+      tableId: g.key.startsWith("[") ? "" : g.key,
+      label: `${g.categories.map((c) => c.name).join(" + ")} (${g.files.length})`,
+      categoryIds: g.categories.map((c) => c.id),
+    }));
+  }
+
+  const quickAdd: QuickAddData = {
+    schools: state.schools,
+    isAdmin: isAdmin(me),
+    vaNames: state.vas.map((v) => v.name).sort((a, b) => a.localeCompare(b)),
+    categories: state.taskCategories || [],
+    tablesBySchool: quickAddTables,
+    generalTaskCategories: state.generalTaskCategories || [],
+    issueCategories: state.issueCategories || [],
+    addTask,
+    addGeneralTask,
+    addPrivateNote,
+    addIssue,
+    addSuggestion,
+  };
+
   return (
     <>
     <SidebarShell
@@ -125,6 +160,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       resolvePriorityPlanItem={resolvePriorityPlanItem}
       completeNoteReminder={completeNoteReminder}
       setEmailStatus={setEmailStatus}
+      quickAdd={quickAdd}
     >
       {children}
     </SidebarShell>

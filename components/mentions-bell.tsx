@@ -48,11 +48,14 @@ function titleFor(mention: Mention): string {
 export function MentionsBell({
   mentions,
   markMentionRead,
-  collapsed,
+  collapsed = false,
+  variant = "sidebar",
 }: {
   mentions: Mention[];
   markMentionRead: (formData: FormData) => void;
-  collapsed: boolean;
+  collapsed?: boolean;
+  /** "topbar" is the icon-only bell in the header bar (components/app-top-bar.tsx). */
+  variant?: "sidebar" | "topbar";
 }) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -142,21 +145,39 @@ export function MentionsBell({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={toggleOpen}
-        aria-label={`${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`}
-        className="relative flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm text-foreground hover:bg-muted"
-      >
-        <Bell className="h-4 w-4 flex-none" />
-        {!collapsed && <span>Notifications</span>}
-        {unreadCount > 0 && (
-          <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-status-danger-foreground px-1 text-[10px] font-semibold text-white">
-            {unreadCount}
-          </span>
-        )}
-      </button>
+      {variant === "topbar" ? (
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={toggleOpen}
+          aria-label={`${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`}
+          title="Notifications"
+          className="relative flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-white/30 bg-white/15 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25)] transition-colors hover:bg-white/25"
+        >
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-header-background bg-status-danger-foreground px-1 text-[10px] font-semibold text-white box-content">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      ) : (
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={toggleOpen}
+          aria-label={`${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`}
+          className="relative flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+        >
+          <Bell className="h-4 w-4 flex-none" />
+          {!collapsed && <span>Notifications</span>}
+          {unreadCount > 0 && (
+            <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-status-danger-foreground px-1 text-[10px] font-semibold text-white">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      )}
       {open && rect && typeof document !== "undefined" && createPortal(
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />

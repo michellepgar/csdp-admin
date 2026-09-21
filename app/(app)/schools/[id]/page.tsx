@@ -130,15 +130,15 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
           the VA's name each happen to be. Shrank from min-h-16 to
           min-h-14 alongside the h1 text itself going smaller and
           uniform (see PageHeader's own comment). */}
-      <div className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center justify-between gap-2 bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
+      <div className="sticky top-14 z-10 flex min-h-14 flex-wrap items-center justify-between gap-2 border-b bg-background px-4 sm:px-6 md:px-8">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="static bg-transparent px-0 py-0">{school.name}</h1>
+          <h1 className="static bg-transparent px-0 py-0 text-foreground">{school.name}</h1>
           {/* text-white/80 (not text-muted-foreground) -- this sits on
               the same bold teal bg-header-background as the white h1
               text above it, where a soft gray reads as barely-visible
               instead of intentionally de-emphasized. */}
-          <p className="text-sm text-white/80">
-            VA assigned: <span className="font-medium text-white">{sd.vaAssigned || "Unassigned"}</span>
+          <p className="text-sm text-muted-foreground">
+            VA assigned: <span className="font-medium text-foreground">{sd.vaAssigned || "Unassigned"}</span>
           </p>
         </div>
         <div className="flex flex-none flex-wrap items-center gap-2">

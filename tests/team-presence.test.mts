@@ -26,11 +26,14 @@ test("rejects malformed payloads and caps the visible roster", () => {
   assert.equal(initialsForName("Michelle Pink"), "MP");
 });
 
-test("sidebar renders presence above Account and keeps the signed-in name out of the header", () => {
+test("sidebar renders presence; the account (signed-in name, sign out) lives in the top bar menu", () => {
   const sidebar = readFileSync("components/sidebar.tsx", "utf8");
   assert.match(sidebar, /<TeamPresence[\s\S]*collapsed=\{collapsed\}/);
-  assert.ok(sidebar.indexOf("<TeamPresence") < sidebar.indexOf(">Account<"));
+  assert.doesNotMatch(sidebar, />Account</);
   assert.doesNotMatch(sidebar, /mt-1 text-sm text-white\/80/);
+  const topBar = readFileSync("components/app-top-bar.tsx", "utf8");
+  assert.match(topBar, /Signed in as/);
+  assert.match(topBar, /<SignOutButton/);
 });
 
 test("presence renders a compact collapsed avatar stack", () => {

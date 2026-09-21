@@ -16,26 +16,20 @@ import {
   AlertTriangle,
   Send,
   ClipboardList,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dropdown } from "@/components/dropdown";
-import { SCHOOL_GROUPS, type Va, type Mention } from "@/lib/app-state";
+import { SCHOOL_GROUPS, type Va } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 import { IconTooltip } from "@/components/icon-tooltip";
-import { SignOutButton } from "@/components/sign-out-button";
 import { SchoolsFlyout } from "@/components/schools-flyout";
 import { TeamPresence, type CurrentPresenceMember } from "@/components/team-presence";
-import { MentionsBell } from "@/components/mentions-bell";
 import { MessagesNav } from "@/components/messages-nav";
 
 export function Sidebar({
-  currentName,
   currentMember,
   presenceEnabled,
   schools,
@@ -43,15 +37,11 @@ export function Sidebar({
   vas,
   schoolVaAssigned,
   addSchool,
-  onCollapse,
   collapsed = false,
   needsPrivateNoteAck,
   needsGeneralNoteAck,
   needsIssueCommentAck,
-  myMentions,
-  markMentionRead,
 }: {
-  currentName: string;
   currentMember: CurrentPresenceMember;
   presenceEnabled: boolean;
   schools: { id: string; name: string }[];
@@ -64,7 +54,6 @@ export function Sidebar({
      down here). */
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
-  onCollapse: () => void;
   /* Drives the blinking dot on Private Notes/General Notes -- see
      app/(app)/layout.tsx's own comment for exactly what each one
      means. Computed there, not here, since Sidebar has no need for
@@ -76,12 +65,6 @@ export function Sidebar({
    *  comment the current user hasn't seen yet (see
    *  app/(app)/layout.tsx's own comment). */
   needsIssueCommentAck: boolean;
-  /** @mentions addressed to the current user (components/mentions-bell.tsx)
-   *  -- independent of the three needs*Ack booleans above, since a
-   *  mention is about being personally called out by name, not "this
-   *  page has unread activity". */
-  myMentions: Mention[];
-  markMentionRead: (formData: FormData) => void;
   /* Icons-only mode -- Michelle asked to be able to jump between
      pages without the full labeled panel taking up space every time.
      Search/VA-filter/"+ Add school" all need room to type in, so
@@ -125,39 +108,6 @@ export function Sidebar({
 
   return (
     <aside className={cn("flex flex-none flex-col border-r bg-sidebar shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] transition-[width]", collapsed ? "w-16" : "w-64")}>
-      {/* bg-header-background + text-white -- Michelle asked for the
-          header bar's color to reach all the way over into the
-          sidebar's own top corner too, not stop at its right edge.
-          text-white on the row itself (not just the logo) so the
-          theme-toggle/collapse icons inherit a color that actually
-          contrasts, same reasoning as h1's own white text against
-          this background elsewhere. h-14 (not p-4, which sized this
-          block to its own content) matches every page header's own
-          fixed height (see components/page-header.tsx's comment) so
-          this corner lines up with whichever one is showing instead
-          of drifting a few px off depending on font metrics -- shrank
-          from h-16 alongside those headers' own text going smaller. */}
-      <div className={cn("flex h-14 items-center bg-header-background px-4 text-white", collapsed ? "justify-center" : "justify-between gap-2")}>
-        {!collapsed && (
-          <div>
-            <div className="text-lg font-bold">CSDP Tracker</div>
-          </div>
-        )}
-        <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "gap-1")}>
-          <ThemeToggle />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={onCollapse}
-            aria-label={collapsed ? "Show full sidebar" : "Collapse sidebar to icons"}
-            title={collapsed ? "Show full sidebar" : "Collapse to icons"}
-          >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-
       <nav className="flex-1 overflow-y-auto p-2">
         {/* Bigger and bolder than every other nav link on purpose -- this
             is the home/dashboard link, Michelle asked for it to stand
@@ -438,15 +388,7 @@ export function Sidebar({
 
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
         {presenceEnabled && <TeamPresence currentMember={currentMember} collapsed={collapsed} />}
-        <div className={cn("border-t", collapsed ? "mx-2" : "mx-3")} />
-        <div className={collapsed ? "px-2 pt-2" : "px-1 pt-2"}>
-          <MentionsBell mentions={myMentions} markMentionRead={markMentionRead} collapsed={collapsed} />
-        </div>
-        {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Account</div>}
-        {!collapsed && <div className="px-3 pb-1 pt-2 text-sm text-muted-foreground">{currentName} · Signed in</div>}
-        <div className={!collapsed ? "pb-2" : undefined}>
-          <SignOutButton collapsed={collapsed} />
-        </div>
+        <div className="pb-2" />
       </nav>
     </aside>
   );

@@ -57,7 +57,7 @@ test("a completed-today note reminder shows up as its own entry, marked Reviewed
 
 test("Start my day clears work completed before it, even earlier the same day", () => {
   const start = new Date().toISOString();
-  const before = new Date(Date.now() - 3 * 3600e3).toISOString();
+  const before = new Date(Date.now() - 60e3).toISOString();
   const after = new Date(Date.now() + 60e3).toISOString();
   const generalTasks: GeneralTask[] = [
     { id: "g1", category: "Admin", description: "Done this morning", status: "Completed", vaAssigned: ["Jane"], createdAt: before },

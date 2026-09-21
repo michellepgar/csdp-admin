@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AppTopBar } from "@/components/app-top-bar";
+import type { QuickAddData } from "@/components/quick-add-dialog";
 import { Sidebar } from "@/components/sidebar";
 import { PlanBubble } from "@/components/plan-bubble";
 import type { OpenEmailItem } from "@/lib/shared-task-files";
@@ -54,6 +54,7 @@ export function SidebarShell({
   resolvePriorityPlanItem,
   completeNoteReminder,
   setEmailStatus,
+  quickAdd,
   children,
 }: {
   currentName: string;
@@ -79,6 +80,7 @@ export function SidebarShell({
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
   completeNoteReminder: (formData: FormData) => void;
   setEmailStatus: (formData: FormData) => void;
+  quickAdd: QuickAddData;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -128,18 +130,32 @@ export function SidebarShell({
     document.cookie = `${COOKIE_NAME}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
   }
 
-  // Sidebar's own "Hide sidebar" button is shared between both modes --
-  // route it based on the viewport actually active when it's clicked.
-  function handleSidebarHide() {
+  // The top bar's sidebar button is shared between both modes -- route it
+  // based on the viewport actually active when it's clicked: shrink to
+  // icons on desktop, open/close the drawer on a phone.
+  function handleSidebarToggle() {
     if (isDesktopViewport()) {
       toggleDesktopCollapsed();
     } else {
-      setMobileOpen(false);
+      setMobileOpen((open) => !open);
     }
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col">
+      <AppTopBar
+        onToggleSidebar={handleSidebarToggle}
+        sidebarCollapsed={collapsed}
+        schools={schools}
+        isAdmin={isAdmin}
+        currentName={currentName}
+        currentColor={currentMember.color}
+        myMentions={myMentions}
+        markMentionRead={markMentionRead}
+        quickAdd={quickAdd}
+      />
+
+      <div className="flex flex-1">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
@@ -148,42 +164,30 @@ export function SidebarShell({
         />
       )}
 
-      {/* On desktop the sidebar is "sticky" to the viewport and
-          scrolls its own overflow internally, rather than <main>
-          being the scrollable element -- position:sticky on a page's
-          h1 is anchored to whichever ancestor actually scrolls, and
-          nested-overflow scroll containers are exactly the case
-          mobile Safari (and some older WebKit) handles unreliably for
-          sticky positioning. Letting the document/body scroll
-          normally, like a plain page, is the one case sticky is
-          reliably supported everywhere.
+      {/* On desktop the sidebar is "sticky" under the top bar and scrolls
+          its own overflow internally, rather than <main> being the
+          scrollable element -- position:sticky on a page's title row is
+          anchored to whichever ancestor actually scrolls, and
+          nested-overflow scroll containers are exactly the case mobile
+          Safari (and some older WebKit) handles unreliably for sticky
+          positioning. Letting the document/body scroll normally, like a
+          plain page, is the one case sticky is reliably supported
+          everywhere.
 
-          Desktop's "collapsed" no longer removes the sidebar from
-          view (md:hidden + a floating re-open button) -- Michelle
-          asked to be able to jump between pages without re-opening
-          the full panel every time, so it now stays on screen at a
-          narrow icon-only width instead (Sidebar's own `collapsed`
-          prop controls that). Always `md:flex` here as a result;
-          there's no longer a "fully gone" desktop state that needs a
-          separate way back in. Mobile is untouched -- it's an overlay
-          that's already only on screen when explicitly opened via the
-          hamburger below, so `collapsed` doesn't apply to it at all --
-          except for overflow-y-auto, which used to only apply at `md:`
-          and above. `inset-y-0` on this `fixed` element does give it a
-          definite height (viewport height, same as `md:h-screen` makes
-          explicit for desktop) even without that scroll behavior, so
-          nothing here actually clipped -- Sidebar's own content (with
-          enough nav links, or the "Sign out" row added at the very
-          bottom) could just render past the bottom of a phone screen
-          with no way to reach it, confirmed directly. Plain
-          `overflow-y-auto` (no breakpoint) fixes that for mobile too. */}
+          Desktop's "collapsed" keeps the sidebar on screen at a narrow
+          icon-only width (Sidebar's own `collapsed` prop controls that),
+          so you can jump between pages without re-opening the full panel.
+          Mobile is an overlay that's only on screen when opened from the
+          top bar's sidebar button; `collapsed` doesn't apply to it.
+          overflow-y-auto (no breakpoint) lets a long nav scroll inside the
+          drawer instead of running past the bottom of a phone screen. The
+          top-14 offsets everywhere match the top bar's fixed h-14. */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 overflow-y-auto transition-transform duration-200 ${
+        className={`fixed bottom-0 left-0 top-14 z-40 overflow-y-auto transition-transform duration-200 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } md:sticky md:top-0 md:z-auto md:flex md:h-screen md:translate-x-0 md:transition-none`}
+        } md:sticky md:top-14 md:z-auto md:flex md:h-[calc(100vh-3.5rem)] md:translate-x-0 md:transition-none`}
       >
         <Sidebar
-          currentName={currentName}
           currentMember={currentMember}
           presenceEnabled={presenceEnabled}
           schools={schools}
@@ -191,59 +195,32 @@ export function SidebarShell({
           vas={vas}
           schoolVaAssigned={schoolVaAssigned}
           addSchool={addSchool}
-          onCollapse={handleSidebarHide}
           collapsed={collapsed}
           needsPrivateNoteAck={needsPrivateNoteAck}
           needsGeneralNoteAck={needsGeneralNoteAck}
           needsIssueCommentAck={needsIssueCommentAck}
-          myMentions={myMentions}
-          markMentionRead={markMentionRead}
         />
       </div>
-
-      {!mobileOpen && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Show sidebar"
-          className="fixed top-4 left-4 z-20 border bg-background md:hidden"
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
-      )}
 
       {/* No overflow-y-auto here on purpose -- see the comment on the
           sidebar wrapper above. The document itself scrolls; this is
           just a normal flex-1 block.
 
           No padding here at all, and min-w-0 -- both on purpose. Every
-          page's own sticky header bar needs to span main's full width
-          with no gap around it, which used to be done with a
-          negative-margin trick matching whatever padding main had at
-          each breakpoint. That's exactly the kind of thing that goes
-          quietly wrong the moment the two drift out of sync (as they
-          did here), so padding moved to a wrapper INSIDE each page
-          instead, around everything except its header -- the header
-          just naturally spans main's real width, no arithmetic
-          required. min-w-0 fixes a separate real bug this surfaced:
-          a flex item's default min-width is "auto", meaning a wide
-          enough descendant (e.g. Contacts' table, min-w-[900px])
-          could force main itself wider than its fair share of the
-          row, squeezing the sidebar -- min-w-0 lets main shrink to
-          its actual allotted space and leaves overflow-x-auto
-          wrappers deeper in the tree to handle their own overflow, as
-          intended. The floating "show sidebar" buttons below no
-          longer need reserved top padding either -- they now simply
-          float on top of the header bar, which starts at main's very
-          top edge.
+          page's own sticky title row needs to span main's full width
+          with no gap around it, so padding lives in a wrapper INSIDE each
+          page (components/page-body.tsx) around everything except that
+          row. min-w-0 lets main shrink to its actual allotted space when
+          a wide descendant (e.g. Contacts' table, min-w-[900px]) would
+          otherwise force it wider than its share of the row and squeeze
+          the sidebar; overflow-x-auto wrappers deeper in the tree handle
+          their own overflow, as intended.
 
-          Tried a page-open fade/slide effect here for a while
-          (several rounds of tuning direction, duration, easing) --
-          Michelle ended up preferring no transition at all, so this
-          is back to plain, un-keyed content with no animation. */}
+          Tried a page-open fade/slide effect here for a while --
+          Michelle ended up preferring no transition at all, so this is
+          plain, un-keyed content with no animation. */}
       <main className="min-w-0 flex-1">{children}</main>
+      </div>
 
       <PlanBubble
         myWorkNotes={myWorkNotes}

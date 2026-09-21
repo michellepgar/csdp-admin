@@ -1,42 +1,22 @@
-/* Every top-level page's title row, unified in one place: sticky so
-   it never scrolls out of view, spanning <main>'s full width with no
-   gap around it -- <main> itself now carries no padding at all (see
-   components/sidebar-shell.tsx), so this just naturally reaches every
-   edge instead of needing a negative-margin trick to cancel padding
-   that lived elsewhere. Cancels the global h1 rule's own sticky/
-   background (see app/globals.css) since this row carries both
-   itself, same trick the school page's own custom title row already
-   used before this component existed.
+/* Every top-level page's title row, unified in one place: sticky just
+   under the app's top bar (components/app-top-bar.tsx, h-14) so it never
+   scrolls out of view, spanning <main>'s full width with no gap around it
+   -- <main> itself carries no padding at all (see
+   components/sidebar-shell.tsx), so this naturally reaches every edge.
+   Now a plain light row rather than a second teal band: the top bar above
+   already carries the brand color, and two stacked teal bars read as one
+   heavy block. Cancels the global h1 rule's own sticky/background and
+   white text (see app/globals.css) since this row carries the background
+   itself, same trick the Overview and school page title rows use.
 
-   Used to also show the signed-in user's name in the top-right corner
-   -- Michelle asked for that, then asked for it removed again.
-
-   pl-12 (rather than matching pr-4/sm:pr-6/md:pr-8 on the left too) is
-   a fixed reserve for the floating "show sidebar" button
-   (components/sidebar-shell.tsx), which sits fixed at top-4 left-4 --
-   z-20, above this bar's z-10 -- only when the sidebar is collapsed
-   (desktop) or closed (mobile). Confirmed directly: without this, that
-   button's icon sits right on top of the title's first letter.
-
-   h-14 (fixed, not padding-driven) -- Michelle pointed out this
-   header and the sidebar's own top corner (components/sidebar.tsx)
-   didn't line up; different content (a subtitle on the school page,
-   none here) plus padding-based sizing meant each block's actual
-   height depended on its own font metrics instead of a shared value.
-   Every header block in the app (this one, Overview's, the school
-   page's, and the sidebar's own top corner) now uses this same fixed
-   height with its content vertically centered inside it, so the
-   sidebar corner lines up with whichever page header is showing
-   regardless of page. Was h-20, then h-16 -- shrunk again to h-14
-   alongside the h1 text itself going from text-2xl/text-4xl down to a
-   uniform text-xl (see app/globals.css), since h-16 left visibly more
-   empty space around the now-smaller title than before (keeping them
-   all equal, and equal to the sidebar corner, is the part that
-   actually matters here -- not the specific value). */
+   h-14 (fixed, not padding-driven) keeps every page's title row the same
+   height with its content vertically centered, regardless of whether a
+   page has a subtitle. Horizontal padding matches PageBody's, so the
+   title lines up with the content beneath it. */
 export function PageHeader({ title }: { title: string }) {
   return (
-    <div className="sticky top-0 z-10 flex h-14 items-center bg-header-background pr-4 pl-12 sm:pr-6 md:pr-8">
-      <h1 className="static bg-transparent px-0 py-0">{title}</h1>
+    <div className="sticky top-14 z-10 flex h-14 items-center border-b bg-background px-4 sm:px-6 md:px-8">
+      <h1 className="static bg-transparent px-0 py-0 text-foreground">{title}</h1>
     </div>
   );
 }

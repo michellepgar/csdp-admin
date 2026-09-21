@@ -69,3 +69,9 @@ test("an image keeps its own width and height", () => {
   const out = sanitizeNoteHtml('<img src="data:image/png;base64,AAAA" width="120" height="80" style="width:120px">');
   assert.ok(out.includes('width="120"'), out);
 });
+
+test("typed ampersands and angle brackets are escaped once, not twice", () => {
+  assert.equal(sanitizeNoteHtml("Tom &amp; Jerry"), "Tom &amp; Jerry");
+  assert.equal(sanitizeNoteHtml("a &lt; b &gt; c"), "a &lt; b &gt; c");
+  assert.equal(sanitizeNoteHtml("a &lt; b &amp; c<br>d"), "a &lt; b &amp; c<br />d");
+});

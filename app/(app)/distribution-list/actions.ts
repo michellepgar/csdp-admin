@@ -91,7 +91,7 @@ export async function addDistributionGroup(formData: FormData) {
 export async function renameDistributionGroup(formData: FormData) {
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
+  if (!id || !name) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -111,6 +111,7 @@ export async function renameDistributionGroup(formData: FormData) {
 
 export async function removeDistributionGroup(formData: FormData) {
   const id = formData.get("id") as string;
+  if (!id) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -166,6 +167,7 @@ export async function addDistributionRow(formData: FormData) {
 export async function updateDistributionRow(formData: FormData) {
   const rowId = formData.get("rowId") as string;
   const moveToGroupId = formData.get("moveToGroupId") as string;
+  if (!rowId) return;
   const breakdown = breakdownFromForm(formData);
 
   if (await isDemoMode()) {
@@ -228,6 +230,7 @@ export async function updateDistributionRow(formData: FormData) {
 export async function toggleDistributionRowDistributed(formData: FormData) {
   const rowId = formData.get("rowId") as string;
   const distributed = formData.get("distributed") === "true";
+  if (!rowId) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -249,6 +252,7 @@ export async function toggleDistributionRowDistributed(formData: FormData) {
 
 export async function removeDistributionRow(formData: FormData) {
   const rowId = formData.get("rowId") as string;
+  if (!rowId) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {

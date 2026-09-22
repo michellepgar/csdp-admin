@@ -625,7 +625,15 @@ export async function removeTask(formData: FormData) {
       const sd = state.schoolData[schoolId];
       const file = sd?.taskFiles?.find((item) => item.id === taskFileId);
       if (sd?.taskFiles) sd.taskFiles = sd.taskFiles.filter((item) => item.id !== taskFileId);
-      if (sd?.tasks && file) sd.tasks = sd.tasks.filter((item) => item.fileName !== file.fileName);
+      // By this file's own category-assignment ids, not its file name --
+      // two different files in the same table are allowed to share a
+      // name (flagged with a "duplicate" icon, never blocked), so
+      // matching on fileName here would also wipe the sibling file's
+      // tasks.
+      if (sd?.tasks && file) {
+        const removedIds = new Set(file.categories.map((c) => c.id));
+        sd.tasks = sd.tasks.filter((item) => !removedIds.has(item.id));
+      }
     });
     revalidateSchool(schoolId);
     return;
@@ -1198,7 +1206,7 @@ export async function addSchoolContact(formData: FormData) {
   const position = (formData.get("position") as string) || "";
   const name = ((formData.get("name") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
-  if (!email) return;
+  if (!schoolId || !email) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -1233,7 +1241,7 @@ export async function updateSchoolContact(formData: FormData) {
   const position = (formData.get("position") as string) || "";
   const name = ((formData.get("name") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
-  if (!email) return;
+  if (!id || !schoolId || !email) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -1263,6 +1271,7 @@ export async function updateSchoolContact(formData: FormData) {
 export async function removeSchoolContact(formData: FormData) {
   const id = formData.get("id") as string;
   const schoolId = formData.get("schoolId") as string;
+  if (!id || !schoolId) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {

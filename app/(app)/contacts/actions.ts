@@ -35,7 +35,7 @@ const CONTACT_FIELD_TO_COLUMN: Record<keyof ContactRow, string> = {
 export async function renameContactGroup(formData: FormData) {
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
+  if (!id || !name) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -55,6 +55,7 @@ export async function renameContactGroup(formData: FormData) {
 
 export async function removeContactGroup(formData: FormData) {
   const id = formData.get("id") as string;
+  if (!id) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -74,6 +75,7 @@ export async function removeContactGroup(formData: FormData) {
 export async function updateContactRow(formData: FormData) {
   const rowId = formData.get("rowId") as string;
   const moveToGroupId = formData.get("moveToGroupId") as string;
+  if (!rowId) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -162,6 +164,7 @@ export async function updateContactRow(formData: FormData) {
 
 export async function removeContactRow(formData: FormData) {
   const rowId = formData.get("rowId") as string;
+  if (!rowId) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
@@ -234,7 +237,7 @@ export async function addOtherContact(formData: FormData) {
 export async function updateOtherContact(formData: FormData) {
   const id = formData.get("id") as string;
   const name = ((formData.get("name") as string) || "").trim();
-  if (!name) return;
+  if (!id || !name) return;
   const organization = ((formData.get("organization") as string) || "").trim();
   const email = ((formData.get("email") as string) || "").trim();
   const phone = ((formData.get("phone") as string) || "").trim();
@@ -273,6 +276,7 @@ export async function updateOtherContact(formData: FormData) {
 
 export async function removeOtherContact(formData: FormData) {
   const id = formData.get("id") as string;
+  if (!id) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {

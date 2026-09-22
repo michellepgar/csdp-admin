@@ -920,6 +920,26 @@ export async function setTaskCategoryHasCount(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+export async function setTaskCategoryEodPhrase(formData: FormData) {
+  const id = formData.get("id") as string;
+  const eodPhrase = ((formData.get("eodPhrase") as string) || "").trim();
+  if (!id) return;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const category = state.taskCategories?.find((item) => item.id === id);
+      if (category) category.eodPhrase = eodPhrase || undefined;
+    });
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  const { supabase } = await requireTeamMember();
+  const { error } = await supabase.from("task_categories").update({ eod_phrase: eodPhrase || null }).eq("id", id);
+  orThrow(error);
+  revalidatePath("/", "layout");
+}
+
 /* ---------- Email Tracker ---------- */
 
 export async function addEmailItem(formData: FormData) {

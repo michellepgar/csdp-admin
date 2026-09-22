@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import type { StatusTone } from "@/components/status-badge";
 import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { Dropdown } from "@/components/dropdown";
 import type { Va, WorkNote } from "@/lib/app-state";
@@ -12,6 +12,8 @@ import { WorkNoteButton } from "@/components/work-note-button";
 import { CompleteTaskButton } from "@/components/complete-task-button";
 import { makeNoteLookup, parseNoteKey } from "@/lib/work-notes";
 import type { TodayActivityItem } from "@/lib/shared-task-files";
+import type { TaskCategory } from "@/lib/app-state";
+import { normalizedCategoryName } from "@/lib/task-ordering";
 
 /* Same status/tone pairing as tasks-card.tsx and general-tasks-list.tsx
    (their own STATUS_TONE) -- kept as its own copy here rather than a
@@ -49,20 +51,36 @@ function itemHref(t: TodayActivityItem): string {
   return `${base}${t.linkSuffix || ""}`;
 }
 
-function vaListRow(t: TodayActivityItem, key: number, note?: string, action?: React.ReactNode) {
+/* The EOD phrase (or the category's own name, if none is set) for one
+   Today item -- looks for a category matching this item's school first,
+   falling back to a shared (schoolId-less) category of the same name,
+   the same scoping order visibleSchoolItems uses elsewhere. */
+function eodPhraseFor(t: TodayActivityItem, taskCategories: TaskCategory[]): string {
+  const target = normalizedCategoryName(t.category);
+  const scoped = taskCategories.find((c) => c.schoolId === t.schoolId && normalizedCategoryName(c.name) === target);
+  if (scoped) return scoped.eodPhrase || scoped.name;
+  const shared = taskCategories.find((c) => !c.schoolId && normalizedCategoryName(c.name) === target);
+  return shared?.eodPhrase || t.category;
+}
+
+/* EOD-ready wording: "<phrase> - <file name> - <status>", matching the
+   line-per-item format Michelle types into her own EOD reports, so List
+   view can be read (or copied) straight into one instead of needing to
+   be reworded by hand. */
+function vaListRow(t: TodayActivityItem, key: number, taskCategories: TaskCategory[], note?: string, action?: React.ReactNode) {
   return (
     <li key={key} className="flex flex-wrap items-center gap-1.5 text-sm">
       {t.schoolName === "Reminder" ? (
         <span className="font-bold">{t.fileName}</span>
       ) : (
         <>
+          <span>{eodPhraseFor(t, taskCategories)} -</span>
           <Link href={itemHref(t)} className="font-bold underline-offset-2 hover:underline">
             {t.fileName}
           </Link>
-          <span className="text-muted-foreground"> — {t.schoolName} · {t.category}</span>
+          {t.status && <span>- {statusText(t.status)}</span>}
         </>
       )}
-      {t.status && <StatusBadge tone={TODAY_STATUS_TONE[t.status] ?? "neutral"}>{statusText(t.status)}</StatusBadge>}
       {action}
       {note && (
         <span className="flex w-full items-start gap-1 rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
@@ -104,12 +122,14 @@ function columnsFor(items: TodayActivityItem[], noteFor: (item: TodayActivityIte
    items, not a replacement. A client component (unlike the rest of
    this server-rendered page) purely because the filter/view choice is
    its own local, no-reload UI state. */
-export function CurrentlyWorkingOn({ todayByVa, vas, workNotes, currentUserName }: {
+export function CurrentlyWorkingOn({ todayByVa, vas, workNotes, currentUserName, taskCategories }: {
   todayByVa: [string, TodayActivityItem[]][];
   vas: Va[];
   workNotes: WorkNote[];
   /** Only this person's own cards get the note button. */
   currentUserName: string;
+  /** For List view's EOD-ready wording (eodPhraseFor above). */
+  taskCategories: TaskCategory[];
 }) {
   const noteLookup = makeNoteLookup(workNotes);
   const [vaFilter, setVaFilter] = useState("");
@@ -157,7 +177,7 @@ export function CurrentlyWorkingOn({ todayByVa, vas, workNotes, currentUserName 
                 </div>
                 {viewMode === "list" ? (
                   <ul className="min-w-0 flex-1 space-y-1.5 p-3">
-                    {items.map((t, i) => vaListRow(t, i, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
+                    {items.map((t, i) => vaListRow(t, i, taskCategories, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
                   </ul>
                 ) : (
                   <div className="min-w-0 flex-1 p-3">

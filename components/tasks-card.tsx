@@ -241,6 +241,7 @@ type TasksCardProps = {
   reorderTaskCategories: (orderedIds: string[]) => void;
   renameTaskCategory: (formData: FormData) => Promise<TaskFileActionResult>;
   setTaskCategoryHasCount: (formData: FormData) => void;
+  setTaskCategoryEodPhrase: (formData: FormData) => void;
   reorderTasks: (schoolId: string, orderedIds: string[]) => void;
   updateTaskFileName: (formData: FormData) => Promise<TaskFileActionResult>;
 };
@@ -378,6 +379,20 @@ export function TasksCard(props: TasksCardProps) {
                     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <input key={String(!!category.hasCount)} type="checkbox" name="hasCount" defaultChecked={!!category.hasCount} />
                       Show a Count column for this category
+                    </label>
+                  </AutoSubmitForm>
+                  <AutoSubmitForm action={props.setTaskCategoryEodPhrase} className="pl-4">
+                    <input type="hidden" name="id" value={category.id} />
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      EOD phrase
+                      <input
+                        key={category.eodPhrase || ""}
+                        type="text"
+                        name="eodPhrase"
+                        defaultValue={category.eodPhrase || ""}
+                        placeholder={`e.g. "Encode/Update Info, Upload" (blank uses "${category.name}")`}
+                        className="h-7 min-w-0 flex-1 rounded-md border px-1.5 text-sm"
+                      />
                     </label>
                   </AutoSubmitForm>
                 </div>

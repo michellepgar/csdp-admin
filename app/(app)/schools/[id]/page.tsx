@@ -32,6 +32,7 @@ import {
   reorderTaskCategories,
   renameTaskCategory,
   setTaskCategoryHasCount,
+  setTaskCategoryEodPhrase,
   reorderTasks,
   updateTaskFileName,
   setCommsStatus,
@@ -196,6 +197,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
           reorderTaskCategories={reorderTaskCategories}
           renameTaskCategory={renameTaskCategory}
           setTaskCategoryHasCount={setTaskCategoryHasCount}
+          setTaskCategoryEodPhrase={setTaskCategoryEodPhrase}
           reorderTasks={reorderTasks}
           updateTaskFileName={updateTaskFileName}
           setCommsStatus={setCommsStatus}

@@ -116,7 +116,7 @@ export default async function OverviewPage() {
           startWorkNow={startWorkNow}
         />
       )}
-      <CurrentlyWorkingOn todayByVa={Array.from(todayByVa.entries())} vas={state.vas} workNotes={state.workNotes || []} currentUserName={me?.name ?? ""} />
+      <CurrentlyWorkingOn todayByVa={Array.from(todayByVa.entries())} vas={state.vas} workNotes={state.workNotes || []} currentUserName={me?.name ?? ""} taskCategories={state.taskCategories || []} />
 
       {me && (
         <div className="space-y-1.5">

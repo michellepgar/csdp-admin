@@ -73,6 +73,12 @@ export interface TaskCategory {
    *  unused, so this just decides which categories actually get an
    *  input in it. */
   hasCount?: boolean;
+  /** Optional wording used to build EOD-ready lines on Overview's
+   *  Currently Working On list view, e.g. "Encode/Update Info, Upload"
+   *  for a "Before Visit" category -- set per category from the "Edit
+   *  categories" panel (tasks-card.tsx). Falls back to the category's
+   *  own name when unset. */
+  eodPhrase?: string;
 }
 
 export interface ChecklistTemplateItem {

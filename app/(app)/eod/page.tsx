@@ -8,7 +8,7 @@ import { EodList } from "@/components/eod-list";
 import { EodEntryForm } from "@/components/eod-entry-form";
 import { addEodReport, removeEodReport } from "./actions";
 
-export default async function EodPage() {
+export default async function EodPage({ searchParams }: { searchParams: Promise<{ draftTasks?: string }> }) {
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
@@ -18,11 +18,15 @@ export default async function EodPage() {
   const me = findVaByEmail(state, user.email);
   if (!me) redirect("/not-on-team");
 
+  // "Send to EOD" (Overview's Currently Working On) hands its lines off
+  // this way -- just fills the tasks box, still needs hours before saving.
+  const { draftTasks } = await searchParams;
+
   return (
     <div>
       <PageHeader title="EOD Reports" />
       <PageBody>
-      <EodEntryForm addEodReport={addEodReport} />
+      <EodEntryForm addEodReport={addEodReport} defaultTasks={draftTasks} />
 
       <EodList
         reports={state.eodReports || []}

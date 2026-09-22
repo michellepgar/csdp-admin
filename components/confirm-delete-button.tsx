@@ -43,8 +43,8 @@ export function ConfirmDeleteButton({
       size={isText ? "xs" : iconSize}
       className={
         isText
-          ? "w-auto shrink-0 whitespace-nowrap border-destructive/45 bg-background from-background to-destructive/10 px-2.5 text-destructive hover:border-destructive hover:from-destructive/10 hover:to-destructive/20"
-          : "hover:bg-destructive/10"
+          ? "w-auto shrink-0 whitespace-nowrap border-destructive/45 bg-background px-2.5 text-destructive hover:border-destructive hover:bg-destructive/10 active:bg-destructive/20"
+          : "hover:bg-destructive/10 active:bg-destructive/20"
       }
       onClick={(e) => {
         if (!window.confirm(confirmMessage)) e.preventDefault();

@@ -11,7 +11,7 @@ export function SegmentedToggle<T extends string>({ value, onChange, options, cl
   className?: string;
 }) {
   return (
-    <div role="group" className={cn("inline-flex gap-0.5 rounded-xl border border-ring/25 bg-linear-to-b from-muted/70 to-muted/40 p-0.5 shadow-[inset_0_1px_2px_rgb(0_0_0/0.08)]", className)}>
+    <div role="group" className={cn("inline-flex gap-0.5 rounded-xl border border-ring/25 bg-muted/55 p-0.5 shadow-[inset_0_1px_2px_rgb(0_0_0/0.08)]", className)}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -23,8 +23,8 @@ export function SegmentedToggle<T extends string>({ value, onChange, options, cl
             className={cn(
               "rounded-[10px] px-3 py-1 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               active
-                ? "bg-linear-to-b from-ring to-ring/85 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_3px_rgb(0_0_0/0.3)]"
-                : "text-foreground/70 hover:bg-card/70 hover:text-foreground",
+                ? "bg-ring text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_3px_rgb(0_0_0/0.3)] active:bg-ring/80"
+                : "text-foreground/70 hover:bg-card/70 hover:text-foreground active:bg-card",
             )}
           >
             {option.label}

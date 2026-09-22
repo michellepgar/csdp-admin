@@ -14,7 +14,7 @@ function todayIsoDate() {
    total_hours -- can run on every keystroke and show a live preview
    before Save is ever clicked. Michelle asked to see the running
    total as she fills these in, not just after saving. */
-export function EodEntryForm({ addEodReport }: { addEodReport: (formData: FormData) => void }) {
+export function EodEntryForm({ addEodReport, defaultTasks }: { addEodReport: (formData: FormData) => void; defaultTasks?: string }) {
   const [timeIn, setTimeIn] = useState("");
   const [tookBreak, setTookBreak] = useState(false);
   const [breakStart, setBreakStart] = useState("");
@@ -71,6 +71,7 @@ export function EodEntryForm({ addEodReport }: { addEodReport: (formData: FormDa
         placeholder="What did you work on today? One item per line…"
         required
         rows={4}
+        defaultValue={defaultTasks || ""}
         className="w-full rounded-md border px-3 py-2 text-sm"
       />
       <SubmitButton pendingLabel="Adding…">Add EOD report</SubmitButton>

@@ -100,7 +100,7 @@ export function ChecklistCard({
         <h2 className="font-semibold whitespace-nowrap">
           Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/70">{summary.done}/{summary.total}</span>}
         </h2>
-        <Button type="button" variant="ghost" size="sm" className="border-white/40 from-white/20 to-white/5 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.3)] hover:border-white/70 hover:from-white/30 hover:to-white/15 hover:text-white" onClick={() => setHiddenAndRemember(false)} aria-label="Show Yearly Checklist">
+        <Button type="button" variant="ghost" size="sm" className="border-white/40 bg-white/10 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.3)] hover:border-white/70 hover:bg-white/20 hover:text-white active:bg-white/30" onClick={() => setHiddenAndRemember(false)} aria-label="Show Yearly Checklist">
           Show <ChevronDown className="h-4 w-4" />
         </Button>
       </div>

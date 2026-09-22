@@ -6,7 +6,7 @@ import type { StatusTone } from "@/components/status-badge";
 import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { Dropdown } from "@/components/dropdown";
 import type { Va, WorkNote } from "@/lib/app-state";
-import { StickyNote } from "lucide-react";
+import { Send } from "lucide-react";
 import { SegmentedToggle } from "@/components/segmented-toggle";
 import { WorkNoteButton } from "@/components/work-note-button";
 import { CompleteTaskButton } from "@/components/complete-task-button";
@@ -63,10 +63,18 @@ function eodPhraseFor(t: TodayActivityItem, taskCategories: TaskCategory[]): str
   return shared?.eodPhrase || t.category;
 }
 
-/* EOD-ready wording: "<phrase> - <file name> - <status>", matching the
-   line-per-item format Michelle types into her own EOD reports, so List
-   view can be read (or copied) straight into one instead of needing to
-   be reworded by hand. */
+/* EOD-ready wording: "<note> - <phrase> - <file name> - <status>",
+   matching the line-per-item format Michelle types into her own EOD
+   reports (the note, when there is one, goes first -- e.g. a reason or
+   caveat reads before what was done), so List view can be read straight
+   into one instead of needing to be reworded by hand. eodLineText below
+   builds the same line as plain text for "Send to EOD". */
+function eodLineText(t: TodayActivityItem, taskCategories: TaskCategory[], note?: string): string {
+  const notePrefix = note ? `${note} - ` : "";
+  const statusSuffix = t.status ? ` - ${statusText(t.status)}` : "";
+  return `${notePrefix}${eodPhraseFor(t, taskCategories)} - ${t.fileName}${statusSuffix}`;
+}
+
 function vaListRow(t: TodayActivityItem, key: number, taskCategories: TaskCategory[], note?: string, action?: React.ReactNode) {
   return (
     <li key={key} className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -74,6 +82,7 @@ function vaListRow(t: TodayActivityItem, key: number, taskCategories: TaskCatego
         <span className="font-bold">{t.fileName}</span>
       ) : (
         <>
+          {note && <span className="italic text-amber-800 dark:text-amber-200">{note} -</span>}
           <span>{eodPhraseFor(t, taskCategories)} -</span>
           <Link href={itemHref(t)} className="font-bold underline-offset-2 hover:underline">
             {t.fileName}
@@ -82,12 +91,6 @@ function vaListRow(t: TodayActivityItem, key: number, taskCategories: TaskCatego
         </>
       )}
       {action}
-      {note && (
-        <span className="flex w-full items-start gap-1 rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
-          <StickyNote className="mt-0.5 h-3 w-3 flex-none" />
-          {note}
-        </span>
-      )}
     </li>
   );
 }
@@ -170,15 +173,35 @@ export function CurrentlyWorkingOn({ todayByVa, vas, workNotes, currentUserName,
             const va = vas.find((v) => v.name === vaName);
             const isMine = vaName === currentUserName;
             const noteFor = (t: TodayActivityItem) => noteLookup(t.itemKey, vaName);
+            // What "Send to EOD" hands off to the EOD form's tasks box --
+            // every real item's EOD line, one per line. Reminders are left
+            // out: they're a standing nudge to check something, not a line
+            // of work done today.
+            const eodDraftText = items
+              .filter((t) => t.schoolName !== "Reminder")
+              .map((t) => eodLineText(t, taskCategories, noteFor(t)))
+              .join("\n");
             return (
               <div key={vaName} className="flex overflow-hidden rounded-md border bg-record-background no-record-hover">
                 <div className="flex w-9 shrink-0 items-center justify-center border-r py-3" style={{ color: va?.color }}>
                   <span className="whitespace-nowrap text-sm font-semibold" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{vaName}</span>
                 </div>
                 {viewMode === "list" ? (
-                  <ul className="min-w-0 flex-1 space-y-1.5 p-3">
-                    {items.map((t, i) => vaListRow(t, i, taskCategories, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
-                  </ul>
+                  <div className="min-w-0 flex-1 p-3">
+                    {isMine && eodDraftText && (
+                      <div className="mb-1.5 flex justify-end">
+                        <Link
+                          href={`/eod?draftTasks=${encodeURIComponent(eodDraftText)}`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                        >
+                          <Send className="h-3 w-3" /> Send to EOD
+                        </Link>
+                      </div>
+                    )}
+                    <ul className="space-y-1.5">
+                      {items.map((t, i) => vaListRow(t, i, taskCategories, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
+                    </ul>
+                  </div>
                 ) : (
                   <div className="min-w-0 flex-1 p-3">
                     <CategoryColumns columns={columnsFor(items, noteFor, isMine)} accentColor={va?.color} />

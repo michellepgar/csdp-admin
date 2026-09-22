@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 const CHIP =
   "rounded-full border px-3 py-1 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 const CHIP_ON =
-  "border-ring bg-linear-to-b from-ring to-ring/85 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_2px_rgb(0_0_0/0.25)]";
+  "border-ring bg-ring text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_2px_rgb(0_0_0/0.25)] active:bg-ring/80";
 const CHIP_OFF =
-  "border-border bg-linear-to-b from-card to-muted/60 text-foreground/80 shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_1px_1px_rgb(0_0_0/0.06)] hover:border-ring/50 hover:text-foreground";
+  "border-border bg-muted/50 text-foreground/80 shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_1px_1px_rgb(0_0_0/0.06)] hover:border-ring/50 hover:bg-muted hover:text-foreground active:bg-muted";
 
 export const LABEL = "text-xs font-semibold uppercase text-muted-foreground";
 export const TEXTAREA = "w-full resize-none rounded-md border px-3 py-2 text-sm";

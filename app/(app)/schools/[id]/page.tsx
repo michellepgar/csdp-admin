@@ -78,7 +78,11 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
 
   const sd = state.schoolData[schoolId] || { vaAssigned: "" };
   const canEdit = canEditSchoolRecords(sd, me.name, isAdmin(me));
-  const categories = state.taskCategories || [];
+  // hasCount resolved for THIS school only -- the same shared category can
+  // have its Count column on here and off at another school (Michelle: they
+  // don't all track the same category the same way).
+  const countedCategoryIds = new Set(state.taskCategoryCountsBySchool?.[schoolId] || []);
+  const categories = (state.taskCategories || []).map((c) => ({ ...c, hasCount: countedCategoryIds.has(c.id) }));
   const checklistTemplate = state.checklistTemplate || [];
   const taskFiles = sd.taskFiles || legacyTasksToTaskFiles(sd.tasks || [], categories);
   const checklistProgressForSchool: Record<string, ChecklistProgressEntry> = {};

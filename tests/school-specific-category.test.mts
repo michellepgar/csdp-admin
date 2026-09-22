@@ -22,7 +22,10 @@ test("migration provides atomic school-category operations", () => {
 
 test("school page uses the shared category and checklist lists", () => {
   const source = readFileSync("app/(app)/schools/[id]/page.tsx", "utf8");
-  assert.match(source, /const categories = state\.taskCategories \|\| \[\]/);
+  // Still built from the one shared list (just with hasCount resolved
+  // per school on top -- see phase68_task_category_count_per_school.sql),
+  // not a reintroduced per-school category list of its own.
+  assert.match(source, /const categories = \(state\.taskCategories \|\| \[\]\)\.map/);
   assert.match(source, /const checklistTemplate = state\.checklistTemplate \|\| \[\]/);
   assert.doesNotMatch(source, /addSchoolTaskCategory/);
 });

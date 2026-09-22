@@ -901,22 +901,29 @@ export async function renameTaskCategory(formData: FormData): Promise<TaskFileAc
 }
 
 export async function setTaskCategoryHasCount(formData: FormData) {
+  const schoolId = formData.get("schoolId") as string;
   const id = formData.get("id") as string;
   const hasCount = formData.get("hasCount") === "on";
-  if (!id) return;
+  if (!id || !schoolId) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      const category = state.taskCategories?.find((item) => item.id === id);
-      if (category) category.hasCount = hasCount;
+      const ids = new Set((state.taskCategoryCountsBySchool ??= {})[schoolId] || []);
+      if (hasCount) ids.add(id); else ids.delete(id);
+      state.taskCategoryCountsBySchool![schoolId] = Array.from(ids);
     });
     revalidatePath("/", "layout");
     return;
   }
 
   const { supabase } = await requireTeamMember();
-  const { error } = await supabase.from("task_categories").update({ has_count: hasCount }).eq("id", id);
-  orThrow(error);
+  if (hasCount) {
+    const { error } = await supabase.from("task_category_school_counts").upsert({ school_id: schoolId, category_id: id }, { onConflict: "school_id,category_id" });
+    orThrow(error);
+  } else {
+    const { error } = await supabase.from("task_category_school_counts").delete().eq("school_id", schoolId).eq("category_id", id);
+    orThrow(error);
+  }
   revalidatePath("/", "layout");
 }
 

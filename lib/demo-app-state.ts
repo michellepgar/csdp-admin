@@ -78,10 +78,16 @@ export const DEMO_APP_STATE: AppState = {
   taskCategories: [
     {id:"demo-initial-comms",name:"Initial Communications"},
     {id:"demo-recheck-comms",name:"Recheck Communications"},
-    { id: "cat1", name: "Encoding & Uploading (Consent & SDF)", hasCount: true },
-    { id: "cat2", name: "Initial", hasCount: true },
-    { id: "cat3", name: "Follow up", hasCount: true },
+    { id: "cat1", name: "Encoding & Uploading (Consent & SDF)" },
+    { id: "cat2", name: "Initial" },
+    { id: "cat3", name: "Follow up" },
   ],
+  // Count is per school now -- Angelo has it on for cat1/cat2, Baker for
+  // cat3, matching what was on everywhere before this became per-school.
+  taskCategoryCountsBySchool: {
+    [SCHOOL_ANGELO]: ["cat1", "cat2"],
+    [SCHOOL_BAKER]: ["cat3"],
+  },
   contactGroups: [
     {
       id: "g1",

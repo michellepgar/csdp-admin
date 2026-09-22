@@ -610,11 +610,12 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     issueTypesResult,
     issueTypeLinksResult,
     emailDoneResult,
+    taskCategorySchoolCountsResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
     supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes").order("name"),
-    supabase.from("task_categories").select("id, name, school_id, has_count, eod_phrase").order("sort_order"),
+    supabase.from("task_categories").select("id, name, school_id, eod_phrase").order("sort_order"),
     supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
     supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),
     supabase.from("task_files").select("id, school_id, table_id, file_name, sort_order, created_at").order("sort_order"),
@@ -655,6 +656,10 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     // Tolerant too: until phase67_email_done_at.sql has been run this fails, which just
     // means finished email items don't show on Currently Working On.
     supabase.from("email_tracker_items").select("id, done_at"),
+    // Tolerant too: until phase68_task_category_count_per_school.sql has been run
+    // this fails, which just means every category's Count column reads as off for
+    // every school until she runs it (same as never having toggled any on yet).
+    supabase.from("task_category_school_counts").select("school_id, category_id"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -692,7 +697,16 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
   const state = blobResult.data.data as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
   state.schools = (schoolsResult.data || []).map((r) => mapSchoolRow(r as SchoolRow));
-  state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined, hasCount: !!row.has_count, eodPhrase: row.eod_phrase ?? undefined })) as TaskCategory[];
+  state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined, eodPhrase: row.eod_phrase ?? undefined })) as TaskCategory[];
+  // Per-school Count toggle (see TaskCategory.hasCount's own comment) --
+  // tolerant like the other newer tables: until phase68's SQL is run this
+  // errors and every category's Count column just reads as off everywhere.
+  state.taskCategoryCountsBySchool = {};
+  if (!taskCategorySchoolCountsResult.error) {
+    for (const row of (taskCategorySchoolCountsResult.data || []) as { school_id: string; category_id: string }[]) {
+      (state.taskCategoryCountsBySchool[row.school_id] ??= []).push(row.category_id);
+    }
+  }
   state.checklistTemplate = (checklistTemplateResult.data || []).map((row) => ({ id: row.id, description: row.description, schoolId: row.school_id ?? undefined, taskCategoryId: row.task_category_id ?? undefined })) as ChecklistTemplateItem[];
   const suggestionDetails = new Map<string, string>();
   if (!suggestionDetailsResult.error) {

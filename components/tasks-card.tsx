@@ -355,7 +355,7 @@ export function TasksCard(props: TasksCardProps) {
       <div className="space-y-3 p-3">
         {editorOpen && (
           <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs text-muted-foreground">Changes here apply to every school. Drag to reorder; renaming updates every school.</p>
+            <p className="text-xs text-muted-foreground">Reordering, renaming and the EOD phrase apply to every school. The Count column below is just for this school.</p>
             {orderedCategories.map((category) => (
               <div key={category.id} draggable onDragStart={() => setDraggedCategoryId(category.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropCategory(category.id)} onDragEnd={() => setDraggedCategoryId(null)} className={`flex items-center justify-between gap-2 text-sm ${draggedCategoryId === category.id ? "opacity-40" : ""}`}>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -376,9 +376,10 @@ export function TasksCard(props: TasksCardProps) {
                   {editingCategoryId === category.id && editCategoryError && <p role="alert" className="pl-4 text-xs text-red-600 dark:text-red-400">{editCategoryError}</p>}
                   <AutoSubmitForm action={props.setTaskCategoryHasCount} className="pl-4">
                     <input type="hidden" name="id" value={category.id} />
+                    <input type="hidden" name="schoolId" value={schoolId} />
                     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <input key={String(!!category.hasCount)} type="checkbox" name="hasCount" defaultChecked={!!category.hasCount} />
-                      Show a Count column for this category
+                      Show a Count column for this category (this school only)
                     </label>
                   </AutoSubmitForm>
                   <AutoSubmitForm action={props.setTaskCategoryEodPhrase} className="pl-4">

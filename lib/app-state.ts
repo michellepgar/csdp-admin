@@ -71,7 +71,14 @@ export interface TaskCategory {
    *  Michelle: "we wont know when we need it" -- the Count column
    *  space is already always reserved on every table, blank where
    *  unused, so this just decides which categories actually get an
-   *  input in it. */
+   *  input in it.
+   *
+   *  NOT a global property of the category -- schools don't all track
+   *  the same category the same way, so this is resolved PER SCHOOL
+   *  from AppState's taskCategoryCountsBySchool (see below) before a
+   *  category object reaches a school's Tasks card. Only meaningful on
+   *  a category list that's already been resolved for one school;
+   *  state.taskCategories itself carries no real value here. */
   hasCount?: boolean;
   /** Optional wording used to build EOD-ready lines on Overview's
    *  Currently Working On list view, e.g. "Encode/Update Info, Upload"
@@ -511,6 +518,12 @@ export interface AppState {
   nurseLeader?: NurseLeader;
   eodReports?: EodReport[];
   taskCategories?: TaskCategory[];
+  /** Which categories have their Count column turned on, per school --
+   *  schoolId -> that school's own list of categoryIds. A category
+   *  present here for one school and absent for another is exactly
+   *  the point: the toggle in "Edit categories" is per school now, not
+   *  shared across every school that happens to use the same category. */
+  taskCategoryCountsBySchool?: Record<string, string[]>;
   accessRequests?: AccessRequest[];
   issues?: Issue[];
   mentions?: Mention[];

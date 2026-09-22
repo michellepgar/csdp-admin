@@ -107,7 +107,7 @@ function CommentRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs">
-            <span className="font-semibold">{comment.author}</span> <span className="text-muted-foreground">· {fmtDateTime(comment.createdAt)}{comment.editedAt && " (edited)"}</span>
+            <span className="font-bold text-foreground">{comment.author}</span> <span className="text-muted-foreground">· {fmtDateTime(comment.createdAt)}{comment.editedAt && " (edited)"}</span>
           </div>
           {isAuthor && (
             <div className="flex flex-none items-center gap-2 text-xs text-muted-foreground">

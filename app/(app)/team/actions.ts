@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isAdmin, SUPERADMIN_NAME, type AppState } from "@/lib/app-state";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
@@ -121,9 +120,13 @@ export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
     return { error: null };
   }
 
-  const { supabase } = await requireAdmin();
+  const { supabase, me } = await requireAdmin();
   const { data: va } = await supabase.from("vas").select("name").eq("id", id).maybeSingle();
   if (!va) return { error: null };
+  // Same guard demo mode already has: removing your own row would lock
+  // you out of the app the moment requireTeamMember() next runs, with no
+  // in-app way to undo it since only an admin can re-add someone.
+  if (id === me.id) return { error: "You can't remove yourself from the team." };
 
   // Not-Completed school tasks with this VA on them -- each carries the row's
   // own school_id (needed by update_task_assignment below) via its file.
@@ -274,10 +277,16 @@ export async function setSchoolAssignment(formData: FormData) {
   }
 
   const { supabase } = await requireAdmin();
-  const state = await fetchAppState();
-  if (!state) throw new Error("Couldn't load app state");
-  if (!state.schoolData[schoolId]) state.schoolData[schoolId] = { vaAssigned: "" };
-  state.schoolData[schoolId].vaAssigned = vaName;
-  await saveLegacyState(supabase, state);
+  // A narrow read-modify-write against just this one row (not the full
+  // ~39-table fetchAppState()) -- still a read-then-write, so two admins
+  // saving at the exact same instant can still race, but shrinking the
+  // window from "however long the whole app takes to fetch" down to one
+  // tiny row read makes that collision far less likely to actually happen.
+  const { data: row } = await supabase.from("app_state").select("data").eq("id", 1).maybeSingle();
+  if (!row) throw new Error("Couldn't load app state");
+  const data = row.data as AppState;
+  if (!data.schoolData[schoolId]) data.schoolData[schoolId] = { vaAssigned: "" };
+  data.schoolData[schoolId].vaAssigned = vaName;
+  await saveLegacyState(supabase, data);
   revalidatePath("/team");
 }

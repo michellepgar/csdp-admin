@@ -119,6 +119,8 @@ export async function addIssue(formData: FormData) {
     const customTypeId = ((formData.get("customTypeId") as string) || "").trim();
     const description = ((formData.get("description") as string) || "").trim();
     if (!description || !customTypeId) return;
+    const { data: customType } = await supabase.from("issue_types").select("id").eq("id", customTypeId).maybeSingle();
+    if (!customType) return;
     const { error } = await supabase.from("issues").insert({
       ...baseIssueInsert(me, "custom"),
       custom_type_id: customTypeId,

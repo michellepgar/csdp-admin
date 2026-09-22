@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
+import { isAdmin } from "@/lib/app-state";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -152,6 +153,10 @@ export async function removeVaFromGeneralTask(formData: FormData) {
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      // Only the VA themselves or an admin can remove someone's name --
+      // otherwise any signed-in VA could quietly unassign a coworker.
+      const me = state.vas.find((v) => v.name === "Jane");
+      if (vaName !== "Jane" && !(me && isAdmin(me))) return;
       const task = (state.generalTasks || []).find((t) => t.id === taskId);
       if (task) task.vaAssigned = task.vaAssigned.filter((n) => n !== vaName);
     });
@@ -159,7 +164,8 @@ export async function removeVaFromGeneralTask(formData: FormData) {
     return;
   }
 
-  const { supabase } = await requireTeamMember();
+  const { supabase, me } = await requireTeamMember();
+  if (vaName !== me.name && !isAdmin(me)) return;
 
   const { data: task } = await supabase.from("general_tasks").select("va_assigned").eq("id", taskId).maybeSingle();
   if (!task) return;

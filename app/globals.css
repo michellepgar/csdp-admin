@@ -562,6 +562,22 @@
   }
 }
 
+/* Notification toast (components/mentions-bell.tsx) sliding/fading in from
+   under the bell it belongs to -- it auto-dismisses on its own a few
+   seconds later, so the arrival is the only motion it needs. */
+.toast-pop-in {
+  animation: toast-pop-in 0.18s ease-out;
+}
+@keyframes toast-pop-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-pop-in {
+    animation: none;
+  }
+}
+
 /* Text fields: a hair of depth (soft top edge + short shadow) and a clear
    accent glow on focus, so inputs never sit flat on the page. In the base
    layer so any utility on a field still wins. */

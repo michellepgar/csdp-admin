@@ -8,10 +8,14 @@ import { AtSign, Bell, ClipboardList, Flag, Volume2, VolumeX, X } from "lucide-r
 import type { Mention } from "@/lib/app-state";
 import { countMyUnreadNotifications } from "@/app/(app)/mentions/actions";
 import { playChime, readSoundOn, SOUND_KEY } from "@/lib/notification-sound";
-import { getToastRoot } from "@/lib/toast-root";
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 416;
+const TOAST_WIDTH = 260;
+// Facebook-style: pop up right under the bell, then disappear on their own --
+// Michelle found the old bottom-left toast stack (shared with chat messages,
+// staying until dismissed) too intrusive for something this frequent.
+const TOAST_AUTO_DISMISS_MS = 5_000;
 // How often an open tab asks whether something new arrived. Short on purpose:
 // an assignment should reach the person within a few seconds. The check is a
 // single head-only count query, and the page only re-fetches when it changes.
@@ -70,6 +74,17 @@ export function MentionsBell({
   // toast. Dismissing a toast doesn't mark the notification read.
   const seenIds = useRef(new Set(mentions.map((m) => m.id)));
   const [toasts, setToasts] = useState<Mention[]>([]);
+  const [toastAnchor, setToastAnchor] = useState<DOMRect | null>(null);
+  // Scheduled independently of the "what's new" effect below, keyed by id --
+  // that effect re-runs on every mentions refresh (which can land well
+  // before 5s is up), and re-running it must never cancel a dismiss that's
+  // already in flight for an earlier toast.
+  const dismissTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const timers = dismissTimers.current;
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, []);
 
   useEffect(() => {
     const stored = readSoundOn();
@@ -82,17 +97,28 @@ export function MentionsBell({
     unreadRef.current = unreadCount;
   }, [unreadCount]);
 
-  // A new unread notification pops up right away (and chimes) -- never on
-  // first render, and never for one that's already been announced.
+  // A new unread notification pops up right under the bell (and chimes) --
+  // never on first render, and never for one that's already been announced.
+  // It disappears on its own a few seconds later, same as it arrived --
+  // nothing to dismiss by hand.
   useEffect(() => {
     const fresh = mentions.filter((m) => !m.readAt && !seenIds.current.has(m.id));
     for (const m of mentions) seenIds.current.add(m.id);
     if (fresh.length === 0) return;
+    if (buttonRef.current) setToastAnchor(buttonRef.current.getBoundingClientRect());
     setToasts((current) => [...fresh, ...current].slice(0, 4));
     if (soundOnRef.current) playChime();
+    for (const m of fresh) {
+      dismissTimers.current.set(m.id, setTimeout(() => dismissToast(m.id), TOAST_AUTO_DISMISS_MS));
+    }
   }, [mentions]);
 
   function dismissToast(id: string) {
+    const timer = dismissTimers.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      dismissTimers.current.delete(id);
+    }
     setToasts((current) => current.filter((t) => t.id !== id));
   }
 
@@ -255,8 +281,19 @@ export function MentionsBell({
         </>,
         document.body,
       )}
-      {toasts.length > 0 && typeof document !== "undefined" && createPortal(
-        <>
+      {toasts.length > 0 && toastAnchor && typeof document !== "undefined" && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: toastAnchor.bottom + 8,
+            // Right-aligned under the bell (matching Facebook's own
+            // notification pop-up), clamped so it never runs off the left
+            // edge on a narrow window.
+            left: Math.max(8, Math.min(toastAnchor.right - TOAST_WIDTH, window.innerWidth - TOAST_WIDTH - 8)),
+            width: TOAST_WIDTH,
+          }}
+          className="z-[70] flex flex-col gap-2"
+        >
           {toasts.map((m) => {
             const isPriority = m.source === "priority_assignment";
             const isTask = m.source === "task_assignment";
@@ -264,28 +301,32 @@ export function MentionsBell({
               <div
                 key={m.id}
                 role="status"
-                className={`pointer-events-auto flex items-start gap-3 overflow-hidden rounded-xl border border-l-4 bg-background p-3 shadow-xl ${isPriority ? "border-l-red-600" : isTask ? "border-l-amber-500" : "border-l-green-600"}`}
+                // Plain white regardless of theme, and sized to the content
+                // (not a wide fixed box) -- Michelle's own call, matching a
+                // Facebook-style pop-up rather than this app's usual
+                // theme-adaptive card.
+                className={`toast-pop-in pointer-events-auto flex items-start gap-2.5 overflow-hidden rounded-lg border border-l-4 bg-white p-2.5 shadow-xl ${isPriority ? "border-l-red-600" : isTask ? "border-l-amber-500" : "border-l-green-600"}`}
               >
-                <span className={`mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full text-white ${isPriority ? "bg-red-600" : isTask ? "bg-amber-500" : "bg-green-600"}`}>
-                  {isPriority ? <Flag className="h-4 w-4" /> : isTask ? <ClipboardList className="h-4 w-4" /> : <AtSign className="h-4 w-4" />}
+                <span className={`mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full text-white ${isPriority ? "bg-red-600" : isTask ? "bg-amber-500" : "bg-green-600"}`}>
+                  {isPriority ? <Flag className="h-3.5 w-3.5" /> : isTask ? <ClipboardList className="h-3.5 w-3.5" /> : <AtSign className="h-3.5 w-3.5" />}
                 </span>
                 <Link href={hrefFor(m)} onClick={() => handleMentionClick(m)} className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">{titleFor(m)}</span>
-                  <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{m.snippet}</span>
+                  <span className="block text-xs font-semibold text-gray-900">{titleFor(m)}</span>
+                  <span className="mt-0.5 line-clamp-1 block text-[11px] text-gray-500">{m.snippet}</span>
                 </Link>
                 <button
                   type="button"
                   onClick={() => dismissToast(m.id)}
                   aria-label="Close notification"
-                  className="flex h-6 w-6 flex-none items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                  className="flex h-5 w-5 flex-none items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             );
           })}
-        </>,
-        getToastRoot(),
+        </div>,
+        document.body,
       )}
     </div>
   );

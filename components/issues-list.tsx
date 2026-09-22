@@ -11,7 +11,6 @@ import { CommentToggleButton, CommentThreadPanel } from "@/components/comment-th
 import {
   ISSUE_STATUS_OPTIONS,
   ISSUE_TYPE_LABELS,
-  CORRECTION_KINDS,
   canDeleteIssue,
   type Issue,
   type IssueType,
@@ -140,32 +139,12 @@ export function AddIssueForm({
           </div>
         )}
 
-      {type === "correction" && (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            <Dropdown
-              name="correctionKind"
-              defaultValue="Correction"
-              options={CORRECTION_KINDS.map((k) => ({ value: k, label: k }))}
-              className="rounded-md border bg-card px-2 py-1.5 text-left text-sm"
-            />
-            <Input name="studentRecordLink" placeholder="Link to student record" required className="min-w-40 max-w-md flex-1" />
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-xs text-muted-foreground">Needs correction/verification:</span>
-            <label className="flex items-center gap-1"><input type="checkbox" name="needsNameCorrection" /> Name</label>
-            <label className="flex items-center gap-1"><input type="checkbox" name="needsDobCorrection" /> DOB</label>
-            <label className="flex items-center gap-1"><input type="checkbox" name="needsInsuranceCorrection" /> Insurance</label>
-            <label className="flex items-center gap-1"><input type="checkbox" name="needsOtherCorrection" /> Other</label>
-            <Input name="otherCorrectionDetail" placeholder="What else needs correcting/verifying?" className="max-w-xs" />
-          </div>
-        </div>
-      )}
-
-      {type === "charting" && (
+      {(type === "correction" || type === "charting") && (
         <div className="flex flex-wrap gap-2">
-          <Input name="studentRecordLink" placeholder="Link to student record" required className="max-w-sm" />
-          <Input name="question" placeholder="What's the question or concern?" required className="min-w-40 max-w-md flex-1" />
+          <Input name="school" placeholder="School" className="max-w-[10rem]" />
+          <Input name="studentName" placeholder="Name" className="max-w-[10rem]" />
+          <Input name="studentRecordLink" placeholder="Link to student record" required className="min-w-40 max-w-md flex-1" />
+          <Input name="note" placeholder="Note (optional)" className="max-w-xs" />
         </div>
       )}
 
@@ -434,27 +413,23 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
   );
 }
 
-export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
+/* Shared by Review Patient Information and Charting Questions -- same
+   fields, same shape (school/name/link/note/reportedBy/status/comments),
+   just two separate sections on the page for two separate purposes. */
+function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { emptyMessage: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
-  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No correction/verification entries.</p>;
-  const rows = [...issues].reverse().map((issue) => ({
-    issue,
-    needs: [
-      issue.needsNameCorrection && "Name",
-      issue.needsDobCorrection && "DOB",
-      issue.needsInsuranceCorrection && "Insurance",
-      issue.needsOtherCorrection && (issue.otherCorrectionDetail || "Other"),
-    ].filter(Boolean).join(", "),
-  }));
+  if (issues.length === 0) return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+  const reversed = [...issues].reverse();
   return (
     <>
       <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
+              <th className="px-2 py-1">School</th>
+              <th className="px-2 py-1">Name</th>
               <th className="px-2 py-1">Student Record</th>
-              <th className="px-2 py-1">Needs</th>
-              <th className="px-2 py-1">Type</th>
+              <th className="px-2 py-1">Note</th>
               <th className="px-2 py-1">Reported By</th>
               <th className="px-2 py-1">Status</th>
               <th className="px-2 py-1">Comments</th>
@@ -462,12 +437,13 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ issue, needs }) => (
+            {reversed.map((issue) => (
               <Fragment key={issue.id}>
                 <tr className="border-b bg-record-background align-top">
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.school || "—"}</td>
+                  <td className="px-2 py-1 whitespace-nowrap">{issue.studentName || "—"}</td>
                   <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
-                  <td className="px-2 py-1">{needs || "—"}</td>
-                  <td className="px-2 py-1 whitespace-nowrap">{issue.correctionKind}</td>
+                  <td className="px-2 py-1">{issue.remarks || "—"}</td>
                   <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                   <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
                   <td className="px-2 py-1">
@@ -488,7 +464,7 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
                 </tr>
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background no-record-hover">
-                    <td colSpan={7} className="p-2">
+                    <td colSpan={8} className="p-2">
                       <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
                   </tr>
@@ -499,22 +475,28 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
         </table>
       </div>
       <div className="space-y-2 sm:hidden">
-        {rows.map(({ issue, needs }) => (
+        {reversed.map((issue) => (
           <div key={issue.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">School</div>
+                <div>{issue.school || "—"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Name</div>
+                <div>{issue.studentName || "—"}</div>
+              </div>
+            </div>
             <div>
               <div className="text-xs font-semibold uppercase text-muted-foreground">Student Record</div>
               <a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="break-all text-primary underline">{issue.studentRecordLink}</a>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            {issue.remarks && (
               <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Needs</div>
-                <div>{needs || "—"}</div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Note</div>
+                <div>{issue.remarks}</div>
               </div>
-              <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Type</div>
-                <div>{issue.correctionKind}</div>
-              </div>
-            </div>
+            )}
             <div>
               <div className="text-xs font-semibold uppercase text-muted-foreground">Reported By</div>
               <div>{issue.reportedBy}</div>
@@ -547,107 +529,10 @@ export function CorrectionTable({ issues, currentUserName, currentIsAdmin, vas, 
   );
 }
 
-export function ChartingTable({ issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
-  if (issues.length === 0) return <p className="text-sm text-muted-foreground">No charting questions.</p>;
-  const reversed = [...issues].reverse();
-  return (
-    <>
-      <div className="hidden overflow-x-auto rounded-md border bg-card sm:block">
-        <table className="w-full min-w-[900px] text-sm">
-          <thead>
-            <tr className="border-b bg-title-background text-left text-xs font-semibold uppercase text-muted-foreground">
-              <th className="px-2 py-1">Student Record</th>
-              <th className="px-2 py-1">Question</th>
-              <th className="px-2 py-1">Comments</th>
-              <th className="px-2 py-1">Reported By</th>
-              <th className="px-2 py-1">Date</th>
-              <th className="px-2 py-1">Status</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {reversed.map((issue) => (
-              <Fragment key={issue.id}>
-                <tr className="border-b bg-record-background align-top">
-                  <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
-                  <td className="px-2 py-1">{issue.question}</td>
-                  <td className="px-2 py-1">
-                    <CommentToggleButton
-                      comments={issue.comments || []}
-                      commentAckBy={issue.commentAckBy || []}
-                      currentUserName={currentUserName}
-                      expanded={expandedId === issue.id}
-                      onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                      onAck={() => {
-                        const fd = new FormData();
-                        fd.set("issueId", issue.id);
-                        ackIssueComments(fd);
-                      }}
-                    />
-                  </td>
-                  <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
-                  <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
-                  <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
-                  <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
-                </tr>
-                {expandedId === issue.id && (
-                  <tr className="border-b bg-record-background no-record-hover">
-                    <td colSpan={7} className="p-2">
-                      <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="space-y-2 sm:hidden">
-        {reversed.map((issue) => (
-          <div key={issue.id} className="space-y-2 rounded-md border bg-record-background p-3 text-sm">
-            <div>
-              <div className="text-xs font-semibold uppercase text-muted-foreground">Student Record</div>
-              <a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="break-all text-primary underline">{issue.studentRecordLink}</a>
-            </div>
-            <div>
-              <div className="text-xs font-semibold uppercase text-muted-foreground">Question</div>
-              <div>{issue.question}</div>
-            </div>
-            <div>
-              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Comments</div>
-              <CommentToggleButton
-                comments={issue.comments || []}
-                commentAckBy={issue.commentAckBy || []}
-                currentUserName={currentUserName}
-                expanded={expandedId === issue.id}
-                onToggle={() => setExpandedId((cur) => (cur === issue.id ? null : issue.id))}
-                onAck={() => {
-                  const fd = new FormData();
-                  fd.set("issueId", issue.id);
-                  ackIssueComments(fd);
-                }}
-              />
-              {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} /></div>}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Reported By</div>
-                <div>{issue.reportedBy}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Date</div>
-                <div>{fmtDate(issue.createdAt)}</div>
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Status</div>
-              <StatusSelectField issue={issue} setIssueStatus={setIssueStatus} />
-            </div>
-            <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
-          </div>
-        ))}
-      </div>
-    </>
-  );
+export function CorrectionTable(props: TableProps) {
+  return <SchoolRecordTable {...props} emptyMessage="No Review Patient Information entries." />;
+}
+
+export function ChartingTable(props: TableProps) {
+  return <SchoolRecordTable {...props} emptyMessage="No Charting Questions entries." />;
 }

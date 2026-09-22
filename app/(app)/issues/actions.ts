@@ -49,20 +49,23 @@ export async function addIssue(formData: FormData) {
         if (!studentRecordLink) return;
         issue = {
           ...baseIssueRow("Jane", "correction"),
-          correctionKind: (formData.get("correctionKind") as string) || "Correction",
+          school: (formData.get("school") as string) || "",
+          studentName: (formData.get("studentName") as string) || "",
           studentRecordLink,
-          needsNameCorrection: !!formData.get("needsNameCorrection"),
-          needsDobCorrection: !!formData.get("needsDobCorrection"),
-          needsInsuranceCorrection: !!formData.get("needsInsuranceCorrection"),
-          needsOtherCorrection: !!formData.get("needsOtherCorrection"),
-          otherCorrectionDetail: (formData.get("otherCorrectionDetail") as string) || "",
+          remarks: (formData.get("note") as string) || "",
           fixedBy: [],
         };
       } else if (type === "charting") {
         const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
-        const question = ((formData.get("question") as string) || "").trim();
-        if (!studentRecordLink || !question) return;
-        issue = { ...baseIssueRow("Jane", "charting"), studentRecordLink, question, fixedBy: [] };
+        if (!studentRecordLink) return;
+        issue = {
+          ...baseIssueRow("Jane", "charting"),
+          school: (formData.get("school") as string) || "",
+          studentName: (formData.get("studentName") as string) || "",
+          studentRecordLink,
+          remarks: (formData.get("note") as string) || "",
+          fixedBy: [],
+        };
       } else if (type === "custom") {
         const customTypeId = ((formData.get("customTypeId") as string) || "").trim();
         const description = ((formData.get("description") as string) || "").trim();
@@ -93,24 +96,22 @@ export async function addIssue(formData: FormData) {
     if (!studentRecordLink) return;
     const { error } = await supabase.from("issues").insert({
       ...baseIssueInsert(me, "correction"),
-      correction_kind: (formData.get("correctionKind") as string) || "Correction",
+      school: (formData.get("school") as string) || "",
+      student_name: (formData.get("studentName") as string) || "",
       student_record_link: studentRecordLink,
-      needs_name_correction: !!formData.get("needsNameCorrection"),
-      needs_dob_correction: !!formData.get("needsDobCorrection"),
-      needs_insurance_correction: !!formData.get("needsInsuranceCorrection"),
-      needs_other_correction: !!formData.get("needsOtherCorrection"),
-      other_correction_detail: (formData.get("otherCorrectionDetail") as string) || "",
+      remarks: (formData.get("note") as string) || "",
       fixed_by: [],
     });
     orThrow(error);
   } else if (type === "charting") {
     const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
-    const question = ((formData.get("question") as string) || "").trim();
-    if (!studentRecordLink || !question) return;
+    if (!studentRecordLink) return;
     const { error } = await supabase.from("issues").insert({
       ...baseIssueInsert(me, "charting"),
+      school: (formData.get("school") as string) || "",
+      student_name: (formData.get("studentName") as string) || "",
       student_record_link: studentRecordLink,
-      question,
+      remarks: (formData.get("note") as string) || "",
       fixed_by: [],
     });
     orThrow(error);

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Chip, Feedback, Field } from "@/components/quick-add-parts";
 import type { QuickAddData } from "@/components/quick-add-dialog";
-import { CORRECTION_KINDS, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
+import { ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 
 const BUILT_IN_TYPES = Object.keys(ISSUE_TYPE_LABELS) as IssueType[];
 
@@ -21,11 +21,9 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
   const [subcategory, setSubcategory] = useState("");
   const [description, setDescription] = useState("");
   const [note, setNote] = useState("");
-  const [kind, setKind] = useState(CORRECTION_KINDS[0]);
+  const [school, setSchool] = useState("");
+  const [studentName, setStudentName] = useState("");
   const [link, setLink] = useState("");
-  const [needs, setNeeds] = useState({ name: false, dob: false, insurance: false, other: false });
-  const [otherDetail, setOtherDetail] = useState("");
-  const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [added, setAdded] = useState<string | null>(null);
@@ -35,8 +33,7 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
 
   const ready =
     type === "software_issue" || customType ? description.trim().length > 0
-    : type === "correction" ? link.trim().length > 0
-    : link.trim().length > 0 && question.trim().length > 0;
+    : link.trim().length > 0;
 
   function build(): FormData {
     const form = new FormData();
@@ -50,19 +47,13 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
       form.set("category", categoryName);
       if (subcategory) form.set("subcategory", subcategory);
       form.set("note", note.trim());
-    } else if (type === "correction") {
-      form.set("correctionKind", kind);
-      form.set("studentRecordLink", link.trim());
-      if (needs.name) form.set("needsNameCorrection", "on");
-      if (needs.dob) form.set("needsDobCorrection", "on");
-      if (needs.insurance) form.set("needsInsuranceCorrection", "on");
-      if (needs.other) {
-        form.set("needsOtherCorrection", "on");
-        form.set("otherCorrectionDetail", otherDetail.trim());
-      }
     } else {
+      // correction (Review Patient Information) and charting (Charting
+      // Questions) -- same shape, filed to different sections.
+      form.set("school", school.trim());
+      form.set("studentName", studentName.trim());
       form.set("studentRecordLink", link.trim());
-      form.set("question", question.trim());
+      form.set("note", note.trim());
     }
     return form;
   }
@@ -70,10 +61,9 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
   function clear() {
     setDescription("");
     setNote("");
+    setSchool("");
+    setStudentName("");
     setLink("");
-    setNeeds({ name: false, dob: false, insurance: false, other: false });
-    setOtherDetail("");
-    setQuestion("");
   }
 
   async function submit(e: React.FormEvent) {
@@ -151,37 +141,19 @@ export function QuickAddIssuePanel({ data }: { data: QuickAddData }) {
         </>
       )}
 
-      {type === "correction" && (
+      {(type === "correction" || type === "charting") && (
         <>
-          <Field label="Kind">
-            <div className="flex flex-wrap gap-1.5">
-              {CORRECTION_KINDS.map((k) => (
-                <Chip key={k} on={kind === k} onClick={() => setKind(k)}>{k}</Chip>
-              ))}
-            </div>
+          <Field label="School">
+            <Input autoFocus value={school} onChange={(e) => setSchool(e.target.value)} placeholder="School" />
+          </Field>
+          <Field label="Name">
+            <Input value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Name" />
           </Field>
           <Field label="Link to student record">
-            <Input autoFocus value={link} onChange={(e) => { setLink(e.target.value); setAdded(null); }} placeholder="Paste the link" />
+            <Input value={link} onChange={(e) => { setLink(e.target.value); setAdded(null); }} placeholder="Paste the link" />
           </Field>
-          <Field label="Needs correction or verification">
-            <div className="flex flex-wrap gap-3 text-sm">
-              <label className="flex items-center gap-1"><input type="checkbox" checked={needs.name} onChange={(e) => setNeeds({ ...needs, name: e.target.checked })} /> Name</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={needs.dob} onChange={(e) => setNeeds({ ...needs, dob: e.target.checked })} /> DOB</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={needs.insurance} onChange={(e) => setNeeds({ ...needs, insurance: e.target.checked })} /> Insurance</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={needs.other} onChange={(e) => setNeeds({ ...needs, other: e.target.checked })} /> Other</label>
-            </div>
-            {needs.other && <Input value={otherDetail} onChange={(e) => setOtherDetail(e.target.value)} placeholder="What else needs correcting or verifying?" />}
-          </Field>
-        </>
-      )}
-
-      {type === "charting" && (
-        <>
-          <Field label="Link to student record">
-            <Input autoFocus value={link} onChange={(e) => { setLink(e.target.value); setAdded(null); }} placeholder="Paste the link" />
-          </Field>
-          <Field label="What's the question or concern?">
-            <Input value={question} onChange={(e) => { setQuestion(e.target.value); setAdded(null); }} placeholder="Type your question" />
+          <Field label="Note (optional)">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything else worth knowing" />
           </Field>
         </>
       )}

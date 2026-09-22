@@ -67,7 +67,7 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
         </section>
 
         <section className="space-y-3">
-          <h2 className="font-semibold">Correction / Verification</h2>
+          <h2 className="font-semibold">Review Patient Information</h2>
           <CorrectionTable issues={corrections} {...tableProps} />
         </section>
 

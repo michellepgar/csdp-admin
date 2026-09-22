@@ -717,13 +717,12 @@ export interface IssueCategory {
 
 export const ISSUE_TYPE_LABELS: Record<IssueType, string> = {
   software_issue: "Software Issue",
-  correction: "Correction/Verification",
+  correction: "Review Patient Information",
   charting: "Charting Question",
 };
 
 export const ISSUE_STATUS_OPTIONS = ["Pending", "Resolved"];
 export const CORRECTION_CATEGORIES = ["Name", "Date of Birth", "Insurance Number", "Grade", "School Year", "Other"];
-export const CORRECTION_KINDS = ["Correction", "Verification"];
 
 // Recorded for a Software Issue's subcategory when its category has no
 // subcategories to pick from (the Subcategory field is disabled in
@@ -746,8 +745,8 @@ export interface Issue {
   category?: string;
   subcategory?: string;
   remarks?: string; // "Note" in the UI
-  // Record update -- unused now (removed type, see IssueType's comment)
-  studentName?: string;
+  // Record update -- unused now (removed type, see IssueType's comment).
+  // studentName is the exception: revived below for Review Patient Information's "Name".
   dob?: string;
   insuranceNumber?: string;
   schoolYear?: string;
@@ -755,15 +754,30 @@ export interface Issue {
   pageNumber?: string;
   correctingCategory?: string;
   correctInfo?: string;
-  // Correction / Verification
-  correctionKind?: string;
+  // Review Patient Information (was "Correction / Verification" -- Michelle
+  // had it simplified down to a plain lookup-and-note form: which school
+  // and record this is about, a link to it, and a note, instead of the old
+  // Kind picker and per-field "needs correction" checkboxes) AND Charting
+  // Questions (Michelle: same shape as Review Patient Information -- these
+  // two types file into separate sections on the page but share this exact
+  // set of fields; Charting no longer has its own distinct "question"
+  // field, remarks/"Note" covers it now). reportedBy/status/comments above
+  // and remarks below are shared with every other issue type already.
+  school?: string;
+  studentName?: string;
   studentRecordLink?: string;
+  // Kind picker and "needs correction" checkboxes -- unused now (removed
+  // per Michelle's "remove needs and type"), kept only so old rows don't
+  // break anything reading them.
+  correctionKind?: string;
   needsNameCorrection?: boolean;
   needsDobCorrection?: boolean;
   needsInsuranceCorrection?: boolean;
   needsOtherCorrection?: boolean;
   otherCorrectionDetail?: string;
-  // Charting Questions
+  // Charting's own free-text question -- unused now (Charting uses the
+  // shared school/studentName/studentRecordLink/remarks fields above
+  // instead), kept only so old rows don't break anything reading them.
   question?: string;
   // Correction/Charting "Fix" -- fixedBy (the old sign-off chips) and
   // fixNote (the single free-text note that replaced them) are both

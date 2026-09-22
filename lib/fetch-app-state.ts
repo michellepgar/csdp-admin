@@ -611,6 +611,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     issueTypeLinksResult,
     emailDoneResult,
     taskCategorySchoolCountsResult,
+    issueSchoolFieldResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -660,6 +661,9 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     // this fails, which just means every category's Count column reads as off for
     // every school until she runs it (same as never having toggled any on yet).
     supabase.from("task_category_school_counts").select("school_id, category_id"),
+    // Tolerant too: until phase69_issue_school_field.sql has been run this fails,
+    // which just means Review Patient Information issues don't show a school yet.
+    supabase.from("issues").select("id, school"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -905,13 +909,21 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
       if (row.custom_type_id) customTypeByIssueId.set(row.id, row.custom_type_id);
     }
   }
+  const schoolByIssueId = new Map<string, string>();
+  if (!issueSchoolFieldResult.error) {
+    for (const row of (issueSchoolFieldResult.data || []) as { id: string; school: string | null }[]) {
+      if (row.school) schoolByIssueId.set(row.id, row.school);
+    }
+  }
   state.issueTypes = issueTypesResult.error ? [] : (issueTypesResult.data || []).map((t) => ({ id: t.id as string, name: t.name as string }));
   state.issues = (issuesResult.data || []).map((r) => {
     const id = (r as unknown as IssueRow).id;
     const customTypeId = customTypeByIssueId.get(id);
+    const school = schoolByIssueId.get(id);
     return {
       ...mapIssueRow(r as unknown as IssueRow),
       ...(customTypeId ? { customTypeId } : {}),
+      ...(school ? { school } : {}),
       comments: issueCommentsByIssueId.get(id) || [],
     };
   });

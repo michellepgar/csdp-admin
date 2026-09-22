@@ -3,11 +3,12 @@ import { LayoutDashboard } from "lucide-react";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { checklistCompletion, findVaByEmail, isAdmin, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { todayActivityByVa } from "@/lib/shared-task-files";
+import { todayActivityByVa, groupTaskTables } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrentlyWorkingOn } from "@/components/currently-working-on";
 import { CurrentTaskQuickAdd } from "@/components/current-task-quick-add";
+import type { QuickAddTable } from "@/components/quick-add-dialog";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
@@ -62,6 +63,24 @@ export default async function OverviewPage() {
 
     const myReminderNotes = (state.privateNotes || []).filter((n) => n.author === me?.name && n.isReminder);
   const shift = shiftAvailability(state.shiftStates, me?.name ?? "");
+
+  /* Same "existing table" data the header's Quick add already computes
+     (app/(app)/layout.tsx) -- Currently Working On's own quick-add
+     needs it too, so starting a file that belongs to a multi-category
+     table (rather than a single new category) works the same way here
+     as everywhere else a file gets added. */
+  const tablesBySchool: Record<string, QuickAddTable[]> = {};
+  for (const school of state.schools) {
+    const groups = groupTaskTables(state.taskCategories || [], state.schoolData[school.id]?.taskFiles || []);
+    if (groups.length === 0) continue;
+    tablesBySchool[school.id] = groups.map((g) => ({
+      key: g.key,
+      tableId: g.key.startsWith("[") ? "" : g.key,
+      label: `${g.categories.map((c) => c.name).join(" + ")} (${g.files.length})`,
+      categoryIds: g.categories.map((c) => c.id),
+    }));
+  }
+
   const pickerProps = me && {
     currentUserName: me.name,
     schools: state.schools,
@@ -92,6 +111,7 @@ export default async function OverviewPage() {
         <CurrentTaskQuickAdd
           schools={state.schools}
           taskCategories={state.taskCategories || []}
+          tablesBySchool={tablesBySchool}
           generalTaskCategories={state.generalTaskCategories || []}
           startWorkNow={startWorkNow}
         />

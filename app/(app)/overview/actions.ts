@@ -1185,12 +1185,19 @@ export async function saveWorkNote(formData: FormData): Promise<PlanActionResult
 export async function startWorkNow(formData: FormData): Promise<PlanActionResult> {
   const destination = (formData.get("destination") as string) || "school";
   const schoolId = (formData.get("schoolId") as string) || "";
+  // General Tasks: a single category, stored as its own name (no
+  // separate "table" concept there). School: one or more categories --
+  // one when a single new/existing category was picked, several when
+  // an existing table (a file spanning multiple categories at once,
+  // same concept components/quick-add-file-panel.tsx already offers)
+  // was picked instead.
   const categoryId = formData.get("categoryId") as string;
+  const categoryIds = formData.getAll("categoryIds").map(String).filter(Boolean);
   const fileName = ((formData.get("fileName") as string) || "").trim();
-  if (!categoryId) return { error: "Choose a category." };
   if (!fileName) return { error: "Enter a file name." };
 
   if (destination === "general") {
+    if (!categoryId) return { error: "Choose a category." };
     if (await isDemoMode()) {
       await demoMutate((state) => {
         const existing = (state.generalTasks || []).find((t) => t.category === categoryId && t.description.trim().toLowerCase() === fileName.toLowerCase());
@@ -1224,25 +1231,46 @@ export async function startWorkNow(formData: FormData): Promise<PlanActionResult
   }
 
   if (!schoolId) return { error: "Choose a school." };
+  const schoolCategoryIds = categoryIds.length > 0 ? categoryIds : (categoryId ? [categoryId] : []);
+  if (schoolCategoryIds.length === 0) return { error: "Choose a category." };
   const normalizedFileName = fileName.toLowerCase();
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
       const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
-      const existingFile = (sd.taskFiles || []).find((f) => f.fileName.trim().toLowerCase() === normalizedFileName && f.categories.some((c) => c.categoryId === categoryId));
-      const existingAssignment = existingFile?.categories.find((c) => c.categoryId === categoryId);
-      if (existingAssignment) {
-        existingAssignment.vaAssigned = ["Jane"];
-        existingAssignment.status = existingAssignment.status === "Completed" ? "Review" : "In Progress";
-        const task = sd.tasks?.find((t) => t.id === existingAssignment.id);
-        if (task) { task.vaAssigned = existingAssignment.vaAssigned; task.status = existingAssignment.status; }
+      // A file "matches" for starting purposes if it already covers
+      // every one of the categories picked (same table) -- covers both
+      // the single-new-category case (one id) and an existing table
+      // (several ids at once).
+      const existingFile = (sd.taskFiles || []).find(
+        (f) => f.fileName.trim().toLowerCase() === normalizedFileName && schoolCategoryIds.every((id) => f.categories.some((c) => c.categoryId === id))
+      );
+      if (existingFile) {
+        for (const catId of schoolCategoryIds) {
+          const assignment = existingFile.categories.find((c) => c.categoryId === catId);
+          if (!assignment) continue;
+          assignment.vaAssigned = ["Jane"];
+          assignment.status = assignment.status === "Completed" ? "Review" : "In Progress";
+          const task = sd.tasks?.find((t) => t.id === assignment.id);
+          if (task) { task.vaAssigned = assignment.vaAssigned; task.status = assignment.status; }
+        }
       } else {
         const fileId = `demo-quickstart-file-${Date.now()}`;
-        const category = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
         const createdAt = new Date().toISOString();
-        const assignmentId = `${fileId}-0`;
-        (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category, status: "In Progress", vaAssigned: ["Jane"], sortOrder: 0, createdAt }] });
-        (sd.tasks ??= []).push({ id: assignmentId, category, fileName, sortOrder: sd.taskFiles.length - 1, status: "In Progress", vaAssigned: ["Jane"], createdAt });
+        const categories = schoolCategoryIds.map((catId, i) => ({
+          id: `${fileId}-${i}`,
+          taskFileId: fileId,
+          categoryId: catId,
+          category: state.taskCategories?.find((c) => c.id === catId)?.name || "Uncategorized",
+          status: "In Progress",
+          vaAssigned: ["Jane"],
+          sortOrder: i,
+          createdAt,
+        }));
+        (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories });
+        for (const c of categories) {
+          (sd.tasks ??= []).push({ id: c.id, category: c.category, fileName, sortOrder: sd.taskFiles.length - 1, status: "In Progress", vaAssigned: ["Jane"], createdAt });
+        }
       }
     });
     revalidatePath("/overview");
@@ -1258,27 +1286,34 @@ export async function startWorkNow(formData: FormData): Promise<PlanActionResult
       .select("id, task_file_categories(id, status, va_assigned, category_id)")
       .eq("school_id", schoolId)
       .ilike("file_name", fileName);
-    const existingAssignment = (existingFiles || [])
-      .flatMap((f) => f.task_file_categories)
-      .find((a) => a.category_id === categoryId);
+    // Same "covers every picked category" match as the demo branch above.
+    const existingFile = (existingFiles || []).find((f) =>
+      schoolCategoryIds.every((id) => (f.task_file_categories || []).some((a) => a.category_id === id))
+    );
 
-    if (existingAssignment) {
-      const nextStatus = existingAssignment.status === "Completed" ? "Review" : "In Progress";
+    if (existingFile) {
       // One VA per school file (same convention every other start-a-task
       // action in this file uses): starting it puts you on it in place
-      // of whoever was.
-      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: existingAssignment.id, p_patch: { status: nextStatus, va_assigned: [me.name] } });
-      orThrow(error);
+      // of whoever was, for every category this file covers.
+      for (const catId of schoolCategoryIds) {
+        const assignment = existingFile.task_file_categories.find((a) => a.category_id === catId);
+        if (!assignment) continue;
+        const nextStatus = assignment.status === "Completed" ? "Review" : "In Progress";
+        const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: assignment.id, p_patch: { status: nextStatus, va_assigned: [me.name] } });
+        orThrow(error);
+      }
     } else {
       const fileId = crypto.randomUUID();
-      const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
+      const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: schoolCategoryIds });
       orThrow(createError);
 
-      const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
-      if (!created) throw new Error("File was created but couldn't be started — open the school page to sign it manually.");
+      const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).in("category_id", schoolCategoryIds);
+      if (!created || created.length === 0) throw new Error("File was created but couldn't be started — open the school page to sign it manually.");
 
-      const { error: startError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: created.id, p_patch: { status: "In Progress", va_assigned: [me.name] } });
-      orThrow(startError);
+      for (const row of created) {
+        const { error: startError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: row.id, p_patch: { status: "In Progress", va_assigned: [me.name] } });
+        orThrow(startError);
+      }
     }
 
     revalidatePath("/overview");

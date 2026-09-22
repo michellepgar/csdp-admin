@@ -145,6 +145,19 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
     setChecked((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
   }
 
+  // One checkbox for a whole visible list -- checked (and unchecks
+  // everything) once every item in it is already checked, otherwise
+  // checks whatever isn't yet.
+  function toggleAll(items: OpenItem[]) {
+    const allChecked = items.length > 0 && items.every((t) => checked.has(t.id));
+    if (allChecked) {
+      setChecked((prev) => { const next = new Set(prev); for (const t of items) next.delete(t.id); return next; });
+    } else {
+      remember(items);
+      setChecked((prev) => { const next = new Set(prev); for (const t of items) next.add(t.id); return next; });
+    }
+  }
+
   function addPendingReminderFreeText() {
     const label = reminderText.trim();
     if (!label) return;
@@ -281,6 +294,12 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                   <>
                     <p className="text-sm text-muted-foreground">{mode === "end" ? "Still in progress today. Uncheck anything that shouldn't be in your Planned Work." : "Tasks you're working on now. Check the ones to add."}</p>
                     {carryOver.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Nothing in progress right now.</p>}
+                    {carryOver.length > 1 && (
+                      <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <input type="checkbox" className="h-3.5 w-3.5" checked={carryOver.every((t) => checked.has(t.id))} onChange={() => toggleAll(carryOver)} />
+                        Select all
+                      </label>
+                    )}
                     {carryOver.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
                         <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t)} />
@@ -304,6 +323,12 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                       <input value={newGeneralCategoryName} onChange={(e) => setNewGeneralCategoryName(e.target.value)} placeholder="New category name" className="h-9 w-full rounded-md border bg-background px-3 text-sm" />
                     )}
                     {generalCategory !== "" && generalCategory !== NEW_CATEGORY && browseGeneralTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">No tasks in this category yet.</p>}
+                    {browseGeneralTasks.length > 1 && (
+                      <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <input type="checkbox" className="h-3.5 w-3.5" checked={browseGeneralTasks.every((t) => checked.has(t.id))} onChange={() => toggleAll(browseGeneralTasks)} />
+                        Select all
+                      </label>
+                    )}
                     {browseGeneralTasks.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
                         <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t)} />
@@ -371,6 +396,12 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                       </div>
                     )}
                     {school && (pickedCategory || pickedTable) && browseSchoolTasks.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">{pickedTable ? "No other files in this table." : "No other files in this category at this school."}</p>}
+                    {browseSchoolTasks.length > 1 && (
+                      <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <input type="checkbox" className="h-3.5 w-3.5" checked={browseSchoolTasks.every((t) => checked.has(t.id))} onChange={() => toggleAll(browseSchoolTasks)} />
+                        Select all
+                      </label>
+                    )}
                     {browseSchoolTasks.map((t) => (
                       <label key={t.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm shadow-sm transition-colors hover:bg-muted/40", checked.has(t.id) && "border-plan-accent/60 bg-plan-accent/5")}>
                         <input type="checkbox" className="h-4 w-4" checked={checked.has(t.id)} onChange={() => toggle(t)} />

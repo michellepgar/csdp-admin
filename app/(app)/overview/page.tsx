@@ -7,12 +7,13 @@ import { todayActivityByVa } from "@/lib/shared-task-files";
 import { PageBody } from "@/components/page-body";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrentlyWorkingOn } from "@/components/currently-working-on";
+import { CurrentTaskQuickAdd } from "@/components/current-task-quick-add";
 import { PlanTomorrowPicker } from "@/components/plan-tomorrow-picker";
 import { PlansForTomorrow } from "@/components/plans-for-tomorrow";
 import { TaskPriorities } from "@/components/task-priorities";
 import { StartMyDayButton } from "@/components/start-my-day-button";
 import { shiftAvailability } from "@/lib/shift";
-import { savePlan, addPriority, updatePriorityPlanItem, removePlanItem, claimPriorityPlanItem, movePriorityPlanItem, resolvePriorityPlanItem, startMyDay } from "./actions";
+import { savePlan, addPriority, updatePriorityPlanItem, removePlanItem, claimPriorityPlanItem, movePriorityPlanItem, resolvePriorityPlanItem, startMyDay, startWorkNow } from "./actions";
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -87,6 +88,14 @@ export default async function OverviewPage() {
       </div>
 
       <PageBody>
+      {me && (
+        <CurrentTaskQuickAdd
+          schools={state.schools}
+          taskCategories={state.taskCategories || []}
+          generalTaskCategories={state.generalTaskCategories || []}
+          startWorkNow={startWorkNow}
+        />
+      )}
       <CurrentlyWorkingOn todayByVa={Array.from(todayByVa.entries())} vas={state.vas} workNotes={state.workNotes || []} currentUserName={me?.name ?? ""} />
 
       {me && (

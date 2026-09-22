@@ -1171,3 +1171,117 @@ export async function saveWorkNote(formData: FormData): Promise<PlanActionResult
     return { error: "Couldn't save that note. Try again." };
   }
 }
+
+/* "+ Add" right on Currently Working On -- Michelle's team asked to
+   just add something there directly instead of going to a school
+   page (or Plan Tomorrow -> Start My Day) first. Same
+   find-existing-file-or-create-one-then-sign-and-start logic as
+   resolvePriorityPlanItem's school/general branches, minus the
+   linked-priority bookkeeping (there's no priority plan_items row
+   here to resolve/delete -- this is a fresh start, not resolving an
+   existing suggestion). Always signs the CURRENT user, immediately,
+   with status In Progress -- no separate Plan/Start step needed,
+   which is the whole point. */
+export async function startWorkNow(formData: FormData): Promise<PlanActionResult> {
+  const destination = (formData.get("destination") as string) || "school";
+  const schoolId = (formData.get("schoolId") as string) || "";
+  const categoryId = formData.get("categoryId") as string;
+  const fileName = ((formData.get("fileName") as string) || "").trim();
+  if (!categoryId) return { error: "Choose a category." };
+  if (!fileName) return { error: "Enter a file name." };
+
+  if (destination === "general") {
+    if (await isDemoMode()) {
+      await demoMutate((state) => {
+        const existing = (state.generalTasks || []).find((t) => t.category === categoryId && t.description.trim().toLowerCase() === fileName.toLowerCase());
+        if (existing) {
+          if (!existing.vaAssigned.includes("Jane")) existing.vaAssigned.push("Jane");
+          existing.status = existing.status === "Completed" ? "Review" : "In Progress";
+        } else {
+          (state.generalTasks ??= []).push({ id: `demo-quickstart-${Date.now()}`, category: categoryId, description: fileName, status: "In Progress", vaAssigned: ["Jane"], createdAt: new Date().toISOString() });
+        }
+      });
+      revalidatePath("/overview");
+      revalidatePath("/general-tasks");
+      return { error: null };
+    }
+
+    return runPlanAction(async () => {
+      const { supabase, me } = await requireTeamMember();
+      const { data: existing } = await supabase.from("general_tasks").select("id, status, va_assigned").eq("category", categoryId).ilike("description", fileName).maybeSingle();
+      if (existing) {
+        const nextStatus = existing.status === "Completed" ? "Review" : "In Progress";
+        const nextVaAssigned = (existing.va_assigned || []).includes(me.name) ? existing.va_assigned : [...(existing.va_assigned || []), me.name];
+        const { error } = await supabase.from("general_tasks").update({ status: nextStatus, va_assigned: nextVaAssigned }).eq("id", existing.id);
+        orThrow(error);
+      } else {
+        const { error } = await supabase.from("general_tasks").insert({ id: crypto.randomUUID(), category: categoryId, description: fileName, status: "In Progress", va_assigned: [me.name] });
+        orThrow(error);
+      }
+      revalidatePath("/overview");
+      revalidatePath("/general-tasks");
+    });
+  }
+
+  if (!schoolId) return { error: "Choose a school." };
+  const normalizedFileName = fileName.toLowerCase();
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const sd = (state.schoolData[schoolId] ??= { vaAssigned: "" });
+      const existingFile = (sd.taskFiles || []).find((f) => f.fileName.trim().toLowerCase() === normalizedFileName && f.categories.some((c) => c.categoryId === categoryId));
+      const existingAssignment = existingFile?.categories.find((c) => c.categoryId === categoryId);
+      if (existingAssignment) {
+        existingAssignment.vaAssigned = ["Jane"];
+        existingAssignment.status = existingAssignment.status === "Completed" ? "Review" : "In Progress";
+        const task = sd.tasks?.find((t) => t.id === existingAssignment.id);
+        if (task) { task.vaAssigned = existingAssignment.vaAssigned; task.status = existingAssignment.status; }
+      } else {
+        const fileId = `demo-quickstart-file-${Date.now()}`;
+        const category = state.taskCategories?.find((c) => c.id === categoryId)?.name || "Uncategorized";
+        const createdAt = new Date().toISOString();
+        const assignmentId = `${fileId}-0`;
+        (sd.taskFiles ??= []).push({ id: fileId, fileName, sortOrder: sd.taskFiles?.length || 0, createdAt, categories: [{ id: assignmentId, taskFileId: fileId, categoryId, category, status: "In Progress", vaAssigned: ["Jane"], sortOrder: 0, createdAt }] });
+        (sd.tasks ??= []).push({ id: assignmentId, category, fileName, sortOrder: sd.taskFiles.length - 1, status: "In Progress", vaAssigned: ["Jane"], createdAt });
+      }
+    });
+    revalidatePath("/overview");
+    revalidatePath(`/schools/${schoolId}`);
+    return { error: null };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
+
+    const { data: existingFiles } = await supabase
+      .from("task_files")
+      .select("id, task_file_categories(id, status, va_assigned, category_id)")
+      .eq("school_id", schoolId)
+      .ilike("file_name", fileName);
+    const existingAssignment = (existingFiles || [])
+      .flatMap((f) => f.task_file_categories)
+      .find((a) => a.category_id === categoryId);
+
+    if (existingAssignment) {
+      const nextStatus = existingAssignment.status === "Completed" ? "Review" : "In Progress";
+      // One VA per school file (same convention every other start-a-task
+      // action in this file uses): starting it puts you on it in place
+      // of whoever was.
+      const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: existingAssignment.id, p_patch: { status: nextStatus, va_assigned: [me.name] } });
+      orThrow(error);
+    } else {
+      const fileId = crypto.randomUUID();
+      const { error: createError } = await supabase.rpc("add_task_file", { p_id: fileId, p_school_id: schoolId, p_file_name: fileName, p_category_ids: [categoryId] });
+      orThrow(createError);
+
+      const { data: created } = await supabase.from("task_file_categories").select("id").eq("task_file_id", fileId).eq("category_id", categoryId).maybeSingle();
+      if (!created) throw new Error("File was created but couldn't be started — open the school page to sign it manually.");
+
+      const { error: startError } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: created.id, p_patch: { status: "In Progress", va_assigned: [me.name] } });
+      orThrow(startError);
+    }
+
+    revalidatePath("/overview");
+    revalidatePath(`/schools/${schoolId}`);
+  });
+}

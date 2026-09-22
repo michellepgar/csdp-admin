@@ -61,6 +61,10 @@ export async function removeEodReport(formData: FormData) {
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      const report = (state.eodReports || []).find((e) => e.id === id);
+      if (!report) return;
+      const me = state.vas.find((v) => v.name === "Jane");
+      if (!(me && isAdmin(me)) && report.author !== "Jane") return;
       state.eodReports = (state.eodReports || []).filter((e) => e.id !== id);
     });
     revalidatePath("/eod");

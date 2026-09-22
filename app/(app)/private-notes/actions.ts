@@ -268,15 +268,27 @@ export async function ackPrivateNote(formData: FormData) {
   revalidatePath("/private-notes");
 }
 
-/* Same rule as canDeletePrivateNote in lib/app-state.ts (the author
-   can always delete their own; once they're off the team, anyone who
-   can see it can clean it up), reimplemented as targeted queries
-   instead of fetchAppState()'s full ~19-table fetch. */
+/* Same rule as canDeletePrivateNote in lib/app-state.ts -- the author
+   can always delete their own; once they're off the team, only
+   someone the note was actually shared with can clean it up (NOT
+   anyone on the team -- that was a real bug here, fixed alongside
+   lib/app-state.ts's own copy of this rule). removeVa
+   (app/(app)/team/actions.ts) now deletes a departing VA's private
+   notes outright, so this "author left" branch shouldn't normally
+   trigger anymore, but it stays correct here as a safety net for any
+   note that was already orphaned before that existed. Reimplemented
+   as targeted queries instead of fetchAppState()'s full ~19-table
+   fetch. */
 export async function removePrivateNote(formData: FormData) {
   const id = formData.get("id") as string;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === id);
+      if (!note) return;
+      const authorStillOnTeam = state.vas.some((v) => v.name === note.author);
+      const canDelete = note.author === "Jane" || (!authorStillOnTeam && (note.sharedWith || []).includes("Jane"));
+      if (!canDelete) return;
       state.privateNotes = (state.privateNotes || []).filter((n) => n.id !== id);
     });
     revalidatePath("/private-notes");
@@ -285,13 +297,13 @@ export async function removePrivateNote(formData: FormData) {
 
   const { supabase, me } = await requireTeamMember();
 
-  const { data: note } = await supabase.from("private_notes").select("author").eq("id", id).maybeSingle();
+  const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", id).maybeSingle();
   if (!note) return;
 
   let canDelete = note.author === me.name;
   if (!canDelete) {
     const { data: authorVa } = await supabase.from("vas").select("id").eq("name", note.author).maybeSingle();
-    canDelete = !authorVa;
+    canDelete = !authorVa && ((note.shared_with as string[] | null) || []).includes(me.name);
   }
   if (!canDelete) return;
 

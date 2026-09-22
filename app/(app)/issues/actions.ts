@@ -236,6 +236,10 @@ export async function removeIssue(formData: FormData) {
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      const issue = (state.issues || []).find((i) => i.id === id);
+      if (!issue) return;
+      const me = state.vas.find((v) => v.name === "Jane");
+      if (!(me && isAdmin(me)) && issue.reportedBy !== "Jane") return;
       state.issues = (state.issues || []).filter((i) => i.id !== id);
     });
     revalidatePath("/issues");

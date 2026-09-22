@@ -924,11 +924,18 @@ export function canDeleteGeneralNote(state: AppState, note: GeneralNote, current
 
 /* Same rule as the HTML app's canDeleteNote for private-scope notes:
    the author can always delete their own; once they're off the team,
-   anyone who can see it (i.e. it was shared with them) can clean it up. */
+   anyone who can see it (i.e. it was shared with them) can clean it
+   up -- NOT anyone on the team, which is what this returned before
+   the sharedWith check was added (a real bug: removing a VA now
+   deletes their private notes outright, see removeVa in
+   app/(app)/team/actions.ts, so this "author left" branch shouldn't
+   normally trigger anymore, but it stays correct here as a safety net
+   for any note that was already orphaned before that existed). */
 export function canDeletePrivateNote(state: AppState, note: PrivateNote, currentName: string): boolean {
   if (note.author === currentName) return true;
   const authorStillOnTeam = state.vas.some((v) => v.name === note.author);
-  return !authorStillOnTeam;
+  if (authorStillOnTeam) return false;
+  return (note.sharedWith || []).includes(currentName);
 }
 
 /* A private note is visible only to its author or anyone it's been

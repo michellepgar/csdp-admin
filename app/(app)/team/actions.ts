@@ -105,9 +105,19 @@ export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
       }
       for (const task of state.generalTasks || []) if (task.status !== "Completed") task.vaAssigned = task.vaAssigned.filter((n) => n !== va.name);
       state.planItems = (state.planItems || []).filter((p) => p.vaName !== va.name);
+      // Their private notes go with them -- Michelle asked for this
+      // explicitly ("it's their private notes"), rather than leaving
+      // them behind as orphaned rows anyone still on the team could
+      // then delete (private_notes.author is a free-text name, not a
+      // foreign key, so nothing does this automatically at the
+      // database level -- confirmed no ON DELETE CASCADE exists for
+      // it, same as every other name-matched, non-relational field in
+      // this app).
+      state.privateNotes = (state.privateNotes || []).filter((n) => n.author !== va.name);
       state.vas = state.vas.filter((v) => v.id !== id);
     });
     revalidatePath("/team");
+    revalidatePath("/private-notes");
     return { error: null };
   }
 
@@ -148,6 +158,16 @@ export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
 
   const { error: planItemsError } = await supabase.from("plan_items").delete().eq("va_name", va.name);
   if (planItemsError) throw new Error(planItemsError.message);
+
+  // Their private notes go with them -- Michelle asked for this
+  // explicitly ("it's their private notes"), rather than leaving them
+  // behind as orphaned rows anyone still on the team could then
+  // delete. private_notes.author is a free-text name, not a foreign
+  // key to vas (see supabase/phase3_relational_notes.sql), so nothing
+  // does this automatically at the database level -- has to happen
+  // here.
+  const { error: privateNotesError } = await supabase.from("private_notes").delete().eq("author", va.name);
+  if (privateNotesError) throw new Error(privateNotesError.message);
 
   const { error } = await supabase.from("vas").delete().eq("id", id);
   if (error) throw new Error(error.message);

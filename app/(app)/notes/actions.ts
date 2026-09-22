@@ -185,6 +185,12 @@ export async function removeGeneralNote(formData: FormData) {
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      const note = (state.generalNotes || []).find((n) => n.id === id);
+      if (!note) return;
+      const authorStillOnTeam = state.vas.some((v) => v.name === note.author);
+      const me = state.vas.find((v) => v.name === "Jane");
+      const canDelete = note.author === "Jane" || (!authorStillOnTeam && !!me && isAdmin(me));
+      if (!canDelete) return;
       state.generalNotes = (state.generalNotes || []).filter((n) => n.id !== id);
     });
     revalidatePath("/notes");

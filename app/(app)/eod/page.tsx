@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { EodList } from "@/components/eod-list";
 import { EodEntryForm } from "@/components/eod-entry-form";
-import { addEodReport, removeEodReport } from "./actions";
+import { addEodReport, updateEodReport, removeEodReport } from "./actions";
 
 export default async function EodPage({ searchParams }: { searchParams: Promise<{ draftTasks?: string }> }) {
   const user = await getCurrentUser();
@@ -26,13 +26,14 @@ export default async function EodPage({ searchParams }: { searchParams: Promise<
     <div>
       <PageHeader title="EOD Reports" />
       <PageBody>
-      <EodEntryForm addEodReport={addEodReport} defaultTasks={draftTasks} />
+      <EodEntryForm action={addEodReport} defaultTasks={draftTasks} />
 
       <EodList
         reports={state.eodReports || []}
         vaNames={state.vas.map((v) => v.name)}
         currentUserName={me.name}
         currentIsAdmin={isAdmin(me)}
+        updateEodReport={updateEodReport}
         removeEodReport={removeEodReport}
       />
       </PageBody>

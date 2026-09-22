@@ -116,7 +116,7 @@ export const DEMO_APP_STATE: AppState = {
     },
   ],
   eodReports: [
-    { id: "eod1", author: DEMO_USER_NAME, date: new Date().toISOString().slice(0, 10), timeIn: "8:00 AM", timeOut: "4:00 PM", totalHours: "8", tasks: ["Reviewed consent forms for Angelo Elementary"], createdAt: new Date().toISOString() },
+    { id: "eod1", author: DEMO_USER_NAME, date: new Date().toISOString().slice(0, 10), timeIn: "08:00", timeOut: "16:00", totalHours: "8:00", tasks: ["Reviewed consent forms for Angelo Elementary"], createdAt: new Date().toISOString() },
   ],
   issues: [
     { id: "i1", type: "software_issue", reportedBy: DEMO_USER_NAME, status: "Open", createdAt: new Date().toISOString(), description: "Sample issue for the demo -- upload button was slow to respond." },

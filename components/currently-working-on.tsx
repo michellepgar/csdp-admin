@@ -95,6 +95,23 @@ function vaListRow(t: TodayActivityItem, key: number, taskCategories: TaskCatego
   );
 }
 
+/* Same link in both views (Columns and List) -- what it hands off to
+   the EOD form is always the List-style "<phrase> - <file> - <status>"
+   text (eodLineText), regardless of which view built it. */
+function SendToEodLink({ show, draftText }: { show: boolean; draftText: string }) {
+  if (!show || !draftText) return null;
+  return (
+    <div className="mb-1.5 flex justify-end">
+      <Link
+        href={`/eod?draftTasks=${encodeURIComponent(draftText)}`}
+        className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+      >
+        <Send className="h-3 w-3" /> Send to EOD
+      </Link>
+    </div>
+  );
+}
+
 function columnsFor(items: TodayActivityItem[], noteFor: (item: TodayActivityItem) => string | undefined, isMine: boolean): CategoryColumn[] {
   const byCategory = new Map<string, TodayActivityItem[]>();
   for (const t of items) {
@@ -188,22 +205,14 @@ export function CurrentlyWorkingOn({ todayByVa, vas, workNotes, currentUserName,
                 </div>
                 {viewMode === "list" ? (
                   <div className="min-w-0 flex-1 p-3">
-                    {isMine && eodDraftText && (
-                      <div className="mb-1.5 flex justify-end">
-                        <Link
-                          href={`/eod?draftTasks=${encodeURIComponent(eodDraftText)}`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
-                        >
-                          <Send className="h-3 w-3" /> Send to EOD
-                        </Link>
-                      </div>
-                    )}
+                    <SendToEodLink show={isMine} draftText={eodDraftText} />
                     <ul className="space-y-1.5">
                       {items.map((t, i) => vaListRow(t, i, taskCategories, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
                     </ul>
                   </div>
                 ) : (
                   <div className="min-w-0 flex-1 p-3">
+                    <SendToEodLink show={isMine} draftText={eodDraftText} />
                     <CategoryColumns columns={columnsFor(items, noteFor, isMine)} accentColor={va?.color} />
                   </div>
                 )}

@@ -59,6 +59,11 @@ export async function updateDocumentExtractionField(formData: FormData): Promise
   if (fetchError) return { error: fetchError.message };
   if (!row) return { error: "That entry could not be found." };
 
+  // Read-modify-write on the whole jsonb array, not a targeted jsonb_set --
+  // simpler, and fine given this only ever runs for one person at a time,
+  // but two near-simultaneous edits to two different fields on the same
+  // document could race (the later write's read predates the earlier
+  // write's save, clobbering it).
   const fields = Array.isArray(row.fields) ? [...row.fields] : [];
   if (fieldIndex >= fields.length) return { error: "That field no longer exists." };
   fields[fieldIndex] = { ...fields[fieldIndex], value };
@@ -91,8 +96,7 @@ export async function setDocumentExtractionStatus(formData: FormData): Promise<{
   if (fetchError) return { error: fetchError.message };
   if (!row) return { error: "That entry could not be found." };
 
-  const patch: Record<string, unknown> = { status };
-  if (status === "rejected") patch.rejection_reason = rejectionReason || null;
+  const patch: Record<string, unknown> = { status, rejection_reason: status === "rejected" ? rejectionReason || null : null };
   if (status === "approved" && !row.reviewed_at) patch.reviewed_at = new Date().toISOString();
   if (status === "encoded" && !row.encoded_at) patch.encoded_at = new Date().toISOString();
 

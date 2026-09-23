@@ -84,6 +84,7 @@ export function AppTopBar({
   sidebarCollapsed,
   schools,
   isAdmin,
+  showMyWorkspace,
   currentName,
   currentColor,
   myMentions,
@@ -95,6 +96,7 @@ export function AppTopBar({
   sidebarCollapsed: boolean;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
+  showMyWorkspace: boolean;
   currentName: string;
   currentColor?: string;
   myMentions: Mention[];
@@ -185,7 +187,7 @@ export function AppTopBar({
         )}
       </HeaderMenu>
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} schools={schools} isAdmin={isAdmin} searchNotes={searchNotes} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} schools={schools} isAdmin={isAdmin} showMyWorkspace={showMyWorkspace} searchNotes={searchNotes} />
       {quickAddOpen && <QuickAddDialog onClose={() => setQuickAddOpen(false)} data={quickAdd} />}
     </header>
   );

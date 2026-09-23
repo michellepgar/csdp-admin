@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { fetchAppState } from "@/lib/fetch-app-state";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
+import { isMyWorkspaceUser } from "@/lib/my-workspace-access";
 import { groupTaskTables, openEmailItemsByVa } from "@/lib/shared-task-files";
 import type { QuickAddData, QuickAddTable } from "@/components/quick-add-dialog";
 import { SidebarShell } from "@/components/sidebar-shell";
@@ -118,6 +119,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }));
   }
 
+  const showMyWorkspace = isMyWorkspaceUser(me.email);
+
   const quickAdd: QuickAddData = {
     schools: state.schools,
     isAdmin: isAdmin(me),
@@ -142,6 +145,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       presenceEnabled={!isDemo}
       schools={state.schools}
       isAdmin={isAdmin(me)}
+      showMyWorkspace={showMyWorkspace}
       vas={state.vas}
       schoolVaAssigned={schoolVaAssigned}
       addSchool={addSchool}

@@ -37,6 +37,7 @@ export function SidebarShell({
   presenceEnabled,
   schools,
   isAdmin,
+  showMyWorkspace,
   vas,
   schoolVaAssigned,
   addSchool,
@@ -64,6 +65,7 @@ export function SidebarShell({
   presenceEnabled: boolean;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
+  showMyWorkspace: boolean;
   vas: Va[];
   schoolVaAssigned: Record<string, string>;
   addSchool: (formData: FormData) => void;
@@ -151,6 +153,7 @@ export function SidebarShell({
         sidebarCollapsed={collapsed}
         schools={schools}
         isAdmin={isAdmin}
+        showMyWorkspace={showMyWorkspace}
         currentName={currentName}
         currentColor={currentMember.color}
         myMentions={myMentions}
@@ -196,6 +199,7 @@ export function SidebarShell({
           presenceEnabled={presenceEnabled}
           schools={schools}
           isAdmin={isAdmin}
+          showMyWorkspace={showMyWorkspace}
           vas={vas}
           schoolVaAssigned={schoolVaAssigned}
           addSchool={addSchool}

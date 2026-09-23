@@ -13,6 +13,7 @@ import {
   signGeneralTask,
   removeVaFromGeneralTask,
   removeGeneralTask,
+  removeGeneralTasks,
   addGeneralTaskCategory,
   removeGeneralTaskCategory,
   updateGeneralTaskDescription,
@@ -66,6 +67,7 @@ export default async function GeneralTasksPage({ searchParams }: { searchParams:
           signGeneralTask={signGeneralTask}
           removeVaFromGeneralTask={removeVaFromGeneralTask}
           removeGeneralTask={removeGeneralTask}
+          removeGeneralTasks={removeGeneralTasks}
           addGeneralTaskCategory={addGeneralTaskCategory}
           removeGeneralTaskCategory={removeGeneralTaskCategory}
           updateGeneralTaskDescription={updateGeneralTaskDescription}

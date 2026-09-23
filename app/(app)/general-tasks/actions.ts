@@ -196,6 +196,31 @@ export async function removeGeneralTask(formData: FormData) {
   revalidatePath("/general-tasks");
 }
 
+/* Bulk counterpart to removeGeneralTask -- one delete for every
+   selected id instead of looping the single action per row (unlike
+   moveGeneralTasksToSchool's own bulk version, there's no per-task
+   side effect here that needs its own round trip, so a single
+   .in("id", ...) delete covers the whole selection). */
+export async function removeGeneralTasks(formData: FormData): Promise<GeneralTaskActionResult> {
+  const taskIds = formData.getAll("taskIds").map(String);
+  if (taskIds.length === 0) return { error: null };
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      state.generalTasks = (state.generalTasks || []).filter((t) => !taskIds.includes(t.id));
+    });
+    revalidatePath("/general-tasks");
+    return { error: null };
+  }
+
+  return runResultAction(async () => {
+    const { supabase } = await requireTeamMember();
+    const { error } = await supabase.from("general_tasks").delete().in("id", taskIds);
+    orThrow(error);
+    revalidatePath("/general-tasks");
+  });
+}
+
 /* Converts a General Task into a real school task -- creates the file
    + category via the same add_task_file RPC the priority-note flow
    uses (app/(app)/overview/actions.ts's resolvePriorityPlanItem), then

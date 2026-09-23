@@ -270,6 +270,7 @@ export function GeneralTasksList({
   signGeneralTask,
   removeVaFromGeneralTask,
   removeGeneralTask,
+  removeGeneralTasks,
   addGeneralTaskCategory,
   removeGeneralTaskCategory,
   updateGeneralTaskDescription,
@@ -292,6 +293,7 @@ export function GeneralTasksList({
   signGeneralTask: (formData: FormData) => void;
   removeVaFromGeneralTask: (formData: FormData) => void;
   removeGeneralTask: (formData: FormData) => void;
+  removeGeneralTasks: (formData: FormData) => Promise<{ error: string | null }>;
   addGeneralTaskCategory: (formData: FormData) => void;
   removeGeneralTaskCategory: (formData: FormData) => void;
   updateGeneralTaskDescription: (formData: FormData) => Promise<TaskFileActionResult>;
@@ -320,6 +322,8 @@ export function GeneralTasksList({
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkMoving, setBulkMoving] = useState(false);
+  const [bulkRemoving, setBulkRemoving] = useState(false);
+  const [bulkRemoveError, setBulkRemoveError] = useState<string | null>(null);
   const openCount = tasks.filter((t) => t.status === "In Progress").length;
 
   function toggleSelected(id: string) {
@@ -329,6 +333,22 @@ export function GeneralTasksList({
   function toggleSelectMode() {
     setSelectMode((v) => !v);
     setSelectedIds([]);
+  }
+
+  async function removeSelected() {
+    if (!window.confirm(`Remove ${selectedIds.length} task${selectedIds.length === 1 ? "" : "s"}?`)) return;
+    setBulkRemoving(true);
+    setBulkRemoveError(null);
+    const fd = new FormData();
+    selectedIds.forEach((id) => fd.append("taskIds", id));
+    const result = await removeGeneralTasks(fd);
+    setBulkRemoving(false);
+    if (result.error) {
+      setBulkRemoveError(result.error);
+      return;
+    }
+    setSelectedIds([]);
+    setSelectMode(false);
   }
 
   return (
@@ -416,9 +436,17 @@ export function GeneralTasksList({
         )}
 
         {selectedIds.length > 0 && (
-          <div className="flex items-center justify-between rounded-md border bg-muted/30 p-2 text-sm">
-            <span>{selectedIds.length} selected</span>
-            <Button type="button" size="xs" variant="outline" onClick={() => setBulkMoving(true)}>Move {selectedIds.length} to a school →</Button>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 p-2 text-sm">
+              <span>{selectedIds.length} selected</span>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="xs" variant="outline" onClick={() => setBulkMoving(true)}>Move {selectedIds.length} to a school →</Button>
+                <Button type="button" size="xs" variant="destructive" onClick={removeSelected} disabled={bulkRemoving}>
+                  {bulkRemoving ? "Removing…" : `Remove ${selectedIds.length}`}
+                </Button>
+              </div>
+            </div>
+            {bulkRemoveError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{bulkRemoveError}</p>}
           </div>
         )}
         {bulkMoving && (

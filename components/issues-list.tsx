@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { Button } from "@/components/ui/button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
 import { StatusSelect } from "@/components/status-select";
 import { Dropdown } from "@/components/dropdown";
@@ -249,6 +250,90 @@ function StatusSelectField({ issue, setIssueStatus }: { issue: Issue; setIssueSt
   );
 }
 
+/* One edit form shape per table -- "software" shows Category/
+   Subcategory/Description (used by both the built-in Software Issue
+   table and every custom type's table, which share SoftwareIssueTable;
+   a custom type just has no category/subcategory to show), "school"
+   shows School/Name/Student Record Link (Review Patient Information
+   and Charting Questions). Category/Subcategory are plain text here
+   rather than the add form's dropdowns -- they're already just strings
+   on the record (see lib/app-state.ts's Issue interface), and reusing
+   the dropdown here would mean threading issueCategories through every
+   table just for this. */
+function IssueEditForm({
+  issue,
+  showCategory,
+  fields,
+  editIssue,
+  onClose,
+}: {
+  issue: Issue;
+  showCategory?: boolean;
+  fields: "software" | "school";
+  editIssue: (formData: FormData) => Promise<{ error: string | null }>;
+  onClose: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <form
+      action={async (formData) => {
+        formData.set("id", issue.id);
+        formData.set("type", issue.type);
+        const result = await editIssue(formData);
+        if (result.error) setError(result.error);
+        else onClose();
+      }}
+      className="flex flex-wrap items-end gap-2"
+    >
+      {fields === "software" && (
+        <>
+          {showCategory && (
+            <>
+              <Input name="category" defaultValue={issue.category || ""} placeholder="Category" className="max-w-[10rem]" />
+              <Input name="subcategory" defaultValue={issue.subcategory || ""} placeholder="Subcategory" className="max-w-[10rem]" />
+            </>
+          )}
+          <Input name="description" defaultValue={issue.description || ""} placeholder="What's the issue?" required className="min-w-40 max-w-md flex-1" />
+        </>
+      )}
+      {fields === "school" && (
+        <>
+          <Input name="school" defaultValue={issue.school || ""} placeholder="School" className="max-w-[10rem]" />
+          <Input name="studentName" defaultValue={issue.studentName || ""} placeholder="Name" className="max-w-[10rem]" />
+          <Input name="studentRecordLink" defaultValue={issue.studentRecordLink || ""} placeholder="Link to student record" required className="min-w-40 max-w-md flex-1" />
+        </>
+      )}
+      <Input name="note" defaultValue={issue.remarks || ""} placeholder="Note (optional)" className="max-w-xs" />
+      <div className="flex items-center gap-2">
+        <SubmitButton pendingLabel="Saving…" size="sm">Save</SubmitButton>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+      </div>
+      {error && <p role="alert" className="w-full text-sm text-status-danger-foreground">{error}</p>}
+    </form>
+  );
+}
+
+function EditIssueButton({
+  issue,
+  currentUserName,
+  currentIsAdmin,
+  editing,
+  onToggle,
+}: {
+  issue: Issue;
+  currentUserName: string;
+  currentIsAdmin: boolean;
+  editing: boolean;
+  onToggle: () => void;
+}) {
+  if (!canDeleteIssue(issue, currentUserName, currentIsAdmin)) return null;
+  return (
+    <Button type="button" variant="ghost" size="xs" onClick={onToggle}>
+      {editing ? "Close" : "Edit"}
+    </Button>
+  );
+}
+
 function DeleteIssueButton({
   issue,
   currentUserName,
@@ -276,6 +361,7 @@ type TableProps = {
   vas: Va[];
   expandIssueId?: string;
   setIssueStatus: (formData: FormData) => void;
+  editIssue: (formData: FormData) => Promise<{ error: string | null }>;
   removeIssue: (formData: FormData) => void;
   addIssueComment: (formData: FormData) => void;
   editIssueComment: (formData: FormData) => void;
@@ -289,8 +375,9 @@ type TableProps = {
    every field visible, at the cost of repeating the Reported By/Date/
    Status/delete/Comments columns four times. */
 
-export function SoftwareIssueTable({ showCategory = true, emptyText = "No software issues reported.", issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { showCategory?: boolean; emptyText?: string }) {
+export function SoftwareIssueTable({ showCategory = true, emptyText = "No software issues reported.", issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, editIssue, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { showCategory?: boolean; emptyText?: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   const reversed = [...issues].reverse();
   return (
@@ -346,8 +433,20 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
                       }}
                     />
                   </td>
-                  <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+                  <td className="px-2 py-1 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <EditIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} editing={editingId === issue.id} onToggle={() => setEditingId((cur) => (cur === issue.id ? null : issue.id))} />
+                      <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+                    </div>
+                  </td>
                 </tr>
+                {editingId === issue.id && (
+                  <tr className="border-b bg-record-background no-record-hover">
+                    <td colSpan={showCategory ? 9 : 7} className="p-2">
+                      <IssueEditForm issue={issue} showCategory={showCategory} fields="software" editIssue={editIssue} onClose={() => setEditingId(null)} />
+                    </td>
+                  </tr>
+                )}
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background no-record-hover">
                     <td colSpan={showCategory ? 9 : 7} className="p-2">
@@ -415,7 +514,11 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
               />
               {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} /></div>}
             </div>
-            <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+            {editingId === issue.id && <IssueEditForm issue={issue} showCategory={showCategory} fields="software" editIssue={editIssue} onClose={() => setEditingId(null)} />}
+            <div className="flex items-center gap-1">
+              <EditIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} editing={editingId === issue.id} onToggle={() => setEditingId((cur) => (cur === issue.id ? null : issue.id))} />
+              <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+            </div>
           </div>
         ))}
       </div>
@@ -426,8 +529,9 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
 /* Shared by Review Patient Information and Charting Questions -- same
    fields, same shape (school/name/link/note/reportedBy/status/comments),
    just two separate sections on the page for two separate purposes. */
-function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { emptyMessage: string }) {
+function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, editIssue, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { emptyMessage: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   if (issues.length === 0) return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   const reversed = [...issues].reverse();
   return (
@@ -470,8 +574,20 @@ function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdm
                       }}
                     />
                   </td>
-                  <td className="px-2 py-1"><DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} /></td>
+                  <td className="px-2 py-1 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <EditIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} editing={editingId === issue.id} onToggle={() => setEditingId((cur) => (cur === issue.id ? null : issue.id))} />
+                      <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+                    </div>
+                  </td>
                 </tr>
+                {editingId === issue.id && (
+                  <tr className="border-b bg-record-background no-record-hover">
+                    <td colSpan={8} className="p-2">
+                      <IssueEditForm issue={issue} fields="school" editIssue={editIssue} onClose={() => setEditingId(null)} />
+                    </td>
+                  </tr>
+                )}
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background no-record-hover">
                     <td colSpan={8} className="p-2">
@@ -531,7 +647,11 @@ function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdm
               />
               {expandedId === issue.id && <div className="mt-2"><CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} /></div>}
             </div>
-            <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+            {editingId === issue.id && <IssueEditForm issue={issue} fields="school" editIssue={editIssue} onClose={() => setEditingId(null)} />}
+            <div className="flex items-center gap-1">
+              <EditIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} editing={editingId === issue.id} onToggle={() => setEditingId((cur) => (cur === issue.id ? null : issue.id))} />
+              <DeleteIssueButton issue={issue} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} removeIssue={removeIssue} />
+            </div>
           </div>
         ))}
       </div>

@@ -13,6 +13,7 @@ import {
 import {
   addIssue,
   setIssueStatus,
+  editIssue,
   removeIssue,
   addIssueComment,
   editIssueComment,
@@ -43,7 +44,7 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
   const charting = issues.filter((i) => i.type === "charting");
   const issueTypes = state.issueTypes || [];
 
-  const tableProps = { currentUserName: me.name, currentIsAdmin: isAdmin(me), vas: state.vas || [], expandIssueId: expandIssue, setIssueStatus, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments };
+  const tableProps = { currentUserName: me.name, currentIsAdmin: isAdmin(me), vas: state.vas || [], expandIssueId: expandIssue, setIssueStatus, editIssue, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments };
 
   return (
     <div>

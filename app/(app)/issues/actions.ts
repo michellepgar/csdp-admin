@@ -231,6 +231,82 @@ export async function setIssueStatus(formData: FormData) {
   revalidatePath("/issues");
 }
 
+/* Same "description" vs "school/studentName/studentRecordLink" field
+   split addIssue itself uses, minus the one-time reportedBy/status
+   setup -- editIssue only ever touches what a reporter typed. remarks
+   ("Note") is shared by every type and always included. Returns null
+   when the type's required field was left blank, same validation
+   addIssue already enforces on create. */
+type IssueEditFields = { description?: string; category?: string; subcategory?: string; school?: string; studentName?: string; studentRecordLink?: string; remarks: string };
+
+function issueEditFields(type: string, formData: FormData): IssueEditFields | null {
+  const remarks = ((formData.get("note") as string) || "").trim();
+  if (type === "software_issue") {
+    const description = ((formData.get("description") as string) || "").trim();
+    if (!description) return null;
+    return { description, category: (formData.get("category") as string) || "", subcategory: (formData.get("subcategory") as string) || "", remarks };
+  }
+  if (type === "correction" || type === "charting") {
+    const studentRecordLink = ((formData.get("studentRecordLink") as string) || "").trim();
+    if (!studentRecordLink) return null;
+    return { school: (formData.get("school") as string) || "", studentName: (formData.get("studentName") as string) || "", studentRecordLink, remarks };
+  }
+  if (type === "custom") {
+    const description = ((formData.get("description") as string) || "").trim();
+    if (!description) return null;
+    return { description, remarks };
+  }
+  return null;
+}
+
+/* Same own-entry-or-admin rule as canDeleteIssue/removeIssue -- only the
+   reporter or an admin can change what was reported. Field values come
+   straight from the record's own edit form (issues-list.tsx), which
+   only shows the fields relevant to that issue's type. */
+export async function editIssue(formData: FormData): Promise<{ error: string | null }> {
+  const id = (formData.get("id") as string) || "";
+  const type = (formData.get("type") as string) || "";
+  if (!id) return { error: null };
+  const fields = issueEditFields(type, formData);
+  if (!fields) return { error: "That field is required." };
+
+  if (await isDemoMode()) {
+    let denied = false;
+    await demoMutate((state) => {
+      const issue = (state.issues || []).find((i) => i.id === id);
+      if (!issue) return;
+      const me = state.vas.find((v) => v.name === "Jane");
+      if (!(me && isAdmin(me)) && issue.reportedBy !== "Jane") {
+        denied = true;
+        return;
+      }
+      Object.assign(issue, fields);
+    });
+    if (denied) return { error: "You can only edit issues you reported." };
+    revalidatePath("/issues");
+    return { error: null };
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: issue } = await supabase.from("issues").select("reported_by").eq("id", id).maybeSingle();
+  if (!issue) return { error: null };
+  if (!isAdmin(me) && issue.reported_by !== me.name) return { error: "You can only edit issues you reported." };
+
+  const patch: Record<string, string> = { remarks: fields.remarks };
+  if (fields.description !== undefined) patch.description = fields.description;
+  if (fields.category !== undefined) patch.category = fields.category;
+  if (fields.subcategory !== undefined) patch.subcategory = fields.subcategory;
+  if (fields.school !== undefined) patch.school = fields.school;
+  if (fields.studentName !== undefined) patch.student_name = fields.studentName;
+  if (fields.studentRecordLink !== undefined) patch.student_record_link = fields.studentRecordLink;
+
+  const { error } = await supabase.from("issues").update(patch).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/issues");
+  return { error: null };
+}
+
 /* Same rule as canDeleteIssue in lib/app-state.ts (an admin can delete
    anything; otherwise only the reporter can), reimplemented as a
    targeted query instead of fetchAppState()'s full ~19-table fetch. */

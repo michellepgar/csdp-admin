@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/submit-button";
@@ -83,6 +83,10 @@ function FieldRow({ entryId, field, index, updateDocumentExtractionField }: {
   const [error, setError] = useState<string | null>(null);
   const low = field.confidence !== "high";
 
+  useEffect(() => {
+    setValue(field.value);
+  }, [field.value]);
+
   async function save() {
     if (value === field.value) return;
     const formData = new FormData();
@@ -128,8 +132,7 @@ function ReviewPanel({ entry, setDocumentExtractionStatus, updateDocumentExtract
       setStatusError(result.error);
       return;
     }
-    setRejecting(false);
-    if (status !== "rejected") onClose();
+    onClose();
   }
 
   async function copyAll() {
@@ -228,7 +231,7 @@ export function DocumentReviewList({ entries, importDocumentExtractions, updateD
                   type="button"
                   onClick={() => setExpandedId((current) => (current === entry.id ? null : entry.id))}
                   aria-expanded={expandedId === entry.id}
-                  className="flex w-full flex-wrap items-center gap-2 bg-record-background p-3 text-left text-sm hover:bg-row-hover"
+                  className="flex w-full flex-wrap items-center gap-2 bg-record-background p-3 text-left text-sm"
                 >
                   <span className="font-medium">{entry.documentName}</span>
                   <span className="text-muted-foreground">{entry.documentType}</span>

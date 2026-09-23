@@ -27,7 +27,7 @@ export default async function MyWorkspacePage() {
 
   const { data: rows } = await supabase
     .from("document_extractions")
-    .select("*")
+    .select("id, document_name, document_type, school, summary, fields, flags, status, rejection_reason, created_at")
     .eq("owner", vaRow.name)
     .order("created_at", { ascending: false });
 

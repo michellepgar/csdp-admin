@@ -71,10 +71,10 @@ export function parseDocumentExtractionsJson(raw: string): { documents: ParsedDo
 
   const documents: ParsedDocument[] = [];
   for (let i = 0; i < rawDocuments.length; i++) {
-    const raw = rawDocuments[i];
+    const rawDoc = rawDocuments[i];
     const docLabel = `Document ${i + 1}`;
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { error: `${docLabel} isn't a valid object.` };
-    const d = raw as Record<string, unknown>;
+    if (!rawDoc || typeof rawDoc !== "object" || Array.isArray(rawDoc)) return { error: `${docLabel} isn't a valid object.` };
+    const d = rawDoc as Record<string, unknown>;
 
     const documentName = typeof d.document_name === "string" ? d.document_name.trim() : "";
     if (!documentName) return { error: `${docLabel} is missing "document_name".` };
@@ -91,10 +91,12 @@ export function parseDocumentExtractionsJson(raw: string): { documents: ParsedDo
       const label = typeof f.label === "string" ? f.label.trim() : "";
       if (!label) return { error: `${fieldLabel} is missing "label".` };
 
-      const value = typeof f.value === "string" ? f.value : "";
+      const value = typeof f.value === "string" ? f.value
+        : typeof f.value === "number" || typeof f.value === "boolean" ? String(f.value)
+        : "";
 
       let confidence: DocumentExtractionConfidence = "medium";
-      if (f.confidence !== undefined) {
+      if (f.confidence !== undefined && f.confidence !== null) {
         if (typeof f.confidence !== "string" || !VALID_CONFIDENCE.includes(f.confidence as DocumentExtractionConfidence)) {
           return { error: `${fieldLabel} has an invalid "confidence" (must be "high", "medium" or "low").` };
         }
@@ -106,7 +108,8 @@ export function parseDocumentExtractionsJson(raw: string): { documents: ParsedDo
     }
 
     const flags = Array.isArray(d.flags) ? d.flags.filter((x): x is string => typeof x === "string") : [];
-    const documentType = typeof d.document_type === "string" && d.document_type.trim() ? d.document_type.trim() : "Other";
+    const trimmedDocType = typeof d.document_type === "string" ? d.document_type.trim() : "";
+    const documentType = trimmedDocType || "Other";
     const school = typeof d.school === "string" ? d.school.trim() : "";
     const summary = typeof d.summary === "string" ? d.summary.trim() : "";
 

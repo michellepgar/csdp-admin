@@ -35,6 +35,47 @@ test("parses a {documents: [...]} wrapper with several documents", () => {
   assert.equal(result.documents[1].documentName, "b.pdf");
 });
 
+test("coerces a non-string field value (number) to a string", () => {
+  const result = parseDocumentExtractionsJson(JSON.stringify({
+    document_name: "a.pdf",
+    fields: [{ label: "Grade Level", value: 5 }],
+  }));
+  assert.ok("documents" in result, JSON.stringify(result));
+  if (!("documents" in result)) return;
+  assert.equal(result.documents[0].fields[0].value, "5");
+});
+
+test("treats confidence: null as unset, defaulting to medium", () => {
+  const result = parseDocumentExtractionsJson(JSON.stringify({
+    document_name: "a.pdf",
+    fields: [{ label: "Name", value: "Sam", confidence: null }],
+  }));
+  assert.ok("documents" in result, JSON.stringify(result));
+  if (!("documents" in result)) return;
+  assert.equal(result.documents[0].fields[0].confidence, "medium");
+});
+
+test("rejects an empty documents array", () => {
+  const result = parseDocumentExtractionsJson(JSON.stringify({ documents: [] }));
+  assert.deepEqual(result, { error: "No documents found in the pasted JSON." });
+});
+
+test("rejects the whole batch when a later document is broken, even if earlier ones are valid", () => {
+  const result = parseDocumentExtractionsJson(JSON.stringify({
+    documents: [
+      { document_name: "a.pdf", fields: [{ label: "Name", value: "Sam" }] },
+      { fields: [] },
+    ],
+  }));
+  assert.deepEqual(result, { error: "Document 2 is missing \"document_name\"." });
+  assert.ok(!("documents" in result));
+});
+
+test("rejects a field entry that isn't an object", () => {
+  const result = parseDocumentExtractionsJson(JSON.stringify({ document_name: "a.pdf", fields: ["a string"] }));
+  assert.deepEqual(result, { error: "Document 1, field 1 isn't a valid object." });
+});
+
 test("rejects blank input", () => {
   const result = parseDocumentExtractionsJson("   ");
   assert.deepEqual(result, { error: "Paste the agent's JSON output first." });

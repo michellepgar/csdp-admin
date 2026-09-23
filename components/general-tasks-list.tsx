@@ -312,6 +312,12 @@ export function GeneralTasksList({
     const clear = setTimeout(() => setFlashId(null), 1900);
     return () => { clearTimeout(scroll); clearTimeout(clear); };
   }, [flashId]);
+  // The row checkboxes only earn their space once you're actually
+  // selecting several tasks to move at once -- Michelle didn't want
+  // one on every row all the time. "Select" turns them on; leaving
+  // select mode (via "Done" or after a bulk move finishes) also clears
+  // whatever was checked, so re-entering it later starts fresh.
+  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkMoving, setBulkMoving] = useState(false);
   const openCount = tasks.filter((t) => t.status === "In Progress").length;
@@ -320,15 +326,25 @@ export function GeneralTasksList({
     setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   }
 
+  function toggleSelectMode() {
+    setSelectMode((v) => !v);
+    setSelectedIds([]);
+  }
+
   return (
     <div className="rounded-md border bg-card">
       <div className="flex items-center justify-between border-b bg-header-background px-3 py-1 text-white">
         <h2 className="font-semibold">
           Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-white/70">{openCount}</span>}
         </h2>
-        <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
-          {editorOpen ? "Close editor" : "Edit categories"}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="link" size="sm" className="text-white" onClick={toggleSelectMode}>
+            {selectMode ? "Done" : "Select"}
+          </Button>
+          <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>
+            {editorOpen ? "Close editor" : "Edit categories"}
+          </Button>
+        </div>
       </div>
       <div className="space-y-3 p-3">
         {editorOpen && (
@@ -372,7 +388,9 @@ export function GeneralTasksList({
           <div className="divide-y rounded-md border">
             {[...tasks].reverse().map((task) => (
               <div key={task.id} data-task-id={task.id} className={`flex items-start gap-2 bg-record-background px-1 ${task.id === flashId ? "task-highlight-flash" : ""}`}>
-                <input type="checkbox" className="mt-2" checked={selectedIds.includes(task.id)} onChange={() => toggleSelected(task.id)} />
+                {selectMode && (
+                  <input type="checkbox" className="mt-2" checked={selectedIds.includes(task.id)} onChange={() => toggleSelected(task.id)} />
+                )}
                 <div className="flex-1">
                   <GeneralTaskRow
                     task={task}
@@ -411,7 +429,7 @@ export function GeneralTasksList({
             taskCategories={taskCategories}
             schoolTables={schoolTables}
             moveGeneralTasksToSchool={moveGeneralTasksToSchool}
-            onClose={() => { setBulkMoving(false); setSelectedIds([]); }}
+            onClose={() => { setBulkMoving(false); setSelectedIds([]); setSelectMode(false); }}
           />
         )}
       </div>

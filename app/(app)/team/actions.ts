@@ -185,15 +185,23 @@ export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
   return { error: null };
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function updateVaField(formData: FormData) {
   const id = formData.get("id") as string;
   const rawField = formData.get("field") as string;
   const value = ((formData.get("value") as string) || "").trim();
   if (rawField !== "email" && rawField !== "color") return;
   const field = rawField; // narrowed to "email" | "color" by the check above
+  // Two VAs sharing an email would non-deterministically log one of them
+  // in as the other (requireTeamMember matches by email, first row wins)
+  // -- caught here rather than shown as an error, since this saves via
+  // AutoSubmitForm (fire-and-forget, no error display wired up).
+  if (field === "email" && value && !EMAIL_PATTERN.test(value)) return;
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
+      if (field === "email" && value && state.vas.some((v) => v.id !== id && v.email?.toLowerCase() === value.toLowerCase())) return;
       const va = state.vas.find((v) => v.id === id);
       if (va) va[field] = value;
     });
@@ -202,6 +210,11 @@ export async function updateVaField(formData: FormData) {
   }
 
   const { supabase } = await requireAdmin();
+
+  if (field === "email" && value) {
+    const { data: existing } = await supabase.from("vas").select("id").neq("id", id).ilike("email", value).maybeSingle();
+    if (existing) return;
+  }
 
   const { error } = await supabase.from("vas").update({ [field]: value }).eq("id", id);
   if (error) throw new Error(error.message);

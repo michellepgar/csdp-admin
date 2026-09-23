@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Bold, Italic, Underline, List, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MentionAutocomplete } from "@/components/mention-autocomplete";
@@ -81,13 +81,12 @@ function hasContent(editor: HTMLElement): boolean {
   return !!editor.innerText.trim() || !!editor.querySelector("img, table");
 }
 
-export function StickyNoteComposer({
-  placeholder,
-  defaultText,
-  defaultPadColor,
-  draftKey,
-  vas,
-}: {
+/** Imperative handle for the two "Add a note" composers (see draftKey's
+ *  own comment below) -- lets the owning form clear the editor once its
+ *  Server Action confirms success, instead of on the raw submit event. */
+export type StickyNoteComposerHandle = { reset: () => void };
+
+export const StickyNoteComposer = forwardRef<StickyNoteComposerHandle, {
   placeholder: string;
   /** Team roster for the @mention autocomplete (components/mention-
    *  autocomplete.tsx) -- matches typed @names against real accounts
@@ -115,7 +114,13 @@ export function StickyNoteComposer({
    *  sense Michelle meant, and separately drafting an edit vs. losing
    *  one was never asked for. */
   draftKey?: string;
-}) {
+}>(function StickyNoteComposer({
+  placeholder,
+  defaultText,
+  defaultPadColor,
+  draftKey,
+  vas,
+}, ref) {
   const editorRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const [padColor, setPadColor] = useState(defaultPadColor || NOTE_PAD_COLORS[0].value);
@@ -184,21 +189,21 @@ export function StickyNoteComposer({
     return () => form.removeEventListener("submit", syncBeforeSubmit);
   }, []);
 
-  // Clears the editor (and the draft, if any) after a successful add
-  // -- the surrounding page re-renders via revalidatePath, but this
-  // component itself doesn't remount (same DOM node, same key), so
-  // without this the last note's formatting would still be sitting in
-  // the box.
-  useEffect(() => {
-    function clearOnSuccessfulSubmit() {
+  // Exposed so a caller that intercepts its own <form action> (an "Add
+  // a note" form checking the Server Action's {error} result) can clear
+  // the editor and its saved draft ONLY once that confirms success --
+  // this used to clear itself on the browser's raw "submit" event
+  // instead, which wiped a VA's just-written note the instant Add was
+  // clicked even when the save then failed. An edit row's form doesn't
+  // call this at all: closing out of edit mode (its own onSubmit) is
+  // enough there, and a failed edit's text living on in a closed form
+  // isn't the same "lost work" risk a blanked composer is.
+  useImperativeHandle(ref, () => ({
+    reset() {
       if (editorRef.current) editorRef.current.innerHTML = "";
       if (draftKey) clearDraft(draftKey);
-    }
-    const form = editorRef.current?.closest("form");
-    form?.addEventListener("submit", clearOnSuccessfulSubmit);
-    return () => form?.removeEventListener("submit", clearOnSuccessfulSubmit);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- The submit listener is deliberately attached once to this component's owning form.
-  }, []);
+    },
+  }), [draftKey]);
 
   function exec(command: string, value?: string) {
     editorRef.current?.focus();
@@ -520,4 +525,4 @@ export function StickyNoteComposer({
       <input type="hidden" name="padColor" value={padColor} readOnly />
     </div>
   );
-}
+});

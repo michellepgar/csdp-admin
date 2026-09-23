@@ -773,7 +773,7 @@ export async function startReminder(formData: FormData): Promise<PlanActionResul
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      const item = (state.planItems || []).find((p) => p.id === id && p.vaName === "Jane");
+      const item = (state.planItems || []).find((p) => p.id === id && p.vaName === "Jane" && p.kind === "note");
       if (item) item.startedAt = new Date().toISOString();
     });
     revalidatePath("/overview");
@@ -948,8 +948,8 @@ export async function startMyDay(): Promise<PlanActionResult> {
    a heads-up with no real task behind it (e.g. "keep an eye on the
    front desk today") can instead be resolved as a plain reminder --
    same completed_at convention private-note reminders already use
-   (see completeNoteReminder in app/(app)/private-notes/actions.ts):
-   the row is marked done, not deleted or turned into a task, so it can
+   (see completeWorkItem's own "plan" branch above): the row is marked
+   done, not deleted or turned into a task, so it can
    still show up on Today (lib/shared-task-files.ts's
    todayActivityByVa). */
 export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanActionResult> {

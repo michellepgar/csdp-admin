@@ -12,8 +12,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { PrivateNotesList } from "@/components/private-notes-list";
 import { PrivateNotesBoard } from "@/components/private-notes-board";
-import { StickyNoteComposer } from "@/components/sticky-note-composer";
-import { SubmitButton } from "@/components/submit-button";
+import { AddNoteForm } from "@/components/add-note-form";
 import {
   addPrivateNote,
   updatePrivateNote,
@@ -107,22 +106,18 @@ export default async function PrivateNotesPage({ searchParams }: { searchParams:
             </CollapsibleSection>
 
             <div className="max-w-3xl space-y-4">
-              <form action={addPrivateNote} className="space-y-2">
-                <StickyNoteComposer placeholder="Add a private note…" draftKey="draft:private-note" vas={state.vas || []} />
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-sm">
-                      <input type="checkbox" name="isReminder" />
-                      Mark as reminder
-                    </label>
-                    <label className="flex items-center gap-1.5 text-sm">
-                      <input type="checkbox" name="addToPlan" />
-                      Also add to Your Plan
-                    </label>
-                  </div>
-                  <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
+              <AddNoteForm action={addPrivateNote} placeholder="Add a private note…" draftKey="draft:private-note" vas={state.vas || []}>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 text-sm">
+                    <input type="checkbox" name="isReminder" />
+                    Mark as reminder
+                  </label>
+                  <label className="flex items-center gap-1.5 text-sm">
+                    <input type="checkbox" name="addToPlan" />
+                    Also add to Your Plan
+                  </label>
                 </div>
-              </form>
+              </AddNoteForm>
 
               <PrivateNotesList
                 notes={listNotes}

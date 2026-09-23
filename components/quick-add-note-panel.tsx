@@ -29,9 +29,13 @@ export function QuickAddNotePanel({ data, onClose }: { data: QuickAddData; onClo
     form.set("text", plainTextToNoteHtml(text));
     if (reminder) form.set("isReminder", "on");
     try {
-      await data.addPrivateNote(form);
-      setText("");
-      setAdded(reminder ? "Saved as a reminder. Only you can see it." : "Saved. Only you can see it.");
+      const result = await data.addPrivateNote(form);
+      if (result.error) {
+        setErrors([result.error]);
+      } else {
+        setText("");
+        setAdded(reminder ? "Saved as a reminder. Only you can see it." : "Saved. Only you can see it.");
+      }
     } catch {
       setErrors(["The note could not be saved. Please refresh and try again."]);
     }

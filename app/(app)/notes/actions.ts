@@ -11,9 +11,15 @@ function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-export async function addGeneralNote(formData: FormData) {
+type NoteActionResult = { error: string | null };
+
+// The composer only clears itself (and its saved draft) once this
+// confirms success -- clearing on the raw browser "submit" event
+// instead (the old behavior) wiped a VA's just-written note the moment
+// Add was clicked, even if the save itself then failed.
+export async function addGeneralNote(formData: FormData): Promise<NoteActionResult> {
   const rawText = ((formData.get("text") as string) || "").trim();
-  if (!rawText) return;
+  if (!rawText) return { error: null };
   const padColor = (formData.get("padColor") as string) || undefined;
   const urgency = formData.get("urgent") ? "Urgent" : "";
 
@@ -36,42 +42,48 @@ export async function addGeneralNote(formData: FormData) {
       }
     });
     revalidatePath("/notes");
-    return;
+    return { error: null };
   }
 
-  const { supabase, me } = await requireTeamMember();
+  try {
+    const { supabase, me } = await requireTeamMember();
 
-  const { data: vasData } = await supabase.from("vas").select("name, color");
-  const roster = vasData || [];
-  const text = sanitizeNoteHtml(rawText, roster);
-  const id = crypto.randomUUID();
+    const { data: vasData } = await supabase.from("vas").select("name, color");
+    const roster = vasData || [];
+    const text = sanitizeNoteHtml(rawText, roster);
+    const id = crypto.randomUUID();
 
-  const { error } = await supabase.from("general_notes").insert({
-    id,
-    text,
-    pad_color: padColor || null,
-    author: me.name,
-    urgency: urgency || null,
-    ack_by: [],
-  });
-  orThrow(error);
+    const { error } = await supabase.from("general_notes").insert({
+      id,
+      text,
+      pad_color: padColor || null,
+      author: me.name,
+      urgency: urgency || null,
+      ack_by: [],
+    });
+    orThrow(error);
 
-  const mentioned = extractMentionedNames(snippetFromHtml(rawText), roster.map((v) => v.name)).filter((n) => n !== me.name);
-  if (mentioned.length > 0) {
-    const { error: mentionsError } = await supabase.from("mentions").insert(
-      mentioned.map((name) => ({
-        id: crypto.randomUUID(),
-        mentioned_name: name,
-        mentioner_name: me.name,
-        source: "general_note",
-        note_id: id,
-        snippet: snippetFromHtml(rawText),
-      }))
-    );
-    orThrow(mentionsError);
+    const mentioned = extractMentionedNames(snippetFromHtml(rawText), roster.map((v) => v.name)).filter((n) => n !== me.name);
+    if (mentioned.length > 0) {
+      const { error: mentionsError } = await supabase.from("mentions").insert(
+        mentioned.map((name) => ({
+          id: crypto.randomUUID(),
+          mentioned_name: name,
+          mentioner_name: me.name,
+          source: "general_note",
+          note_id: id,
+          snippet: snippetFromHtml(rawText),
+        }))
+      );
+      orThrow(mentionsError);
+    }
+
+    revalidatePath("/notes");
+    return { error: null };
+  } catch (error) {
+    console.error("Add general note failed", error);
+    return { error: error instanceof Error ? error.message : "The note could not be saved. Please try again." };
   }
-
-  revalidatePath("/notes");
 }
 
 /* Strictly the note's own author, no exception -- unlike

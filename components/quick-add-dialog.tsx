@@ -30,7 +30,7 @@ export type QuickAddData = {
   issueTypes: IssueCustomType[];
   addTask: (formData: FormData) => Promise<TaskFileActionResult>;
   addGeneralTask: (formData: FormData) => Promise<void>;
-  addPrivateNote: (formData: FormData) => Promise<void>;
+  addPrivateNote: (formData: FormData) => Promise<{ error: string | null }>;
   addIssue: (formData: FormData) => Promise<void>;
   addSuggestion: (formData: FormData) => Promise<{ error: string | null }>;
 };

@@ -5,8 +5,7 @@ import { findVaByEmail, isAdmin, canDeleteGeneralNote } from "@/lib/app-state";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { GeneralNotesList } from "@/components/general-notes-list";
-import { StickyNoteComposer } from "@/components/sticky-note-composer";
-import { SubmitButton } from "@/components/submit-button";
+import { AddNoteForm } from "@/components/add-note-form";
 import {
   addGeneralNote,
   ackGeneralNote,
@@ -37,16 +36,12 @@ export default async function NotesPage({ searchParams }: { searchParams: Promis
     <div>
       <PageHeader title="General Notes" />
       <PageBody>
-        <form action={addGeneralNote} className="max-w-3xl space-y-2">
-          <StickyNoteComposer placeholder="Add a note…" draftKey="draft:general-note" vas={state.vas || []} />
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1.5 text-sm">
-              <input type="checkbox" name="urgent" />
-              Urgent
-            </label>
-            <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
-          </div>
-        </form>
+        <AddNoteForm action={addGeneralNote} placeholder="Add a note…" draftKey="draft:general-note" vas={state.vas || []}>
+          <label className="flex items-center gap-1.5 text-sm">
+            <input type="checkbox" name="urgent" />
+            Urgent
+          </label>
+        </AddNoteForm>
 
         <GeneralNotesList
           notes={notes}

@@ -88,9 +88,13 @@ export async function addNoteToPlan(formData: FormData): Promise<NoteActionResul
   }
 }
 
-export async function addPrivateNote(formData: FormData) {
+// The composer only clears itself (and its saved draft) once this
+// confirms success -- clearing on the raw browser "submit" event
+// instead (the old behavior) wiped a VA's just-written note the moment
+// Add was clicked, even if the save itself then failed.
+export async function addPrivateNote(formData: FormData): Promise<NoteActionResult> {
   const rawText = ((formData.get("text") as string) || "").trim();
-  if (!rawText) return;
+  if (!rawText) return { error: null };
   const text = sanitizeNoteHtml(rawText);
   const padColor = (formData.get("padColor") as string) || undefined;
   const isReminder = formData.get("isReminder") === "on";
@@ -110,28 +114,42 @@ export async function addPrivateNote(formData: FormData) {
     });
     revalidatePath("/private-notes");
     if (addToPlan) revalidatePath("/overview");
-    return;
+    return { error: null };
   }
 
-  const { supabase, me } = await requireTeamMember();
+  try {
+    const { supabase, me } = await requireTeamMember();
 
-  const id = crypto.randomUUID();
-  const { error } = await supabase.from("private_notes").insert({
-    id,
-    text,
-    pad_color: padColor || null,
-    author: me.name,
-    shared_with: [],
-    ack_by: [],
-    is_reminder: isReminder,
-  });
-  orThrow(error);
-  if (addToPlan) {
-    const { error: planError } = await supabase.from("plan_items").insert({ kind: "note", va_name: me.name, note_id: id, label, created_by: me.name });
-    orThrow(planError);
+    const id = crypto.randomUUID();
+    const { error } = await supabase.from("private_notes").insert({
+      id,
+      text,
+      pad_color: padColor || null,
+      author: me.name,
+      shared_with: [],
+      ack_by: [],
+      is_reminder: isReminder,
+    });
+    orThrow(error);
+    // The note itself already saved by this point -- a failure adding it to
+    // the plan too shouldn't fail the whole save over a note that's already
+    // safely posted, so this is deliberately swallowed (logged) rather than
+    // surfaced as the note's own error.
+    if (addToPlan) {
+      try {
+        const { error: planError } = await supabase.from("plan_items").insert({ kind: "note", va_name: me.name, note_id: id, label, created_by: me.name });
+        if (planError) throw new Error(planError.message);
+        revalidatePath("/overview");
+      } catch (planError) {
+        console.error("Add note to plan (from note creation) failed", planError);
+      }
+    }
+    revalidatePath("/private-notes");
+    return { error: null };
+  } catch (error) {
+    console.error("Add private note failed", error);
+    return { error: error instanceof Error ? error.message : "The note could not be saved. Please try again." };
   }
-  revalidatePath("/private-notes");
-  if (addToPlan) revalidatePath("/overview");
 }
 
 /* Author-only, matching sharePrivateNote/unsharePrivateNote below --

@@ -306,7 +306,8 @@ export async function addChatMessageToGeneralNotes(messageId: string): Promise<{
 
     const formData = new FormData();
     formData.set("text", html);
-    await addGeneralNote(formData);
+    const result = await addGeneralNote(formData);
+    if (result.error) return result;
     revalidatePath("/notes");
     return { error: null };
   } catch {

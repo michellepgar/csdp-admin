@@ -42,6 +42,16 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "America/New_York" });
 }
 
+/* A link pasted as "docs.google.com/..." (no scheme) is a relative link
+   to the browser -- clicking it would try to load this app's own
+   /docs.google.com/... instead of leaving it, same issue
+   websiteHref (app/(app)/schools/[id]/page.tsx) already fixes for a
+   school's own website field. Only add https:// when a scheme isn't
+   already there. */
+function studentRecordHref(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 /* One add form for every issue type -- which fields show depends on
    the Type picked here, but they all submit to the same addIssue
    action (it reads "type" out of the form data itself). Software
@@ -299,7 +309,7 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
                 </>
               )}
               <th className="px-2 py-1">Description</th>
-              {!showCategory && <th className="px-2 py-1">Note</th>}
+              <th className="px-2 py-1">Note</th>
               <th className="px-2 py-1">Reported By</th>
               <th className="px-2 py-1">Date</th>
               <th className="px-2 py-1">Status</th>
@@ -318,7 +328,7 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
                     </>
                   )}
                   <td className="px-2 py-1">{issue.description}</td>
-                  {!showCategory && <td className="px-2 py-1 text-muted-foreground">{issue.remarks || "—"}</td>}
+                  <td className="px-2 py-1 text-muted-foreground">{issue.remarks || "—"}</td>
                   <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                   <td className="px-2 py-1 whitespace-nowrap">{fmtDate(issue.createdAt)}</td>
                   <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
@@ -340,7 +350,7 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
                 </tr>
                 {expandedId === issue.id && (
                   <tr className="border-b bg-record-background no-record-hover">
-                    <td colSpan={showCategory ? 8 : 7} className="p-2">
+                    <td colSpan={showCategory ? 9 : 7} className="p-2">
                       <CommentThreadPanel comments={issue.comments || []} vas={vas} currentUserName={currentUserName} hiddenFields={{ issueId: issue.id }} addComment={addIssueComment} editComment={editIssueComment} removeComment={removeIssueComment} />
                     </td>
                   </tr>
@@ -369,7 +379,7 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
               <div className="text-xs font-semibold uppercase text-muted-foreground">Description</div>
               <div>{issue.description}</div>
             </div>
-            {!showCategory && issue.remarks && (
+            {issue.remarks && (
               <div>
                 <div className="text-xs font-semibold uppercase text-muted-foreground">Note</div>
                 <div>{issue.remarks}</div>
@@ -442,7 +452,7 @@ function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdm
                 <tr className="border-b bg-record-background align-top">
                   <td className="px-2 py-1 whitespace-nowrap">{issue.school || "—"}</td>
                   <td className="px-2 py-1 whitespace-nowrap">{issue.studentName || "—"}</td>
-                  <td className="px-2 py-1"><a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
+                  <td className="px-2 py-1"><a href={studentRecordHref(issue.studentRecordLink || "")} target="_blank" rel="noreferrer" className="text-primary underline">{issue.studentRecordLink}</a></td>
                   <td className="px-2 py-1">{issue.remarks || "—"}</td>
                   <td className="px-2 py-1 whitespace-nowrap">{issue.reportedBy}</td>
                   <td className="px-2 py-1"><StatusSelectField issue={issue} setIssueStatus={setIssueStatus} /></td>
@@ -489,7 +499,7 @@ function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdm
             </div>
             <div>
               <div className="text-xs font-semibold uppercase text-muted-foreground">Student Record</div>
-              <a href={issue.studentRecordLink} target="_blank" rel="noreferrer" className="break-all text-primary underline">{issue.studentRecordLink}</a>
+              <a href={studentRecordHref(issue.studentRecordLink || "")} target="_blank" rel="noreferrer" className="break-all text-primary underline">{issue.studentRecordLink}</a>
             </div>
             {issue.remarks && (
               <div>

@@ -11,7 +11,7 @@ import { KebabMenu } from "@/components/kebab-menu";
 import { GeneralTaskMoveForm } from "@/components/general-task-move-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { submitTaskFileForm, type TaskFileActionResult } from "@/lib/shared-task-files";
+import type { TaskFileActionResult } from "@/lib/shared-task-files";
 import {
   TASK_STATUS_OPTIONS,
   vaColorByName,
@@ -64,22 +64,41 @@ function GeneralTaskRow({
   addTaskCategory: (formData: FormData) => void;
 }) {
   const iSigned = task.vaAssigned.includes(currentUserName);
-  const [editingDescription, setEditingDescription] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [editedDescription, setEditedDescription] = useState(task.description);
-  const [descriptionError, setDescriptionError] = useState<string | null>(null);
-  const [editingCategory, setEditingCategory] = useState(false);
   const [editedCategory, setEditedCategory] = useState(task.category);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+
+  /* One "Edit" now covers both fields (Michelle: the two separate
+     kebab items -- "Edit description" and "Edit category" -- should be
+     one), so a single form's Save runs both existing category/
+     description actions in turn rather than adding a third combined
+     Server Action just to merge two that already work. Category is
+     saved first: if the description save then fails, the category
+     change already went through (each is its own DB update, there's
+     no single transaction to roll back), so the form stays open on
+     the error with the category showing its new value already saved. */
+  async function saveEdits(formData: FormData) {
+    setEditError(null);
+    const categoryResult = await updateGeneralTaskCategory(formData);
+    if (categoryResult.error) {
+      setEditError(categoryResult.error);
+      return;
+    }
+    const descriptionResult = await updateGeneralTaskDescription(formData);
+    if (descriptionResult.error) {
+      setEditError(descriptionResult.error);
+      return;
+    }
+    setEditing(false);
+  }
 
   return (
     <div className="flex flex-col gap-2 bg-record-background no-record-hover px-1 py-1">
       <div className="flex flex-wrap items-center gap-3">
-        {editingCategory ? (
-          <form
-            action={(formData) => submitTaskFileForm(updateGeneralTaskCategory, formData, setCategoryError, () => setEditingCategory(false))}
-            className="flex items-center gap-1"
-          >
+        {editing ? (
+          <form action={saveEdits} className="flex min-w-40 flex-1 flex-wrap items-center gap-1">
             <input type="hidden" name="taskId" value={task.id} />
             <Dropdown
               name="category"
@@ -88,27 +107,16 @@ function GeneralTaskRow({
               options={categories.map((c) => ({ value: c.name, label: c.name }))}
               className="h-7 rounded-md border px-2 text-left text-sm"
             />
+            <Input name="description" value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} required autoFocus className="h-7 min-w-0 flex-1" />
             <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton>
-            <Button type="button" variant="ghost" size="xs" onClick={() => { setEditedCategory(task.category); setCategoryError(null); setEditingCategory(false); }}>Cancel</Button>
-            {categoryError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{categoryError}</p>}
+            <Button type="button" variant="ghost" size="xs" onClick={() => { setEditedCategory(task.category); setEditedDescription(task.description); setEditError(null); setEditing(false); }}>Cancel</Button>
+            {editError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{editError}</p>}
           </form>
         ) : (
-          <span className="text-sm font-bold">{task.category}</span>
-        )}
-
-        {editingDescription ? (
-          <form
-            action={(formData) => submitTaskFileForm(updateGeneralTaskDescription, formData, setDescriptionError, () => setEditingDescription(false))}
-            className="flex min-w-40 flex-1 flex-wrap items-center gap-1"
-          >
-            <input type="hidden" name="taskId" value={task.id} />
-            <Input name="description" value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} required autoFocus className="h-7 min-w-0" />
-            <SubmitButton pendingLabel="Saving…" size="xs">Save</SubmitButton>
-            <Button type="button" variant="ghost" size="xs" onClick={() => setEditingDescription(false)}>Cancel</Button>
-            {descriptionError && <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{descriptionError}</p>}
-          </form>
-        ) : (
-          <span className="min-w-40 flex-1 text-sm break-words">{task.description}</span>
+          <>
+            <span className="text-sm font-bold">{task.category}</span>
+            <span className="min-w-40 flex-1 text-sm break-words">{task.description}</span>
+          </>
         )}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -141,8 +149,7 @@ function GeneralTaskRow({
           <KebabMenu
             ariaLabel={`More actions for ${task.description}`}
             items={[
-              { label: "Edit description", onClick: () => { setEditedDescription(task.description); setDescriptionError(null); setEditingDescription(true); } },
-              { label: "Edit category", onClick: () => { setEditedCategory(task.category); setCategoryError(null); setEditingCategory(true); } },
+              { label: "Edit", onClick: () => { setEditedDescription(task.description); setEditedCategory(task.category); setEditError(null); setEditing(true); } },
               { label: "Move to a school", onClick: () => setMoving(true) },
               {
                 label: "Remove",

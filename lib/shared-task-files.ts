@@ -312,10 +312,18 @@ export function todayActivityByVa(
   }
 
   for (const item of planItems) {
-    if (item.kind === "task" || !item.completedAt || !item.vaName || !isRecentFor(item.completedAt, item.vaName)) continue;
-    // A checked reminder is DONE: it shows here only as reviewed (a check
-    // mark), and is never carried into Planned Work.
-    push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "Reviewed", itemKey: `p:${item.id}` });
+    if (item.kind === "task" || !item.vaName) continue;
+    if (item.completedAt) {
+      if (!isRecentFor(item.completedAt, item.vaName)) continue;
+      // A checked reminder is DONE: it shows here only as reviewed (a check
+      // mark), and is never carried into Planned Work.
+      push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "Reviewed", itemKey: `p:${item.id}` });
+    } else if (item.startedAt) {
+      // Started but not done yet -- shown regardless of date, same as an
+      // In Progress task (a reminder has no task row of its own to flip
+      // to In Progress, so this plan_item is the only record of it).
+      push(item.vaName, { schoolName: "Reminder", category: "", fileName: item.label, status: "In Progress", itemKey: `p:${item.id}` });
+    }
   }
 
   // An email item marked Done today shows as completed (its school's VA gets it),

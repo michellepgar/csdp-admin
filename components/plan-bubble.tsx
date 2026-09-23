@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Bell, Check, ChevronDown, ClipboardList, ListChecks, Mail, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
-import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
 import type { OpenEmailItem } from "@/lib/shared-task-files";
 import { WorkNoteButton } from "@/components/work-note-button";
@@ -21,7 +20,7 @@ import type { PlanItem, TaskCategory, GeneralTaskCategory, WorkNote } from "@/li
    items rather than active work). */
 const ROW_BASE = "flex items-center justify-between gap-2 rounded-lg border-l-4 border bg-background/60 p-2.5 text-sm shadow-sm transition-shadow hover:shadow-md";
 
-export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEmailItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, completeNoteReminder, setEmailStatus }: {
+export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEmailItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, startReminder, setEmailStatus }: {
   myWorkNotes: WorkNote[];
   currentUserName: string;
   myPlanItems: PlanItem[];
@@ -31,7 +30,7 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
   generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
-  completeNoteReminder: (formData: FormData) => void;
+  startReminder: (formData: FormData) => Promise<{ error: string | null }>;
   setEmailStatus: (formData: FormData) => void;
 }) {
   const noteLookup = makeNoteLookup(myWorkNotes);
@@ -80,7 +79,10 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
   if (!hasContent) return null;
 
   const actionableItems = myPlanItems.filter((item) => item.kind !== "note");
-  const reminders = myPlanItems.filter((item) => item.kind === "note");
+  // A started reminder moves off this list -- it shows on Currently
+  // Working On instead until it's completed there (see startReminder's
+  // own comment in app/(app)/overview/actions.ts).
+  const reminders = myPlanItems.filter((item) => item.kind === "note" && !item.startedAt);
 
   return (
     <div ref={dockRef} className="fixed bottom-4 right-4 z-50">
@@ -129,8 +131,8 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
                 {reminders.map((item) => (
                   <div key={item.id} className={`${ROW_BASE} items-start border-l-plan-accent-secondary`}>
                     <span className="min-w-0 flex-1 break-words">
-                      {/* Opening the reminder just shows you the note -- it is only
-                          marked reviewed by ticking the checkbox on the right. */}
+                      {/* Opening the reminder just shows you the note -- Start (on
+                          the right) is what moves it to Currently Working On. */}
                       {item.noteId ? (
                         <Link href={`/private-notes?highlightNote=${item.noteId}`} prefetch={false} title="Open this note" className="hover:underline">{item.label}</Link>
                       ) : (
@@ -141,13 +143,10 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
                       )}
                     </span>
                     <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), currentUserName)} label={item.label} />
-                    <AutoSubmitForm action={completeNoteReminder} className="shrink-0">
+                    <form action={async (formData) => { await startReminder(formData); }} className="shrink-0">
                       <input type="hidden" name="id" value={item.id} />
-                      <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground" title="Tick to mark this reminder as reviewed">
-                        <input type="checkbox" aria-label={`Mark "${item.label}" as reviewed`} className="h-4 w-4" />
-                        Reviewed
-                      </label>
-                    </AutoSubmitForm>
+                      <SubmitButton variant="plan" size="xs" pendingLabel="…"><Play className="h-3 w-3" /> Start</SubmitButton>
+                    </form>
                   </div>
                 ))}
               </div>

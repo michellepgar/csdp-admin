@@ -53,7 +53,7 @@ export function SidebarShell({
   generalTaskCategories,
   resolveTaskPlanItem,
   resolvePriorityPlanItem,
-  completeNoteReminder,
+  startReminder,
   setEmailStatus,
   quickAdd,
   searchNotes,
@@ -80,7 +80,7 @@ export function SidebarShell({
   generalTaskCategories: GeneralTaskCategory[];
   resolveTaskPlanItem: (formData: FormData) => void;
   resolvePriorityPlanItem: (formData: FormData) => Promise<{ error: string | null }>;
-  completeNoteReminder: (formData: FormData) => void;
+  startReminder: (formData: FormData) => Promise<{ error: string | null }>;
   setEmailStatus: (formData: FormData) => void;
   quickAdd: QuickAddData;
   searchNotes: (query: string) => Promise<PrivateNoteHit[]>;
@@ -236,7 +236,7 @@ export function SidebarShell({
         generalTaskCategories={generalTaskCategories}
         resolveTaskPlanItem={resolveTaskPlanItem}
         resolvePriorityPlanItem={resolvePriorityPlanItem}
-        completeNoteReminder={completeNoteReminder}
+        startReminder={startReminder}
         setEmailStatus={setEmailStatus}
       />
     </div>

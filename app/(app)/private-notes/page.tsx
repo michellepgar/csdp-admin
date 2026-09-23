@@ -110,10 +110,16 @@ export default async function PrivateNotesPage({ searchParams }: { searchParams:
               <form action={addPrivateNote} className="space-y-2">
                 <StickyNoteComposer placeholder="Add a private note…" draftKey="draft:private-note" vas={state.vas || []} />
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-1.5 text-sm">
-                    <input type="checkbox" name="isReminder" />
-                    Mark as reminder
-                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <input type="checkbox" name="isReminder" />
+                      Mark as reminder
+                    </label>
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <input type="checkbox" name="addToPlan" />
+                      Also add to Your Plan
+                    </label>
+                  </div>
                   <SubmitButton pendingLabel="Adding…">Add note</SubmitButton>
                 </div>
               </form>

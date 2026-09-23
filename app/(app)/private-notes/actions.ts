@@ -53,15 +53,17 @@ export async function searchPrivateNotes(query: string): Promise<PrivateNoteHit[
 }
 
 /* Pins a private note into "Your Plan" as a plain reminder -- unlike
-   task/priority plan_items, this never resolves into a real task; it
-   just sits until checked off (completeNoteReminder). label is copied
-   from the note's own text at add-time (one-time copy, same as
-   resolvePriorityPlanItem's file names -- editing the note afterward
-   doesn't change the reminder's label). Returns {error} rather than
-   throwing, unlike this file's other actions -- deliberately following
-   the newer convention from app/(app)/overview/actions.ts, since this
-   touches plan_items (a table whose thrown errors this session has
-   repeatedly needed surfaced, not swallowed). */
+   task/priority plan_items, this never resolves into a real task; it's
+   started (startReminder) and completed (completeWorkItem, both in
+   app/(app)/overview/actions.ts) the same way a task on the plan is,
+   just without a task row behind it. label is copied from the note's
+   own text at add-time (one-time copy, same as resolvePriorityPlanItem's
+   file names -- editing the note afterward doesn't change the
+   reminder's label). Returns {error} rather than throwing, unlike this
+   file's other actions -- deliberately following the newer convention
+   from app/(app)/overview/actions.ts, since this touches plan_items (a
+   table whose thrown errors this session has repeatedly needed
+   surfaced, not swallowed). */
 export async function addNoteToPlan(formData: FormData): Promise<NoteActionResult> {
   const noteId = formData.get("noteId") as string;
   const label = ((formData.get("label") as string) || "").trim() || "Note";
@@ -86,52 +88,36 @@ export async function addNoteToPlan(formData: FormData): Promise<NoteActionResul
   }
 }
 
-/* Checks a note reminder off -- sets completed_at instead of deleting
-   the row, so it can still show up as "completed today" on Overview
-   (see lib/shared-task-files.ts's todayActivityByVa). */
-export async function completeNoteReminder(formData: FormData): Promise<NoteActionResult> {
-  const id = formData.get("id") as string;
-
-  if (await isDemoMode()) {
-    await demoMutate((state) => {
-      const item = (state.planItems || []).find((p) => p.id === id);
-      if (item) item.completedAt = new Date().toISOString();
-    });
-    revalidatePath("/overview");
-    return { error: null };
-  }
-
-  try {
-    const { supabase } = await requireTeamMember();
-    const { error } = await supabase.from("plan_items").update({ completed_at: new Date().toISOString() }).eq("id", id).eq("kind", "note");
-    if (error) throw new Error(error.message);
-    revalidatePath("/overview");
-    return { error: null };
-  } catch (error) {
-    console.error("Complete note reminder failed", error);
-    return { error: error instanceof Error ? error.message : "Couldn't check this off. Please try again." };
-  }
-}
-
 export async function addPrivateNote(formData: FormData) {
   const rawText = ((formData.get("text") as string) || "").trim();
   if (!rawText) return;
   const text = sanitizeNoteHtml(rawText);
   const padColor = (formData.get("padColor") as string) || undefined;
   const isReminder = formData.get("isReminder") === "on";
+  // Same "+ Add to Your Plan" every note already has, offered right at
+  // creation too -- so marking something a reminder can also land it on
+  // Your Plan immediately instead of needing a separate follow-up click.
+  const addToPlan = formData.get("addToPlan") === "on";
+  const label = rawText.replace(/<[^>]+>/g, " ").trim().slice(0, 80) || "Note";
 
   if (await isDemoMode()) {
     await demoMutate((state) => {
-      (state.privateNotes ??= []).push({ id: `demo-${Date.now()}`, text, padColor, author: "Jane", sharedWith: [], ackBy: [], createdAt: new Date().toISOString(), isReminder });
+      const id = `demo-${Date.now()}`;
+      (state.privateNotes ??= []).push({ id, text, padColor, author: "Jane", sharedWith: [], ackBy: [], createdAt: new Date().toISOString(), isReminder });
+      if (addToPlan) {
+        (state.planItems ??= []).push({ id: `demo-note-plan-${Date.now()}`, kind: "note", vaName: "Jane", noteId: id, label, createdBy: "Jane", createdAt: new Date().toISOString() });
+      }
     });
     revalidatePath("/private-notes");
+    if (addToPlan) revalidatePath("/overview");
     return;
   }
 
   const { supabase, me } = await requireTeamMember();
 
+  const id = crypto.randomUUID();
   const { error } = await supabase.from("private_notes").insert({
-    id: crypto.randomUUID(),
+    id,
     text,
     pad_color: padColor || null,
     author: me.name,
@@ -140,7 +126,12 @@ export async function addPrivateNote(formData: FormData) {
     is_reminder: isReminder,
   });
   orThrow(error);
+  if (addToPlan) {
+    const { error: planError } = await supabase.from("plan_items").insert({ kind: "note", va_name: me.name, note_id: id, label, created_by: me.name });
+    orThrow(planError);
+  }
   revalidatePath("/private-notes");
+  if (addToPlan) revalidatePath("/overview");
 }
 
 /* Author-only, matching sharePrivateNote/unsharePrivateNote below --

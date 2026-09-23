@@ -761,6 +761,33 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
   });
 }
 
+/* A reminder's own "Start", matching a task's -- but a reminder has no
+   task row to flip to In Progress, so this just timestamps the
+   plan_items row itself (kept, not deleted) instead of resolving one.
+   Once started it drops off Your Plan's Reminders list and shows on
+   Currently Working On as In Progress until completeWorkItem's "plan"
+   branch marks it done from there. */
+export async function startReminder(formData: FormData): Promise<PlanActionResult> {
+  const id = formData.get("id") as string;
+  if (!id) return { error: null };
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const item = (state.planItems || []).find((p) => p.id === id && p.vaName === "Jane");
+      if (item) item.startedAt = new Date().toISOString();
+    });
+    revalidatePath("/overview");
+    return { error: null };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
+    const { error } = await supabase.from("plan_items").update({ started_at: new Date().toISOString() }).eq("id", id).eq("va_name", me.name).eq("kind", "note");
+    orThrow(error);
+    revalidatePath("/overview");
+  });
+}
+
 /* "Start my day" -- pauses every task this VA currently has In
    Progress (school tasks + General Tasks) and makes sure each one has
    a kind:"task" plan_items row waiting in Your Plan, so nothing gets
@@ -1059,11 +1086,17 @@ export async function resolvePriorityPlanItem(formData: FormData): Promise<PlanA
    it too. Only someone signed on the task can complete it here. */
 export async function completeWorkItem(formData: FormData): Promise<PlanActionResult> {
   const target = parseNoteKey(String(formData.get("itemKey") || ""));
-  if (!target || (target.type !== "task" && target.type !== "general")) return { error: "That item can't be completed from here." };
+  if (!target || (target.type !== "task" && target.type !== "general" && target.type !== "plan")) return { error: "That item can't be completed from here." };
 
   if (await isDemoMode()) {
     let outcome: PlanActionResult = { error: null };
     await demoMutate((state) => {
+      if (target.type === "plan") {
+        const item = (state.planItems || []).find((p) => p.id === target.id);
+        if (!item || item.vaName !== "Jane") { outcome = { error: "You can only complete your own reminder." }; return; }
+        item.completedAt = new Date().toISOString();
+        return;
+      }
       if (target.type === "general") {
         const task = (state.generalTasks || []).find((t) => t.id === target.id);
         if (!task || !task.vaAssigned.includes("Jane")) { outcome = { error: "You can only complete a task you're signed on to." }; return; }
@@ -1086,6 +1119,16 @@ export async function completeWorkItem(formData: FormData): Promise<PlanActionRe
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
+
+    if (target.type === "plan") {
+      const { data: item, error } = await supabase.from("plan_items").select("va_name").eq("id", target.id).maybeSingle();
+      orThrow(error);
+      if (!item || item.va_name !== me.name) throw new Error("You can only complete your own reminder.");
+      const { error: updateError } = await supabase.from("plan_items").update({ completed_at: new Date().toISOString() }).eq("id", target.id);
+      orThrow(updateError);
+      revalidatePath("/overview");
+      return;
+    }
 
     if (target.type === "general") {
       const { data: task, error } = await supabase.from("general_tasks").select("va_assigned").eq("id", target.id).maybeSingle();

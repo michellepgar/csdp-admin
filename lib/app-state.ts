@@ -247,6 +247,13 @@ export interface PlanItem {
    *  is kept (not deleted) so it can still show up as "completed
    *  today" on Overview, unlike a resolved task/priority. */
   completedAt?: string;
+  /** kind:"note" only -- set when "Start" is clicked on Your Plan. A
+   *  started-but-not-completed reminder moves off Your Plan's Reminders
+   *  list and shows "In Progress" on Currently Working On instead,
+   *  matching how starting a task moves it there too (a reminder has no
+   *  underlying task row to flip to In Progress, so this plan_item IS
+   *  the record of that -- unlike a task, it isn't deleted on Start). */
+  startedAt?: string;
   /** kind:"priority" only -- who the boss assigned it to. It stays in Task Priorities (not on their plan) until they grab it, at which point vaName is set. */
   assignedTo?: string;
   /** kind:"priority" only -- position in Task Priorities set by the admins (0 = top). */

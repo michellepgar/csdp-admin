@@ -8,8 +8,7 @@ import type { QuickAddData, QuickAddTable } from "@/components/quick-add-dialog"
 import { SidebarShell } from "@/components/sidebar-shell";
 import { LiveRefresh } from "@/components/live-refresh";
 import { addSchool } from "./layout-actions";
-import { resolveTaskPlanItem, resolvePriorityPlanItem } from "@/app/(app)/overview/actions";
-import { completeNoteReminder } from "@/app/(app)/private-notes/actions";
+import { resolveTaskPlanItem, resolvePriorityPlanItem, startReminder } from "@/app/(app)/overview/actions";
 import { markMentionRead } from "@/app/(app)/mentions/actions";
 import { FloatingChat } from "@/components/floating-chat";
 import { addTask, setEmailStatus } from "@/app/(app)/schools/[id]/actions";
@@ -159,7 +158,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       generalTaskCategories={state.generalTaskCategories || []}
       resolveTaskPlanItem={resolveTaskPlanItem}
       resolvePriorityPlanItem={resolvePriorityPlanItem}
-      completeNoteReminder={completeNoteReminder}
+      startReminder={startReminder}
       setEmailStatus={setEmailStatus}
       quickAdd={quickAdd}
       searchNotes={searchPrivateNotes}

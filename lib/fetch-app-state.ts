@@ -612,6 +612,7 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     emailDoneResult,
     taskCategorySchoolCountsResult,
     issueSchoolFieldResult,
+    planItemStartedAtResult,
   ] = await Promise.all([
     supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
     supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
@@ -664,6 +665,10 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     // Tolerant too: until phase69_issue_school_field.sql has been run this fails,
     // which just means Review Patient Information issues don't show a school yet.
     supabase.from("issues").select("id, school"),
+    // Tolerant too: until phase71_plan_item_started_at.sql has been run this
+    // fails, which just means a reminder's Start button has nothing to show
+    // as started yet (it still works once the column exists).
+    supabase.from("plan_items").select("id, started_at"),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -855,6 +860,15 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
   state.generalTaskCategories = (generalTaskCategoriesResult.data || []) as GeneralTaskCategory[];
 
   state.planItems = (planItemsResult.data || []).map((r) => mapPlanItemRow(r as PlanItemRow));
+  if (!planItemStartedAtResult.error) {
+    const startedAtById = new Map(
+      (planItemStartedAtResult.data || []).map((r) => [(r as { id: string; started_at: string | null }).id, (r as { id: string; started_at: string | null }).started_at]),
+    );
+    for (const item of state.planItems) {
+      const startedAt = startedAtById.get(item.id);
+      if (startedAt) item.startedAt = startedAt;
+    }
+  }
   // Tolerant on purpose: if the work_notes table isn't there yet (its SQL
   // not run), the app just shows no notes instead of failing every page.
   state.workNotes = workNotesResult.error

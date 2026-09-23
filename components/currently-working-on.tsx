@@ -36,10 +36,15 @@ function statusText(status: string): string {
   return status === "Reviewed" ? "✓ Reviewed" : status === "Done" ? "✓ Done" : status;
 }
 
-// A task can be checked off here unless it's already done. Reminders
-// (schoolName "Reminder") are checked off in Your Plan instead.
+// A task can be checked off here unless it's already done. A started
+// reminder (schoolName "Reminder", status "In Progress") can be too --
+// that's how it gets marked done now, matching a task's own Start ->
+// Currently Working On -> Complete flow. A reminder that's already
+// Reviewed is done; there's nothing left to complete.
 function canComplete(t: TodayActivityItem): boolean {
-  return t.schoolName !== "Reminder" && t.status !== "Completed" && !!t.itemKey && (t.itemKey.startsWith("t:") || t.itemKey.startsWith("g:"));
+  if (t.status === "Completed" || !t.itemKey) return false;
+  if (t.itemKey.startsWith("t:") || t.itemKey.startsWith("g:")) return true;
+  return t.schoolName === "Reminder" && t.status === "In Progress" && t.itemKey.startsWith("p:");
 }
 
 // Where a task's link goes: its school page (or General Tasks) with the task

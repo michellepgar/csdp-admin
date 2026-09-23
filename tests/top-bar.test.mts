@@ -53,14 +53,16 @@ test("the priority board sits above the notes list and folds away, remembered by
   assert.match(readFileSync("components/collapsible-section.tsx", "utf8"), /document\.cookie = `\$\{cookieName\}=/);
 });
 
-test("a reminder in Your Plan is only marked reviewed by its checkbox, never by opening it", () => {
+test("a reminder in Your Plan is started (not checked off directly), same as a task", () => {
   const bubble = readFileSync("components/plan-bubble.tsx", "utf8");
   const start = bubble.indexOf("reminders.map");
   const reminders = bubble.slice(start, bubble.indexOf("myOpenEmailItems.length > 0", start));
   // Opening the reminder is just a link to the note...
   assert.match(reminders, /<Link href=\{`\/private-notes\?highlightNote=\$\{item\.noteId\}`\}/);
-  // ...and the only thing that completes it is the checkbox's auto-submitting form.
-  assert.match(reminders, /<AutoSubmitForm action=\{completeNoteReminder\}/);
-  assert.match(reminders, /type="checkbox"/);
-  assert.doesNotMatch(reminders, /SubmitButton/);
+  // ...and Start (not a direct "reviewed" checkbox) is what moves it to
+  // Currently Working On, where it's completed instead -- matching a
+  // task's own Start button on this same board.
+  assert.match(reminders, /startReminder/);
+  assert.match(reminders, /SubmitButton/);
+  assert.doesNotMatch(reminders, /type="checkbox"/);
 });

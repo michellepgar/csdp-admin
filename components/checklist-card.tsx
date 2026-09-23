@@ -175,23 +175,23 @@ export function ChecklistCard({
             <p className="text-sm text-muted-foreground">No checklist items yet — use &quot;Edit template&quot; to add the first one.</p>
           )}
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
           {template.map((item) => {
             const entry = progress[item.id];
             const done = entry?.status === "Done";
             const notNeeded = !!entry?.notNeeded;
             return (
-              <div key={item.id} className="flex items-center gap-2 rounded-md bg-record-background px-2 py-1">
+              <div key={item.id} className="flex items-center gap-1.5 rounded-md bg-record-background px-1.5 py-0.5">
                 {notNeeded ? (
-                  <span className="w-9 text-center text-muted-foreground">—</span>
+                  <span className="w-7 text-center text-muted-foreground">—</span>
                 ) : (
                   <form action={toggleChecklistItem}>
                     <input type="hidden" name="schoolId" value={schoolId} />
                     <input type="hidden" name="itemId" value={item.id} />
-                    <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"}>{done ? "✓" : " "}</SubmitButton>
+                    <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"} size="icon-sm">{done ? "✓" : " "}</SubmitButton>
                   </form>
                 )}
-                <span className={`min-w-0 flex-1 text-sm ${notNeeded ? "text-muted-foreground line-through" : ""}`}>{item.description}</span>
+                <span className={`min-w-0 flex-1 text-xs ${notNeeded ? "text-muted-foreground line-through" : ""}`}>{item.description}</span>
                 {notNeeded ? (
                   <form action={setChecklistNotNeeded} className="flex items-center gap-1">
                     <input type="hidden" name="schoolId" value={schoolId} />

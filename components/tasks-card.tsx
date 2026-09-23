@@ -246,12 +246,6 @@ type TasksCardProps = {
   updateTaskFileName: (formData: FormData) => Promise<TaskFileActionResult>;
 };
 
-/* The category/table picker beside the "Add file" input -- a plain
-   bordered, tinted button (no chevron) so it reads as something to click
-   even before anything is chosen; the placeholder text does the rest. */
-const ADD_FILE_PICKER_CLASS =
-  "min-w-52 max-w-72 truncate rounded-md border border-primary/60 bg-primary/5 px-3 py-1.5 text-left text-sm font-medium text-primary hover:bg-primary/10";
-
 export function TasksCard(props: TasksCardProps) {
   const { schoolId, categories, taskFiles, vas, canEdit, currentUserName } = props;
   const [editorOpen, setEditorOpen] = useState(false);
@@ -278,12 +272,85 @@ export function TasksCard(props: TasksCardProps) {
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [newFileName, setNewFileName] = useState("");
   const [addFileError, setAddFileError] = useState<string | null>(null);
-  const [addToExistingTable, setAddToExistingTable] = useState(false);
-  const [addFileTableKey, setAddFileTableKey] = useState("");
-  const [addFileCategoryId, setAddFileCategoryId] = useState("");
+  // The top form only ever starts a brand NEW table now -- each table
+  // already grew its own "+ Add file" row (TaskTableAddFileRow below),
+  // so a separate "add to an existing table" mode here was doing the
+  // same job twice. Picking several categories here (instead of the
+  // old single-category dropdown) is what lets this create a
+  // multi-category table in one step -- addTask already accepted
+  // several categoryIds server-side, the UI just never offered more
+  // than one.
+  const [newTableCategoryIds, setNewTableCategoryIds] = useState<string[]>([]);
   const [editFileError, setEditFileError] = useState<string | null>(null);
   const [editedFileName, setEditedFileName] = useState("");
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState<Set<string>>(new Set());
+  const [selectedFileIds, setSelectedFileIds] = useState<Record<string, string[]>>({});
+  const [bulkCategoryTarget, setBulkCategoryTarget] = useState<Record<string, string>>({});
+  const [bulkBusy, setBulkBusy] = useState<Set<string>>(new Set());
+
+  function toggleNewTableCategory(id: string) {
+    setNewTableCategoryIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  function toggleTableSelectMode(key: string) {
+    setSelectMode((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+    setSelectedFileIds((prev) => ({ ...prev, [key]: [] }));
+  }
+
+  function toggleFileSelected(key: string, fileId: string) {
+    setSelectedFileIds((prev) => {
+      const current = prev[key] || [];
+      return { ...prev, [key]: current.includes(fileId) ? current.filter((id) => id !== fileId) : [...current, fileId] };
+    });
+  }
+
+  async function removeSelectedFiles(key: string) {
+    const ids = selectedFileIds[key] || [];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Remove ${ids.length} file${ids.length === 1 ? "" : "s"} and all of its tasks?`)) return;
+    setBulkBusy((prev) => new Set(prev).add(key));
+    for (const fileId of ids) {
+      const formData = new FormData();
+      formData.set("schoolId", schoolId);
+      formData.set("taskFileId", fileId);
+      props.removeTask(formData);
+    }
+    setBulkBusy((prev) => { const next = new Set(prev); next.delete(key); return next; });
+    setSelectedFileIds((prev) => ({ ...prev, [key]: [] }));
+    setSelectMode((prev) => { const next = new Set(prev); next.delete(key); return next; });
+  }
+
+  /* Removes just one category's task from each selected file -- the
+     file itself, and its OTHER categories (in a multi-category table),
+     are untouched. Same removeTaskAssignment the per-row kebab's own
+     "Remove" already uses, just run once per selected file instead of
+     picked one row at a time. */
+  async function removeSelectedCategory(key: string, group: { categories: TaskCategory[]; files: TaskFile[] }) {
+    const categoryId = bulkCategoryTarget[key];
+    const category = group.categories.find((c) => c.id === categoryId);
+    if (!category) return;
+    const ids = selectedFileIds[key] || [];
+    const assignmentIds = ids
+      .map((fileId) => group.files.find((f) => f.id === fileId)?.categories.find((a) => a.categoryId === categoryId)?.id)
+      .filter((id): id is string => !!id);
+    if (assignmentIds.length === 0) return;
+    if (!window.confirm(`Remove the "${category.name}" task from ${assignmentIds.length} selected file${assignmentIds.length === 1 ? "" : "s"}?`)) return;
+    setBulkBusy((prev) => new Set(prev).add(key));
+    for (const taskId of assignmentIds) {
+      const formData = new FormData();
+      formData.set("schoolId", schoolId);
+      formData.set("taskId", taskId);
+      props.removeTaskAssignment(formData);
+    }
+    setBulkBusy((prev) => { const next = new Set(prev); next.delete(key); return next; });
+    setSelectedFileIds((prev) => ({ ...prev, [key]: [] }));
+    setSelectMode((prev) => { const next = new Set(prev); next.delete(key); return next; });
+  }
 
   function toggleTableCollapsed(key: string) {
     setCollapsedTables((prev) => {
@@ -410,43 +477,26 @@ export function TasksCard(props: TasksCardProps) {
           </div>
         )}
 
-        <div className="space-y-2">
-          {taskTables.length > 0 && (
-            <div className="flex gap-1">
-              <Button type="button" size="xs" variant={addToExistingTable ? "outline" : "default"} onClick={() => { setAddToExistingTable(false); setAddFileTableKey(""); }}>New category</Button>
-              <Button type="button" size="xs" variant={addToExistingTable ? "default" : "outline"} onClick={() => setAddToExistingTable(true)}>Existing table</Button>
-            </div>
-          )}
+        <div className="space-y-2 rounded-md border border-dashed p-2">
+          {/* Only ever starts a brand new table now -- adding a file to
+              a table that already exists happens right on that table
+              itself (its own "+ Add file" row further down). Pick
+              every category this new table should have, then name its
+              first file. */}
+          <p className="text-xs font-medium text-muted-foreground">New table — choose its categories:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {orderedCategories.map((category) => (
+              <label key={category.id} className={`inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-1 text-xs ${newTableCategoryIds.includes(category.id) ? "border-primary/60 bg-primary/10 font-medium text-primary" : "text-muted-foreground"}`}>
+                <input type="checkbox" className="h-3 w-3" checked={newTableCategoryIds.includes(category.id)} onChange={() => toggleNewTableCategory(category.id)} />
+                {category.name.trim() || "(Unnamed category)"}
+              </label>
+            ))}
+          </div>
           <form action={(formData) => submitTaskFileForm(props.addTask, formData, setAddFileError, () => setNewFileName(""))} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <input type="hidden" name="schoolId" value={schoolId} />
-            <div className="flex min-w-56 flex-1 flex-wrap gap-2">
-              {addToExistingTable ? (
-                <>
-                  {taskTables.find((group) => group.key === addFileTableKey)?.categories.map((category) => (
-                    <input key={category.id} type="hidden" name="categoryIds" value={category.id} />
-                  ))}
-                  <Dropdown
-                    name="tableKey"
-                    value={addFileTableKey}
-                    onChange={setAddFileTableKey}
-                    placeholder="Choose a table"
-                    options={taskTables.map((group) => ({ value: group.key, label: `${group.categories.map((c) => c.name).join(" + ")} (${group.files.length} file${group.files.length === 1 ? "" : "s"})` }))}
-                    className={ADD_FILE_PICKER_CLASS}
-                  />
-                </>
-              ) : (
-                <Dropdown
-                  name="categoryIds"
-                  value={addFileCategoryId}
-                  onChange={setAddFileCategoryId}
-                  placeholder="Choose a category"
-                  options={orderedCategories.map((category) => ({ value: category.id, label: category.name.trim() || "(Unnamed category)" }))}
-                  className={ADD_FILE_PICKER_CLASS}
-                />
-              )}
-            </div>
+            {newTableCategoryIds.map((id) => <input key={id} type="hidden" name="categoryIds" value={id} />)}
             <Input name="fileName" placeholder="File name" required value={newFileName} onChange={(event) => setNewFileName(event.target.value)} className="w-full sm:max-w-md sm:flex-1" />
-            <SubmitButton pendingLabel="Adding…" disabled={addToExistingTable ? !addFileTableKey : !addFileCategoryId}>Add</SubmitButton>
+            <SubmitButton pendingLabel="Adding…" disabled={newTableCategoryIds.length === 0}>Add</SubmitButton>
           </form>
         </div>
         {addFileError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{addFileError}</p>}
@@ -469,20 +519,52 @@ export function TasksCard(props: TasksCardProps) {
           // asked to be told, not just quietly allowed it (a file name is a
           // label, not an identity: see supabase/phase40_unrestricted_file_names.sql).
           const duplicateNames = duplicateFileNamesInTable(group.files);
+          const isSelecting = selectMode.has(group.key);
+          const selectedInTable = selectedFileIds[group.key] || [];
           return (
           <div key={group.key} className="rounded-md border">
-            <button
-              type="button"
-              onClick={() => toggleTableCollapsed(group.key)}
-              aria-expanded={!collapsed}
-              className="flex w-full items-center gap-1.5 bg-muted/40 px-3 py-1.5 text-left text-sm font-semibold hover:bg-muted/60"
-            >
-              {collapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
-              <span className="truncate">{group.categories.map((c) => c.name).join(" + ")}</span>
-              <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">{group.files.length} file{group.files.length === 1 ? "" : "s"}</span>
-            </button>
+            <div className="flex w-full items-center gap-1.5 bg-muted/40 px-3 py-1.5 text-sm font-semibold">
+              <button
+                type="button"
+                onClick={() => toggleTableCollapsed(group.key)}
+                aria-expanded={!collapsed}
+                className="flex min-w-0 flex-1 items-center gap-1.5 text-left hover:opacity-80"
+              >
+                {collapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+                <span className="truncate">{group.categories.map((c) => c.name).join(" + ")}</span>
+              </button>
+              {canEdit && group.files.length > 0 && (
+                <Button type="button" variant="ghost" size="xs" onClick={() => toggleTableSelectMode(group.key)}>{isSelecting ? "Done" : "Select"}</Button>
+              )}
+              <span className="shrink-0 text-xs font-normal text-muted-foreground">{group.files.length} file{group.files.length === 1 ? "" : "s"}</span>
+            </div>
             {!collapsed && (
             <>
+            {selectedInTable.length > 0 && (
+              <div className="space-y-1 border-t bg-muted/20 p-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span>{selectedInTable.length} selected</span>
+                  <Button type="button" size="xs" variant="destructive" disabled={bulkBusy.has(group.key)} onClick={() => removeSelectedFiles(group.key)}>
+                    {bulkBusy.has(group.key) ? "Removing…" : `Remove ${selectedInTable.length} whole file${selectedInTable.length === 1 ? "" : "s"}`}
+                  </Button>
+                  {group.categories.length > 1 && (
+                    <>
+                      <Dropdown
+                        name={`bulk-category-${group.key}`}
+                        value={bulkCategoryTarget[group.key] || ""}
+                        onChange={(value) => setBulkCategoryTarget((prev) => ({ ...prev, [group.key]: value }))}
+                        placeholder="Choose a category…"
+                        options={group.categories.map((category) => ({ value: category.id, label: category.name }))}
+                        className="min-w-40 rounded-md border px-2 py-1 text-left text-xs"
+                      />
+                      <Button type="button" size="xs" variant="outline" disabled={!bulkCategoryTarget[group.key] || bulkBusy.has(group.key)} onClick={() => removeSelectedCategory(group.key, group)}>
+                        Remove just that category
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Phones: one card per file (name, then each category with its count
                 and VA/status) instead of a wide table that scrolls sideways. */}
             <div className="space-y-2 p-2 sm:hidden">
@@ -491,6 +573,9 @@ export function TasksCard(props: TasksCardProps) {
                 return (
                   <div key={file.id} className="space-y-2 rounded-lg border bg-card p-2.5 shadow-sm">
                     <div className="flex items-start justify-between gap-2">
+                      {isSelecting && (
+                        <input type="checkbox" className="mt-1 shrink-0" checked={selectedInTable.includes(file.id)} onChange={() => toggleFileSelected(group.key, file.id)} aria-label={`Select ${file.fileName}`} />
+                      )}
                       {editingFileId === file.id ? (
                         <form action={(formData) => submitTaskFileForm(props.updateTaskFileName, formData, setEditFileError, () => setEditingFileId(null))} className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                           <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskFileId" value={file.id} />
@@ -533,7 +618,7 @@ export function TasksCard(props: TasksCardProps) {
             </div>
             <div className="hidden overflow-x-auto sm:block">
             <table className="w-full table-fixed border-collapse text-sm" style={{minWidth: layout.minWidth}}>
-              <colgroup>{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
+              <colgroup>{isSelecting && <col style={{width: "28px"}} />}{columns.map((column, index) => <col key={column.kind === "task" ? `task:${column.category.id}` : column.kind} style={{width: layout.columnWidths[index]}} />)}</colgroup>
               {/* Category header cells get their own bg-title-background
                   (the same token used for every other section heading
                   in this app, e.g. "Other Contacts" -- already
@@ -543,10 +628,15 @@ export function TasksCard(props: TasksCardProps) {
                   adjacent categories read as their own distinctly
                   colored band next to the plainer Count/File name
                   headers beside them. */}
-              <thead><tr className="border-b bg-muted/40">{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 break-words ${column.kind === "task" ? `px-4 text-center text-sm font-bold ${columns.slice(0, index + 1).filter((c) => c.kind === "task").length % 2 === 1 ? "bg-title-background" : "bg-title-background/60"} ${dividerClass(index)}` : "px-2 text-left font-medium"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : column.category.name}</th>)}</tr></thead>
+              <thead><tr className="border-b bg-muted/40">{isSelecting && <th className="w-7"><span className="sr-only">Select</span></th>}{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 break-words ${column.kind === "task" ? `px-4 text-center text-sm font-bold ${columns.slice(0, index + 1).filter((c) => c.kind === "task").length % 2 === 1 ? "bg-title-background" : "bg-title-background/60"} ${dividerClass(index)}` : "px-2 text-left font-medium"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : column.category.name}</th>)}</tr></thead>
               <tbody>
                 {group.files.map((file, fileIndex) => (
                   <tr key={file.id} className="border-b last:border-b-0 hover:bg-row-hover">
+                    {isSelecting && (
+                      <td className="px-1 py-2 align-top">
+                        <input type="checkbox" checked={selectedInTable.includes(file.id)} onChange={() => toggleFileSelected(group.key, file.id)} aria-label={`Select ${file.fileName}`} />
+                      </td>
+                    )}
                     {columns.map((column, index) => {
                       if (column.kind === "remove") return <td key="remove" className="px-1 py-2 align-top"><DeleteOrRequestControl canDelete={canEdit} idFieldName="taskFileId" schoolId={schoolId} targetId={file.id} label={`file "${file.fileName}" and all of its tasks`} removeAction={props.removeTask} icon={<Trash2 className="h-3 w-3" />} /></td>;
                       if (column.kind === "count") return <td key="count" className="px-2 py-2 align-top"><div className="space-y-1">{column.categories.map(category => {
@@ -567,7 +657,8 @@ export function TasksCard(props: TasksCardProps) {
                       }
                       return <td key="file" className="px-2 py-2 align-top">
                       <div className="flex min-h-7 min-w-0 items-center gap-1">
-                        {canEdit && (
+                        {/* Only worth showing once there's a second file to trade places with. */}
+                        {canEdit && group.files.length > 1 && (
                           <span className="flex shrink-0 flex-col">
                             <button type="button" disabled={fileIndex === 0} onClick={() => moveFileStep(group.files, file.id, "up")} aria-label={`Move ${file.fileName} up`} title="Move up" className="flex h-3.5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent"><ArrowUp className="h-3 w-3" /></button>
                             <button type="button" disabled={fileIndex === group.files.length - 1} onClick={() => moveFileStep(group.files, file.id, "down")} aria-label={`Move ${file.fileName} down`} title="Move down" className="flex h-3.5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent"><ArrowDown className="h-3 w-3" /></button>

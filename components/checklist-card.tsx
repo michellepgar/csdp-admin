@@ -183,12 +183,16 @@ export function ChecklistCard({
             return (
               <div key={item.id} className="flex items-center gap-1.5 rounded-md bg-record-background px-1.5 py-0.5">
                 {notNeeded ? (
-                  <span className="w-7 text-center text-muted-foreground">—</span>
+                  <span className="w-5 text-center text-muted-foreground">—</span>
                 ) : (
                   <form action={toggleChecklistItem}>
                     <input type="hidden" name="schoolId" value={schoolId} />
                     <input type="hidden" name="itemId" value={item.id} />
-                    <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"} size="icon-sm">{done ? "✓" : " "}</SubmitButton>
+                    {/* A real checkbox reads as square with a crisp corner, not
+                        a pill -- rounded-sm overrides the button's own
+                        rounded-lg/icon-radius classes (twMerge keeps only the
+                        last radius utility). */}
+                    <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"} size="icon-xs" className="rounded-sm">{done ? "✓" : " "}</SubmitButton>
                   </form>
                 )}
                 <span className={`min-w-0 flex-1 text-xs ${notNeeded ? "text-muted-foreground line-through" : ""}`}>{item.description}</span>

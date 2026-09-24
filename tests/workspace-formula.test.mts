@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateTable, isFormula } from "../lib/workspace-formula.ts";
-import { coerceCell, removeColumn, removeRow, setFill, validateBlockContent, FILL_COLORS } from "../lib/workspace.ts";
+import { coerceCell, removeColumn, removeRow, setCells, setFill, setFills, validateBlockContent, FILL_COLORS } from "../lib/workspace.ts";
 import type { TableContent } from "../lib/workspace.ts";
 
 function table(rows: (string | number | null)[][]): TableContent {
@@ -107,4 +107,20 @@ test("validateBlockContent keeps only fills that point at real cells with listed
   assert.deepEqual(out.fills, { "r0|c0": yellow });
   const none = validateBlockContent("table", { ...t, fills: "nope" }, identity) as TableContent;
   assert.equal(none.fills, undefined);
+});
+
+test("setFills highlights several cells and skips unknown ones; setCells fills and clears", () => {
+  const base = table([[1, 2], [3, 4]]);
+  const blue = FILL_COLORS[2].value;
+  const lit = setFills(base, [["r0", "c0"], ["r1", "c1"], ["zz", "c0"]], blue);
+  assert.deepEqual(lit.fills, { "r0|c0": blue, "r1|c1": blue });
+  assert.equal(setFills(lit, [["r0", "c0"], ["r1", "c1"]], null).fills, undefined);
+  assert.equal(setFills(base, [["zz", "c0"]], blue), base);
+
+  const cleared = setCells(base, [["r0", "c0"], ["r0", "c1"]], null);
+  assert.deepEqual(cleared.rows[0].cells, { c0: null, c1: null });
+  assert.equal(cleared.rows[1], base.rows[1]); // untouched row keeps its identity
+  assert.equal(setCells(base, [["r0", "c9"]], "x"), base);
+  const filled = setCells(base, [["r0", "c0"], ["r1", "c0"]], "hi");
+  assert.equal(filled.rows[1].cells.c0, "hi");
 });

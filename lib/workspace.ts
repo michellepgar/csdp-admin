@@ -240,16 +240,59 @@ export function removeRow(content: TableContent, rowId: string): TableContent {
   return { ...rest, rows: content.rows.filter((r) => r.id !== rowId), ...(fills ? { fills } : {}) };
 }
 
-/** Sets (or, with null, clears) one cell's highlight. */
-export function setFill(content: TableContent, rowId: string, columnId: string, color: string | null): TableContent {
-  if (!content.rows.some((r) => r.id === rowId) || !content.columns.some((c) => c.id === columnId)) return content;
-  const key = fillKey(rowId, columnId);
+/** Sets (or, with null or an unknown color, clears) the highlight of several cells at once. */
+export function setFills(content: TableContent, cells: [string, string][], color: string | null): TableContent {
+  const rowIds = new Set(content.rows.map((r) => r.id));
+  const columnIds = new Set(content.columns.map((c) => c.id));
+  const valid = color !== null && FILL_COLORS.some((c) => c.value === color);
   const fills = { ...(content.fills ?? {}) };
-  if (color && FILL_COLORS.some((c) => c.value === color)) fills[key] = color;
-  else delete fills[key];
+  let changed = false;
+  for (const [rowId, columnId] of cells) {
+    if (!rowIds.has(rowId) || !columnIds.has(columnId)) continue;
+    const key = fillKey(rowId, columnId);
+    if (valid) fills[key] = color;
+    else delete fills[key];
+    changed = true;
+  }
+  if (!changed) return content;
   const { fills: _old, ...rest } = content;
   void _old;
   return Object.keys(fills).length > 0 ? { ...rest, fills } : rest;
+}
+
+/** Sets (or, with null, clears) one cell's highlight. */
+export function setFill(content: TableContent, rowId: string, columnId: string, color: string | null): TableContent {
+  return setFills(content, [[rowId, columnId]], color);
+}
+
+/** Puts one value into several cells (null clears them), coerced to each column's type. Rows that don't change keep their identity. */
+export function setCells(content: TableContent, cells: [string, string][], value: CellValue): TableContent {
+  const byRow = new Map<string, string[]>();
+  for (const [rowId, columnId] of cells) {
+    const list = byRow.get(rowId);
+    if (list) list.push(columnId);
+    else byRow.set(rowId, [columnId]);
+  }
+  const columnsById = new Map(content.columns.map((c) => [c.id, c]));
+  let changed = false;
+  const rows = content.rows.map((row) => {
+    const targets = byRow.get(row.id);
+    if (!targets) return row;
+    let next: Record<string, CellValue> | null = null;
+    for (const columnId of targets) {
+      const column = columnsById.get(columnId);
+      if (!column) continue;
+      const coerced = coerceCell(value, column.type, column.options);
+      const current = Object.hasOwn(row.cells, columnId) ? row.cells[columnId] : null;
+      if (coerced === current) continue;
+      next ??= { ...row.cells };
+      next[columnId] = coerced;
+    }
+    if (!next) return row;
+    changed = true;
+    return { ...row, cells: next };
+  });
+  return changed ? { ...content, rows } : content;
 }
 
 export function addColumn(content: TableContent, name?: string, type: ColumnType = "text"): TableContent {

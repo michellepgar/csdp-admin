@@ -13,7 +13,7 @@ import type { SheetOp } from "@/lib/sheet-ops";
 import { readGrid } from "@/lib/spreadsheets";
 import type { SheetContent, Spreadsheet, SpreadsheetSheet } from "@/lib/spreadsheets";
 import type { TableContent } from "@/lib/workspace";
-import { lastSheet, rememberSheet } from "@/lib/workspace-last-place";
+import { lastSheet, rememberOpened, rememberSheet } from "@/lib/workspace-last-place";
 
 const SAVE_DELAY_MS = 350;
 const RETRY_DELAY_MS = 4000;
@@ -304,8 +304,10 @@ export function SpreadsheetView({
     openSheetRef.current = openSheet;
   });
 
-  /* Reopen the sheet this spreadsheet was left on in this browser (unless the address names one). */
+  /* Reopen the sheet this spreadsheet was left on in this browser (unless the address names one),
+     and make this the spreadsheet the sidebar's "Spreadsheets" link comes back to. */
   useEffect(() => {
+    rememberOpened("spreadsheets", spreadsheet.id);
     const saved = sheetFromUrl ? null : lastSheet(spreadsheet.id);
     if (saved && saved !== activeId && sheetList.some((s) => s.id === saved)) void openSheetRef.current(saved);
     else if (activeId) rememberSheet(spreadsheet.id, activeId);

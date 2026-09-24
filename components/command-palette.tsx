@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { PrivateNoteHit } from "@/app/(app)/private-notes/actions";
 import { cn } from "@/lib/utils";
+import { resumeHref } from "@/lib/workspace-last-place";
 
 type PaletteItem = { key: string; label: string; hint: string; href: string; icon: LucideIcon };
 
@@ -134,7 +135,8 @@ export function CommandPalette({
   function go(item: PaletteItem | undefined) {
     if (!item) return;
     onClose();
-    router.push(item.href);
+    // My Workspace and Spreadsheets reopen the one last worked on.
+    router.push(item.href === "/spreadsheets" ? resumeHref("spreadsheets") : item.href === "/my-workspace" ? resumeHref("workspace") : item.href);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {

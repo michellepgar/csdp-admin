@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
@@ -15,7 +15,7 @@ export default async function WorkbookPage({ params, searchParams }: { params: P
   if (!context) redirect("/login");
 
   const loaded = await loadWorkbook(id);
-  if (!loaded) notFound();
+  if (!loaded) redirect("/my-workspace"); // deleted (or a bad link): show the list
   const { workbook, sheets, blocks } = loaded;
 
   // ?sheet= keeps a refresh on the same tab; anything unknown falls back to the first sheet.

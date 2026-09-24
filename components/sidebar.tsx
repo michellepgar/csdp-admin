@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { resumeHref, subscribeOpened } from "@/lib/workspace-last-place";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -82,6 +83,9 @@ export function Sidebar({
   const [vaFilter, setVaFilter] = useState("");
   const [addingSchool, setAddingSchool] = useState(false);
   const pathname = usePathname();
+  // My Workspace and Spreadsheets reopen the workbook / spreadsheet last worked on.
+  const workspaceHref = useSyncExternalStore(subscribeOpened, () => resumeHref("workspace"), () => "/my-workspace");
+  const spreadsheetsHref = useSyncExternalStore(subscribeOpened, () => resumeHref("spreadsheets"), () => "/spreadsheets");
 
   const colorByVaName = new Map(vas.filter((v) => v.color).map((v) => [v.name, v.color as string]));
 
@@ -256,7 +260,7 @@ export function Sidebar({
         </IconTooltip>
         <IconTooltip label="My Workspace" active={collapsed}>
           <Link
-            href="/my-workspace"
+            href={workspaceHref}
             prefetch={false}
             title={!collapsed ? "My Workspace" : undefined}
             className={navLinkClass("/my-workspace", collapsed ? "justify-center px-2" : "gap-2 px-3")}
@@ -283,7 +287,7 @@ export function Sidebar({
         </IconTooltip>
         <IconTooltip label="Spreadsheets" active={collapsed}>
           <Link
-            href="/spreadsheets"
+            href={spreadsheetsHref}
             prefetch={false}
             title={!collapsed ? "Spreadsheets" : undefined}
             className={navLinkClass("/spreadsheets", collapsed ? "justify-center px-2" : "gap-2 px-3")}

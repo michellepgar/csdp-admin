@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
-import { lastSheet } from "@/lib/workspace-last-place";
+import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import { forgetOpened, lastOpened, lastSheet } from "@/lib/workspace-last-place";
 import { BookOpen, Plus, Search, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,6 +187,12 @@ export function WorkspaceList({
   deleteWorkbook: WorkbookAction;
 }) {
   const router = useRouter();
+  const section = wording.basePath === "/spreadsheets" ? "spreadsheets" : "workspace";
+  // The one the sidebar would reopen was deleted: go back to opening this list.
+  useEffect(() => {
+    const id = lastOpened(section);
+    if (id && !workbooks.some((w) => w.id === id)) forgetOpened(section);
+  }, [section, workbooks]);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [sort, setSort] = useState<"opened" | "name">("opened");

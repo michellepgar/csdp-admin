@@ -13,7 +13,7 @@ import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
 import { WorkspaceTableBlock } from "@/components/workspace-table-block";
 import { BG_COLORS, BG_STYLES, MAX_RECT, applyPasteStyles, defaultContent, defaultRect, findFreePosition, isDarkColor, parsePastedGrid, tableFromGrid } from "@/lib/workspace";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
-import { lastScroll, lastSheet, rememberScroll, rememberSheet } from "@/lib/workspace-last-place";
+import { lastScroll, lastSheet, rememberOpened, rememberScroll, rememberSheet } from "@/lib/workspace-last-place";
 import type { BgStyle } from "@/lib/workspace";
 import type { Block, BlockContent, BlockKind, NoteContent, Rect, ReminderContent, Sheet, TableContent, Workbook } from "@/lib/workspace";
 
@@ -361,6 +361,7 @@ export function WorkspaceCanvas({
   /* Reopen where this workbook was left: its last sheet (unless the address
      already names one), then that sheet's scroll position. */
   useEffect(() => {
+    rememberOpened("workspace", workbook.id); // where the sidebar's "My Workspace" link comes back to
     const saved = sheetFromUrl ? null : lastSheet(workbook.id);
     if (saved && saved !== activeId && sheets.some((s) => s.id === saved)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time restore from this browser's saved place after mount.

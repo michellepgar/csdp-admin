@@ -628,6 +628,18 @@
   }
 }
 
+/* Number boxes that save on change (school task counts): no up/down arrows,
+   so a click meant for the box can't bump and save the number by accident. */
+.no-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Where a link from Overview landed: the task it pointed at is tinted with the
    accent color in a quick blink, then fades back to normal. */
 .task-highlight-flash {

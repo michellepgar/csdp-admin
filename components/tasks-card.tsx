@@ -603,7 +603,7 @@ export function TasksCard(props: TasksCardProps) {
                               <AutoSubmitForm action={props.setTaskCount}>
                                 <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskId" value={assignment.id} />
                                 <label className="flex items-center gap-1 text-xs text-muted-foreground">Count
-                                  <input key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit} className="h-7 w-16 rounded-md border px-1.5 py-0.5 text-sm" />
+                                  <input key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit} onWheel={(e) => e.currentTarget.blur()} className="no-spinner h-7 w-16 rounded-md border px-1.5 py-0.5 text-sm" />
                                 </label>
                               </AutoSubmitForm>
                             )}
@@ -645,7 +645,7 @@ export function TasksCard(props: TasksCardProps) {
                         return <AutoSubmitForm key={assignment.id} action={props.setTaskCount}>
                           <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskId" value={assignment.id} />
                           {column.categories.length > 1 && <label htmlFor={`count-${assignment.id}`} className="block text-[10px] leading-tight text-muted-foreground break-words">{category.name}</label>}
-                          <input id={`count-${assignment.id}`} key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit} className="h-7 w-14 rounded-md border px-1.5 py-0.5 text-sm" />
+                          <input id={`count-${assignment.id}`} key={assignment.count || ""} type="number" min={0} name="count" aria-label={`${category.name} count for ${file.fileName}`} defaultValue={assignment.count || ""} placeholder="0" disabled={!canEdit} onWheel={(e) => e.currentTarget.blur()} className="no-spinner h-7 w-14 rounded-md border px-1.5 py-0.5 text-sm" />
                         </AutoSubmitForm>;
                       })}</div></td>;
                       if (column.kind === "task") {

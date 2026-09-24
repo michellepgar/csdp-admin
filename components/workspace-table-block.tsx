@@ -2,10 +2,10 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Baseline, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Baseline, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
 import { KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
-import { FILL_COLORS, MAX_COLUMNS, MAX_ROWS, TEXT_COLORS, coerceCell, newCellId, parsePastedGrid } from "@/lib/workspace";
+import { FILL_COLORS, MAX_COLUMNS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, coerceCell, columnName, newCellId, parsePastedGrid } from "@/lib/workspace";
 import { applySheetOps, pasteOps } from "@/lib/sheet-ops";
 import type { SheetOp } from "@/lib/sheet-ops";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
@@ -14,6 +14,10 @@ import type { CellAlign, CellFont, CellFormat, CellSize, CellValue, ColumnType, 
 
 const COLUMN_WIDTH = 140;
 const GUTTER_WIDTH = 56;
+/* Fixed heights (the column-name row is h-9 plus its bottom line; a body row
+   is h-8 plus its bottom line), used to stack frozen rows under each other. */
+const HEAD_ROW_HEIGHT = 37;
+const BODY_ROW_HEIGHT = 33;
 const ADD_COLUMN_WIDTH = 44;
 
 const TYPE_META: Record<ColumnType, { label: string; icon: ReactNode }> = {
@@ -403,13 +407,18 @@ type RowProps = {
   activeCol: number;
   editCol: number;
   editInitial: string | null;
-  /** Row 1 marked as a header: bold, and pinned under the column names while scrolling. */
+  /** Row 1 marked as a header: shown bold. */
   isHeader: boolean;
+  /** How far from the top a frozen row sticks (-1: not frozen), and whether it is the last frozen row. */
+  stickyTop: number;
+  frozenEdge: boolean;
+  /** How many of the first columns are frozen. */
+  freezeCols: number;
 };
 
 /* One body row. Memoized: it only re-renders when its own row, position,
    formulas, highlights or selection change. */
-const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial, isHeader }: RowProps) {
+const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial, isHeader, stickyTop, frozenEdge, freezeCols }: RowProps) {
   const computed: Record<string, string> = computedJson ? JSON.parse(computedJson) : {};
   const fills: Record<string, string> = fillsJson ? JSON.parse(fillsJson) : {};
   const formats: Record<string, CellFormat> = formatsJson ? JSON.parse(formatsJson) : {};
@@ -422,8 +431,8 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         onMouseDown={(e) => api.rowMouseDown(e, pos)}
         title="Select this row"
         // Sticky cells need an opaque background, so the selection tint is layered over the header gray.
-        style={rowSelected ? { backgroundImage: SELECTED_TINT } : undefined}
-        className={`sticky left-0 ${isHeader ? "top-9 z-[8]" : "z-[5]"} cursor-pointer select-none border-b border-r border-sheet-grid bg-sheet-head p-0 text-xs text-sheet-head-foreground ${rowSelected ? "font-semibold" : "font-normal"}`}
+        style={{ ...(rowSelected ? { backgroundImage: SELECTED_TINT } : {}), ...(stickyTop >= 0 ? { top: stickyTop } : {}) }}
+        className={`sticky left-0 ${stickyTop >= 0 ? "z-[8]" : "z-[6]"} cursor-pointer select-none border-b border-r border-sheet-grid bg-sheet-head p-0 text-xs text-sheet-head-foreground ${frozenEdge ? "border-b-2 border-b-sheet-freeze" : ""} ${rowSelected ? "font-semibold" : "font-normal"}`}
       >
         <div className="relative flex h-8 items-center justify-between pl-2 pr-1">
           <span className="tabular-nums">{rowNumber}</span>
@@ -498,6 +507,11 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         if (c === activeCol || editing) shadows.push("inset 0 0 0 2px var(--ring)");
         for (const side of formats[column.id]?.border ?? "") if (SIDE_SHADOW[side]) shadows.push(SIDE_SHADOW[side]);
         if (shadows.length > 0) style.boxShadow = shadows.join(", ");
+        const frozenCol = c < freezeCols;
+        if (stickyTop >= 0) style.top = stickyTop;
+        if (frozenCol) style.left = GUTTER_WIDTH + c * COLUMN_WIDTH;
+        const frozen = stickyTop >= 0 || frozenCol;
+        const frozenClass = frozen ? `sticky bg-sheet-cell ${stickyTop >= 0 && frozenCol ? "z-[5]" : stickyTop >= 0 ? "z-[4]" : "z-[3]"}` : "";
         return (
           <td
             key={column.id}
@@ -506,7 +520,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
             onMouseEnter={() => api.cellMouseEnter({ r: pos, c })}
             onDoubleClick={editing ? undefined : () => api.startEdit({ r: pos, c }, null)}
             style={style}
-            className={`overflow-hidden border-b border-r border-sheet-grid p-0 ${editing ? "" : "cursor-cell select-none"} ${isHeader ? "sticky top-9 z-[6] bg-sheet-head font-semibold text-sheet-head-foreground" : ""}`}
+            className={`overflow-hidden border-b border-r border-sheet-grid p-0 ${editing ? "" : "cursor-cell select-none"} ${frozenClass} ${frozenEdge ? "border-b-2 border-b-sheet-freeze" : ""} ${c === freezeCols - 1 ? "border-r-2 border-r-sheet-freeze" : ""} ${isHeader ? "font-semibold" : ""}`}
           >
             {body}
           </td>
@@ -516,6 +530,52 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
     </tr>
   );
 });
+
+/* The formula bar: the selected cell's address and its content as typed
+   (a formula shows as its formula, not its result), editable in place. Enter
+   or leaving the box saves; Escape puts it back. */
+function FormulaBar({ reference, value, disabled, onCommit, onDone }: { reference: string; value: string; disabled: boolean; onCommit: (value: string) => void; onDone: () => void }) {
+  const [draft, setDraft] = useState(value);
+  const done = useRef(false);
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b border-sheet-grid bg-sheet-bar px-1.5 py-1">
+      <span className="w-20 shrink-0 truncate rounded border border-sheet-grid px-2 py-0.5 text-center font-mono text-xs text-muted-foreground" title="Selected cell">
+        {reference || "—"}
+      </span>
+      <span className="shrink-0 font-serif text-sm italic text-muted-foreground" aria-hidden>
+        fx
+      </span>
+      <input
+        type="text"
+        value={draft}
+        disabled={disabled}
+        aria-label={reference ? `Contents of ${reference}` : "Cell contents"}
+        placeholder={disabled ? "Select a cell" : ""}
+        onChange={(e) => {
+          done.current = false;
+          setDraft(e.target.value);
+        }}
+        onBlur={() => {
+          if (!done.current && draft !== value) onCommit(draft);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            done.current = true;
+            if (draft !== value) onCommit(draft);
+            onDone();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            done.current = true;
+            setDraft(value);
+            onDone();
+          }
+        }}
+        className="h-7 min-w-0 flex-1 rounded border border-transparent bg-transparent px-2 font-mono text-sm text-foreground outline-none focus:border-sheet-grid focus:bg-sheet-cell disabled:cursor-not-allowed"
+      />
+    </div>
+  );
+}
 
 /* Change-type panel shown inside the column's kebab menu. Choosing a radio
    only selects it; nothing changes until Apply. */
@@ -902,6 +962,10 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     selectionRef.current = sel ? { anchor: sel.anchor, focus: sel.focus } : null;
   });
 
+  // Frozen rows and columns (a header row always counts as frozen), kept within what exists.
+  const freezeRows = Math.min(view.length, Math.max(content.freeze?.rows ?? 0, hasHeader ? 1 : 0));
+  const freezeCols = Math.min(columns.length, content.freeze?.cols ?? 0);
+
   // Keep the moving end of the selection on screen (keyboard moves can leave it behind).
   const focusKey = sel ? `${sel.focus.r}:${sel.focus.c}` : "";
   useEffect(() => {
@@ -1199,6 +1263,24 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     ];
   }
 
+  function freeze(rows: number, cols: number) {
+    runOps([{ t: "freeze", rows, cols }]);
+  }
+
+  // The active cell, for the formula bar.
+  const activeRow = sel ? rows[view[sel.anchor.r]] : undefined;
+  const activeColumn = sel ? columns[sel.anchor.c] : undefined;
+  const activeRef = activeRow && activeColumn ? `${columnName(sel!.anchor.c)}${view[sel!.anchor.r] + 1}` : "";
+  const activeRaw = activeRow && activeColumn ? cellOf(activeRow, activeColumn.id) : null;
+  const activeText = activeRaw === null || activeRaw === undefined ? "" : activeRaw === true ? "TRUE" : activeRaw === false ? "FALSE" : String(activeRaw);
+  const rangeLabel = sel && (sel.r1 !== sel.r2 || sel.c1 !== sel.c2) ? `${columnName(sel.c1)}${view[sel.r1] + 1}:${columnName(sel.c2)}${view[sel.r2] + 1}` : activeRef;
+
+  function commitFormulaBar(value: string) {
+    if (!activeRow || !activeColumn) return;
+    if (coerceCell(value, activeColumn.type, activeColumn.options) === activeRaw) return;
+    runOps([{ t: "set", cells: [[activeRow.id, activeColumn.id, value]] }]);
+  }
+
   const toolButton = (active: boolean) =>
     `flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "bg-ring/20 text-ring" : "text-muted-foreground hover:bg-ring/10 hover:text-foreground"}`;
   const toolSelect = "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-40";
@@ -1209,7 +1291,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
 
   return (
     <div className={`relative flex min-h-0 flex-col ${mobile ? "max-h-[65vh]" : "h-full"}`}>
-      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-ring/20 bg-muted/50 px-1.5 py-1" role="toolbar" aria-label="Format the selected cells">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-sheet-grid bg-sheet-bar px-1.5 py-1" role="toolbar" aria-label="Format the selected cells">
         <button type="button" disabled={!sel} title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed={!!activeFormat.b} onMouseDown={(e) => e.preventDefault()} onClick={() => toggleFormat("b")} className={toolButton(!!activeFormat.b)}>
           <Bold className="h-3.5 w-3.5" />
         </button>
@@ -1309,7 +1391,50 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
             </div>
           )}
         />
+        <KebabMenu
+          ariaLabel="Freeze rows and columns"
+          title="Freeze rows and columns"
+          active={freezeRows > (hasHeader ? 1 : 0) || freezeCols > 0}
+          icon={<Snowflake className="h-3.5 w-3.5" />}
+          content={(close) => {
+            const upToRow = sel ? Math.min(MAX_FREEZE_ROWS, sel.anchor.r + 1) : 0;
+            const upToCol = sel ? Math.min(MAX_FREEZE_COLS, sel.anchor.c + 1) : 0;
+            const rowChoices = [0, 1, 2, ...(upToRow > 2 ? [upToRow] : [])];
+            const colChoices = [0, 1, 2, ...(upToCol > 2 ? [upToCol] : [])];
+            const option = (label: string, on: boolean, pick: () => void) => (
+              <button
+                key={label}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  pick();
+                  close();
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-foreground transition-colors hover:bg-ring/10"
+              >
+                <span className="w-3 text-ring">{on ? "✓" : ""}</span>
+                {label}
+              </button>
+            );
+            const rowsNow = content.freeze?.rows ?? 0;
+            const colsNow = content.freeze?.cols ?? 0;
+            return (
+              <div className="w-52 space-y-2">
+                <div>
+                  <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rows</p>
+                  {rowChoices.map((n) => option(n === 0 ? "No rows" : n === upToRow && n > 2 ? `Up to row ${n}` : `${n} row${n === 1 ? "" : "s"}`, rowsNow === n, () => freeze(n, colsNow)))}
+                </div>
+                <div>
+                  <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Columns</p>
+                  {colChoices.map((n) => option(n === 0 ? "No columns" : n === upToCol && n > 2 ? `Up to column ${columnName(n - 1)}` : `${n} column${n === 1 ? "" : "s"}`, colsNow === n, () => freeze(rowsNow, n)))}
+                </div>
+                {hasHeader && <p className="px-2 text-xs text-muted-foreground">Row 1 is a header, so it always stays on top.</p>}
+              </div>
+            );
+          }}
+        />
       </div>
+      <FormulaBar key={`${activeRow?.id ?? ""}|${activeColumn?.id ?? ""}|${activeText}`} reference={rangeLabel} value={activeText} disabled={!activeRow || !activeColumn} onCommit={commitFormulaBar} onDone={() => keyRef.current?.focus({ preventScroll: true })} />
       <textarea
         ref={keyRef}
         aria-label="Selected cells. Type to edit, arrow keys to move."
@@ -1363,7 +1488,12 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
               {columns.map((column, c) => {
                 const columnSelected = !!sel && c >= sel.c1 && c <= sel.c2;
                 return (
-                  <th key={column.id} scope="col" style={columnSelected ? { backgroundImage: SELECTED_TINT } : undefined} className={`${headerCell} p-0 text-left font-medium`}>
+                  <th
+                    key={column.id}
+                    scope="col"
+                    style={{ ...(columnSelected ? { backgroundImage: SELECTED_TINT } : {}), ...(c < freezeCols ? { left: GUTTER_WIDTH + c * COLUMN_WIDTH } : {}) }}
+                    className={`${headerCell} p-0 text-left font-medium ${c < freezeCols ? "z-[15]" : ""} ${c === freezeCols - 1 ? "border-r-2 border-r-sheet-freeze" : ""}`}
+                  >
                     <div className="flex h-9 items-center gap-1 pl-2 pr-0.5">
                       {renamingId === column.id ? (
                         <input
@@ -1466,6 +1596,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                   editCol={editCol}
                   editInitial={editCol >= 0 ? editing!.initial : null}
                   isHeader={hasHeader && rowIndex === 0}
+                  stickyTop={pos < freezeRows ? HEAD_ROW_HEIGHT + pos * BODY_ROW_HEIGHT : -1}
+                  frozenEdge={pos === freezeRows - 1}
+                  freezeCols={freezeCols}
                 />
               );
             })}
@@ -1474,7 +1607,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         {rows.length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No rows yet. Use “Row” below.</p>}
         {rows.length > 0 && view.length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No rows match “{filter}”.</p>}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-ring/20 bg-muted/50 px-2 py-1">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-sheet-grid bg-sheet-bar px-2 py-1">
         <button
           type="button"
           disabled={atMaxRows}

@@ -32,8 +32,21 @@ export const TEXT_COLORS: { name: string; value: string }[] = [
 ];
 
 /** fills: cell highlight colors and formats: text styling, both keyed `${rowId}|${columnId}`. */
-/** header: the first row is a header row -- kept at the top and left out of sorting and filtering. */
-export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat>; header?: true };
+/** header: the first row is a header row -- kept at the top and left out of sorting and filtering.
+ *  freeze: how many of the first rows / columns stay in place while scrolling. */
+export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat>; header?: true; freeze?: Freeze };
+export type Freeze = { rows: number; cols: number };
+export const MAX_FREEZE_ROWS = 20;
+export const MAX_FREEZE_COLS = 10;
+
+/** A valid freeze setting, or null for "nothing frozen". */
+export function normalizeFreeze(raw: unknown): Freeze | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const count = (v: unknown, max: number) => (typeof v === "number" && Number.isInteger(v) ? Math.min(max, Math.max(0, v)) : 0);
+  const freeze = { rows: count(r.rows, MAX_FREEZE_ROWS), cols: count(r.cols, MAX_FREEZE_COLS) };
+  return freeze.rows > 0 || freeze.cols > 0 ? freeze : null;
+}
 
 /* A highlight is any #RRGGBB color: the swatches below, or a color pasted from a spreadsheet. */
 const HEX_COLOR = /^#[0-9A-F]{6}$/;
@@ -601,6 +614,8 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
   }
   const result: TableContent = { columns, rows };
   if (raw.header === true) result.header = true;
+  const freeze = normalizeFreeze(raw.freeze);
+  if (freeze) result.freeze = freeze;
   if (isPlainObject(raw.fills)) {
     const rowIds = new Set(rows.map((r) => r.id));
     const columnIds = new Set(columns.map((c) => c.id));

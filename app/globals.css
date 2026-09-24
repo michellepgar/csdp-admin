@@ -60,6 +60,9 @@
   --color-sheet-head: var(--sheet-head);
   --color-sheet-head-foreground: var(--sheet-head-foreground);
   --color-sheet-grid: var(--sheet-grid);
+  --color-sheet-bar: var(--sheet-bar);
+  --color-sheet-cell: var(--sheet-cell);
+  --color-sheet-freeze: var(--sheet-freeze);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -177,11 +180,15 @@
      as its own highlight. Two shades lighter than that base teal,
      its own token so nothing else that already uses --muted shifts. */
   --row-hover: #ECFAFB;
-  /* Spreadsheet tables (My Workspace and Spreadsheets): a neutral gray for the
-     column-name bar and row numbers, and grid lines dark enough to see. */
-  --sheet-head: #D1D6DD;
-  --sheet-head-foreground: #1F2937;
-  --sheet-grid: #B8C0CA;
+  /* Spreadsheet tables (My Workspace and Spreadsheets): all white -- cells,
+     column names, row numbers, toolbar, formula bar and sheet tabs -- with
+     light gray grid lines, and a darker line where rows/columns are frozen. */
+  --sheet-head: #FFFFFF;
+  --sheet-head-foreground: #3C4043;
+  --sheet-grid: #E1E3E6;
+  --sheet-bar: #FFFFFF;
+  --sheet-cell: #FFFFFF;
+  --sheet-freeze: #BDC1C6;
   /* Back to plain white -- Michelle asked for every record row
      (Tasks, Issues, Contacts, Distribution List, EOD, Suggestions,
      General Notes, etc. all already share this one token) to go back
@@ -251,6 +258,9 @@
   --sheet-head: #273244;
   --sheet-head-foreground: #E2E8F0;
   --sheet-grid: #3B4759;
+  --sheet-bar: #1B2433;
+  --sheet-cell: var(--record-background);
+  --sheet-freeze: #56657A;
 }
 
 @layer base {

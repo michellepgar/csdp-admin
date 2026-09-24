@@ -479,8 +479,8 @@ export function SpreadsheetView({
         ) : null}
       </div>
 
-      <div className="overflow-visible rounded-xl border border-border bg-record-background no-record-hover shadow-sm">
-        <div className="relative z-20 flex flex-wrap items-end gap-2 rounded-t-xl border-b border-border bg-muted/50 px-2 pt-2">
+      <div className="overflow-visible rounded-xl border border-sheet-grid bg-sheet-cell shadow-sm">
+        <div className="relative z-20 flex flex-wrap items-end gap-2 rounded-t-xl border-b border-sheet-grid bg-sheet-bar px-2 pt-2">
           {activeSheet ? (
             <WorkspaceSheetTabs
               workbookId={spreadsheet.id}

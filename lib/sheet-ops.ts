@@ -1,4 +1,4 @@
-import { addColumn, addRow, coerceCell, newCellId, normalizeFillColor, normalizeFormat, removeColumn, removeRow, renameColumn, setCellStyles, setColumnType, setFills, setFormats, normalizeSides, CELL_ALIGNS, CELL_FONTS, CELL_SIZES, MAX_COLUMNS, MAX_ROWS } from "./workspace.ts";
+import { addColumn, addRow, coerceCell, newCellId, normalizeFillColor, normalizeFormat, removeColumn, removeRow, renameColumn, setCellStyles, setColumnType, setFills, setFormats, normalizeFreeze, normalizeSides, CELL_ALIGNS, CELL_FONTS, CELL_SIZES, MAX_COLUMNS, MAX_ROWS } from "./workspace.ts";
 import type { CellFormat, CellValue, ColumnType, FormatPatch, TableContent } from "./workspace.ts";
 
 /* A table edit described as a small operation instead of a whole new table.
@@ -21,7 +21,8 @@ export type SheetOp =
   | { t: "removeCol"; id: string }
   | { t: "renameCol"; id: string; name: string }
   | { t: "colType"; id: string; type: ColumnType; options?: string[] }
-  | { t: "header"; on: boolean };
+  | { t: "header"; on: boolean }
+  | { t: "freeze"; rows: number; cols: number };
 
 const MAX_OPS = 2000;
 const MAX_CELLS_PER_OP = 30_000;
@@ -117,6 +118,12 @@ export function readSheetOps(raw: unknown): SheetOp[] | null {
         ops.push({ t: "colType", id: op.id, type: op.type as ColumnType, ...(options ? { options } : {}) });
         break;
       }
+      case "freeze": {
+        if (typeof op.rows !== "number" || typeof op.cols !== "number") return null;
+        const freeze = normalizeFreeze({ rows: op.rows, cols: op.cols }) ?? { rows: 0, cols: 0 };
+        ops.push({ t: "freeze", rows: freeze.rows, cols: freeze.cols });
+        break;
+      }
       case "header":
         if (typeof op.on !== "boolean") return null;
         ops.push({ t: "header", on: op.on });
@@ -178,6 +185,12 @@ export function applySheetOp(content: TableContent, op: SheetOp): TableContent {
       return removeColumn(content, op.id);
     case "renameCol":
       return renameColumn(content, op.id, op.name);
+    case "freeze": {
+      const { freeze: _f, ...rest } = content;
+      void _f;
+      const freeze = normalizeFreeze(op);
+      return freeze ? { ...rest, freeze } : rest;
+    }
     case "header": {
       if (op.on) return content.header ? content : { ...content, header: true };
       if (!content.header) return content;

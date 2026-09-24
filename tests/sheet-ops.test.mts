@@ -131,3 +131,13 @@ test("header row flag: on, off, repeatable, survives column removal and validati
   assert.deepEqual(readSheetOps([{ t: "header", on: true }]), [{ t: "header", on: true }]);
   assert.equal(readSheetOps([{ t: "header", on: "yes" }]), null);
 });
+
+test("freeze rows and columns: set, clamp, clear, keep through validation", async () => {
+  const { validateBlockContent } = await import("../lib/workspace.ts");
+  const frozen = applySheetOps(base(), [{ t: "freeze", rows: 2, cols: 1 }]);
+  assert.deepEqual(frozen.freeze, { rows: 2, cols: 1 });
+  assert.deepEqual((validateBlockContent("table", frozen, (h) => h) as TableContent).freeze, { rows: 2, cols: 1 });
+  assert.equal("freeze" in applySheetOps(frozen, [{ t: "freeze", rows: 0, cols: 0 }]), false);
+  assert.deepEqual(readSheetOps([{ t: "freeze", rows: 999, cols: -3 }]), [{ t: "freeze", rows: 20, cols: 0 }]);
+  assert.equal(readSheetOps([{ t: "freeze", rows: "2", cols: 0 }]), null);
+});

@@ -3,8 +3,34 @@ export type ColumnType = "text" | "number" | "date" | "checkbox" | "dropdown";
 export type CellValue = string | number | boolean | null;
 export type TableColumn = { id: string; name: string; type: ColumnType; options?: string[] };
 export type TableRow = { id: string; cells: Record<string, CellValue> };
-/** Cell highlights: `${rowId}|${columnId}` -> one of FILL_COLORS' values. */
-export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string> };
+/** Text styling for one cell. Absent keys mean the default (regular, normal size, the app's font). */
+export type CellFormat = { b?: true; i?: true; u?: true; size?: CellSize; font?: CellFont };
+export type CellSize = "sm" | "lg" | "xl";
+export type CellFont = "serif" | "mono" | "hand";
+export const CELL_SIZES: CellSize[] = ["sm", "lg", "xl"];
+export const CELL_FONTS: CellFont[] = ["serif", "mono", "hand"];
+
+/** fills: cell highlight colors and formats: text styling, both keyed `${rowId}|${columnId}`. */
+export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat> };
+
+/* A highlight is any #RRGGBB color: the swatches below, or a color pasted from a spreadsheet. */
+const HEX_COLOR = /^#[0-9A-F]{6}$/;
+export function normalizeFillColor(color: unknown): string | null {
+  return typeof color === "string" && HEX_COLOR.test(color.toUpperCase()) ? color.toUpperCase() : null;
+}
+
+/** Keeps only the known format keys; null when nothing is left. */
+export function normalizeFormat(raw: unknown): CellFormat | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  const out: CellFormat = {};
+  if (r.b === true) out.b = true;
+  if (r.i === true) out.i = true;
+  if (r.u === true) out.u = true;
+  if (CELL_SIZES.includes(r.size as CellSize)) out.size = r.size as CellSize;
+  if (CELL_FONTS.includes(r.font as CellFont)) out.font = r.font as CellFont;
+  return Object.keys(out).length > 0 ? out : null;
+}
 
 /* Highlight colors for table cells: light tints, so dark cell text always reads. */
 export const FILL_COLORS: { name: string; value: string }[] = [
@@ -223,41 +249,97 @@ export function addRow(content: TableContent): TableContent {
   return { ...content, rows: [...content.rows, { id: newId(), cells: {} }] };
 }
 
-function pruneFills(fills: Record<string, string> | undefined, keep: (rowId: string, columnId: string) => boolean): Record<string, string> | undefined {
-  if (!fills) return undefined;
-  const next: Record<string, string> = {};
-  for (const [key, color] of Object.entries(fills)) {
+function pruneCellMap<T>(map: Record<string, T> | undefined, keep: (rowId: string, columnId: string) => boolean): Record<string, T> | undefined {
+  if (!map) return undefined;
+  const next: Record<string, T> = {};
+  for (const [key, value] of Object.entries(map)) {
     const [rowId, columnId] = key.split("|");
-    if (keep(rowId, columnId)) next[key] = color;
+    if (keep(rowId, columnId)) next[key] = value;
   }
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
+/* Replaces the fills/formats maps, leaving a key out entirely when its map is empty. */
+function withCellMaps(content: TableContent, fills: Record<string, string> | undefined, formats: Record<string, CellFormat> | undefined): TableContent {
+  const { fills: _f, formats: _m, ...rest } = content;
+  void _f;
+  void _m;
+  return { ...rest, ...(fills && Object.keys(fills).length > 0 ? { fills } : {}), ...(formats && Object.keys(formats).length > 0 ? { formats } : {}) };
+}
+
 export function removeRow(content: TableContent, rowId: string): TableContent {
-  const { fills: _old, ...rest } = content;
-  void _old;
-  const fills = pruneFills(content.fills, (r) => r !== rowId);
-  return { ...rest, rows: content.rows.filter((r) => r.id !== rowId), ...(fills ? { fills } : {}) };
+  const keep = (r: string) => r !== rowId;
+  return withCellMaps({ ...content, rows: content.rows.filter((r) => r.id !== rowId) }, pruneCellMap(content.fills, keep), pruneCellMap(content.formats, keep));
 }
 
 /** Sets (or, with null or an unknown color, clears) the highlight of several cells at once. */
 export function setFills(content: TableContent, cells: [string, string][], color: string | null): TableContent {
   const rowIds = new Set(content.rows.map((r) => r.id));
   const columnIds = new Set(content.columns.map((c) => c.id));
-  const valid = color !== null && FILL_COLORS.some((c) => c.value === color);
+  const valid = normalizeFillColor(color);
   const fills = { ...(content.fills ?? {}) };
   let changed = false;
   for (const [rowId, columnId] of cells) {
     if (!rowIds.has(rowId) || !columnIds.has(columnId)) continue;
     const key = fillKey(rowId, columnId);
-    if (valid) fills[key] = color;
+    if (valid) fills[key] = valid;
     else delete fills[key];
     changed = true;
   }
   if (!changed) return content;
-  const { fills: _old, ...rest } = content;
-  void _old;
-  return Object.keys(fills).length > 0 ? { ...rest, fills } : rest;
+  return withCellMaps(content, fills, content.formats);
+}
+
+/** A change to apply to cells' formats: true/false turns a style on/off, null resets size or font. */
+export type FormatPatch = { b?: boolean; i?: boolean; u?: boolean; size?: CellSize | null; font?: CellFont | null };
+
+export function setFormats(content: TableContent, cells: [string, string][], patch: FormatPatch): TableContent {
+  const rowIds = new Set(content.rows.map((r) => r.id));
+  const columnIds = new Set(content.columns.map((c) => c.id));
+  const formats = { ...(content.formats ?? {}) };
+  let changed = false;
+  for (const [rowId, columnId] of cells) {
+    if (!rowIds.has(rowId) || !columnIds.has(columnId)) continue;
+    const key = fillKey(rowId, columnId);
+    const next: Record<string, unknown> = { ...(formats[key] ?? {}) };
+    for (const flag of ["b", "i", "u"] as const) {
+      if (patch[flag] === true) next[flag] = true;
+      else if (patch[flag] === false) delete next[flag];
+    }
+    if (patch.size !== undefined) next.size = patch.size ?? undefined;
+    if (patch.font !== undefined) next.font = patch.font ?? undefined;
+    const clean = normalizeFormat(next);
+    if (clean) formats[key] = clean;
+    else delete formats[key];
+    changed = true;
+  }
+  if (!changed) return content;
+  return withCellMaps(content, content.fills, formats);
+}
+
+/** Styling carried over from a pasted spreadsheet range, one entry per pasted cell. */
+export type PastedStyle = { fill?: string; format?: CellFormat };
+
+/** Gives the pasted area the pasted styling: each cell gets its style, or loses any it had. */
+export function applyPasteStyles(content: TableContent, startRow: number, startCol: number, styles: (PastedStyle | null)[][]): TableContent {
+  const fills = { ...(content.fills ?? {}) };
+  const formats = { ...(content.formats ?? {}) };
+  styles.forEach((line, r) => {
+    const row = content.rows[startRow + r];
+    if (!row) return;
+    line.forEach((style, c) => {
+      const column = content.columns[startCol + c];
+      if (!column) return;
+      const key = fillKey(row.id, column.id);
+      const fill = normalizeFillColor(style?.fill);
+      const format = normalizeFormat(style?.format);
+      if (fill) fills[key] = fill;
+      else delete fills[key];
+      if (format) formats[key] = format;
+      else delete formats[key];
+    });
+  });
+  return withCellMaps(content, fills, formats);
 }
 
 /** Sets (or, with null, clears) one cell's highlight. */
@@ -303,16 +385,19 @@ export function addColumn(content: TableContent, name?: string, type: ColumnType
 
 export function removeColumn(content: TableContent, columnId: string): TableContent {
   if (content.columns.length <= 1) return content;
-  const fills = pruneFills(content.fills, (_r, c) => c !== columnId);
-  return {
-    columns: content.columns.filter((c) => c.id !== columnId),
-    rows: content.rows.map((r) => {
-      const cells = { ...r.cells };
-      delete cells[columnId];
-      return { ...r, cells };
-    }),
-    ...(fills ? { fills } : {}),
-  };
+  const keep = (_r: string, c: string) => c !== columnId;
+  return withCellMaps(
+    {
+      columns: content.columns.filter((c) => c.id !== columnId),
+      rows: content.rows.map((r) => {
+        const cells = { ...r.cells };
+        delete cells[columnId];
+        return { ...r, cells };
+      }),
+    },
+    pruneCellMap(content.fills, keep),
+    pruneCellMap(content.formats, keep),
+  );
 }
 
 export function renameColumn(content: TableContent, columnId: string, name: string): TableContent {
@@ -331,7 +416,7 @@ export function setColumnType(content: TableContent, columnId: string, type: Col
   const column = columns.find((c) => c.id === columnId);
   if (!column) return content;
   return {
-    ...(content.fills ? { fills: content.fills } : {}),
+    ...content,
     columns,
     rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells, [columnId]: coerceCell(Object.hasOwn(r.cells, columnId) ? r.cells[columnId] : null, column.type, column.options) } })),
   };
@@ -352,7 +437,7 @@ export function applyPaste(content: TableContent, startRow: number, startCol: nu
   if (!Number.isFinite(startRow) || !Number.isFinite(startCol) || startRow < 0 || startCol < 0) return content;
   startRow = Math.trunc(startRow);
   startCol = Math.trunc(startCol);
-  let next: TableContent = { columns: [...content.columns], rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells } })), ...(content.fills ? { fills: content.fills } : {}) };
+  let next: TableContent = { ...content, columns: [...content.columns], rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells } })) };
   let width = 0;
   for (const line of grid) if (line.length > width) width = line.length;
   const neededCols = Math.min(MAX_COLUMNS, startCol + width);
@@ -369,6 +454,28 @@ export function applyPaste(content: TableContent, startRow: number, startCol: nu
     });
   });
   return next;
+}
+
+/** A new table holding a pasted range. Columns whose every value is a number become Number columns. */
+export function tableFromGrid(grid: string[][]): TableContent {
+  let width = 1;
+  for (const line of grid) if (line.length > width) width = line.length;
+  width = Math.min(width, MAX_COLUMNS);
+  const lines = grid.slice(0, MAX_ROWS);
+  const columns: TableColumn[] = Array.from({ length: width }, (_, i) => {
+    const values = lines.map((line) => (line[i] ?? "").trim()).filter((v) => v !== "");
+    const numeric = values.length > 0 && values.every((v) => v.startsWith("=") || coerceCell(v, "number") !== null);
+    return { id: newId(), name: columnName(i), type: numeric ? "number" : "text" };
+  });
+  const rows: TableRow[] = lines.map((line) => {
+    const cells: Record<string, CellValue> = {};
+    columns.forEach((column, i) => {
+      const value = coerceCell(line[i] ?? "", column.type);
+      if (value !== null) cells[column.id] = typeof value === "string" ? value.slice(0, MAX_CELL_LENGTH) : value;
+    });
+    return { id: newId(), cells };
+  });
+  return { columns, rows: rows.length > 0 ? rows : [{ id: newId(), cells: {} }] };
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
@@ -438,9 +545,21 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
     const fills: Record<string, string> = {};
     for (const [key, color] of Object.entries(raw.fills)) {
       const [rowId, columnId] = key.split("|");
-      if (typeof color === "string" && FILL_COLORS.some((c) => c.value === color) && rowIds.has(rowId) && columnIds.has(columnId)) fills[key] = color;
+      const clean = normalizeFillColor(color);
+      if (clean && rowIds.has(rowId) && columnIds.has(columnId)) fills[key] = clean;
     }
     if (Object.keys(fills).length > 0) result.fills = fills;
+  }
+  if (isPlainObject(raw.formats)) {
+    const rowIds = new Set(rows.map((r) => r.id));
+    const columnIds = new Set(columns.map((c) => c.id));
+    const formats: Record<string, CellFormat> = {};
+    for (const [key, format] of Object.entries(raw.formats)) {
+      const [rowId, columnId] = key.split("|");
+      const clean = normalizeFormat(format);
+      if (clean && rowIds.has(rowId) && columnIds.has(columnId)) formats[key] = clean;
+    }
+    if (Object.keys(formats).length > 0) result.formats = formats;
   }
   if (JSON.stringify(result).length > MAX_CONTENT_JSON) return null;
   return result;

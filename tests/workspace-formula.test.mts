@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateTable, isFormula } from "../lib/workspace-formula.ts";
-import { coerceCell, removeColumn, removeRow, setCells, setFill, setFills, validateBlockContent, FILL_COLORS } from "../lib/workspace.ts";
+import { applyPasteStyles, coerceCell, removeColumn, removeRow, setCells, setFill, setFills, setFormats, tableFromGrid, validateBlockContent, FILL_COLORS } from "../lib/workspace.ts";
 import type { TableContent } from "../lib/workspace.ts";
 
 function table(rows: (string | number | null)[][]): TableContent {
@@ -91,7 +91,8 @@ test("fills: set, clear, ignore unknown colors and cells, prune on delete", () =
   const yellow = FILL_COLORS[0].value;
   const a = setFill(base, "r0", "c0", yellow);
   assert.deepEqual(a.fills, { "r0|c0": yellow });
-  assert.equal(setFill(a, "r0", "c0", "#123456").fills, undefined);
+  assert.deepEqual(setFill(a, "r0", "c0", "#12ab56").fills, { "r0|c0": "#12AB56" }); // any hex color (pasted from a spreadsheet)
+  assert.equal(setFill(a, "r0", "c0", "red").fills, undefined);
   assert.equal(setFill(a, "r0", "c0", null).fills, undefined);
   assert.equal(setFill(base, "nope", "c0", yellow), base);
   const two = setFill(a, "r1", "c1", yellow);
@@ -103,7 +104,7 @@ test("validateBlockContent keeps only fills that point at real cells with listed
   const identity = (h: string) => h;
   const t = table([[1, 2]]);
   const yellow = FILL_COLORS[0].value;
-  const out = validateBlockContent("table", { ...t, fills: { "r0|c0": yellow, "r0|c9": yellow, "r0|c1": "#000000", "zz|c0": yellow } }, identity) as TableContent;
+  const out = validateBlockContent("table", { ...t, fills: { "r0|c0": yellow, "r0|c9": yellow, "r0|c1": "url(x)", "zz|c0": yellow } }, identity) as TableContent;
   assert.deepEqual(out.fills, { "r0|c0": yellow });
   const none = validateBlockContent("table", { ...t, fills: "nope" }, identity) as TableContent;
   assert.equal(none.fills, undefined);
@@ -123,4 +124,40 @@ test("setFills highlights several cells and skips unknown ones; setCells fills a
   assert.equal(setCells(base, [["r0", "c9"]], "x"), base);
   const filled = setCells(base, [["r0", "c0"], ["r1", "c0"]], "hi");
   assert.equal(filled.rows[1].cells.c0, "hi");
+});
+
+test("setFormats toggles bold/italic/underline, sets and resets size and font", () => {
+  const base = table([[1, 2], [3, 4]]);
+  const bold = setFormats(base, [["r0", "c0"], ["r0", "c1"]], { b: true, size: "lg" });
+  assert.deepEqual(bold.formats, { "r0|c0": { b: true, size: "lg" }, "r0|c1": { b: true, size: "lg" } });
+  const mixed = setFormats(bold, [["r0", "c0"]], { b: false, i: true, font: "mono" });
+  assert.deepEqual(mixed.formats?.["r0|c0"], { i: true, size: "lg", font: "mono" });
+  const reset = setFormats(mixed, [["r0", "c0"], ["r0", "c1"]], { b: false, i: false, size: null, font: null });
+  assert.equal(reset.formats, undefined);
+  assert.equal(setFormats(base, [["zz", "c0"]], { b: true }), base);
+  assert.deepEqual(removeRow(bold, "r0").formats, undefined);
+  assert.deepEqual(removeColumn(bold, "c1").formats, { "r0|c0": { b: true, size: "lg" } });
+});
+
+test("validateBlockContent keeps clean formats only", () => {
+  const identity = (h: string) => h;
+  const t = table([[1, 2]]);
+  const out = validateBlockContent("table", { ...t, formats: { "r0|c0": { b: true, size: "huge", font: "mono", x: 1 }, "r0|c1": { b: "yes" }, "zz|c0": { i: true } } }, identity) as TableContent;
+  assert.deepEqual(out.formats, { "r0|c0": { b: true, font: "mono" } });
+});
+
+test("applyPasteStyles styles the pasted area and clears styling there that the paste didn't have", () => {
+  const base = setFormats(setFill(table([[1, 2], [3, 4]]), "r1", "c1", FILL_COLORS[0].value), [["r1", "c1"]], { b: true });
+  const out = applyPasteStyles(base, 0, 0, [[{ fill: "#ff0000", format: { i: true } }, null], [null, null]]);
+  assert.deepEqual(out.fills, { "r0|c0": "#FF0000" });
+  assert.deepEqual(out.formats, { "r0|c0": { i: true } });
+});
+
+test("tableFromGrid makes letter-named columns and spots number columns", () => {
+  const t = tableFromGrid([["Name", "Count"], ["Ann", "3"], ["Bo", "1,200"]]);
+  assert.deepEqual(t.columns.map((c) => [c.name, c.type]), [["A", "text"], ["B", "text"]]);
+  const n = tableFromGrid([["3", "x"], ["4.5", ""]]);
+  assert.deepEqual(n.columns.map((c) => c.type), ["number", "text"]);
+  assert.equal(n.rows[1].cells[n.columns[0].id], 4.5);
+  assert.equal(tableFromGrid([]).rows.length, 1);
 });

@@ -2,12 +2,13 @@
 
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Calendar, Hash, Highlighter, ListChecks, Plus, SquareCheck, Trash2, Type, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bold, Calendar, Hash, Highlighter, Italic, ListChecks, Plus, SquareCheck, Trash2, Type, Underline, X } from "lucide-react";
 import { KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
-import { FILL_COLORS, MAX_COLUMNS, MAX_ROWS, addColumn, addRow, applyPaste, coerceCell, parsePastedGrid, removeColumn, removeRow, renameColumn, setCell, setCells, setColumnType, setFills } from "@/lib/workspace";
+import { FILL_COLORS, MAX_COLUMNS, MAX_ROWS, addColumn, addRow, applyPaste, applyPasteStyles, coerceCell, parsePastedGrid, removeColumn, removeRow, renameColumn, setCell, setCells, setColumnType, setFills, setFormats } from "@/lib/workspace";
+import { readClipboardTableStyles } from "@/lib/clipboard-table";
 import { evaluateTable, isFormula } from "@/lib/workspace-formula";
-import type { CellValue, ColumnType, TableColumn, TableContent, TableRow } from "@/lib/workspace";
+import type { CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, TableColumn, TableContent, TableRow } from "@/lib/workspace";
 
 const COLUMN_WIDTH = 140;
 const GUTTER_WIDTH = 56;
@@ -24,6 +25,35 @@ const TYPES: ColumnType[] = ["text", "number", "date", "checkbox", "dropdown"];
 
 const EDITOR = "h-8 w-full min-w-0 bg-background px-2 text-sm text-foreground outline-none";
 const SELECTED_TINT = "linear-gradient(color-mix(in oklab, var(--ring) 24%, transparent), color-mix(in oklab, var(--ring) 24%, transparent))";
+// A range gets only a faint wash so highlight colors stay visible; a single cell gets just its outline.
+const RANGE_TINT = "linear-gradient(color-mix(in oklab, var(--ring) 14%, transparent), color-mix(in oklab, var(--ring) 14%, transparent))";
+
+const FONT_OPTIONS: { value: CellFont | ""; label: string; css?: string }[] = [
+  { value: "", label: "Sans" },
+  { value: "serif", label: "Serif", css: "Georgia, serif" },
+  { value: "mono", label: "Mono", css: "ui-monospace, Menlo, monospace" },
+  { value: "hand", label: "Handwritten", css: '"Comic Sans MS", "Comic Sans", cursive' },
+];
+const SIZE_OPTIONS: { value: CellSize | ""; label: string; px: number }[] = [
+  { value: "sm", label: "Small", px: 12 },
+  { value: "", label: "Normal", px: 14 },
+  { value: "lg", label: "Large", px: 16 },
+  { value: "xl", label: "Extra large", px: 18 },
+];
+
+/* Inline text styling for a formatted cell (display and editor alike). */
+function formatStyle(format: CellFormat | undefined): CSSProperties | undefined {
+  if (!format) return undefined;
+  const style: CSSProperties = {};
+  if (format.b) style.fontWeight = 700;
+  if (format.i) style.fontStyle = "italic";
+  if (format.u) style.textDecoration = "underline";
+  const size = format.size ? SIZE_OPTIONS.find((s) => s.value === format.size) : undefined;
+  if (size) style.fontSize = size.px;
+  const font = FONT_OPTIONS.find((f) => f.value === format.font && f.css);
+  if (font) style.fontFamily = font.css;
+  return style;
+}
 
 const cellOf = (row: TableRow, columnId: string): CellValue => (Object.hasOwn(row.cells, columnId) ? row.cells[columnId] : null);
 
@@ -59,8 +89,8 @@ type TableApi = {
   finishEdit: (rowId: string, columnId: string, value: string | undefined, move: Move, refocus: boolean) => void;
   commit: (rowId: string, columnId: string, value: CellValue) => void;
   toggle: (rowId: string, columnId: string) => void;
-  /** Returns true when the text was a multi-cell range and was handled. */
-  pasteGrid: (text: string, pos: Pos) => boolean;
+  /** Returns true when the text was a multi-cell range and was handled. html carries the spreadsheet's styling, when there is any. */
+  pasteGrid: (text: string, html: string, pos: Pos) => boolean;
   deleteRow: (rowId: string) => void;
   flush: () => void;
 };
@@ -69,7 +99,7 @@ type TableApi = {
    The draft only commits on Enter, Tab or leaving the cell -- setCell coerces,
    so a half-typed "1." must not be nulled mid-keystroke. Escape throws it
    away. An unparseable number stays flagged on Enter and is dropped on blur. */
-function TextEditor({ start, numeric, onExit, onGridPaste, flush }: { start: string; numeric: boolean; onExit: (value: string | undefined, move: Move, refocus: boolean) => void; onGridPaste: (text: string) => boolean; flush: () => void }) {
+function TextEditor({ start, numeric, format, onExit, onGridPaste, flush }: { start: string; numeric: boolean; format?: CellFormat; onExit: (value: string | undefined, move: Move, refocus: boolean) => void; onGridPaste: (text: string, html: string) => boolean; flush: () => void }) {
   const [draft, setDraft] = useState(start);
   const draftRef = useRef(start);
   const done = useRef(false);
@@ -121,6 +151,7 @@ function TextEditor({ start, numeric, onExit, onGridPaste, flush }: { start: str
       value={draft}
       title={invalid ? "Enter a number" : undefined}
       aria-invalid={invalid || undefined}
+      style={formatStyle(format)}
       onChange={(e) => {
         draftRef.current = e.target.value;
         setDraft(e.target.value);
@@ -130,7 +161,7 @@ function TextEditor({ start, numeric, onExit, onGridPaste, flush }: { start: str
         if (document.hasFocus()) exit(true, "none", false);
       }}
       onPaste={(e) => {
-        if (!onGridPaste(e.clipboardData.getData("text/plain"))) return;
+        if (!onGridPaste(e.clipboardData.getData("text/plain"), e.clipboardData.getData("text/html"))) return;
         e.preventDefault();
         done.current = true;
         onExit(undefined, "none", true);
@@ -217,6 +248,7 @@ type RowProps = {
   /** Formula results and highlights for this row, as JSON text so the memo compares by value. */
   computedJson: string;
   fillsJson: string;
+  formatsJson: string;
   /** Selected column span in this row (-1 when the row isn't in the selection). */
   selFrom: number;
   selTo: number;
@@ -228,10 +260,12 @@ type RowProps = {
 
 /* One body row. Memoized: it only re-renders when its own row, position,
    formulas, highlights or selection change. */
-const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, selFrom, selTo, activeCol, editCol, editInitial }: RowProps) {
+const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial }: RowProps) {
   const computed: Record<string, string> = computedJson ? JSON.parse(computedJson) : {};
   const fills: Record<string, string> = fillsJson ? JSON.parse(fillsJson) : {};
+  const formats: Record<string, CellFormat> = formatsJson ? JSON.parse(formatsJson) : {};
   const rowSelected = selFrom >= 0;
+  const multi = selFrom !== selTo || activeCol < 0; // this row is part of a range, not just the one active cell
   return (
     <tr className="group/row">
       <th
@@ -267,8 +301,9 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
             <TextEditor
               start={editInitial ?? (raw === null || raw === undefined ? "" : String(raw))}
               numeric={column.type === "number"}
+              format={formats[column.id]}
               onExit={(value, move, refocus) => api.finishEdit(row.id, column.id, value, move, refocus)}
-              onGridPaste={(text) => api.pasteGrid(text, { r: pos, c })}
+              onGridPaste={(text, html) => api.pasteGrid(text, html, { r: pos, c })}
               flush={api.flush}
             />
           );
@@ -298,7 +333,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
           const text = displayText(raw, column, result);
           const right = column.type === "number" || (result !== undefined && !isError);
           body = (
-            <div title={isFormula(raw) ? String(raw) : text || undefined} className={`h-8 truncate px-2 leading-8 ${right ? "text-right tabular-nums" : ""} ${isError ? "text-destructive" : ""}`}>
+            <div title={isFormula(raw) ? String(raw) : text || undefined} style={formatStyle(formats[column.id])} className={`h-8 truncate px-2 leading-8 ${right ? "text-right tabular-nums" : ""} ${isError ? "text-destructive" : ""}`}>
               {text}
             </div>
           );
@@ -309,7 +344,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
           style.backgroundColor = fill;
           if (!isError) style.color = "#1a1a1a";
         }
-        if (rowSelected && c >= selFrom && c <= selTo && !editing) style.backgroundImage = SELECTED_TINT;
+        if (rowSelected && c >= selFrom && c <= selTo && !editing && (multi || c !== activeCol)) style.backgroundImage = RANGE_TINT;
         if (c === activeCol || editing) style.boxShadow = "inset 0 0 0 2px var(--ring)";
         return (
           <td
@@ -436,6 +471,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const renameCancelled = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // An invisible text box holds the keyboard focus while cells are selected, so
+  // typing, copy and paste reach the table in every browser.
+  const keyRef = useRef<HTMLTextAreaElement>(null);
   const contentRef = useRef(content);
   const onChangeRef = useRef(onChange);
   const onFlushRef = useRef(onFlush);
@@ -471,7 +509,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
       setSelection({ anchor, focus });
       setMessage(null);
     };
-    const focusGrid = () => wrapRef.current?.focus({ preventScroll: true });
+    const focusGrid = () => keyRef.current?.focus({ preventScroll: true });
     const cellAt = (pos: Pos) => {
       const current = contentRef.current;
       const row = current.rows[viewRef.current[pos.r]];
@@ -549,7 +587,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         const row = contentRef.current.rows.find((r) => r.id === rowId);
         if (row) emit(setCell(contentRef.current, rowId, columnId, cellOf(row, columnId) !== true));
       },
-      pasteGrid: (text, pos) => {
+      pasteGrid: (text, html, pos) => {
         // Excel appends one line break to even a single-cell copy; that is not a grid.
         const trimmed = text.replace(/(\r\n|\n)$/, "");
         if (!/[\t\n\r]/.test(trimmed)) return false;
@@ -562,6 +600,12 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         const startRow = viewRef.current[pos.r] ?? contentRef.current.rows.length;
         const next = applyPaste(contentRef.current, startRow, pos.c, grid);
         emit(next);
+        // The values land at once; the spreadsheet's colors and text styling follow a moment later.
+        if (html) {
+          void readClipboardTableStyles(html).then((styles) => {
+            if (styles && styles.length === grid.length) emit(applyPasteStyles(contentRef.current, startRow, pos.c, styles));
+          });
+        }
         const width = Math.max(...grid.map((line) => line.length));
         select(pos, { r: Math.min(next.rows.length - 1, pos.r + grid.length - 1), c: Math.min(next.columns.length - 1, pos.c + width - 1) });
         return true;
@@ -624,6 +668,15 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     }
     return result;
   }, [content.fills]);
+
+  const formatsByRow = useMemo(() => {
+    const result: Record<string, Record<string, CellFormat>> = {};
+    for (const [key, format] of Object.entries(content.formats ?? {})) {
+      const [rowId, columnId] = key.split("|");
+      (result[rowId] ??= {})[columnId] = format;
+    }
+    return result;
+  }, [content.formats]);
 
   // Which rows to show, and in what order. This is only a view: the saved table keeps its own order.
   const view = useMemo(() => {
@@ -710,8 +763,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     return lines.join("\n");
   }
 
-  function onGridKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.target !== e.currentTarget || !sel) return; // editors and header inputs handle their own keys
+  function onGridKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (!sel) return;
     const maxR = view.length - 1;
     const maxC = columns.length - 1;
     const set = (anchor: Pos, focus: Pos = anchor) => {
@@ -754,6 +807,20 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         set(sel.anchor);
         return;
     }
+    if (mod && ["b", "i", "u"].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+      toggleFormat(e.key.toLowerCase() as "b" | "i" | "u");
+      return;
+    }
+    if (mod && (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "x")) {
+      // Put the selection in the hidden box and select it, so the browser's own copy has something to copy.
+      const box = keyRef.current;
+      if (box) {
+        box.value = selectionText();
+        box.select();
+      }
+      return;
+    }
     if (mod && e.key.toLowerCase() === "a") {
       e.preventDefault();
       set({ r: 0, c: 0 }, { r: maxR, c: maxC });
@@ -771,25 +838,25 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     }
   }
 
-  function onGridCopy(e: ClipboardEvent<HTMLDivElement>, cut: boolean) {
-    if (e.target !== e.currentTarget || !sel) return;
+  function onGridCopy(e: ClipboardEvent<HTMLTextAreaElement>, cut: boolean) {
+    if (!sel) return;
     e.preventDefault();
     e.clipboardData.setData("text/plain", selectionText());
     if (cut) apply(setCells(contentRef.current, selectedCells(), null));
   }
 
-  function onGridPaste(e: ClipboardEvent<HTMLDivElement>) {
-    if (e.target !== e.currentTarget || !sel) return;
+  function onGridPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    if (!sel) return;
     e.preventDefault();
     const text = e.clipboardData.getData("text/plain");
-    if (api.pasteGrid(text, sel.anchor)) return;
+    if (api.pasteGrid(text, e.clipboardData.getData("text/html"), sel.anchor)) return;
     // One value goes into every selected cell, as in Excel.
     apply(setCells(contentRef.current, selectedCells(), text.replace(/(\r\n|\n)$/, "")));
   }
 
   function selectColumn(c: number) {
     if (view.length === 0) return;
-    wrapRef.current?.focus({ preventScroll: true });
+    keyRef.current?.focus({ preventScroll: true });
     setSelection({ anchor: { r: 0, c }, focus: { r: view.length - 1, c } });
     setMessage(null);
   }
@@ -838,15 +905,121 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     apply(setFills(contentRef.current, selectedCells(), color));
   }
 
+  // The toolbar shows the active cell's styling; a toggle applies to the whole selection.
+  const activeFormat: CellFormat = sel ? (formatsByRow[rows[view[sel.anchor.r]]?.id ?? ""]?.[columns[sel.anchor.c]?.id ?? ""] ?? {}) : {};
+
+  function format(patch: FormatPatch) {
+    apply(setFormats(contentRef.current, selectedCells(), patch));
+  }
+
+  function toggleFormat(flag: "b" | "i" | "u") {
+    format({ [flag]: !activeFormat[flag] });
+  }
+
+  const toolButton = (active: boolean) =>
+    `flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "bg-ring/20 text-ring" : "text-muted-foreground hover:bg-ring/10 hover:text-foreground"}`;
+  const toolSelect = "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-40";
+
   const tableWidth = GUTTER_WIDTH + columns.length * COLUMN_WIDTH + ADD_COLUMN_WIDTH;
   const headerCell = "sticky top-0 z-10 border-b border-r border-ring/20";
   const selectedCount = sel ? (sel.r2 - sel.r1 + 1) * (sel.c2 - sel.c1 + 1) : 0;
 
   return (
-    <div className={`flex min-h-0 flex-col ${mobile ? "max-h-[65vh]" : "h-full"}`}>
+    <div className={`relative flex min-h-0 flex-col ${mobile ? "max-h-[65vh]" : "h-full"}`}>
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-ring/20 bg-muted/50 px-1.5 py-1" role="toolbar" aria-label="Format the selected cells">
+        <button type="button" disabled={!sel} title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed={!!activeFormat.b} onMouseDown={(e) => e.preventDefault()} onClick={() => toggleFormat("b")} className={toolButton(!!activeFormat.b)}>
+          <Bold className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" disabled={!sel} title="Italic (Ctrl+I)" aria-label="Italic" aria-pressed={!!activeFormat.i} onMouseDown={(e) => e.preventDefault()} onClick={() => toggleFormat("i")} className={toolButton(!!activeFormat.i)}>
+          <Italic className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" disabled={!sel} title="Underline (Ctrl+U)" aria-label="Underline" aria-pressed={!!activeFormat.u} onMouseDown={(e) => e.preventDefault()} onClick={() => toggleFormat("u")} className={toolButton(!!activeFormat.u)}>
+          <Underline className="h-3.5 w-3.5" />
+        </button>
+        <select
+          disabled={!sel}
+          aria-label="Font"
+          title="Font"
+          value={activeFormat.font ?? ""}
+          onChange={(e) => {
+            format({ font: (e.target.value || null) as CellFont | null });
+            keyRef.current?.focus({ preventScroll: true });
+          }}
+          className={toolSelect}
+        >
+          {FONT_OPTIONS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+        <select
+          disabled={!sel}
+          aria-label="Text size"
+          title="Text size"
+          value={activeFormat.size ?? ""}
+          onChange={(e) => {
+            format({ size: (e.target.value || null) as CellSize | null });
+            keyRef.current?.focus({ preventScroll: true });
+          }}
+          className={toolSelect}
+        >
+          {SIZE_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+        <div className="flex items-center gap-1" role="group" aria-label="Highlight the selected cells">
+          <Highlighter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          {FILL_COLORS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              disabled={!sel}
+              title={sel ? `Highlight ${selectedCount === 1 ? "cell" : `${selectedCount} cells`} ${c.name.toLowerCase()}` : "Select cells first"}
+              aria-label={`Highlight ${c.name.toLowerCase()}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => highlight(c.value)}
+              className="h-4 w-4 rounded-full border border-border transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+              style={{ backgroundColor: c.value }}
+            />
+          ))}
+          <button
+            type="button"
+            disabled={!sel}
+            title={sel ? "Remove highlight" : "Select cells first"}
+            aria-label="Remove highlight"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => highlight(null)}
+            className="flex h-4 w-4 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+      <textarea
+        ref={keyRef}
+        aria-label="Selected cells. Type to edit, arrow keys to move."
+        className="pointer-events-none absolute left-0 top-0 h-px w-px resize-none overflow-hidden opacity-0"
+        tabIndex={0}
+        autoComplete="off"
+        spellCheck={false}
+        onFocus={() => {
+          // Tabbing into the table selects its first cell.
+          if (!selectionRef.current && view.length > 0 && columns.length > 0) setSelection({ anchor: { r: 0, c: 0 }, focus: { r: 0, c: 0 } });
+        }}
+        onInput={(e) => {
+          e.currentTarget.value = ""; // anything typed here is handled as a key press instead
+        }}
+        onKeyDown={onGridKeyDown}
+        onCopy={(e) => onGridCopy(e, false)}
+        onCut={(e) => onGridCopy(e, true)}
+        onPaste={onGridPaste}
+      />
       <div
         ref={wrapRef}
-        tabIndex={0}
         role="grid"
         aria-label="Table"
         aria-multiselectable
@@ -854,14 +1027,6 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         onPointerDownCapture={(e) => {
           pointerType.current = e.pointerType;
         }}
-        onFocus={(e) => {
-          // Tabbing into the table selects its first cell.
-          if (e.target === e.currentTarget && !selectionRef.current && view.length > 0 && columns.length > 0) setSelection({ anchor: { r: 0, c: 0 }, focus: { r: 0, c: 0 } });
-        }}
-        onKeyDown={onGridKeyDown}
-        onCopy={(e) => onGridCopy(e, false)}
-        onCut={(e) => onGridCopy(e, true)}
-        onPaste={onGridPaste}
       >
         <table className="border-separate border-spacing-0 text-sm" style={{ width: tableWidth, tableLayout: "fixed" }}>
           <colgroup>
@@ -880,7 +1045,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                 onMouseDown={(e) => {
                   e.preventDefault();
                   if (view.length === 0) return;
-                  wrapRef.current?.focus({ preventScroll: true });
+                  keyRef.current?.focus({ preventScroll: true });
                   setSelection({ anchor: { r: 0, c: 0 }, focus: { r: view.length - 1, c: columns.length - 1 } });
                 }}
               />
@@ -964,6 +1129,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
               const row = rows[rowIndex];
               const computed = computedByRow[row.id];
               const fills = fillsByRow[row.id];
+              const formats = formatsByRow[row.id];
               const inSel = !!sel && pos >= sel.r1 && pos <= sel.r2;
               const editCol = editing && editing.rowId === row.id ? columns.findIndex((c) => c.id === editing.colId) : -1;
               return (
@@ -976,6 +1142,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                   api={api}
                   computedJson={computed ? JSON.stringify(computed) : ""}
                   fillsJson={fills ? JSON.stringify(fills) : ""}
+                  formatsJson={formats ? JSON.stringify(formats) : ""}
                   selFrom={inSel ? sel.c1 : -1}
                   selTo={inSel ? sel.c2 : -1}
                   activeCol={sel && sel.anchor.r === pos ? sel.anchor.c : -1}
@@ -1003,33 +1170,6 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         >
           <Plus className="h-3.5 w-3.5" /> Row
         </button>
-        <div className="flex items-center gap-1" role="group" aria-label="Highlight the selected cells">
-          <Highlighter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-          {FILL_COLORS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              disabled={!sel}
-              title={sel ? `Highlight ${selectedCount === 1 ? "cell" : `${selectedCount} cells`} ${c.name.toLowerCase()}` : "Select cells first"}
-              aria-label={`Highlight ${c.name.toLowerCase()}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => highlight(c.value)}
-              className="h-4 w-4 rounded-full border border-border transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-              style={{ backgroundColor: c.value }}
-            />
-          ))}
-          <button
-            type="button"
-            disabled={!sel}
-            title={sel ? "Remove highlight" : "Select cells first"}
-            aria-label="Remove highlight"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => highlight(null)}
-            className="flex h-4 w-4 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
         <input
           type="search"
           value={filter}

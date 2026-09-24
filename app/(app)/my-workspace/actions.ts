@@ -357,8 +357,17 @@ export async function createBlock(formData: FormData): Promise<WorkspaceCreateRe
   if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: "Invalid position." };
 
   const blockId = crypto.randomUUID();
-  const rect = clampRect(defaultRect(kind, x, y), kind);
-  const content = defaultContent(kind);
+  // A table pasted onto the sheet arrives with its content and a size to fit it.
+  const w = readNumber(formData, "w");
+  const h = readNumber(formData, "h");
+  const base = defaultRect(kind, x, y);
+  const rect = clampRect({ ...base, w: Number.isFinite(w) ? w : base.w, h: Number.isFinite(h) ? h : base.h }, kind);
+  let content = defaultContent(kind);
+  if (formData.has("content")) {
+    const pasted = validateBlockContent(kind, parseJson(formData.get("content")), sanitizeNoteHtml);
+    if (!pasted) return { error: "That table is too big or couldn't be read." };
+    content = pasted;
+  }
 
   return runResultAction(async () => {
     if (await isDemoMode()) {

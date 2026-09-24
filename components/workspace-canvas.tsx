@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import type { ReactNode } from "react";
 import { BellRing, ChevronDown, LayoutGrid, Palette, Plus, StickyNote, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { WorkspaceReminderBlock } from "@/components/workspace-reminder-block";
 import { WorkspaceSheetTabs } from "@/components/workspace-sheet-tabs";
 import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
 import { WorkspaceTableBlock } from "@/components/workspace-table-block";
-import { BG_COLORS, BG_STYLES, defaultContent, defaultRect, findFreePosition, isDarkColor } from "@/lib/workspace";
+import { BG_COLORS, BG_STYLES, MAX_RECT, applyPasteStyles, defaultContent, defaultRect, findFreePosition, isDarkColor, parsePastedGrid, tableFromGrid } from "@/lib/workspace";
+import { readClipboardTableStyles } from "@/lib/clipboard-table";
 import type { BgStyle } from "@/lib/workspace";
 import type { Block, BlockContent, BlockKind, NoteContent, Rect, ReminderContent, Sheet, TableContent, Workbook } from "@/lib/workspace";
 
@@ -383,6 +384,55 @@ export function WorkspaceCanvas({
       }
     });
   }
+
+  /* Pasting a range copied from Excel or Google Sheets while no cell or text
+     box has the focus (after clicking the sheet itself) makes it a new table,
+     keeping its colors and text styling. */
+  async function pasteAsTable(grid: string[][], html: string) {
+    if (!activeSheet) return;
+    let content = tableFromGrid(grid);
+    const styles = html ? await readClipboardTableStyles(html) : null;
+    if (styles && styles.length === grid.length) content = applyPasteStyles(content, 0, 0, styles);
+    // Frame header, toolbar, column header, rows and footer, capped so a long paste scrolls inside the block.
+    const size = { w: Math.min(MAX_RECT, 56 + content.columns.length * 140 + 44 + 4), h: Math.min(560, 36 + 37 + 37 + content.rows.length * 33 + 34 + 4) };
+    const spot = findFreePosition(sheetBlocks, size);
+    const formData = new FormData();
+    formData.set("sheetId", activeSheet.id);
+    formData.set("kind", "table");
+    formData.set("x", String(spot.x));
+    formData.set("y", String(spot.y));
+    formData.set("w", String(size.w));
+    formData.set("h", String(size.h));
+    formData.set("content", JSON.stringify(content));
+    startAdding(async () => {
+      try {
+        const result = await createBlock(formData);
+        setNotice(result.error);
+      } catch {
+        setNotice("That table is too big to paste in one go. Try pasting fewer rows.");
+      }
+    });
+  }
+
+  const pasteHandler = useRef<(e: ClipboardEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    pasteHandler.current = (e: ClipboardEvent) => {
+      if (e.defaultPrevented || !activeSheet || adding) return;
+      const editable = (el: EventTarget | Element | null) => el instanceof Element && !!el.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+      if (editable(e.target) || editable(document.activeElement)) return;
+      const text = (e.clipboardData?.getData("text/plain") ?? "").replace(/(\r\n|\n)$/, "");
+      if (!/[\t\n\r]/.test(text)) return; // a single value isn't a table
+      const grid = parsePastedGrid(text);
+      if (grid.length === 0) return;
+      e.preventDefault();
+      void pasteAsTable(grid, e.clipboardData?.getData("text/html") ?? "");
+    };
+  });
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => pasteHandler.current(e);
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   async function removeBlock(block: Block) {
     if (!window.confirm(`Delete this ${KIND_META[block.kind].label.toLowerCase()} block? This can't be undone.`)) return;

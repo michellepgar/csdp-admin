@@ -14,12 +14,12 @@ export type Sheet = { id: string; workbookId: string; name: string; sortOrder: n
 export type Block = { id: string; sheetId: string; kind: BlockKind; x: number; y: number; w: number; h: number; z: number; content: BlockContent };
 export type WorkspaceData = { workbooks: Workbook[]; sheets: Sheet[]; blocks: Block[] };
 
-export const MAX_COLUMNS = 40;
-export const MAX_ROWS = 2000;
+export const MAX_COLUMNS = 30;
+export const MAX_ROWS = 1000;
 export const MAX_RECT = 1200;
 const MAX_POSITION = 100000;
 const MAX_CELL_LENGTH = 5000;
-const MAX_CONTENT_JSON = 2_000_000;
+const MAX_CONTENT_JSON = 3_000_000;
 const MAX_NOTE_LENGTH = 200000;
 const MAX_TAGS = 8;
 const MAX_TAG_LENGTH = 24;
@@ -80,6 +80,7 @@ export function clampRect(rect: Rect, kind: BlockKind): Rect {
 
 /** True only for dates that exist on the calendar. */
 function isRealDate(year: number, month: number, day: number): boolean {
+  if (year < 1) return false;
   const d = new Date(0);
   d.setUTCFullYear(year, month - 1, day);
   return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
@@ -194,7 +195,7 @@ export function setColumnType(content: TableContent, columnId: string, type: Col
   if (!column) return content;
   return {
     columns,
-    rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells, [columnId]: coerceCell(r.cells[columnId], column.type, column.options) } })),
+    rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells, [columnId]: coerceCell(Object.hasOwn(r.cells, columnId) ? r.cells[columnId] : null, column.type, column.options) } })),
   };
 }
 
@@ -257,7 +258,7 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
   const seenColumns = new Set<string>();
   const seenRows = new Set<string>();
   const uniqueId = (candidate: unknown, seen: Set<string>): string => {
-    let id = typeof candidate === "string" && /^[\w-]{1,64}$/.test(candidate) && !RESERVED_IDS.includes(candidate) && !seen.has(candidate) ? candidate : newId();
+    let id = typeof candidate === "string" && /^[\w-]{1,64}$/.test(candidate) && !RESERVED_IDS.includes(candidate) && !(candidate in Object.prototype) && !seen.has(candidate) ? candidate : newId();
     while (seen.has(id)) id = newId();
     seen.add(id);
     return id;

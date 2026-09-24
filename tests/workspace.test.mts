@@ -245,8 +245,8 @@ test("validateBlockContent rejects or repairs hostile input", () => {
   assert.equal((long.rows[0].cells.a as string).length, 5000);
   const cols = Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, name: "C", type: "text" }));
   const cells = Object.fromEntries(cols.map((c) => [c.id, "y".repeat(5000)]));
-  const rows = Array.from({ length: 50 }, (_, i) => ({ id: `r${i}`, cells }));
-  assert.equal(validateBlockContent("table", { columns: cols, rows }, identity), null, "over 2,000,000 chars serialized");
+  const rows = Array.from({ length: 80 }, (_, i) => ({ id: `r${i}`, cells }));
+  assert.equal(validateBlockContent("table", { columns: cols, rows }, identity), null, "over 3,000,000 chars serialized");
   assert.deepEqual(
     validateBlockContent("reminder", { text: "x", due: "2026-99-99", done: false }, identity),
     { text: "x", due: null, done: false },
@@ -267,4 +267,35 @@ test("normalizeTags skips non-strings; tagColor varies; dueState rejects garbage
   const colors = new Set(Array.from({ length: 30 }, (_, i) => tagColor(`tag-${i}`)));
   assert.ok(colors.size > 1);
   assert.equal(dueState("garbage", "2026-09-24"), "none");
+});
+
+test("a maximum-size table with realistic content is accepted; over the cap is rejected", () => {
+  const columns = Array.from({ length: MAX_COLUMNS }, (_, i) => ({ id: crypto.randomUUID(), name: `Col ${i}`, type: "text" }));
+  const rows = Array.from({ length: MAX_ROWS }, () => ({
+    id: crypto.randomUUID(),
+    cells: Object.fromEntries(columns.map((c) => [c.id, "abcdefgh"])),
+  }));
+  const ok = validateBlockContent("table", { columns, rows }, identity) as TableContent;
+  assert.ok(ok);
+  assert.equal(ok.rows.length, MAX_ROWS);
+  assert.equal(ok.columns.length, MAX_COLUMNS);
+  const bigCells = Object.fromEntries(columns.map((c) => [c.id, "y".repeat(5000)]));
+  const tooBig = rows.slice(0, 40).map((r) => ({ id: r.id, cells: bigCells }));
+  assert.equal(validateBlockContent("table", { columns, rows: tooBig }, identity), null);
+});
+
+test("inherited-property ids are replaced and never read through the prototype", () => {
+  const t = validateBlockContent("table", {
+    columns: [{ id: "toString", name: "A", type: "text" }, { id: "hasOwnProperty", name: "B", type: "text" }],
+    rows: [{ id: "valueOf", cells: {} }],
+  }, identity) as TableContent;
+  assert.ok(!["toString", "hasOwnProperty"].includes(t.columns[0].id));
+  assert.ok(!["toString", "hasOwnProperty"].includes(t.columns[1].id));
+  assert.notEqual(t.rows[0].id, "valueOf");
+  const hostile: TableContent = { columns: [{ id: "toString", name: "A", type: "text" }], rows: [{ id: "r", cells: {} }] };
+  assert.equal(setColumnType(hostile, "toString", "text").rows[0].cells.toString, null);
+});
+
+test("year 0000 is not a valid date", () => {
+  assert.equal(coerceCell("0000-01-01", "date"), null);
 });

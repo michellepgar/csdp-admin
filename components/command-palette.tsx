@@ -30,6 +30,7 @@ type PaletteItem = { key: string; label: string; hint: string; href: string; ico
 const PAGES: PaletteItem[] = [
   { key: "p-overview", label: "Overview", hint: "Page", href: "/overview", icon: LayoutDashboard },
   { key: "p-private", label: "Private Notes", hint: "Page", href: "/private-notes", icon: Lock },
+  { key: "p-my-workspace", label: "My Workspace", hint: "Personal", href: "/my-workspace", icon: Lock },
   { key: "p-messages", label: "Messages", hint: "Page", href: "/messages", icon: MessageSquare },
   { key: "p-general-tasks", label: "General Tasks", hint: "Page", href: "/general-tasks", icon: ClipboardList },
   { key: "p-general-notes", label: "General Notes", hint: "Page", href: "/notes", icon: Megaphone },
@@ -46,10 +47,6 @@ const ADMIN_PAGES: PaletteItem[] = [
   { key: "p-backup", label: "Backup & School Year", hint: "Admin", href: "/admin-settings", icon: DatabaseBackup },
 ];
 
-const MY_WORKSPACE_PAGES: PaletteItem[] = [
-  { key: "p-my-workspace", label: "My Workspace", hint: "Personal", href: "/my-workspace", icon: Lock },
-];
-
 /* Jump-to-anywhere search (Ctrl/Cmd + K, or the search box in the top bar):
    type a few letters of a page or a school and press Enter. From two letters
    on it also searches your private notes by keyword (every word typed has to
@@ -59,14 +56,12 @@ export function CommandPalette({
   onClose,
   schools,
   isAdmin,
-  showMyWorkspace,
   searchNotes,
 }: {
   open: boolean;
   onClose: () => void;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
-  showMyWorkspace: boolean;
   searchNotes: (query: string) => Promise<PrivateNoteHit[]>;
 }) {
   const router = useRouter();
@@ -81,10 +76,10 @@ export function CommandPalette({
     const schoolItems: PaletteItem[] = [...schools]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((s) => ({ key: `s-${s.id}`, label: s.name, hint: "School", href: `/schools/${s.id}`, icon: School }));
-    const all = [...PAGES, ...(isAdmin ? ADMIN_PAGES : []), ...(showMyWorkspace ? MY_WORKSPACE_PAGES : []), ...schoolItems];
+    const all = [...PAGES, ...(isAdmin ? ADMIN_PAGES : []), ...schoolItems];
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return words.length === 0 ? all : all.filter((item) => words.every((w) => item.label.toLowerCase().includes(w)));
-  }, [schools, isAdmin, showMyWorkspace, query]);
+  }, [schools, isAdmin, query]);
 
   const trimmed = query.trim();
   const searchingNotes = trimmed.length >= 2;

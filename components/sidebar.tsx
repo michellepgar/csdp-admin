@@ -34,7 +34,6 @@ export function Sidebar({
   presenceEnabled,
   schools,
   isAdmin,
-  showMyWorkspace,
   vas,
   schoolVaAssigned,
   addSchool,
@@ -47,7 +46,6 @@ export function Sidebar({
   presenceEnabled: boolean;
   schools: { id: string; name: string }[];
   isAdmin: boolean;
-  showMyWorkspace: boolean;
   vas: Va[];
   /* schoolId -> assigned VA's name, derived from state.schoolData
      upstream (schoolData itself isn't relational -- see
@@ -255,19 +253,17 @@ export function Sidebar({
             {!collapsed && <span className="min-w-0 truncate">Private Notes</span>}
           </Link>
         </IconTooltip>
-        {showMyWorkspace && (
-          <IconTooltip label="My Workspace" active={collapsed}>
-            <Link
-              href="/my-workspace"
-              prefetch={false}
-              title={!collapsed ? "My Workspace" : undefined}
-              className={navLinkClass("/my-workspace", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-            >
-              <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              {!collapsed && <span className="min-w-0 truncate">My Workspace</span>}
-            </Link>
-          </IconTooltip>
-        )}
+        <IconTooltip label="My Workspace" active={collapsed}>
+          <Link
+            href="/my-workspace"
+            prefetch={false}
+            title={!collapsed ? "My Workspace" : undefined}
+            className={navLinkClass("/my-workspace", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            {!collapsed && <span className="min-w-0 truncate">My Workspace</span>}
+          </Link>
+        </IconTooltip>
         <IconTooltip label="Messages" active={collapsed}>
           <MessagesNav collapsed={collapsed} linkClassName={navLinkClass("/messages", collapsed ? "justify-center px-2" : "gap-2 px-3")} />
         </IconTooltip>

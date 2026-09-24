@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Baseline, Download, ListPlus, Redo2, Search, TableCellsMerge, TableCellsSplit, Undo2, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Baseline, Download, GripVertical, ListPlus, Redo2, Search, TableCellsMerge, TableCellsSplit, Undo2, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
 import { ColorWell } from "@/components/color-well";
 import { KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
@@ -266,6 +266,8 @@ const samePos = (a: Pos, b: Pos) => a.r === b.r && a.c === b.c;
    one reads the latest state from refs, so memoized rows never act on a
    stale copy. */
 type TableApi = {
+  /** Starts dragging a row (by its grip) to a new place. */
+  rowDragStart: (e: React.PointerEvent<HTMLElement>, pos: number) => void;
   /** Applies edits locally and reports them; unless `record` is false they can be undone. */
   run: (ops: SheetOp[], record?: boolean) => void;
   cellMouseDown: (e: MouseEvent, pos: Pos) => void;
@@ -477,7 +479,18 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         className={`sticky left-0 ${stickyTop >= 0 ? "z-[8]" : "z-[6]"} cursor-pointer select-none border-b border-r border-sheet-grid bg-sheet-head p-0 text-xs text-sheet-head-foreground ${frozenEdge ? "border-b-2 border-b-sheet-freeze" : ""} ${rowSelected ? "font-semibold" : "font-normal"}`}
       >
         <div className="relative flex h-8 items-center justify-between pl-2 pr-1">
-          <span className="tabular-nums">{rowNumber}</span>
+          <span
+            role="button"
+            tabIndex={-1}
+            aria-label={`Drag row ${rowNumber} to move it`}
+            title="Drag to move this row"
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => api.rowDragStart(e, pos)}
+            className="-ml-1.5 flex h-6 w-3 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground opacity-0 transition-opacity active:cursor-grabbing group-hover/row:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </span>
+          <span className="mr-auto pl-0.5 tabular-nums">{rowNumber}</span>
           <button
             type="button"
             onMouseDown={(e) => e.stopPropagation()}
@@ -744,6 +757,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
   const [replaceText, setReplaceText] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
   const findRef = useRef<HTMLInputElement>(null);
+  // Where a dragged row or column would land, as a line drawn across the grid (in scroll coordinates).
+  const [dropLine, setDropLine] = useState<{ kind: "row" | "col"; at: number; length: number } | null>(null);
+  const dragRef = useRef<(e: React.PointerEvent<HTMLElement>, kind: "row" | "col", index: number) => void>(() => {});
   const [renameDraft, setRenameDraft] = useState("");
   const [sort, setSort] = useState<{ columnId: string; dir: "asc" | "desc" } | null>(null);
   const [filter, setFilter] = useState("");
@@ -813,6 +829,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     };
     const api: TableApi = {
       run: emit,
+      rowDragStart: (e, pos) => dragRef.current(e, "row", pos),
       cellMouseDown: (e, pos) => {
         if (e.button !== 0) return;
         e.preventDefault(); // no text selection while dragging, and focus stays on the grid
@@ -1654,6 +1671,78 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
   const shownWidth = (column: TableColumn) => (resizing?.id === column.id ? resizing.width : widthOf(column));
   const headerLefts = columnLefts(columns);
 
+  /* ----- drag and drop rows and columns (by their grips) ----- */
+  function startDrag(e: React.PointerEvent<HTMLElement>, kind: "row" | "col", index: number) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (kind === "row" && viewActive) {
+      setMessage("Clear the sort and filters to move rows.");
+      return;
+    }
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const targets = Array.from(wrap.querySelectorAll<HTMLElement>(kind === "row" ? "tbody > tr" : "thead th[data-col]"));
+    if (targets.length < 2) return;
+    let to = index;
+    document.body.style.cursor = "grabbing";
+
+    const place = (ev: PointerEvent) => {
+      const point = kind === "row" ? ev.clientY : ev.clientX;
+      let at = targets.length;
+      for (let i = 0; i < targets.length; i++) {
+        const r = targets[i].getBoundingClientRect();
+        if (point < (kind === "row" ? r.top + r.height / 2 : r.left + r.width / 2)) {
+          at = i;
+          break;
+        }
+      }
+      to = at;
+      const box = wrap.getBoundingClientRect();
+      const edge = at < targets.length ? targets[at].getBoundingClientRect() : targets[targets.length - 1].getBoundingClientRect();
+      const line = kind === "row" ? (at < targets.length ? edge.top : edge.bottom) - box.top + wrap.scrollTop : (at < targets.length ? edge.left : edge.right) - box.left + wrap.scrollLeft;
+      setDropLine({ kind, at: line, length: kind === "row" ? wrap.scrollWidth : wrap.scrollHeight });
+      // Near an edge, keep scrolling so rows or columns further away can be reached.
+      if (kind === "row") {
+        if (ev.clientY < box.top + 40) wrap.scrollTop -= 14;
+        else if (ev.clientY > box.bottom - 30) wrap.scrollTop += 14;
+      } else if (ev.clientX < box.left + 60) wrap.scrollLeft -= 14;
+      else if (ev.clientX > box.right - 30) wrap.scrollLeft += 14;
+    };
+    const finish = (drop: boolean) => {
+      handle.removeEventListener("pointermove", place);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onCancel);
+      document.body.style.cursor = "";
+      setDropLine(null);
+      if (!drop) return;
+      const dest = to > index ? to - 1 : to;
+      if (dest === index) return;
+      if (kind === "row") {
+        const row = rows[view[index]];
+        if (!row) return;
+        runOps([{ t: "moveRow", id: row.id, index: view[dest] ?? dest }]);
+        setSelection({ anchor: { r: dest, c: 0 }, focus: { r: dest, c: columns.length - 1 } });
+      } else {
+        const column = columns[index];
+        if (!column) return;
+        runOps([{ t: "moveCol", id: column.id, index: dest }]);
+        setSelection(view.length > 0 ? { anchor: { r: 0, c: dest }, focus: { r: view.length - 1, c: dest } } : null);
+      }
+      keyRef.current?.focus({ preventScroll: true });
+    };
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    handle.addEventListener("pointermove", place);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onCancel);
+  }
+  useLayoutEffect(() => {
+    dragRef.current = startDrag;
+  });
+
   const toolButton = (active: boolean) =>
     `flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "bg-ring/20 text-ring" : "text-muted-foreground hover:bg-ring/10 hover:text-foreground"}`;
   const toolSelect = "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-40";
@@ -1912,11 +2001,18 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         role="grid"
         aria-label="Table"
         aria-multiselectable
-        className="min-h-0 flex-1 overflow-auto outline-none"
+        className="relative min-h-0 flex-1 overflow-auto outline-none"
         onPointerDownCapture={(e) => {
           pointerType.current = e.pointerType;
         }}
       >
+        {dropLine && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute z-30 rounded-full bg-ring"
+            style={dropLine.kind === "row" ? { left: 0, top: dropLine.at - 1, width: dropLine.length, height: 3 } : { top: 0, left: dropLine.at - 1, width: 3, height: dropLine.length }}
+          />
+        )}
         <table className="border-separate border-spacing-0 text-sm" style={{ width: tableWidth, tableLayout: "fixed" }}>
           <colgroup>
             <col style={{ width: GUTTER_WIDTH }} />
@@ -1945,7 +2041,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
                     key={column.id}
                     scope="col"
                     style={{ ...(columnSelected ? { backgroundImage: SELECTED_TINT } : {}), ...(c < freezeCols ? { left: headerLefts[c] } : {}) }}
-                    className={`${headerCell} relative p-0 text-left font-medium ${c < freezeCols ? "z-[15]" : ""} ${c === freezeCols - 1 ? "border-r-2 border-r-sheet-freeze" : ""}`}
+                    data-col={column.id}
+                    className={`${headerCell} group/col relative p-0 text-left font-medium ${c < freezeCols ? "z-[15]" : ""} ${c === freezeCols - 1 ? "border-r-2 border-r-sheet-freeze" : ""}`}
                   >
                     <div className="flex h-9 items-center gap-1 pl-2 pr-0.5">
                       {renamingId === column.id ? (
@@ -1971,6 +2068,17 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
                         />
                       ) : (
                         <>
+                          <span
+                            role="button"
+                            tabIndex={-1}
+                            aria-label={`Drag column ${column.name} to move it`}
+                            title="Drag to move this column"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => startDrag(e, "col", c)}
+                            className="-ml-1.5 flex h-6 w-3 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground opacity-0 transition-opacity active:cursor-grabbing group-hover/col:opacity-100 [@media(hover:none)]:opacity-100"
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </span>
                           <span
                             className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-ring/15 text-ring"
                             title={TYPE_META[column.type].label}

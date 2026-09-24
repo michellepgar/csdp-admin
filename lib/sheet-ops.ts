@@ -28,7 +28,10 @@ export type SheetOp =
   | { t: "insertCol"; id: string; index: number; name: string; type: ColumnType; options?: string[]; width?: number; cells: Record<string, CellValue> }
   | { t: "colWidth"; id: string; width: number | null }
   | { t: "merge"; r1: string; c1: string; r2: string; c2: string }
-  | { t: "unmerge"; r1: string; c1: string };
+  | { t: "unmerge"; r1: string; c1: string }
+  /* Drag and drop: move a row or column so it ends up at this position. */
+  | { t: "moveRow"; id: string; index: number }
+  | { t: "moveCol"; id: string; index: number };
 
 const MAX_OPS = 2000;
 const MAX_CELLS_PER_OP = 30_000;
@@ -156,6 +159,11 @@ export function readSheetOps(raw: unknown): SheetOp[] | null {
         if (!isId(op.r1) || !isId(op.c1)) return null;
         ops.push({ t: "unmerge", r1: op.r1, c1: op.c1 });
         break;
+      case "moveRow":
+      case "moveCol":
+        if (!isId(op.id) || typeof op.index !== "number" || !Number.isInteger(op.index) || op.index < 0) return null;
+        ops.push({ t: op.t, id: op.id, index: op.index });
+        break;
       case "freeze": {
         if (typeof op.rows !== "number" || typeof op.cols !== "number") return null;
         const freeze = normalizeFreeze({ rows: op.rows, cols: op.cols }) ?? { rows: 0, cols: 0 };
@@ -246,6 +254,26 @@ export function applySheetOp(content: TableContent, op: SheetOp): TableContent {
       const rows = [...content.rows];
       rows.splice(Math.min(op.index, rows.length), 0, { id: op.id, cells });
       return { ...content, rows };
+    }
+    case "moveRow": {
+      const from = content.rows.findIndex((r) => r.id === op.id);
+      if (from < 0) return content;
+      const to = Math.min(op.index, content.rows.length - 1);
+      if (to === from) return content;
+      const rows = [...content.rows];
+      const [row] = rows.splice(from, 1);
+      rows.splice(to, 0, row);
+      return { ...content, rows };
+    }
+    case "moveCol": {
+      const from = content.columns.findIndex((c) => c.id === op.id);
+      if (from < 0) return content;
+      const to = Math.min(op.index, content.columns.length - 1);
+      if (to === from) return content;
+      const columns = [...content.columns];
+      const [column] = columns.splice(from, 1);
+      columns.splice(to, 0, column);
+      return { ...content, columns };
     }
     case "colWidth": {
       if (!content.columns.some((c) => c.id === op.id)) return content;
@@ -363,6 +391,14 @@ function invertOne(content: TableContent, op: SheetOp): SheetOp[] {
     case "colWidth": {
       const column = columns.get(op.id);
       return column ? [{ t: "colWidth", id: column.id, width: column.width ?? null }] : [];
+    }
+    case "moveRow": {
+      const at = content.rows.findIndex((r) => r.id === op.id);
+      return at >= 0 ? [{ t: "moveRow", id: op.id, index: at }] : [];
+    }
+    case "moveCol": {
+      const at = content.columns.findIndex((c) => c.id === op.id);
+      return at >= 0 ? [{ t: "moveCol", id: op.id, index: at }] : [];
     }
     case "merge": {
       const box = mergeBox(content, op);

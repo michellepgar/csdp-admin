@@ -227,3 +227,19 @@ test("readSheetOps checks colWidth, merge and unmerge", () => {
   assert.equal(readSheetOps([{ t: "merge", r1: "a", c1: "b", r2: "c" }]), null);
   assert.equal(readSheetOps([{ t: "colWidth", id: "a", width: "wide" }]), null);
 });
+
+test("move row and column: to a position, repeatable, and undone", async () => {
+  const { invertSheetOps } = await import("../lib/sheet-ops.ts");
+  const t = applySheetOps(base(), [{ t: "addRow", id: "r3" }, { t: "addCol", id: "c" }]);
+  const rowOps: SheetOp[] = [{ t: "moveRow", id: "r1", index: 2 }];
+  const moved = applySheetOps(t, rowOps);
+  assert.deepEqual(moved.rows.map((r) => r.id), ["r2", "r3", "r1"]);
+  assert.deepEqual(applySheetOps(moved, rowOps), moved); // moving again to the same place changes nothing
+  assert.deepEqual(applySheetOps(moved, invertSheetOps(t, rowOps)), t);
+  const colOps: SheetOp[] = [{ t: "moveCol", id: "c", index: 0 }];
+  const colMoved = applySheetOps(t, colOps);
+  assert.deepEqual(colMoved.columns.map((c) => c.id), ["c", "a", "b"]);
+  assert.deepEqual(applySheetOps(colMoved, invertSheetOps(t, colOps)), t);
+  assert.deepEqual(applySheetOps(t, [{ t: "moveRow", id: "r1", index: 99 }]).rows.map((r) => r.id), ["r2", "r3", "r1"]);
+  assert.equal(readSheetOps([{ t: "moveRow", id: "r1", index: -1 }]), null);
+});

@@ -5,6 +5,8 @@
    which Next.js's build correctly refuses to do. fetchAppState() itself
    lives in lib/fetch-app-state.ts instead, kept server-only. */
 
+import type { WorkspaceData } from "@/lib/workspace";
+
 export interface Va {
   id: string;
   name: string;
@@ -547,6 +549,8 @@ export interface AppState {
   distributionGroups?: DistributionGroup[];
   generalTasks?: GeneralTask[];
   generalTaskCategories?: GeneralTaskCategory[];
+  /** Demo mode only: the demo visitor's My Workspace (real accounts read it straight from the database, see lib/workspace-data.ts). */
+  workspace?: WorkspaceData;
   planItems?: PlanItem[];
   /* Keyed by task id (school task_file_categories row id) or General
      Task id -- when its status was last changed, per the DB trigger

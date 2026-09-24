@@ -6,11 +6,12 @@ import { BellRing, ChevronDown, LayoutGrid, Plus, StickyNote, Table2 } from "luc
 import { Button } from "@/components/ui/button";
 import { WorkspaceBlockFrame } from "@/components/workspace-block-frame";
 import { WorkspaceNoteBlock } from "@/components/workspace-note-block";
+import { WorkspaceReminderBlock } from "@/components/workspace-reminder-block";
 import { WorkspaceSheetTabs } from "@/components/workspace-sheet-tabs";
 import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
 import { WorkspaceTableBlock } from "@/components/workspace-table-block";
 import { defaultContent } from "@/lib/workspace";
-import type { Block, BlockContent, BlockKind, NoteContent, Rect, Sheet, TableContent, Workbook } from "@/lib/workspace";
+import type { Block, BlockContent, BlockKind, NoteContent, Rect, ReminderContent, Sheet, TableContent, Workbook } from "@/lib/workspace";
 
 const MOBILE_QUERY = "(max-width: 639px)";
 const CONTENT_DEBOUNCE_MS = 600;
@@ -60,7 +61,17 @@ function tableFallback(id: string): TableContent {
   return table;
 }
 
-const rectKey = (r: Rect & { z: number }) => `${r.x},${r.y},${r.w},${r.h},${r.z}`;
+const reminderFallbacks = new Map<string, ReminderContent>();
+function reminderFallback(id: string): ReminderContent {
+  let reminder = reminderFallbacks.get(id);
+  if (!reminder) {
+    reminder = defaultContent("reminder") as ReminderContent;
+    reminderFallbacks.set(id, reminder);
+  }
+  return reminder;
+}
+
+const rectKey =(r: Rect & { z: number }) => `${r.x},${r.y},${r.w},${r.h},${r.z}`;
 
 /* One workbook: the sheet tabs, an "Add block" menu, and the active sheet's
    free-form canvas.
@@ -384,11 +395,12 @@ export function WorkspaceCanvas({
       const table: TableContent = Array.isArray(raw.columns) && Array.isArray(raw.rows) && raw.columns.length > 0 ? (raw as TableContent) : tableFallback(block.id);
       return <WorkspaceTableBlock key={block.id} content={table} mobile={mobile} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
     }
-    return (
-      <div className="flex h-full min-h-20 items-center justify-center p-4 text-center text-sm text-muted-foreground">
-        Reminder blocks are coming next
-      </div>
-    );
+    const rawReminder = block.content as Partial<ReminderContent>;
+    const reminder: ReminderContent =
+      typeof rawReminder.text === "string" && typeof rawReminder.done === "boolean" && (rawReminder.due === null || typeof rawReminder.due === "string")
+        ? (rawReminder as ReminderContent)
+        : reminderFallback(block.id);
+    return <WorkspaceReminderBlock key={block.id} content={reminder} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
   }
 
   function renderBlock(block: Block) {

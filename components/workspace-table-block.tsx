@@ -32,9 +32,9 @@ const TYPE_META: Record<ColumnType, { label: string; icon: ReactNode }> = {
 const TYPES: ColumnType[] = ["text", "number", "date", "checkbox", "dropdown"];
 
 const EDITOR = "h-8 w-full min-w-0 bg-background px-2 text-sm text-foreground outline-none";
-const SELECTED_TINT = "linear-gradient(color-mix(in oklab, var(--ring) 24%, transparent), color-mix(in oklab, var(--ring) 24%, transparent))";
+const SELECTED_TINT = "linear-gradient(color-mix(in oklab, var(--ring) 12%, transparent), color-mix(in oklab, var(--ring) 12%, transparent))";
 // A range gets only a faint wash so highlight colors stay visible; a single cell gets just its outline.
-const RANGE_TINT = "linear-gradient(color-mix(in oklab, var(--ring) 14%, transparent), color-mix(in oklab, var(--ring) 14%, transparent))";
+const RANGE_TINT = "linear-gradient(color-mix(in oklab, var(--ring) 7%, transparent), color-mix(in oklab, var(--ring) 7%, transparent))";
 
 const FONT_OPTIONS: { value: CellFont | ""; label: string; css?: string }[] = [
   { value: "", label: "Sans" },

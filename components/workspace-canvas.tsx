@@ -569,7 +569,7 @@ export function WorkspaceCanvas({
   );
 
   return (
-    <div className="overflow-visible rounded-xl border border-border bg-record-background shadow-sm">
+    <div className="overflow-visible rounded-xl border border-border bg-record-background no-record-hover shadow-sm">
       <div className="relative z-20 flex flex-wrap items-end gap-2 rounded-t-xl border-b border-border bg-muted/50 px-2 pt-2">
         {activeSheet && (
           <WorkspaceSheetTabs
@@ -601,7 +601,7 @@ export function WorkspaceCanvas({
           {bgOpen && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setBgOpen(false)} aria-hidden />
-              <div role="dialog" aria-label="Background" className="absolute right-0 top-full z-40 mt-1 w-64 space-y-3 rounded-lg border border-border bg-record-background p-3 shadow-xl">
+              <div role="dialog" aria-label="Background" className="absolute right-0 top-full z-40 mt-1 w-64 space-y-3 rounded-lg border border-border bg-record-background no-record-hover p-3 shadow-xl">
                 <div>
                   <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Color</p>
                   <div className="flex flex-wrap gap-2">
@@ -649,7 +649,7 @@ export function WorkspaceCanvas({
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} aria-hidden />
-              <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-44 overflow-hidden rounded-lg border border-ring/30 bg-record-background py-1 shadow-xl">
+              <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-44 overflow-hidden rounded-lg border border-ring/30 bg-record-background no-record-hover py-1 shadow-xl">
                 {KINDS.map((kind) => (
                   <button
                     key={kind}

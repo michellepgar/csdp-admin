@@ -274,7 +274,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         title="Select this row"
         // Sticky cells need an opaque background, so the selection tint is layered over bg-muted.
         style={rowSelected ? { backgroundImage: SELECTED_TINT } : undefined}
-        className={`sticky left-0 z-[5] cursor-pointer select-none border-b border-r border-ring/20 bg-muted p-0 text-xs font-normal ${rowSelected ? "text-foreground" : "text-muted-foreground group-hover/row:bg-[color-mix(in_oklab,var(--ring)_15%,var(--muted))]"}`}
+        className={`sticky left-0 z-[5] cursor-pointer select-none border-b border-r border-ring/20 bg-muted p-0 text-xs font-normal ${rowSelected ? "text-foreground" : "text-muted-foreground"}`}
       >
         <div className="relative flex h-8 items-center justify-between pl-2 pr-1">
           <span className="tabular-nums">{rowNumber}</span>
@@ -1039,7 +1039,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
           <thead>
             <tr>
               <th
-                className={`${headerCell} left-0 z-20 cursor-pointer bg-muted hover:bg-[color-mix(in_oklab,var(--ring)_15%,var(--muted))]`}
+                className={`${headerCell} left-0 z-20 cursor-pointer bg-muted`}
                 title="Select all"
                 aria-label="Select all"
                 onMouseDown={(e) => {

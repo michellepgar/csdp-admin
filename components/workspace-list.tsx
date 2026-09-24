@@ -104,7 +104,7 @@ function WorkbookCard({
   }
 
   return (
-    <li className={`group relative overflow-hidden rounded-xl border border-border bg-record-background shadow-sm transition-colors hover:border-ring/50 ${pending ? "opacity-60" : ""}`}>
+    <li className={`group relative overflow-hidden rounded-xl border border-border bg-record-background no-record-hover shadow-sm transition-colors hover:border-ring/50 ${pending ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-3 p-3 sm:p-4">
         <Link
           href={href}
@@ -256,12 +256,12 @@ export function WorkspaceList({
       )}
 
       {workbooks.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-record-background px-4 py-12 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-record-background no-record-hover px-4 py-12 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-ring/15 text-ring"><BookOpen className="h-6 w-6" /></span>
           <p className="text-sm text-muted-foreground">No workbooks yet. Create your first one to get started.</p>
         </div>
       ) : visible.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ring/40 bg-record-background px-4 py-8 text-center text-sm text-muted-foreground">No workbooks match your search.</p>
+        <p className="rounded-xl border border-dashed border-ring/40 bg-record-background no-record-hover px-4 py-8 text-center text-sm text-muted-foreground">No workbooks match your search.</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((workbook) => (

@@ -137,7 +137,7 @@ export function WorkspaceSheetTabs({
               onDragEnd={() => setDraggedId(null)}
               className={`group flex shrink-0 items-center gap-1 rounded-t-lg border border-b-0 px-2.5 py-1.5 text-sm transition-colors ${
                 isActive
-                  ? "border-ring/40 border-t-2 border-t-ring bg-record-background font-semibold text-foreground shadow-sm"
+                  ? "border-ring/40 border-t-2 border-t-ring bg-record-background no-record-hover font-semibold text-foreground shadow-sm"
                   : "border-transparent bg-muted/70 text-muted-foreground hover:bg-ring/15 hover:text-foreground"
               } ${draggedId === sheet.id ? "opacity-40" : ""}`}
             >

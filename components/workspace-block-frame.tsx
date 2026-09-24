@@ -118,7 +118,7 @@ export function WorkspaceBlockFrame({
       data-block-id={block.id}
       onPointerDown={onActivate}
       style={style}
-      className={`flex flex-col overflow-hidden rounded-xl border bg-record-background transition-shadow ${
+      className={`flex flex-col overflow-hidden rounded-xl border bg-record-background no-record-hover transition-shadow ${
         active ? "border-ring/60 shadow-md" : "border-border shadow-sm"
       }`}
     >

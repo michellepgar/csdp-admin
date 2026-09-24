@@ -4,7 +4,7 @@ export type CellValue = string | number | boolean | null;
 export type TableColumn = { id: string; name: string; type: ColumnType; options?: string[] };
 export type TableRow = { id: string; cells: Record<string, CellValue> };
 export type TableContent = { columns: TableColumn[]; rows: TableRow[] };
-export type NoteContent = { html: string };
+export type NoteContent = { html: string; padColor?: string };
 export type ReminderContent = { text: string; due: string | null; done: boolean };
 export type BlockContent = TableContent | NoteContent | ReminderContent;
 export type Rect = { x: number; y: number; w: number; h: number };
@@ -265,7 +265,8 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
   if (kind === "note") {
     const html = typeof raw.html === "string" ? raw.html : "";
     if (html.length > MAX_NOTE_LENGTH) return null;
-    return { html: html ? sanitizeHtml(html) : "" };
+    const padColor = typeof raw.padColor === "string" && /^#[0-9A-Fa-f]{6}$/.test(raw.padColor) ? raw.padColor.toUpperCase() : undefined;
+    return { html: html ? sanitizeHtml(html) : "", ...(padColor ? { padColor } : {}) };
   }
   if (kind === "reminder") {
     const text = typeof raw.text === "string" ? raw.text.trim().slice(0, 500) : "";

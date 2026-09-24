@@ -1,9 +1,23 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Bold, Italic, Link2, List, ListOrdered } from "lucide-react";
+import { Bold, Italic, Link2, List, ListChecks, ListOrdered, Underline } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NOTE_FONT_COLORS, NOTE_PAD_COLORS } from "@/lib/app-state";
+import { shrinkImageToDataUrl } from "@/lib/shrink-image";
 import type { NoteContent } from "@/lib/workspace";
+
+const FONT_FAMILIES = [
+  { value: "", label: "Sans" },
+  { value: "Georgia, serif", label: "Serif" },
+  { value: "ui-monospace, Menlo, monospace", label: "Mono" },
+  { value: '"Comic Sans MS", "Comic Sans", cursive', label: "Handwritten" },
+];
+const FONT_SIZES = [
+  { value: "2", label: "Small" },
+  { value: "3", label: "Normal" },
+  { value: "5", label: "Large" },
+];
 
 /* Tags and attributes a pasted fragment may keep. Everything else is
    unwrapped (its text survives) or dropped. The server sanitizes again on
@@ -98,6 +112,9 @@ export function WorkspaceNoteBlock({
   const editorRef = useRef<HTMLDivElement>(null);
   const [initialHtml] = useState(content.html);
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
+  const [padColor, setPadColor] = useState(content.padColor || NOTE_PAD_COLORS[0].value);
+  const [fontFamilyIndex, setFontFamilyIndex] = useState(0);
+  const [fontSizeIndex, setFontSizeIndex] = useState(1);
 
   function currentHtml(): string {
     const editor = editorRef.current;
@@ -108,7 +125,13 @@ export function WorkspaceNoteBlock({
   }
 
   function emit() {
-    onChange({ html: currentHtml() });
+    onChange({ html: currentHtml(), padColor });
+  }
+
+  function changePad(color: string) {
+    setPadColor(color);
+    onChange({ html: currentHtml(), padColor: color });
+    onFlush();
   }
 
   function exec(command: string, value?: string) {
@@ -122,6 +145,49 @@ export function WorkspaceNoteBlock({
   // Bold/Italic/etc. could apply to it.
   function preserveSelection(e: React.MouseEvent) {
     e.preventDefault();
+  }
+
+  // Same approach as the Private Notes composer: a plain DOM insert after
+  // the block the caret is in, because execCommand mangles an empty editor.
+  function insertChecklistItem() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const item = document.createElement("div");
+    item.className = "note-checklist-item";
+    item.innerHTML = '<input type="checkbox">&nbsp;';
+    const selection = window.getSelection();
+    let block: ChildNode | null = selection?.anchorNode && editor.contains(selection.anchorNode) ? (selection.anchorNode as ChildNode) : null;
+    while (block && block.parentNode !== editor) block = block.parentNode as ChildNode | null;
+    if (block) block.after(item);
+    else editor.appendChild(item);
+    const range = document.createRange();
+    range.selectNodeContents(item);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    emit();
+  }
+
+  // Enter on a checklist row starts the next row, like a real list would.
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    const anchor = window.getSelection()?.anchorNode;
+    const anchorEl = anchor && (anchor.nodeType === Node.ELEMENT_NODE ? (anchor as Element) : anchor.parentElement);
+    if (!anchorEl?.closest(".note-checklist-item")) return;
+    e.preventDefault();
+    insertChecklistItem();
+  }
+
+  // A ticked box only changes the checkbox's live property; the saved HTML
+  // needs the attribute, so mirror it before saving.
+  function handleClick(e: React.MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (target instanceof HTMLInputElement && target.type === "checkbox") {
+      if (target.checked) target.setAttribute("checked", "");
+      else target.removeAttribute("checked");
+      emit();
+    }
   }
 
   function addLink() {
@@ -156,6 +222,35 @@ export function WorkspaceNoteBlock({
   // insertText. Excel/Sheets ranges arrive as a plain <table>, which the
   // note styling already renders.
   function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    // A copied screenshot is raw image bytes with no HTML; shrink it and insert an <img>.
+    const imageItem = Array.from(e.clipboardData.items ?? []).find((item) => item.type.startsWith("image/"));
+    const imageFile = imageItem?.getAsFile();
+    if (imageFile) {
+      e.preventDefault();
+      const editor = editorRef.current;
+      const selection = window.getSelection();
+      const saved = selection && selection.rangeCount > 0 && editor?.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
+      void shrinkImageToDataUrl(imageFile).then((dataUrl) => {
+        if (!editor) return;
+        editor.focus();
+        const img = document.createElement("img");
+        img.src = dataUrl;
+        const range = saved ?? document.createRange();
+        if (!saved) {
+          range.selectNodeContents(editor);
+          range.collapse(false);
+        }
+        range.deleteContents();
+        range.insertNode(img);
+        range.setStartAfter(img);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        emit();
+      });
+      return;
+    }
     const html = e.clipboardData.getData("text/html");
     const text = e.clipboardData.getData("text/plain");
     if (!html && !text) return;
@@ -173,16 +268,77 @@ export function WorkspaceNoteBlock({
 
   return (
     <div className="flex h-full min-h-32 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-ring/15 bg-muted/50 px-1.5 py-1">
+      <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-border bg-muted/50 px-1.5 py-1">
+        <div className="flex items-center gap-1 border-r pr-1.5">
+          {NOTE_PAD_COLORS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              title={`${c.name} pad`}
+              onMouseDown={preserveSelection}
+              onClick={() => changePad(c.value)}
+              className={`h-5 w-5 rounded-full border-2 transition-transform hover:scale-110 ${padColor === c.value ? "border-primary" : "border-border"}`}
+              style={{ backgroundColor: c.value }}
+            />
+          ))}
+        </div>
         <Button type="button" variant="ghost" size="icon-sm" title="Bold" onMouseDown={preserveSelection} onClick={() => exec("bold")}>
           <Bold className="h-3.5 w-3.5" />
         </Button>
         <Button type="button" variant="ghost" size="icon-sm" title="Italic" onMouseDown={preserveSelection} onClick={() => exec("italic")}>
           <Italic className="h-3.5 w-3.5" />
         </Button>
-        <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+        <Button type="button" variant="ghost" size="icon-sm" title="Underline" onMouseDown={preserveSelection} onClick={() => exec("underline")}>
+          <Underline className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          title="Font family"
+          onMouseDown={preserveSelection}
+          onClick={() => {
+            const next = (fontFamilyIndex + 1) % FONT_FAMILIES.length;
+            setFontFamilyIndex(next);
+            exec("fontName", FONT_FAMILIES[next].value || "inherit");
+          }}
+        >
+          {FONT_FAMILIES[fontFamilyIndex].label}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          title="Font size"
+          onMouseDown={preserveSelection}
+          onClick={() => {
+            const next = (fontSizeIndex + 1) % FONT_SIZES.length;
+            setFontSizeIndex(next);
+            exec("fontSize", FONT_SIZES[next].value);
+          }}
+        >
+          {FONT_SIZES[fontSizeIndex].label}
+        </Button>
+        <div className="flex items-center gap-1 border-x px-1.5">
+          {NOTE_FONT_COLORS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              title={`${c.name} text`}
+              onMouseDown={preserveSelection}
+              onClick={() => exec("foreColor", c.value)}
+              className="h-4 w-4 rounded-full border transition-transform hover:scale-110"
+              style={{ backgroundColor: c.value }}
+            />
+          ))}
+        </div>
         <Button type="button" variant="ghost" size="icon-sm" title="Bullet list" onMouseDown={preserveSelection} onClick={() => exec("insertUnorderedList")}>
           <List className="h-3.5 w-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon-sm" title="Checklist" onMouseDown={preserveSelection} onClick={insertChecklistItem}>
+          <ListChecks className="h-3.5 w-3.5" />
         </Button>
         <Button type="button" variant="ghost" size="icon-sm" title="Numbered list" onMouseDown={preserveSelection} onClick={() => exec("insertOrderedList")}>
           <ListOrdered className="h-3.5 w-3.5" />
@@ -203,9 +359,12 @@ export function WorkspaceNoteBlock({
         data-placeholder="Type a note…"
         dangerouslySetInnerHTML={{ __html: initialHtml }}
         onInput={emit}
+        onKeyDown={handleKeyDown}
+        onClick={handleClick}
         onPaste={handlePaste}
         onDrop={handleDrop}
         onBlur={onFlush}
+        style={{ backgroundColor: padColor, color: "#1a1a1a" }}
         className="note-html min-h-0 w-full flex-1 overflow-auto break-words p-3 text-sm outline-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
       />
     </div>

@@ -136,6 +136,8 @@ test("applyPaste overwrites from the anchor, growing the table within limits", (
 test("validateBlockContent normalizes and bounds everything from the client", () => {
   assert.deepEqual(validateBlockContent("note", { html: "<b>hi</b>", junk: 1 }, identity), { html: "<b>hi</b>" });
   assert.deepEqual(validateBlockContent("note", { html: 5 }, identity), { html: "" });
+  assert.deepEqual(validateBlockContent("note", { html: "a", padColor: "#ffd6e8" }, identity), { html: "a", padColor: "#FFD6E8" });
+  assert.deepEqual(validateBlockContent("note", { html: "a", padColor: "red; x" }, identity), { html: "a" });
   assert.equal(validateBlockContent("note", { html: "x".repeat(200001) }, identity), null);
   assert.deepEqual(
     validateBlockContent("reminder", { text: "  call  ", due: "2026-09-30", done: true }, identity),

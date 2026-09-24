@@ -389,7 +389,7 @@ export function WorkspaceCanvas({
   function renderBody(block: Block) {
     if (block.kind === "note") {
       const html = typeof (block.content as Partial<NoteContent>).html === "string" ? (block.content as NoteContent).html : "";
-      return <WorkspaceNoteBlock key={block.id} content={{ html }} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
+      return <WorkspaceNoteBlock key={block.id} content={{ html, padColor: (block.content as NoteContent).padColor }} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
     }
     if (block.kind === "table") {
       const raw = block.content as Partial<TableContent>;

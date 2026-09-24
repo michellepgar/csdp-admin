@@ -10,7 +10,13 @@ import type { NoteContent } from "@/lib/workspace";
    save (lib/sanitize-note-html.ts); this only keeps a paste from Excel /
    Docs / a web page from carrying layout-breaking styles, positioned
    elements or script-ish markup into the editor in the meantime. */
-const KEEP_TAGS = new Set(["A", "B", "STRONG", "I", "EM", "U", "BR", "P", "DIV", "SPAN", "UL", "OL", "LI", "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TD", "TH", "H1", "H2", "H3", "H4", "BLOCKQUOTE", "CODE", "PRE", "IMG"]);
+/* Only tags lib/sanitize-note-html.ts keeps -- anything else would be
+   stripped on save (P became "ab" from two paragraphs). Block-level
+   paragraph-like tags become DIV (which the sanitizer keeps, so line breaks
+   survive a round trip); headings also get bold; TFOOT becomes TBODY. */
+const KEEP_TAGS = new Set(["A", "B", "STRONG", "I", "EM", "U", "BR", "DIV", "SPAN", "UL", "OL", "LI", "TABLE", "THEAD", "TBODY", "TR", "TD", "TH", "IMG"]);
+const AS_DIV = new Set(["P", "H1", "H2", "H3", "H4", "BLOCKQUOTE", "PRE"]);
+const HEADINGS = new Set(["H1", "H2", "H3", "H4"]);
 const DROP_TAGS = new Set(["SCRIPT", "STYLE", "META", "LINK", "IFRAME", "OBJECT", "EMBED", "FORM", "INPUT", "BUTTON", "TEXTAREA", "SELECT", "SVG", "MATH", "TITLE", "HEAD", "NOSCRIPT", "TEMPLATE", "COLGROUP", "COL"]);
 const SAFE_URL = /^(https?:|mailto:)/i;
 const SAFE_IMG = /^(https?:|data:image\/(png|jpe?g|gif|webp);)/i;
@@ -25,7 +31,7 @@ function cleanNode(node: Node, out: Node) {
     const el = child as Element;
     const tag = el.tagName.toUpperCase();
     if (DROP_TAGS.has(tag)) continue;
-    if (!KEEP_TAGS.has(tag)) {
+    if (!KEEP_TAGS.has(tag) && !AS_DIV.has(tag) && tag !== "TFOOT") {
       cleanNode(el, out); // unwrap unknown wrappers, keep their text
       continue;
     }
@@ -39,7 +45,8 @@ function cleanNode(node: Node, out: Node) {
       out.appendChild(img);
       continue;
     }
-    const copy = document.createElement(tag.toLowerCase());
+    const outTag = AS_DIV.has(tag) ? "div" : tag === "TFOOT" ? "tbody" : tag.toLowerCase();
+    const copy = document.createElement(outTag);
     if (tag === "A") {
       const href = el.getAttribute("href") ?? "";
       if (SAFE_URL.test(href)) copy.setAttribute("href", href);
@@ -50,7 +57,13 @@ function cleanNode(node: Node, out: Node) {
         if (value && /^\d{1,3}$/.test(value)) copy.setAttribute(attr, value);
       }
     }
-    cleanNode(el, copy);
+    if (HEADINGS.has(tag)) {
+      const bold = document.createElement("b");
+      cleanNode(el, bold);
+      copy.appendChild(bold);
+    } else {
+      cleanNode(el, copy);
+    }
     out.appendChild(copy);
   }
 }
@@ -84,6 +97,7 @@ export function WorkspaceNoteBlock({
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [initialHtml] = useState(content.html);
+  const [linkMessage, setLinkMessage] = useState<string | null>(null);
 
   function currentHtml(): string {
     const editor = editorRef.current;
@@ -119,8 +133,13 @@ export function WorkspaceNoteBlock({
     if (!entered) return;
     let url = entered.trim();
     if (!url) return;
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `https://${url}`;
-    if (!SAFE_URL.test(url)) return;
+    const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(url) && !/^[^\s/:]+:\d+/.test(url);
+    if (!hasScheme && /^[^\s/]+\.[^\s/]+/.test(url) && !/\s/.test(url)) url = `https://${url}`;
+    if (!SAFE_URL.test(url)) {
+      setLinkMessage("Links must start with http://, https:// or mailto:");
+      return;
+    }
+    setLinkMessage(null);
     editor.focus();
     if (saved) {
       const sel = window.getSelection();
@@ -172,6 +191,11 @@ export function WorkspaceNoteBlock({
           <Link2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+      {linkMessage && (
+        <p role="alert" className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-2 py-1 text-xs text-destructive">
+          {linkMessage}
+        </p>
+      )}
       <div
         ref={editorRef}
         contentEditable

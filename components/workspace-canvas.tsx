@@ -202,9 +202,14 @@ export function WorkspaceCanvas({
   });
   useEffect(() => {
     const flush = () => flushAllRef.current();
+    const flushIfHidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
     window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", flushIfHidden);
     return () => {
       window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", flushIfHidden);
       flush();
     };
   }, []);
@@ -245,6 +250,14 @@ export function WorkspaceCanvas({
 
   function changeRect(id: string, rect: Rect) {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...rect } : b)));
+  }
+
+  /* Re-sends the block's current rect after a failed rect save. */
+  function retryRect(id: string) {
+    const block = blocks.find((b) => b.id === id);
+    if (!block) return;
+    savedRects.current.delete(id);
+    saveRect(id, { x: block.x, y: block.y, w: block.w, h: block.h, z: block.z });
   }
 
   function commitRect(id: string, rect: Rect) {
@@ -314,14 +327,13 @@ export function WorkspaceCanvas({
 
   async function removeBlock(block: Block) {
     if (!window.confirm(`Delete this ${KIND_META[block.kind].label.toLowerCase()} block? This can't be undone.`)) return;
-    const state = saves.current.get(block.id);
-    if (state) {
-      if (state.timer) clearTimeout(state.timer);
-      state.timer = null;
-      state.pending = null;
-    }
+    await performDelete(block);
+  }
+
+  async function performDelete(block: Block) {
     const formData = new FormData();
     formData.set("id", block.id);
+    setBlockError(block.id, "action", null);
     let failure: string | null = null;
     try {
       failure = (await deleteBlock(formData)).error;
@@ -329,9 +341,13 @@ export function WorkspaceCanvas({
       failure = "Couldn't delete the block. Please try again.";
     }
     if (failure) {
+      // The block, its pending edit and its timer are all left untouched.
       setBlockError(block.id, "action", failure);
       return;
     }
+    // Only now is the block really gone, so only now drop its save state.
+    const state = saves.current.get(block.id);
+    if (state?.timer) clearTimeout(state.timer);
     deletedIds.current.add(block.id);
     saves.current.delete(block.id);
     savedRects.current.delete(block.id);
@@ -368,7 +384,15 @@ export function WorkspaceCanvas({
         title={meta.label}
         icon={meta.icon}
         error={blockErrors?.action ?? blockErrors?.content ?? blockErrors?.rect ?? null}
-        onRetry={blockErrors?.content ? () => flushContent(block.id) : undefined}
+        onRetry={
+          blockErrors?.action
+            ? () => void performDelete(block)
+            : blockErrors?.content
+              ? () => flushContent(block.id)
+              : blockErrors?.rect
+                ? () => retryRect(block.id)
+                : undefined
+        }
         onActivate={() => activateBlock(block.id)}
         onRectChange={(rect) => changeRect(block.id, rect)}
         onRectCommit={(rect) => commitRect(block.id, rect)}
@@ -402,6 +426,9 @@ export function WorkspaceCanvas({
             activeId={activeSheet.id}
             onSelect={selectSheet}
             onCreated={setPendingSelectId}
+            onDeleted={(deletedId, fallbackId) => {
+              if (deletedId === activeSheet.id && fallbackId) selectSheet(fallbackId);
+            }}
             createSheet={createSheet}
             renameSheet={renameSheet}
             reorderSheets={reorderSheets}

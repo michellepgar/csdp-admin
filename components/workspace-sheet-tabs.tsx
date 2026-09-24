@@ -18,6 +18,7 @@ export function WorkspaceSheetTabs({
   activeId,
   onSelect,
   onCreated,
+  onDeleted,
   createSheet,
   renameSheet,
   reorderSheets,
@@ -29,6 +30,8 @@ export function WorkspaceSheetTabs({
   onSelect: (id: string) => void;
   /** A new sheet was created (it may not be in `sheets` yet). */
   onCreated: (id: string) => void;
+  /** A sheet was deleted; fallbackId is its previous neighbour (else the next). */
+  onDeleted: (id: string, fallbackId: string | null) => void;
   createSheet: WorkspaceAction;
   renameSheet: WorkspaceAction;
   reorderSheets: WorkspaceAction;
@@ -94,7 +97,9 @@ export function WorkspaceSheetTabs({
 
   function remove(sheet: Sheet) {
     if (!window.confirm(`Delete "${sheet.name}" and everything on it? This can't be undone.`)) return;
-    run(deleteSheet, { id: sheet.id });
+    const index = shown.findIndex((s) => s.id === sheet.id);
+    const fallbackId = (shown[index - 1] ?? shown[index + 1])?.id ?? null;
+    run(deleteSheet, { id: sheet.id }, () => onDeleted(sheet.id, fallbackId));
   }
 
   function drop(targetId: string) {

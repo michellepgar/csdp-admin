@@ -13,7 +13,7 @@ const KIND_CHIP: Record<BlockKind, string> = {
   reminder: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200",
 };
 
-type DragState = { mode: "move" | "resize"; startX: number; startY: number; origin: Rect; live: Rect };
+type DragState = { mode: "move" | "resize"; pointerId: number; startX: number; startY: number; origin: Rect; live: Rect };
 
 /* The shared chrome around every block on a canvas: a header bar that is the
    drag handle, a delete button, a bottom-right resize handle, and the block's
@@ -65,13 +65,13 @@ export function WorkspaceBlockFrame({
     if (mobile || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.preventDefault();
     const origin: Rect = { x: block.x, y: block.y, w: block.w, h: block.h };
-    dragRef.current = { mode, startX: e.clientX, startY: e.clientY, origin, live: origin };
+    dragRef.current = { mode, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, origin, live: origin };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* best-effort */ }
   }
 
   function move(e: ReactPointerEvent<HTMLElement>) {
     const drag = dragRef.current;
-    if (!drag) return;
+    if (!drag || drag.pointerId !== e.pointerId) return;
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
     const next = clampRect(
@@ -87,9 +87,19 @@ export function WorkspaceBlockFrame({
   // commit, would silently skip persisting the gesture if it did.
   function end(e: ReactPointerEvent<HTMLElement>) {
     const drag = dragRef.current;
-    if (!drag) return;
+    if (!drag || drag.pointerId !== e.pointerId) return;
     dragRef.current = null;
     onRectCommit(drag.live);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* best-effort */ }
+  }
+
+  // A cancelled gesture (the browser took the pointer for scrolling, etc.)
+  // goes back to where it started instead of committing a half-finished move.
+  function cancel(e: ReactPointerEvent<HTMLElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    onRectChange(drag.origin);
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* best-effort */ }
   }
 
@@ -116,7 +126,7 @@ export function WorkspaceBlockFrame({
         onPointerDown={headerPointerDown}
         onPointerMove={move}
         onPointerUp={end}
-        onPointerCancel={end}
+        onPointerCancel={cancel}
         title={mobile ? undefined : "Drag to move"}
         className={`flex h-9 shrink-0 select-none items-center gap-2 border-b border-ring/20 bg-gradient-to-r from-ring/20 via-ring/10 to-muted/40 px-2 ${
           mobile ? "" : "cursor-grab touch-none active:cursor-grabbing"
@@ -126,6 +136,7 @@ export function WorkspaceBlockFrame({
         <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-foreground/80">{title}</span>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={onDelete}
           title={`Delete this ${title.toLowerCase()} block`}
           aria-label={`Delete this ${title.toLowerCase()} block`}
@@ -154,7 +165,7 @@ export function WorkspaceBlockFrame({
           onPointerDown={(e) => { e.stopPropagation(); onActivate(); begin(e, "resize"); }}
           onPointerMove={move}
           onPointerUp={end}
-          onPointerCancel={end}
+          onPointerCancel={cancel}
           title="Drag to resize"
           className="absolute bottom-0 right-0 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end rounded-tl-md bg-ring/10 p-0.5 text-ring/70 transition-colors hover:bg-ring/25 hover:text-ring"
         >

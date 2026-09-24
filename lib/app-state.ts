@@ -6,6 +6,7 @@
    lives in lib/fetch-app-state.ts instead, kept server-only. */
 
 import type { WorkspaceData } from "@/lib/workspace";
+import type { SpreadsheetData } from "@/lib/spreadsheets";
 
 export interface Va {
   id: string;
@@ -551,6 +552,8 @@ export interface AppState {
   generalTaskCategories?: GeneralTaskCategory[];
   /** Demo mode only: the demo visitor's My Workspace (real accounts read it straight from the database, see lib/workspace-data.ts). */
   workspace?: WorkspaceData;
+  /** Demo mode only: the shared Spreadsheets (real accounts read them from the database, see lib/spreadsheet-data.ts). */
+  spreadsheets?: SpreadsheetData;
   planItems?: PlanItem[];
   /* Keyed by task id (school task_file_categories row id) or General
      Task id -- when its status was last changed, per the DB trigger

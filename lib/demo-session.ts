@@ -1,3 +1,4 @@
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { cookies } from "next/headers";
 import type { AppState } from "@/lib/app-state";
 import { DEMO_APP_STATE } from "@/lib/demo-app-state";
@@ -31,20 +32,17 @@ import { DEMO_APP_STATE } from "@/lib/demo-app-state";
 
 const COOKIE_PREFIX = "demo-state-";
 const MAX_AGE = 2592000; // 30 days, matches the demo-mode cookie
-/* This is RAW pre-encoding character count, not the final cookie
-   size -- Next's cookie store percent-encodes the value when it
-   writes the Set-Cookie header, and JSON is punctuation-heavy enough
-   (every quote, colon, comma, brace becomes a 3-byte %XX escape) that
-   the encoded size runs noticeably bigger than the raw string. Found
-   by direct repro + measurement: a chunk sliced at the old 3500-char
-   size measured out to ~1.6x that once encoded -- comfortably over
-   browsers' ~4KB-per-cookie ceiling, so the browser silently dropped
-   that ENTIRE cookie (confirmed via document.cookie: demo-state-0
-   consistently missing while the shorter remainder chunk survived).
-   2000 keeps even a worst-case-punctuation chunk safely under 4KB
-   once encoded. */
-const CHUNK_SIZE = 2000;
-const MAX_CHUNKS = 8; // ~16KB of raw JSON across all chunks combined
+const MAX_CHUNKS = 8;
+/* The state is stored compressed: deflate, then base64url (letters, digits,
+   "-" and "_", which cookies carry without escaping). Plain JSON used to be
+   stored, but cookie encoding roughly tripled every quote and brace, and past
+   about 16KB of request headers the server refuses every request (431) --
+   which locked a demo out before its own "small limit" message could show.
+   Compressed, the sample data is about a quarter of its old size. Each chunk
+   stays under the browser's ~4KB-per-cookie ceiling. */
+const COMPRESSED = "z:";
+const COMPRESSED_CHUNK_SIZE = 3500;
+const MAX_STORED_BYTES = 12000;
 
 export async function isDemoMode(): Promise<boolean> {
   return (await cookies()).get("demo-mode")?.value === "1";
@@ -60,7 +58,10 @@ export async function getDemoState(): Promise<AppState> {
   }
   if (chunks.length === 0) return structuredClone(DEMO_APP_STATE);
   try {
-    return JSON.parse(chunks.join("")) as AppState;
+    const stored = chunks.join("");
+    // Older demo sessions saved plain JSON; newer ones save it compressed.
+    const json = stored.startsWith(COMPRESSED) ? inflateRawSync(Buffer.from(stored.slice(COMPRESSED.length), "base64url")).toString("utf8") : stored;
+    return JSON.parse(json) as AppState;
   } catch {
     // Corrupt/truncated cookie (shouldn't happen, but a demo session
     // with a broken save shouldn't just crash every page) -- reset to
@@ -73,29 +74,15 @@ export async function getDemoState(): Promise<AppState> {
    app/error.tsx) rather than silently dropping the change when the
    new state would no longer fit in the available chunks. */
 export async function saveDemoState(state: AppState): Promise<void> {
-  /* Plain JSON, not encodeURIComponent(JSON.stringify(...)) -- Next's
-     own cookie store already percent-encodes a value once when it
-     writes the Set-Cookie header (and decodes it once on read), so
-     encoding it here too meant every chunk was encoded TWICE. Found by
-     direct repro: a fresh demo session's very first save reliably lost
-     its "demo-state-0" chunk (confirmed via document.cookie -- only
-     demo-state-1 survived). Root cause: CHUNK_SIZE=3500 was sized
-     against the ALREADY-doubly-encoded string, so a full 3500-char
-     chunk of that -- being full of literal "%25..." runs from the
-     second encoding pass -- landed well past browsers' ~4KB
-     per-cookie ceiling and got silently dropped, while the shorter
-     remainder chunk happened to survive. Letting the framework do the
-     one encoding pass it already does keeps every chunk safely under
-     that ceiling. */
-  const serialized = JSON.stringify(state);
-  const chunkCount = Math.ceil(serialized.length / CHUNK_SIZE);
-  if (chunkCount > MAX_CHUNKS) {
+  const serialized = COMPRESSED + deflateRawSync(Buffer.from(JSON.stringify(state), "utf8"), { level: 9 }).toString("base64url");
+  const chunkCount = Math.ceil(serialized.length / COMPRESSED_CHUNK_SIZE);
+  if (chunkCount > MAX_CHUNKS || serialized.length > MAX_STORED_BYTES) {
     throw new Error("This demo has a small limit on how much you can add — sign up for a real account for the full thing.");
   }
 
   const cookieStore = await cookies();
   for (let i = 0; i < chunkCount; i++) {
-    cookieStore.set(`${COOKIE_PREFIX}${i}`, serialized.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE), {
+    cookieStore.set(`${COOKIE_PREFIX}${i}`, serialized.slice(i * COMPRESSED_CHUNK_SIZE, (i + 1) * COMPRESSED_CHUNK_SIZE), {
       path: "/",
       maxAge: MAX_AGE,
       sameSite: "lax",

@@ -19,7 +19,26 @@ const EDGE = 8;
    inside its table cell, so opening it never stretches the table or adds
    a scrollbar to it. It opens below the button when there's room and flips
    above when there isn't, and slides sideways to stay on screen. */
-export function KebabMenu({ items, ariaLabel }: { items: KebabMenuItem[]; ariaLabel: string }) {
+export function KebabMenu({
+  items = [],
+  ariaLabel,
+  icon,
+  title,
+  active = false,
+  disabled = false,
+  content,
+}: {
+  items?: KebabMenuItem[];
+  ariaLabel: string;
+  /** Replaces the three-dots icon (e.g. a filter or color button). */
+  icon?: React.ReactNode;
+  title?: string;
+  /** Shows the button as "on" (e.g. a column with a filter applied). */
+  active?: boolean;
+  disabled?: boolean;
+  /** Opens straight into this panel instead of a list of items. `close` shuts it. */
+  content?: (close: () => void) => React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [panelItem, setPanelItem] = useState<KebabMenuItem | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -61,8 +80,10 @@ export function KebabMenu({ items, ariaLabel }: { items: KebabMenuItem[]; ariaLa
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") close();
     }
-    // The page scrolling or resizing would leave the menu floating in the wrong place.
-    function onMove() {
+    // The page scrolling or resizing would leave the menu floating in the wrong place
+    // (scrolling a long list inside the menu itself is fine).
+    function onMove(e: Event) {
+      if (e.target instanceof Node && popoverRef.current?.contains(e.target)) return;
       close();
     }
     document.addEventListener("mousedown", onMouseDown);
@@ -83,11 +104,15 @@ export function KebabMenu({ items, ariaLabel }: { items: KebabMenuItem[]; ariaLa
         ref={buttonRef}
         type="button"
         onClick={() => { if (open) close(); else setOpen(true); }}
+        // Keeps the keyboard focus (and a table's selected cells) where it was.
+        onMouseDown={(e) => e.preventDefault()}
         aria-label={ariaLabel}
         aria-expanded={open}
-        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-ring/10 hover:text-ring aria-expanded:bg-ring/15 aria-expanded:text-ring"
+        title={title}
+        disabled={disabled}
+        className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-ring/10 hover:text-ring aria-expanded:bg-ring/15 aria-expanded:text-ring disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${active ? "bg-ring/15 text-ring" : "text-muted-foreground"}`}
       >
-        <MoreVertical className="h-4 w-4" />
+        {icon ?? <MoreVertical className="h-4 w-4" />}
       </button>
       {open && typeof document !== "undefined" && createPortal(
         <div
@@ -95,7 +120,9 @@ export function KebabMenu({ items, ariaLabel }: { items: KebabMenuItem[]; ariaLa
           style={{ position: "fixed", top: 0, left: 0, visibility: "hidden" }}
           className="z-[70] max-h-[calc(100vh-1rem)] min-w-40 max-w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-ring/25 bg-background p-1 shadow-xl ring-1 ring-black/5"
         >
-          {panelItem?.panel ? (
+          {content ? (
+            <div className="p-2">{content(close)}</div>
+          ) : panelItem?.panel ? (
             <div className="p-2">
               <button type="button" onClick={() => setPanelItem(null)} className="mb-1.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="h-3 w-3" /> Back

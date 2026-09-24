@@ -20,6 +20,15 @@ function toHex(color: string): string | null {
   return hex === "FFFFFF" ? null : `#${hex}`; // white is "no highlight" in a spreadsheet
 }
 
+/* Plain black/near-black and white text is just the default; any other color is kept. */
+function textColor(color: string): string | null {
+  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color.trim());
+  if (!m) return null;
+  const [r, g, b] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (Math.max(r, g, b) < 100 || Math.min(r, g, b) > 235) return null; // too dark to read on a dark cell, or white
+  return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+}
+
 function sizeFor(px: number): CellSize | undefined {
   if (px < 12.5) return "sm";
   if (px >= 21) return "xl";
@@ -54,6 +63,11 @@ function styleOf(cell: HTMLTableCellElement, view: Window): PastedStyle | null {
   if (size) format.size = size;
   const font = fontFor(cs.fontFamily);
   if (font) format.font = font;
+  const align = view.getComputedStyle(cell).textAlign;
+  if (align === "center") format.align = "center";
+  else if (align === "right" || align === "end") format.align = "right";
+  const color = textColor(cs.color);
+  if (color) format.color = color;
   const fill = toHex(view.getComputedStyle(cell).backgroundColor);
   const style: PastedStyle = {};
   if (fill) style.fill = fill;

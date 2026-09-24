@@ -1,14 +1,16 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Bold, Calendar, Hash, Highlighter, Italic, ListChecks, Plus, SquareCheck, Trash2, Type, Underline, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Baseline, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
 import { KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
-import { FILL_COLORS, MAX_COLUMNS, MAX_ROWS, addColumn, addRow, applyPaste, applyPasteStyles, coerceCell, parsePastedGrid, removeColumn, removeRow, renameColumn, setCell, setCells, setColumnType, setFills, setFormats } from "@/lib/workspace";
+import { FILL_COLORS, MAX_COLUMNS, MAX_ROWS, TEXT_COLORS, coerceCell, newCellId, parsePastedGrid } from "@/lib/workspace";
+import { applySheetOps, pasteOps } from "@/lib/sheet-ops";
+import type { SheetOp } from "@/lib/sheet-ops";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
 import { evaluateTable, isFormula } from "@/lib/workspace-formula";
-import type { CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, TableColumn, TableContent, TableRow } from "@/lib/workspace";
+import type { CellAlign, CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, TableColumn, TableContent, TableRow } from "@/lib/workspace";
 
 const COLUMN_WIDTH = 140;
 const GUTTER_WIDTH = 56;
@@ -52,7 +54,152 @@ function formatStyle(format: CellFormat | undefined): CSSProperties | undefined 
   if (size) style.fontSize = size.px;
   const font = FONT_OPTIONS.find((f) => f.value === format.font && f.css);
   if (font) style.fontFamily = font.css;
+  if (format.align) style.textAlign = format.align;
+  if (format.color) style.color = format.color;
   return style;
+}
+
+/* A cell's drawn borders, as inset lines in the cell's own text color (so they show on any background). */
+const SIDE_SHADOW: Record<string, string> = {
+  t: "inset 0 1px 0 0 currentColor",
+  r: "inset -1px 0 0 0 currentColor",
+  b: "inset 0 -1px 0 0 currentColor",
+  l: "inset 1px 0 0 0 currentColor",
+};
+
+type BorderChoice = "all" | "outside" | "top" | "bottom" | "left" | "right" | "none";
+const BORDER_CHOICES: { value: BorderChoice; label: string; icon: ReactNode }[] = [
+  { value: "all", label: "All borders", icon: <Grid2x2 className="h-4 w-4" /> },
+  { value: "outside", label: "Outside borders", icon: <Square className="h-4 w-4" /> },
+  { value: "top", label: "Top border", icon: <PanelTop className="h-4 w-4" /> },
+  { value: "bottom", label: "Bottom border", icon: <PanelBottom className="h-4 w-4" /> },
+  { value: "left", label: "Left border", icon: <PanelLeft className="h-4 w-4" /> },
+  { value: "right", label: "Right border", icon: <PanelRight className="h-4 w-4" /> },
+  { value: "none", label: "No borders", icon: <SquareDashed className="h-4 w-4" /> },
+];
+
+const ALIGN_CHOICES: { value: CellAlign; label: string; icon: ReactNode }[] = [
+  { value: "left", label: "Align left", icon: <TextAlignStart className="h-3.5 w-3.5" /> },
+  { value: "center", label: "Align center", icon: <TextAlignCenter className="h-3.5 w-3.5" /> },
+  { value: "right", label: "Align right", icon: <TextAlignEnd className="h-3.5 w-3.5" /> },
+];
+
+/* A row of color swatches plus a "none" choice, used for text color and highlight. */
+function SwatchPanel({ colors, noneLabel, current, onPick, close }: { colors: { name: string; value: string }[]; noneLabel: string; current: string | undefined; onPick: (color: string | null) => void; close: () => void }) {
+  return (
+    <div className="w-44 space-y-2">
+      <div className="grid grid-cols-4 gap-1.5">
+        {colors.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            title={c.name}
+            aria-label={c.name}
+            aria-pressed={current === c.value}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              onPick(c.value);
+              close();
+            }}
+            className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${current === c.value ? "border-foreground" : "border-border"}`}
+            style={{ backgroundColor: c.value }}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          onPick(null);
+          close();
+        }}
+        className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-sm text-foreground transition-colors hover:bg-ring/10"
+      >
+        <X className="h-3.5 w-3.5 text-muted-foreground" /> {noneLabel}
+      </button>
+    </div>
+  );
+}
+
+/* Excel-style filter for one column: tick the values to show. */
+function FilterPanel({ values, selected, onApply, close }: { values: string[]; selected: string[] | null; onApply: (allowed: string[] | null) => void; close: () => void }) {
+  const [search, setSearch] = useState("");
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(selected ?? values));
+  const needle = search.trim().toLowerCase();
+  const matching = values.filter((v) => (v === "" ? "(blanks)" : v.toLowerCase()).includes(needle));
+  const shownValues = matching.slice(0, 300);
+  const allChecked = matching.length > 0 && matching.every((v) => checked.has(v));
+
+  function toggle(value: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const v of matching) {
+        if (allChecked) next.delete(v);
+        else next.add(v);
+      }
+      return next;
+    });
+  }
+
+  return (
+    <div className="w-60 space-y-2">
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search values…"
+        aria-label="Search values"
+        autoFocus
+        className="h-8 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      />
+      <div className="max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-border p-1">
+        <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm font-medium hover:bg-ring/10">
+          <input type="checkbox" checked={allChecked} onChange={toggleAll} className="h-3.5 w-3.5" />
+          {needle ? "Select all matches" : "Select all"}
+        </label>
+        {shownValues.map((value) => (
+          <label key={value} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-ring/10">
+            <input type="checkbox" checked={checked.has(value)} onChange={() => toggle(value)} className="h-3.5 w-3.5" />
+            <span className={`truncate ${value === "" ? "italic text-muted-foreground" : ""}`}>{value === "" ? "(Blanks)" : value}</span>
+          </label>
+        ))}
+        {matching.length > shownValues.length && <p className="px-1.5 py-1 text-xs text-muted-foreground">Showing the first 300. Search to narrow it down.</p>}
+        {matching.length === 0 && <p className="px-1.5 py-1 text-xs text-muted-foreground">No matching values.</p>}
+      </div>
+      <div className="flex justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            onApply(null);
+            close();
+          }}
+          className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-ring/10 hover:text-foreground"
+        >
+          Clear filter
+        </button>
+        <button
+          type="button"
+          disabled={checked.size === 0}
+          onClick={() => {
+            onApply(checked.size === values.length ? null : [...checked]);
+            close();
+          }}
+          className="rounded-lg bg-ring/15 px-3 py-1 text-sm font-medium text-ring transition-colors hover:bg-ring/25 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
 }
 
 const cellOf = (row: TableRow, columnId: string): CellValue => (Object.hasOwn(row.cells, columnId) ? row.cells[columnId] : null);
@@ -345,7 +492,10 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
           if (!isError) style.color = "#1a1a1a";
         }
         if (rowSelected && c >= selFrom && c <= selTo && !editing && (multi || c !== activeCol)) style.backgroundImage = RANGE_TINT;
-        if (c === activeCol || editing) style.boxShadow = "inset 0 0 0 2px var(--ring)";
+        const shadows: string[] = [];
+        if (c === activeCol || editing) shadows.push("inset 0 0 0 2px var(--ring)");
+        for (const side of formats[column.id]?.border ?? "") if (SIDE_SHADOW[side]) shadows.push(SIDE_SHADOW[side]);
+        if (shadows.length > 0) style.boxShadow = shadows.join(", ");
         return (
           <td
             key={column.id}
@@ -440,7 +590,9 @@ function confirmClear(count: number): boolean {
 
 type Props = {
   content: TableContent;
-  onChange: (next: TableContent) => void;
+  /** Every edit, as the new table and as the operations that produced it
+   *  (My Workspace saves the table; the shared Spreadsheets page sends the operations). */
+  onChange: (next: TableContent, ops: SheetOp[]) => void;
   /** Save right now instead of waiting for the canvas's debounce. */
   onFlush?: () => void;
   /** The frame is a stacked card (no fixed height): the grid caps its own height. */
@@ -466,6 +618,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const [renameDraft, setRenameDraft] = useState("");
   const [sort, setSort] = useState<{ columnId: string; dir: "asc" | "desc" } | null>(null);
   const [filter, setFilter] = useState("");
+  // Per-column filters: the values (as shown) each filtered column may have. View only, never saved.
+  const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
   const [selection, setSelection] = useState<Selection | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -500,9 +654,11 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const [api] = useState(() => {
     /* Two changes in one tick must build on each other, so the ref moves
        forward immediately instead of waiting for the re-render. */
-    const emit = (next: TableContent) => {
+    const emit = (ops: SheetOp[]) => {
+      if (ops.length === 0) return;
+      const next = applySheetOps(contentRef.current, ops);
       contentRef.current = next;
-      onChangeRef.current(next);
+      onChangeRef.current(next, ops);
     };
     const select = (anchor: Pos, focus: Pos = anchor) => {
       selectionRef.current = { anchor, focus };
@@ -561,31 +717,31 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         const current = contentRef.current;
         const rowIndex = current.rows.findIndex((r) => r.id === rowId);
         const colIndex = current.columns.findIndex((c) => c.id === columnId);
-        let next = current;
+        const ops: SheetOp[] = [];
         if (value !== undefined && rowIndex >= 0 && colIndex >= 0) {
           const column = current.columns[colIndex];
-          if (coerceCell(value, column.type, column.options) !== cellOf(current.rows[rowIndex], columnId)) next = setCell(current, rowId, columnId, value);
+          if (coerceCell(value, column.type, column.options) !== cellOf(current.rows[rowIndex], columnId)) ops.push({ t: "set", cells: [[rowId, columnId, value]] });
         }
         setEditing((e) => (e && e.rowId === rowId && e.colId === columnId ? null : e));
         const view = viewRef.current;
         const r = view.indexOf(rowIndex);
         if (move === "down" && r >= 0) {
           if (r + 1 < view.length) select({ r: r + 1, c: colIndex });
-          else if (!viewActiveRef.current && next.rows.length < MAX_ROWS) {
+          else if (!viewActiveRef.current && current.rows.length < MAX_ROWS) {
             // Enter on the last row adds a new one, as before.
-            next = addRow(next);
+            ops.push({ t: "addRow", id: newCellId() });
             select({ r: r + 1, c: colIndex });
           }
         } else if (move === "right" && r >= 0 && colIndex + 1 < current.columns.length) {
           select({ r, c: colIndex + 1 });
         }
-        if (next !== current) emit(next);
+        emit(ops);
         if (refocus) focusGrid();
       },
-      commit: (rowId, columnId, value) => emit(setCell(contentRef.current, rowId, columnId, value)),
+      commit: (rowId, columnId, value) => emit([{ t: "set", cells: [[rowId, columnId, value]] }]),
       toggle: (rowId, columnId) => {
         const row = contentRef.current.rows.find((r) => r.id === rowId);
-        if (row) emit(setCell(contentRef.current, rowId, columnId, cellOf(row, columnId) !== true));
+        if (row) emit([{ t: "set", cells: [[rowId, columnId, cellOf(row, columnId) !== true]] }]);
       },
       pasteGrid: (text, html, pos) => {
         // Excel appends one line break to even a single-cell copy; that is not a grid.
@@ -598,12 +754,19 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         const grid = parsePastedGrid(trimmed);
         if (grid.length === 0) return true;
         const startRow = viewRef.current[pos.r] ?? contentRef.current.rows.length;
-        const next = applyPaste(contentRef.current, startRow, pos.c, grid);
-        emit(next);
+        const pasted = pasteOps(contentRef.current, startRow, pos.c, grid);
+        emit(pasted.ops);
+        const next = contentRef.current;
         // The values land at once; the spreadsheet's colors and text styling follow a moment later.
         if (html) {
           void readClipboardTableStyles(html).then((styles) => {
-            if (styles && styles.length === grid.length) emit(applyPasteStyles(contentRef.current, startRow, pos.c, styles));
+            if (!styles || styles.length !== grid.length) return;
+            const cells: [string, string, string | null, CellFormat | null][] = [];
+            styles.forEach((line, r) => {
+              const rowId = pasted.rowIds[r];
+              if (rowId) line.forEach((style, c) => pasted.columnIds[c] && cells.push([rowId, pasted.columnIds[c], style?.fill ?? null, style?.format ?? null]));
+            });
+            emit([{ t: "style", cells }]);
           });
         }
         const width = Math.max(...grid.map((line) => line.length));
@@ -615,12 +778,20 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         const index = current.rows.findIndex((r) => r.id === rowId);
         if (index < 0) return;
         if (Object.values(current.rows[index].cells).some((v) => v !== null && v !== undefined) && !window.confirm(`Delete row ${index + 1}?`)) return;
-        emit(removeRow(current, rowId));
+        emit([{ t: "removeRow", id: rowId }]);
       },
       flush: () => onFlushRef.current?.(),
     };
     return api;
   });
+
+  /* Applies operations locally and reports them (same as the api's emit, for code outside it). */
+  function runOps(ops: SheetOp[]) {
+    if (ops.length === 0) return;
+    const next = applySheetOps(contentRef.current, ops);
+    contentRef.current = next;
+    onChangeRef.current(next, ops);
+  }
 
   /* Column-level actions live beside the api but only ever run from menus. */
   const columnActions = useState(() => ({
@@ -635,15 +806,13 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         if (raw !== null && coerceCell(raw, type, nextOptions) === null) lost++;
       }
       if (!confirmClear(lost)) return;
-      contentRef.current = setColumnType(current, columnId, type, options);
-      onChangeRef.current(contentRef.current);
+      runOps([{ t: "colType", id: columnId, type, ...(options ? { options } : {}) }]);
     },
     deleteColumn: (columnId: string) => {
       const current = contentRef.current;
       const lost = current.rows.filter((r) => cellOf(r, columnId) !== null).length;
       if (!confirmClear(lost)) return;
-      contentRef.current = removeColumn(current, columnId);
-      onChangeRef.current(contentRef.current);
+      runOps([{ t: "removeCol", id: columnId }]);
     },
   }))[0];
 
@@ -679,16 +848,23 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   }, [content.formats]);
 
   // Which rows to show, and in what order. This is only a view: the saved table keeps its own order.
-  const view = useMemo(() => {
-    const textOf = (row: TableRow, columnId: string): string => {
+  const textOf = useCallback(
+    (row: TableRow, columnId: string): string => {
       const shownText = computedByRow[row.id]?.[columnId];
       if (shownText !== undefined) return shownText;
       const raw = cellOf(row, columnId);
       return raw === null || raw === undefined ? "" : String(raw);
-    };
+    },
+    [computedByRow],
+  );
+  const view = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     let indexes = rows.map((_, i) => i);
     if (needle) indexes = indexes.filter((i) => columns.some((c) => textOf(rows[i], c.id).toLowerCase().includes(needle)));
+    const active = Object.entries(columnFilters)
+      .filter(([columnId]) => columns.some((c) => c.id === columnId))
+      .map(([columnId, allowed]) => [columnId, new Set(allowed)] as const);
+    if (active.length > 0) indexes = indexes.filter((i) => active.every(([columnId, allowed]) => allowed.has(textOf(rows[i], columnId))));
     if (sort) {
       const dir = sort.dir === "asc" ? 1 : -1;
       const numeric = (text: string) => text.trim() !== "" && Number.isFinite(Number(text));
@@ -703,8 +879,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
       });
     }
     return indexes;
-  }, [rows, columns, computedByRow, filter, sort]);
-  const viewActive = filter.trim() !== "" || sort !== null;
+  }, [rows, columns, textOf, filter, sort, columnFilters]);
+  const filteredColumns = columns.filter((c) => columnFilters[c.id]).length;
+  const viewActive = filter.trim() !== "" || sort !== null || filteredColumns > 0;
 
   // The selection, kept inside the rows and columns that exist right now.
   const sel = useMemo(() => {
@@ -740,10 +917,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     return cells;
   }
 
-  function apply(next: TableContent) {
-    if (next === contentRef.current) return;
-    contentRef.current = next;
-    onChangeRef.current(next);
+  /* Puts one value (null clears) into every selected cell. */
+  function setSelected(value: CellValue) {
+    runOps([{ t: "set", cells: selectedCells().map(([r, c]) => [r, c, value] as [string, string, CellValue]) }]);
   }
 
   function selectionText(): string {
@@ -800,7 +976,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
       case "Delete":
       case "Backspace":
         e.preventDefault();
-        apply(setCells(contentRef.current, selectedCells(), null));
+        setSelected(null);
         return;
       case "Escape":
         e.preventDefault();
@@ -842,7 +1018,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     if (!sel) return;
     e.preventDefault();
     e.clipboardData.setData("text/plain", selectionText());
-    if (cut) apply(setCells(contentRef.current, selectedCells(), null));
+    if (cut) setSelected(null);
   }
 
   function onGridPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
@@ -851,7 +1027,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     const text = e.clipboardData.getData("text/plain");
     if (api.pasteGrid(text, e.clipboardData.getData("text/html"), sel.anchor)) return;
     // One value goes into every selected cell, as in Excel.
-    apply(setCells(contentRef.current, selectedCells(), text.replace(/(\r\n|\n)$/, "")));
+    setSelected(text.replace(/(\r\n|\n)$/, ""));
   }
 
   function selectColumn(c: number) {
@@ -879,8 +1055,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
       return;
     }
     if (renameDraft.trim() && renameDraft.trim() !== column.name) {
-      contentRef.current = renameColumn(contentRef.current, column.id, renameDraft);
-      onChangeRef.current(contentRef.current);
+      runOps([{ t: "renameCol", id: column.id, name: renameDraft.trim() }]);
     }
   }
 
@@ -888,9 +1063,6 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     const onlyColumn = columns.length <= 1;
     return [
       { label: "Rename", onClick: () => startRename(column) },
-      { label: "Sort A → Z", onClick: () => setSort({ columnId: column.id, dir: "asc" }) },
-      { label: "Sort Z → A", onClick: () => setSort({ columnId: column.id, dir: "desc" }) },
-      ...(sort?.columnId === column.id ? [{ label: "Clear sort", onClick: () => setSort(null) }] : []),
       {
         label: "Change type",
         panel: (close) => <TypePanel column={column} onApply={(type, options) => columnActions.changeType(column.id, type, options)} close={close} />,
@@ -902,18 +1074,102 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   }
 
   function highlight(color: string | null) {
-    apply(setFills(contentRef.current, selectedCells(), color));
+    runOps([{ t: "fill", cells: selectedCells(), color }]);
   }
 
   // The toolbar shows the active cell's styling; a toggle applies to the whole selection.
   const activeFormat: CellFormat = sel ? (formatsByRow[rows[view[sel.anchor.r]]?.id ?? ""]?.[columns[sel.anchor.c]?.id ?? ""] ?? {}) : {};
 
   function format(patch: FormatPatch) {
-    apply(setFormats(contentRef.current, selectedCells(), patch));
+    runOps([{ t: "format", cells: selectedCells(), patch }]);
   }
 
   function toggleFormat(flag: "b" | "i" | "u") {
     format({ [flag]: !activeFormat[flag] });
+  }
+
+  const activeFill = sel ? fillsByRow[rows[view[sel.anchor.r]]?.id ?? ""]?.[columns[sel.anchor.c]?.id ?? ""] : undefined;
+
+  function setAlign(align: CellAlign) {
+    format({ align: activeFormat.align === align ? null : align });
+  }
+
+  /* Borders for the selection. "All" draws each cell's top and left plus the
+     range's right and bottom edge, so shared edges are drawn once. */
+  function applyBorders(choice: BorderChoice) {
+    if (!sel) return;
+    if (choice === "none") {
+      runOps([{ t: "format", cells: selectedCells(), patch: { borderOff: "trbl" } }]);
+      return;
+    }
+    const groups = new Map<string, [string, string][]>();
+    for (let r = sel.r1; r <= sel.r2; r++) {
+      const row = rows[view[r]];
+      if (!row) continue;
+      for (let c = sel.c1; c <= sel.c2; c++) {
+        const top = r === sel.r1, bottom = r === sel.r2, left = c === sel.c1, right = c === sel.c2;
+        let on = "";
+        if (choice === "all") on = `t${right ? "r" : ""}${bottom ? "b" : ""}l`;
+        else if (choice === "outside") on = `${top ? "t" : ""}${right ? "r" : ""}${bottom ? "b" : ""}${left ? "l" : ""}`;
+        else if (choice === "top" && top) on = "t";
+        else if (choice === "bottom" && bottom) on = "b";
+        else if (choice === "left" && left) on = "l";
+        else if (choice === "right" && right) on = "r";
+        if (!on) continue;
+        const list = groups.get(on) ?? [];
+        list.push([row.id, columns[c].id]);
+        groups.set(on, list);
+      }
+    }
+    runOps([...groups].map(([on, cells]) => ({ t: "format" as const, cells, patch: { borderOn: on } })));
+  }
+
+  /* Every distinct value in a column (as shown), for its filter list. */
+  function columnValues(columnId: string): string[] {
+    const seen = new Set<string>();
+    for (const row of rows) seen.add(textOf(row, columnId));
+    return [...seen].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })));
+  }
+
+  function sortFilterItems(column: TableColumn): KebabMenuItem[] {
+    const sorted = sort?.columnId === column.id;
+    const filtered = !!columnFilters[column.id];
+    return [
+      { label: "Sort A → Z", onClick: () => setSort({ columnId: column.id, dir: "asc" }) },
+      { label: "Sort Z → A", onClick: () => setSort({ columnId: column.id, dir: "desc" }) },
+      ...(sorted ? [{ label: "Clear sort", onClick: () => setSort(null) }] : []),
+      {
+        label: filtered ? "Change filter…" : "Filter by values…",
+        panel: (close) => (
+          <FilterPanel
+            values={columnValues(column.id)}
+            selected={columnFilters[column.id] ?? null}
+            close={close}
+            onApply={(allowed) =>
+              setColumnFilters((prev) => {
+                const next = { ...prev };
+                if (allowed) next[column.id] = allowed;
+                else delete next[column.id];
+                return next;
+              })
+            }
+          />
+        ),
+      },
+      ...(filtered
+        ? [
+            {
+              label: "Clear filter",
+              onClick: () =>
+                setColumnFilters((prev) => {
+                  const next = { ...prev };
+                  delete next[column.id];
+                  return next;
+                }),
+            },
+          ]
+        : []),
+    ];
   }
 
   const toolButton = (active: boolean) =>
@@ -970,34 +1226,62 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
             </option>
           ))}
         </select>
-        <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-        <div className="flex items-center gap-1" role="group" aria-label="Highlight the selected cells">
-          <Highlighter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-          {FILL_COLORS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              disabled={!sel}
-              title={sel ? `Highlight ${selectedCount === 1 ? "cell" : `${selectedCount} cells`} ${c.name.toLowerCase()}` : "Select cells first"}
-              aria-label={`Highlight ${c.name.toLowerCase()}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => highlight(c.value)}
-              className="h-4 w-4 rounded-full border border-border transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-              style={{ backgroundColor: c.value }}
-            />
-          ))}
-          <button
-            type="button"
-            disabled={!sel}
-            title={sel ? "Remove highlight" : "Select cells first"}
-            aria-label="Remove highlight"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => highlight(null)}
-            className="flex h-4 w-4 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <X className="h-3 w-3" />
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+        {ALIGN_CHOICES.map((a) => (
+          <button key={a.value} type="button" disabled={!sel} title={a.label} aria-label={a.label} aria-pressed={activeFormat.align === a.value} onMouseDown={(e) => e.preventDefault()} onClick={() => setAlign(a.value)} className={toolButton(activeFormat.align === a.value)}>
+            {a.icon}
           </button>
-        </div>
+        ))}
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+        <KebabMenu
+          ariaLabel="Text color"
+          title="Text color"
+          disabled={!sel}
+          icon={
+            <span className="flex flex-col items-center leading-none">
+              <Baseline className="h-3.5 w-3.5" />
+              <span className="mt-0.5 h-1 w-4 rounded-sm border border-border" style={{ backgroundColor: activeFormat.color ?? "transparent" }} />
+            </span>
+          }
+          content={(close) => <SwatchPanel colors={TEXT_COLORS} noneLabel="Automatic" current={activeFormat.color} close={close} onPick={(color) => format({ color })} />}
+        />
+        <KebabMenu
+          ariaLabel="Highlight color"
+          title={sel ? `Highlight ${selectedCount === 1 ? "the cell" : `${selectedCount} cells`}` : "Highlight"}
+          disabled={!sel}
+          icon={
+            <span className="flex flex-col items-center leading-none">
+              <PaintBucket className="h-3.5 w-3.5" />
+              <span className="mt-0.5 h-1 w-4 rounded-sm border border-border" style={{ backgroundColor: activeFill ?? "transparent" }} />
+            </span>
+          }
+          content={(close) => <SwatchPanel colors={FILL_COLORS} noneLabel="No highlight" current={activeFill} close={close} onPick={(color) => highlight(color)} />}
+        />
+        <KebabMenu
+          ariaLabel="Borders"
+          title="Borders"
+          disabled={!sel}
+          icon={<Grid2x2 className="h-3.5 w-3.5" />}
+          content={(close) => (
+            <div className="w-44">
+              {BORDER_CHOICES.map((b) => (
+                <button
+                  key={b.value}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    applyBorders(b.value);
+                    close();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-ring/10"
+                >
+                  <span className="text-muted-foreground">{b.icon}</span>
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          )}
+        />
       </div>
       <textarea
         ref={keyRef}
@@ -1102,6 +1386,13 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                           )}
                         </>
                       )}
+                      <KebabMenu
+                        items={sortFilterItems(column)}
+                        ariaLabel={`Sort or filter column ${column.name}`}
+                        title="Sort and filter"
+                        active={!!columnFilters[column.id]}
+                        icon={<ListFilter className="h-3.5 w-3.5" />}
+                      />
                       <KebabMenu items={menuItems(column)} ariaLabel={`Options for column ${column.name}`} />
                     </div>
                   </th>
@@ -1114,8 +1405,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                   title={atMaxColumns ? `A table can have at most ${MAX_COLUMNS} columns.` : "Add a column"}
                   aria-label="Add a column"
                   onClick={() => {
-                    contentRef.current = addColumn(contentRef.current);
-                    onChangeRef.current(contentRef.current);
+                    runOps([{ t: "addCol", id: newCellId() }]);
                   }}
                   className="flex h-9 w-full items-center justify-center text-muted-foreground transition-colors hover:bg-ring/15 hover:text-ring disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
@@ -1163,13 +1453,25 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
           title={atMaxRows ? `A table can have at most ${MAX_ROWS.toLocaleString("en-US")} rows.` : "Add a row"}
           onClick={() => {
             setFilter(""); // a new blank row would not match the filter
-            contentRef.current = addRow(contentRef.current);
-            onChangeRef.current(contentRef.current);
+            runOps([{ t: "addRow", id: newCellId() }]);
           }}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ring transition-colors hover:bg-ring/15 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <Plus className="h-3.5 w-3.5" /> Row
         </button>
+        {viewActive && (
+          <button
+            type="button"
+            onClick={() => {
+              setFilter("");
+              setSort(null);
+              setColumnFilters({});
+            }}
+            className="rounded-md px-2 py-1 text-xs font-medium text-ring transition-colors hover:bg-ring/15"
+          >
+            Clear sort and filters
+          </button>
+        )}
         <input
           type="search"
           value={filter}

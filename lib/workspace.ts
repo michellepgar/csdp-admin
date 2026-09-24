@@ -4,11 +4,32 @@ export type CellValue = string | number | boolean | null;
 export type TableColumn = { id: string; name: string; type: ColumnType; options?: string[] };
 export type TableRow = { id: string; cells: Record<string, CellValue> };
 /** Text styling for one cell. Absent keys mean the default (regular, normal size, the app's font). */
-export type CellFormat = { b?: true; i?: true; u?: true; size?: CellSize; font?: CellFont };
+/** border lists the cell's drawn sides, in the order t, r, b, l (e.g. "tb"). color is the text color. */
+export type CellFormat = { b?: true; i?: true; u?: true; size?: CellSize; font?: CellFont; align?: CellAlign; color?: string; border?: string };
 export type CellSize = "sm" | "lg" | "xl";
 export type CellFont = "serif" | "mono" | "hand";
+export type CellAlign = "left" | "center" | "right";
 export const CELL_SIZES: CellSize[] = ["sm", "lg", "xl"];
 export const CELL_FONTS: CellFont[] = ["serif", "mono", "hand"];
+export const CELL_ALIGNS: CellAlign[] = ["left", "center", "right"];
+const SIDES = "trbl";
+
+/** Keeps only real sides, once each, in t-r-b-l order ("" when none). */
+export function normalizeSides(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return [...SIDES].filter((side) => raw.includes(side)).join("");
+}
+
+/* Text colors for table cells: mid tones that read on both a dark cell and a light highlight. */
+export const TEXT_COLORS: { name: string; value: string }[] = [
+  { name: "Red", value: "#DC2626" },
+  { name: "Orange", value: "#EA580C" },
+  { name: "Green", value: "#16A34A" },
+  { name: "Blue", value: "#2563EB" },
+  { name: "Purple", value: "#9333EA" },
+  { name: "Pink", value: "#DB2777" },
+  { name: "Gray", value: "#6B7280" },
+];
 
 /** fills: cell highlight colors and formats: text styling, both keyed `${rowId}|${columnId}`. */
 export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat> };
@@ -29,6 +50,11 @@ export function normalizeFormat(raw: unknown): CellFormat | null {
   if (r.u === true) out.u = true;
   if (CELL_SIZES.includes(r.size as CellSize)) out.size = r.size as CellSize;
   if (CELL_FONTS.includes(r.font as CellFont)) out.font = r.font as CellFont;
+  if (CELL_ALIGNS.includes(r.align as CellAlign)) out.align = r.align as CellAlign;
+  const color = normalizeFillColor(r.color);
+  if (color) out.color = color;
+  const border = normalizeSides(r.border);
+  if (border) out.border = border;
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -48,7 +74,7 @@ export type ReminderContent = { text: string; due: string | null; done: boolean 
 export type BlockContent = TableContent | NoteContent | ReminderContent;
 export type Rect = { x: number; y: number; w: number; h: number };
 
-export type Workbook = { id: string; title: string; tags: string[]; bgColor?: string; bgStyle?: string; createdAt: string; updatedAt: string };
+export type Workbook = { id: string; title: string; tags: string[]; bgColor?: string; bgStyle?: string; createdAt: string; updatedAt: string; /** Shared spreadsheets only: who last changed it. */ updatedBy?: string | null };
 
 /* Canvas backgrounds a workbook can choose. Colors are a fixed list of
    literals (the empty value means "the theme's own color"). */
@@ -129,7 +155,9 @@ export function findFreePosition(
 
 const RESERVED_IDS = ["__proto__", "constructor", "prototype"];
 const COLUMN_TYPES: ColumnType[] = ["text", "number", "date", "checkbox", "dropdown"];
-const newId = () => crypto.randomUUID();
+/** A short id for a table row or column (unique within its table; keeps saved tables small). */
+export const newCellId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+const newId = newCellId;
 
 /** Spreadsheet-style column names: A..Z, AA, AB, ... */
 export function columnName(index: number): string {
@@ -244,9 +272,11 @@ export function coerceCell(raw: CellValue | undefined, type: ColumnType, options
   return null;
 }
 
-export function addRow(content: TableContent): TableContent {
+/** Appends a blank row. A given id makes this repeatable: a row that already exists isn't added twice. */
+export function addRow(content: TableContent, id?: string): TableContent {
   if (content.rows.length >= MAX_ROWS) return content;
-  return { ...content, rows: [...content.rows, { id: newId(), cells: {} }] };
+  if (id && content.rows.some((r) => r.id === id)) return content;
+  return { ...content, rows: [...content.rows, { id: id ?? newId(), cells: {} }] };
 }
 
 function pruneCellMap<T>(map: Record<string, T> | undefined, keep: (rowId: string, columnId: string) => boolean): Record<string, T> | undefined {
@@ -291,7 +321,8 @@ export function setFills(content: TableContent, cells: [string, string][], color
 }
 
 /** A change to apply to cells' formats: true/false turns a style on/off, null resets size or font. */
-export type FormatPatch = { b?: boolean; i?: boolean; u?: boolean; size?: CellSize | null; font?: CellFont | null };
+/** A change to cells' formats. borderOn/borderOff add or remove sides ("trbl"), keeping the others. */
+export type FormatPatch = { b?: boolean; i?: boolean; u?: boolean; size?: CellSize | null; font?: CellFont | null; align?: CellAlign | null; color?: string | null; borderOn?: string; borderOff?: string };
 
 export function setFormats(content: TableContent, cells: [string, string][], patch: FormatPatch): TableContent {
   const rowIds = new Set(content.rows.map((r) => r.id));
@@ -308,6 +339,14 @@ export function setFormats(content: TableContent, cells: [string, string][], pat
     }
     if (patch.size !== undefined) next.size = patch.size ?? undefined;
     if (patch.font !== undefined) next.font = patch.font ?? undefined;
+    if (patch.align !== undefined) next.align = patch.align ?? undefined;
+    if (patch.color !== undefined) next.color = patch.color ?? undefined;
+    if (patch.borderOn || patch.borderOff) {
+      const on = normalizeSides(patch.borderOn);
+      const off = normalizeSides(patch.borderOff);
+      const current = normalizeSides(next.border);
+      next.border = [...SIDES].filter((side) => (current.includes(side) || on.includes(side)) && !off.includes(side)).join("") || undefined;
+    }
     const clean = normalizeFormat(next);
     if (clean) formats[key] = clean;
     else delete formats[key];
@@ -315,6 +354,25 @@ export function setFormats(content: TableContent, cells: [string, string][], pat
   }
   if (!changed) return content;
   return withCellMaps(content, content.fills, formats);
+}
+
+/** Gives each listed cell exactly this highlight and format (null removes it). */
+export function setCellStyles(content: TableContent, cells: [string, string, string | null, CellFormat | null][]): TableContent {
+  const rowIds = new Set(content.rows.map((r) => r.id));
+  const columnIds = new Set(content.columns.map((c) => c.id));
+  const fills = { ...(content.fills ?? {}) };
+  const formats = { ...(content.formats ?? {}) };
+  for (const [rowId, columnId, fill, format] of cells) {
+    if (!rowIds.has(rowId) || !columnIds.has(columnId)) continue;
+    const key = fillKey(rowId, columnId);
+    const cleanFill = normalizeFillColor(fill);
+    const cleanFormat = normalizeFormat(format);
+    if (cleanFill) fills[key] = cleanFill;
+    else delete fills[key];
+    if (cleanFormat) formats[key] = cleanFormat;
+    else delete formats[key];
+  }
+  return withCellMaps(content, fills, formats);
 }
 
 /** Styling carried over from a pasted spreadsheet range, one entry per pasted cell. */
@@ -377,9 +435,10 @@ export function setCells(content: TableContent, cells: [string, string][], value
   return changed ? { ...content, rows } : content;
 }
 
-export function addColumn(content: TableContent, name?: string, type: ColumnType = "text"): TableContent {
+export function addColumn(content: TableContent, name?: string, type: ColumnType = "text", id?: string): TableContent {
   if (content.columns.length >= MAX_COLUMNS) return content;
-  const column: TableColumn = { id: newId(), name: ((name || "").trim() || columnName(content.columns.length)).slice(0, MAX_NAME_LENGTH), type };
+  if (id && content.columns.some((c) => c.id === id)) return content;
+  const column: TableColumn = { id: id ?? newId(), name: ((name || "").trim() || columnName(content.columns.length)).slice(0, MAX_NAME_LENGTH), type };
   return { ...content, columns: [...content.columns, column] };
 }
 

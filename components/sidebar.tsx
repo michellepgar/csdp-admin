@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Send,
   ClipboardList,
+  Sheet,
 } from "lucide-react";
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
@@ -278,6 +279,17 @@ export function Sidebar({
           >
             <ClipboardList className="h-4 w-4 flex-none text-lime-600 dark:text-lime-400" />
             {!collapsed && <span className="min-w-0 truncate">General Tasks</span>}
+          </Link>
+        </IconTooltip>
+        <IconTooltip label="Spreadsheets" active={collapsed}>
+          <Link
+            href="/spreadsheets"
+            prefetch={false}
+            title={!collapsed ? "Spreadsheets" : undefined}
+            className={navLinkClass("/spreadsheets", collapsed ? "justify-center px-2" : "gap-2 px-3")}
+          >
+            <Sheet className="h-4 w-4 flex-none text-emerald-600 dark:text-emerald-400" />
+            {!collapsed && <span className="min-w-0 truncate">Spreadsheets</span>}
           </Link>
         </IconTooltip>
         <IconTooltip label="General Notes" active={collapsed}>

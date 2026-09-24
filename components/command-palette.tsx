@@ -21,6 +21,7 @@ import {
   Send,
   Users,
   type LucideIcon,
+  Sheet,
 } from "lucide-react";
 import type { PrivateNoteHit } from "@/app/(app)/private-notes/actions";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ const PAGES: PaletteItem[] = [
   { key: "p-my-workspace", label: "My Workspace", hint: "Personal", href: "/my-workspace", icon: Lock },
   { key: "p-messages", label: "Messages", hint: "Page", href: "/messages", icon: MessageSquare },
   { key: "p-general-tasks", label: "General Tasks", hint: "Page", href: "/general-tasks", icon: ClipboardList },
+  { key: "p-spreadsheets", label: "Spreadsheets", hint: "Page", href: "/spreadsheets", icon: Sheet },
   { key: "p-general-notes", label: "General Notes", hint: "Page", href: "/notes", icon: Megaphone },
   { key: "p-issues", label: "Issues & Concerns", hint: "Page", href: "/issues", icon: AlertTriangle },
   { key: "p-eod", label: "EOD Reports", hint: "Page", href: "/eod", icon: Clock },

@@ -14,6 +14,10 @@ import type { TagColor, Workbook } from "@/lib/workspace";
 type ActionResult = { error: string | null; id?: string };
 type WorkbookAction = (formData: FormData) => Promise<ActionResult>;
 
+/* The same list serves My Workspace (private workbooks) and the shared Spreadsheets page. */
+export type ListWording = { basePath: string; noun: string; when: string; sortLabel: string };
+const WORKBOOK_WORDING: ListWording = { basePath: "/my-workspace", noun: "workbook", when: "Opened", sortLabel: "Last opened" };
+
 /* Every class name is written out in full so Tailwind can see it. */
 const TAG_CLASSES: Record<TagColor, string> = {
   teal: "bg-teal-100 text-teal-800 ring-teal-300/60 dark:bg-teal-900/40 dark:text-teal-200 dark:ring-teal-700/50",
@@ -53,17 +57,19 @@ function WorkbookCard({
   setWorkbookTags,
   deleteWorkbook,
   onError,
+  wording,
 }: {
   workbook: Workbook;
   renameWorkbook: WorkbookAction;
   setWorkbookTags: WorkbookAction;
   deleteWorkbook: WorkbookAction;
   onError: (message: string | null) => void;
+  wording: ListWording;
 }) {
   const [mode, setMode] = useState<"view" | "rename" | "tags">("view");
   // Opens the workbook on the sheet it was left on in this browser.
   const savedSheet = useSyncExternalStore(subscribeStorage, () => lastSheet(workbook.id), () => null);
-  const href = savedSheet ? `/my-workspace/${workbook.id}?sheet=${encodeURIComponent(savedSheet)}` : `/my-workspace/${workbook.id}`;
+  const href = savedSheet ? `${wording.basePath}/${workbook.id}?sheet=${encodeURIComponent(savedSheet)}` : `${wording.basePath}/${workbook.id}`;
   const [titleDraft, setTitleDraft] = useState(workbook.title);
   const [tagsDraft, setTagsDraft] = useState(workbook.tags.join(", "));
   const [pending, startTransition] = useTransition();
@@ -117,7 +123,7 @@ function WorkbookCard({
         <div className="min-w-0 flex-1">
           {mode === "rename" ? (
             <form onSubmit={(e) => { e.preventDefault(); saveTitle(); }} className="flex flex-wrap items-center gap-2">
-              <Input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} maxLength={80} autoFocus aria-label="Workbook title" className="h-8 min-w-0 flex-1" />
+              <Input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} maxLength={80} autoFocus aria-label={`${wording.noun[0].toUpperCase()}${wording.noun.slice(1)} title`} className="h-8 min-w-0 flex-1" />
               <Button type="submit" size="sm" disabled={pending || !titleDraft.trim()}>Save</Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setMode("view")}>Cancel</Button>
             </form>
@@ -141,7 +147,10 @@ function WorkbookCard({
             )
           )}
 
-          <p className="mt-2 text-xs text-muted-foreground">Opened {fmtDate(workbook.updatedAt)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {wording.when} {fmtDate(workbook.updatedAt)}
+            {workbook.updatedBy ? ` by ${workbook.updatedBy}` : ""}
+          </p>
         </div>
 
         <KebabMenu
@@ -168,7 +177,9 @@ export function WorkspaceList({
   renameWorkbook,
   setWorkbookTags,
   deleteWorkbook,
+  wording = WORKBOOK_WORDING,
 }: {
+  wording?: ListWording;
   workbooks: Workbook[];
   createWorkbook: WorkbookAction;
   renameWorkbook: WorkbookAction;
@@ -201,14 +212,14 @@ export function WorkspaceList({
   function create() {
     startCreate(async () => {
       const fd = new FormData();
-      fd.set("title", "Untitled workbook");
+      fd.set("title", `Untitled ${wording.noun}`);
       const result = await createWorkbook(fd);
       if (result.error || !result.id) {
-        setError(result.error ?? "Couldn't create the workbook.");
+        setError(result.error ?? `Couldn't create the ${wording.noun}.`);
         return;
       }
       setError(null);
-      router.push(`/my-workspace/${result.id}`);
+      router.push(`${wording.basePath}/${result.id}`);
     });
   }
 
@@ -217,11 +228,11 @@ export function WorkspaceList({
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-header-background p-3">
         <Button type="button" onClick={create} disabled={creating}>
           <Plus className="mr-1 h-4 w-4" />
-          {creating ? "Creating…" : "New workbook"}
+          {creating ? "Creating…" : `New ${wording.noun}`}
         </Button>
         <div className="relative min-w-40 flex-1 sm:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search workbooks…" aria-label="Search workbooks" className="bg-background pl-8" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${wording.noun}s…`} aria-label={`Search ${wording.noun}s`} className="bg-background pl-8" />
         </div>
         <label className="ml-auto flex items-center gap-2 text-sm text-white">
           Sort
@@ -230,7 +241,7 @@ export function WorkspaceList({
             onChange={(e) => setSort(e.target.value as "opened" | "name")}
             className="h-9 rounded-md border bg-background px-2 text-sm text-foreground"
           >
-            <option value="opened">Last opened</option>
+            <option value="opened">{wording.sortLabel}</option>
             <option value="name">Name A–Z</option>
           </select>
         </label>
@@ -258,10 +269,10 @@ export function WorkspaceList({
       {workbooks.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-record-background no-record-hover px-4 py-12 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-ring/15 text-ring"><BookOpen className="h-6 w-6" /></span>
-          <p className="text-sm text-muted-foreground">No workbooks yet. Create your first one to get started.</p>
+          <p className="text-sm text-muted-foreground">No {wording.noun}s yet. Create the first one to get started.</p>
         </div>
       ) : visible.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ring/40 bg-record-background no-record-hover px-4 py-8 text-center text-sm text-muted-foreground">No workbooks match your search.</p>
+        <p className="rounded-xl border border-dashed border-ring/40 bg-record-background no-record-hover px-4 py-8 text-center text-sm text-muted-foreground">No {wording.noun}s match your search.</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((workbook) => (
@@ -271,6 +282,7 @@ export function WorkspaceList({
               renameWorkbook={renameWorkbook}
               setWorkbookTags={setWorkbookTags}
               deleteWorkbook={deleteWorkbook}
+              wording={wording}
               onError={setError}
             />
           ))}

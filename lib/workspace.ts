@@ -17,6 +17,9 @@ export type WorkspaceData = { workbooks: Workbook[]; sheets: Sheet[]; blocks: Bl
 export const MAX_COLUMNS = 40;
 export const MAX_ROWS = 2000;
 export const MAX_RECT = 1200;
+const MAX_POSITION = 100000;
+const MAX_CELL_LENGTH = 5000;
+const MAX_CONTENT_JSON = 2_000_000;
 const MAX_NOTE_LENGTH = 200000;
 const MAX_TAGS = 8;
 const MAX_TAG_LENGTH = 24;
@@ -33,12 +36,14 @@ const DEFAULT_SIZE: Record<BlockKind, { w: number; h: number }> = {
   reminder: { w: 280, h: 110 },
 };
 
+const RESERVED_IDS = ["__proto__", "constructor", "prototype"];
 const COLUMN_TYPES: ColumnType[] = ["text", "number", "date", "checkbox", "dropdown"];
 const newId = () => crypto.randomUUID();
 
 /** Spreadsheet-style column names: A..Z, AA, AB, ... */
 export function columnName(index: number): string {
-  let n = index;
+  if (!Number.isFinite(index) || index < 0) return "";
+  let n = Math.floor(index);
   let name = "";
   do {
     name = String.fromCharCode(65 + (n % 26)) + name;
@@ -64,13 +69,29 @@ export function defaultRect(kind: BlockKind, x = 0, y = 0): Rect {
    unreachable. */
 export function clampRect(rect: Rect, kind: BlockKind): Rect {
   const min = MIN_SIZE[kind];
-  const bound = (value: number, low: number, high: number) => Math.min(high, Math.max(low, Math.round(value)));
+  const bound = (value: number, low: number, high: number) => (Number.isFinite(value) ? Math.min(high, Math.max(low, Math.round(value))) : low);
   return {
-    x: Math.max(0, Math.round(rect.x)),
-    y: Math.max(0, Math.round(rect.y)),
+    x: bound(rect.x, 0, MAX_POSITION),
+    y: bound(rect.y, 0, MAX_POSITION),
     w: bound(rect.w, min.w, MAX_RECT),
     h: bound(rect.h, min.h, MAX_RECT),
   };
+}
+
+/** True only for dates that exist on the calendar. */
+function isRealDate(year: number, month: number, day: number): boolean {
+  const d = new Date(0);
+  d.setUTCFullYear(year, month - 1, day);
+  return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
+}
+
+/** Accepts YYYY-MM-DD or M/D/YYYY and returns a valid ISO date, or null. */
+function normalizeDate(text: string): string | null {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (iso) return isRealDate(+iso[1], +iso[2], +iso[3]) ? text : null;
+  const us = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
+  if (us && isRealDate(+us[3], +us[1], +us[2])) return `${us[3]}-${us[1].padStart(2, "0")}-${us[2].padStart(2, "0")}`;
+  return null;
 }
 
 /** Parses text copied from Excel / Google Sheets: tab-separated, quoted cells may hold tabs and newlines. */
@@ -80,7 +101,8 @@ export function parsePastedGrid(text: string): string[][] {
   let row: string[] = [];
   let cell = "";
   let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
+  const pushRow = () => { rows.push(row.slice(0, MAX_COLUMNS)); row = []; };
+  for (let i = 0; i < text.length && rows.length < MAX_ROWS; i++) {
     const ch = text[i];
     if (inQuotes) {
       if (ch === '"') {
@@ -93,10 +115,11 @@ export function parsePastedGrid(text: string): string[][] {
     } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") i++;
       row.push(cell); cell = "";
-      rows.push(row); row = [];
+      pushRow();
     } else cell += ch;
   }
-  if (cell !== "" || row.length > 0) { row.push(cell); rows.push(row); }
+  if (rows.length < MAX_ROWS && (cell !== "" || row.length > 0)) { row.push(cell); pushRow(); }
+  while (rows.length > 0 && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === "") rows.pop();
   return rows;
 }
 
@@ -104,21 +127,23 @@ export function coerceCell(raw: CellValue | undefined, type: ColumnType, options
   if (raw === undefined || raw === null) return null;
   if (type === "checkbox") {
     if (typeof raw === "boolean") return raw;
+    if (String(raw).trim() === "") return null;
     return ["true", "yes", "y", "1", "x", "✓"].includes(String(raw).trim().toLowerCase());
   }
   const text = typeof raw === "string" ? raw.trim() : String(raw);
-  if (type === "text") return text === "" ? null : String(raw);
+  if (type === "text") {
+    if (typeof raw === "number" && !Number.isFinite(raw)) return null;
+    return text === "" ? null : String(raw);
+  }
   if (text === "") return null;
   if (type === "number") {
+    const plain = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(text);
+    const grouped = /^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(text);
+    if (!plain && !grouped) return null;
     const n = Number(text.replace(/,/g, ""));
     return Number.isFinite(n) ? n : null;
   }
-  if (type === "date") {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
-    if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
-    return null;
-  }
+  if (type === "date") return normalizeDate(text);
   if (type === "dropdown") {
     return (options || []).find((o) => o.toLowerCase() === text.toLowerCase()) ?? null;
   }
@@ -136,7 +161,7 @@ export function removeRow(content: TableContent, rowId: string): TableContent {
 
 export function addColumn(content: TableContent, name?: string, type: ColumnType = "text"): TableContent {
   if (content.columns.length >= MAX_COLUMNS) return content;
-  const column: TableColumn = { id: newId(), name: (name || columnName(content.columns.length)).slice(0, MAX_NAME_LENGTH), type };
+  const column: TableColumn = { id: newId(), name: ((name || "").trim() || columnName(content.columns.length)).slice(0, MAX_NAME_LENGTH), type };
   return { ...content, columns: [...content.columns, column] };
 }
 
@@ -184,8 +209,14 @@ export function setCell(content: TableContent, rowId: string, columnId: string, 
 
 /** Pastes a grid with its top-left at (startRow, startCol), adding rows/columns as needed up to the limits. */
 export function applyPaste(content: TableContent, startRow: number, startCol: number, grid: string[][]): TableContent {
+  if (grid.length === 0) return content;
+  if (!Number.isFinite(startRow) || !Number.isFinite(startCol) || startRow < 0 || startCol < 0) return content;
+  startRow = Math.trunc(startRow);
+  startCol = Math.trunc(startCol);
   let next: TableContent = { columns: [...content.columns], rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells } })) };
-  const neededCols = Math.min(MAX_COLUMNS, startCol + Math.max(0, ...grid.map((r) => r.length)));
+  let width = 0;
+  for (const line of grid) if (line.length > width) width = line.length;
+  const neededCols = Math.min(MAX_COLUMNS, startCol + width);
   while (next.columns.length < neededCols) next = addColumn(next);
   const neededRows = Math.min(MAX_ROWS, startRow + grid.length);
   while (next.rows.length < neededRows) next = addRow(next);
@@ -216,17 +247,26 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
   }
   if (kind === "reminder") {
     const text = typeof raw.text === "string" ? raw.text.trim().slice(0, 500) : "";
-    const due = typeof raw.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.due) ? raw.due : null;
+    const due = typeof raw.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.due) ? normalizeDate(raw.due) : null;
     return { text, due, done: raw.done === true };
   }
+  if (kind !== "table") return null;
   if (!Array.isArray(raw.columns) || raw.columns.length === 0 || raw.columns.length > MAX_COLUMNS) return null;
   if (!Array.isArray(raw.rows) || raw.rows.length > MAX_ROWS) return null;
   const columns: TableColumn[] = [];
+  const seenColumns = new Set<string>();
+  const seenRows = new Set<string>();
+  const uniqueId = (candidate: unknown, seen: Set<string>): string => {
+    let id = typeof candidate === "string" && /^[\w-]{1,64}$/.test(candidate) && !RESERVED_IDS.includes(candidate) && !seen.has(candidate) ? candidate : newId();
+    while (seen.has(id)) id = newId();
+    seen.add(id);
+    return id;
+  };
   for (const c of raw.columns) {
     if (!isPlainObject(c)) return null;
     const type = COLUMN_TYPES.includes(c.type as ColumnType) ? (c.type as ColumnType) : "text";
     const column: TableColumn = {
-      id: typeof c.id === "string" && c.id ? c.id : newId(),
+      id: uniqueId(c.id, seenColumns),
       name: (typeof c.name === "string" ? c.name.trim() : "").slice(0, MAX_NAME_LENGTH) || "Column",
       type,
     };
@@ -243,20 +283,24 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
     const cellsIn = isPlainObject(r.cells) ? r.cells : {};
     const cells: Record<string, CellValue> = {};
     for (const column of columns) {
+      if (!Object.hasOwn(cellsIn, column.id)) continue;
       const value = cellsIn[column.id];
-      if (value === undefined) continue;
       const scalar = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : null;
-      cells[column.id] = coerceCell(scalar, column.type, column.options);
+      const coerced = coerceCell(scalar, column.type, column.options);
+      cells[column.id] = typeof coerced === "string" ? coerced.slice(0, MAX_CELL_LENGTH) : coerced;
     }
-    rows.push({ id: typeof r.id === "string" && r.id ? r.id : newId(), cells });
+    rows.push({ id: uniqueId(r.id, seenRows), cells });
   }
-  return { columns, rows };
+  const result: TableContent = { columns, rows };
+  if (JSON.stringify(result).length > MAX_CONTENT_JSON) return null;
+  return result;
 }
 
 export function normalizeTags(tags: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const tag of tags) {
+    if (typeof tag !== "string") continue;
     const trimmed = tag.trim().slice(0, MAX_TAG_LENGTH);
     const key = trimmed.toLowerCase();
     if (!trimmed || seen.has(key)) continue;
@@ -277,7 +321,7 @@ export function tagColor(tag: string): TagColor {
 }
 
 export function dueState(due: string | null, todayIso: string): "none" | "overdue" | "today" | "upcoming" {
-  if (!due) return "none";
+  if (!due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) return "none";
   if (due < todayIso) return "overdue";
   if (due === todayIso) return "today";
   return "upcoming";

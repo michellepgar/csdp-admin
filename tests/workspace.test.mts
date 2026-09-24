@@ -157,3 +157,114 @@ test("dueState compares ISO dates", () => {
   assert.equal(dueState("2026-09-24", "2026-09-24"), "today");
   assert.equal(dueState("2026-09-25", "2026-09-24"), "upcoming");
 });
+
+test("columnName handles multi-letter and invalid indexes", () => {
+  assert.equal(columnName(701), "ZZ");
+  assert.equal(columnName(702), "AAA");
+  assert.equal(columnName(-1), "");
+  assert.equal(columnName(Number.NaN), "");
+});
+
+test("removeColumn drops that column's cells; removeRow removes by id", () => {
+  const t = removeColumn(table(), "c2");
+  assert.equal(Object.hasOwn(t.rows[0].cells, "c2"), false);
+  assert.equal(t.rows[0].cells.c1, "Ann");
+  const two: TableContent = { ...table(), rows: [{ id: "a", cells: {} }, { id: "b", cells: {} }] };
+  assert.deepEqual(removeRow(two, "a").rows.map((r) => r.id), ["b"]);
+});
+
+test("addColumn with a blank name falls back to the default name", () => {
+  assert.equal(addColumn(table(), "   ").columns[2].name, "C");
+});
+
+test("applyPaste is pure and bounded", () => {
+  const t = table();
+  const before = structuredClone(t);
+  applyPaste(t, 0, 0, [["x", "y"], ["z", "w"]]);
+  assert.deepEqual(t, before);
+  assert.deepEqual(applyPaste(t, 0, 0, []), before);
+  assert.deepEqual(applyPaste(t, -1, 0, [["x"]]), before);
+  const huge = Array.from({ length: 200000 }, () => ["v"]);
+  const big = applyPaste(t, 0, 0, huge);
+  assert.ok(big.rows.length <= MAX_ROWS);
+  const edge: TableContent = { columns: Array.from({ length: MAX_COLUMNS }, (_, i) => ({ id: `k${i}`, name: "K", type: "text" as const })), rows: [] };
+  let filled = edge;
+  for (let i = 0; i < MAX_ROWS; i++) filled = addRow(filled);
+  const p = applyPaste(filled, MAX_ROWS - 1, MAX_COLUMNS - 1, [["a", "b"], ["c", "d"]]);
+  assert.equal(p.rows.length, MAX_ROWS);
+  assert.equal(p.columns.length, MAX_COLUMNS);
+  assert.equal(p.rows[MAX_ROWS - 1].cells[`k${MAX_COLUMNS - 1}`], "a");
+  const written = p.rows.reduce((n, r) => n + Object.values(r.cells).filter((v) => v !== undefined).length, 0);
+  assert.equal(written, 1);
+});
+
+test("parsePastedGrid edge cases", () => {
+  assert.deepEqual(parsePastedGrid("a\n\nb\n\n"), [["a"], [""], ["b"]]);
+  assert.deepEqual(parsePastedGrid("a\rb\rc"), [["a"], ["b"], ["c"]]);
+  assert.deepEqual(parsePastedGrid("a\t"), [["a", ""]]);
+  assert.equal(parsePastedGrid("x\n".repeat(MAX_ROWS + 500)).length, MAX_ROWS);
+  assert.equal(parsePastedGrid(Array.from({ length: MAX_COLUMNS + 10 }, () => "v").join("\t"))[0].length, MAX_COLUMNS);
+});
+
+test("coerceCell is strict about numbers, dates and checkboxes", () => {
+  assert.equal(coerceCell("1,5", "number"), null);
+  assert.equal(coerceCell("1,2,3", "number"), null);
+  assert.equal(coerceCell("0x10", "number"), null);
+  assert.equal(coerceCell("0b1", "number"), null);
+  assert.equal(coerceCell("1e3", "number"), 1000);
+  assert.equal(coerceCell("1,234.5", "number"), 1234.5);
+  assert.equal(coerceCell("2026-02-30", "date"), null);
+  assert.equal(coerceCell("2026-13-45", "date"), null);
+  assert.equal(coerceCell("9/31/2026", "date"), null);
+  assert.equal(coerceCell("13/1/2026", "date"), null);
+  assert.equal(coerceCell("2/28/2026", "date"), "2026-02-28");
+  assert.equal(coerceCell("open", "dropdown"), null);
+  assert.equal(coerceCell("", "checkbox"), null);
+  assert.equal(coerceCell("no", "checkbox"), false);
+  assert.equal(coerceCell(Number.NaN, "text"), null);
+});
+
+test("validateBlockContent rejects or repairs hostile input", () => {
+  assert.equal(validateBlockContent("weird" as never, { html: "x" }, identity), null);
+  const dupes = validateBlockContent("table", {
+    columns: [{ id: "a", name: "A", type: "text" }, { id: "a", name: "B", type: "text" }],
+    rows: [{ id: "r", cells: {} }, { id: "r", cells: {} }],
+  }, identity) as TableContent;
+  assert.notEqual(dupes.columns[0].id, dupes.columns[1].id);
+  assert.notEqual(dupes.rows[0].id, dupes.rows[1].id);
+  const reserved = validateBlockContent("table", {
+    columns: [{ id: "__proto__", name: "A", type: "text" }, { id: "constructor", name: "B", type: "text" }],
+    rows: [],
+  }, identity) as TableContent;
+  assert.ok(!["__proto__", "constructor", "prototype"].includes(reserved.columns[0].id));
+  assert.ok(!["__proto__", "constructor", "prototype"].includes(reserved.columns[1].id));
+  const long = validateBlockContent("table", {
+    columns: [{ id: "a", name: "A", type: "text" }],
+    rows: [{ id: "r", cells: { a: "y".repeat(6000) } }],
+  }, identity) as TableContent;
+  assert.equal((long.rows[0].cells.a as string).length, 5000);
+  const cols = Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, name: "C", type: "text" }));
+  const cells = Object.fromEntries(cols.map((c) => [c.id, "y".repeat(5000)]));
+  const rows = Array.from({ length: 50 }, (_, i) => ({ id: `r${i}`, cells }));
+  assert.equal(validateBlockContent("table", { columns: cols, rows }, identity), null, "over 2,000,000 chars serialized");
+  assert.deepEqual(
+    validateBlockContent("reminder", { text: "x", due: "2026-99-99", done: false }, identity),
+    { text: "x", due: null, done: false },
+  );
+});
+
+test("clampRect survives hostile numbers", () => {
+  for (const bad of [Number.NaN, Infinity, -Infinity, 1e300]) {
+    const c = clampRect({ x: bad, y: bad, w: bad, h: bad }, "note");
+    for (const v of [c.x, c.y, c.w, c.h]) assert.ok(Number.isFinite(v));
+    assert.ok(c.x >= 0 && c.x <= 100000 && c.y >= 0 && c.y <= 100000);
+    assert.ok(c.w >= 160 && c.w <= 1200 && c.h >= 100 && c.h <= 1200);
+  }
+});
+
+test("normalizeTags skips non-strings; tagColor varies; dueState rejects garbage", () => {
+  assert.deepEqual(normalizeTags([null as unknown as string, "a"]), ["a"]);
+  const colors = new Set(Array.from({ length: 30 }, (_, i) => tagColor(`tag-${i}`)));
+  assert.ok(colors.size > 1);
+  assert.equal(dueState("garbage", "2026-09-24"), "none");
+});

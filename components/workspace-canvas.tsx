@@ -12,6 +12,7 @@ import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
 import { WorkspaceTableBlock } from "@/components/workspace-table-block";
 import { BG_COLORS, BG_STYLES, MAX_RECT, applyPasteStyles, defaultContent, defaultRect, findFreePosition, isDarkColor, parsePastedGrid, tableFromGrid } from "@/lib/workspace";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
+import { lastScroll, lastSheet, rememberScroll, rememberSheet } from "@/lib/workspace-last-place";
 import type { BgStyle } from "@/lib/workspace";
 import type { Block, BlockContent, BlockKind, NoteContent, Rect, ReminderContent, Sheet, TableContent, Workbook } from "@/lib/workspace";
 
@@ -100,6 +101,7 @@ export function WorkspaceCanvas({
   sheets,
   blocks: propBlocks,
   initialSheetId,
+  sheetFromUrl,
   touchWorkbook,
   setWorkbookBackground,
   createSheet,
@@ -116,6 +118,8 @@ export function WorkspaceCanvas({
   blocks: Block[];
   /** The sheet named by ?sheet= (validated by the page), or the first sheet. */
   initialSheetId: string | null;
+  /** True when the address named the sheet (a refresh, or the back button); otherwise the sheet last used here reopens. */
+  sheetFromUrl: boolean;
   touchWorkbook: WorkspaceAction;
   setWorkbookBackground: WorkspaceAction;
   createSheet: WorkspaceAction;
@@ -340,6 +344,7 @@ export function WorkspaceCanvas({
   function selectSheet(id: string) {
     flushAll();
     setActiveId(id);
+    rememberSheet(workbook.id, id);
     setSelectedBlockId(null);
     try {
       // Keeps a refresh on the same tab without a server round-trip that
@@ -350,6 +355,38 @@ export function WorkspaceCanvas({
     } catch {
       // The URL is a convenience; the tab still switches.
     }
+  }
+
+  /* Reopen where this workbook was left: its last sheet (unless the address
+     already names one), then that sheet's scroll position. */
+  useEffect(() => {
+    const saved = sheetFromUrl ? null : lastSheet(workbook.id);
+    if (saved && saved !== activeId && sheets.some((s) => s.id === saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time restore from this browser's saved place after mount.
+      selectSheet(saved);
+    } else if (activeId) {
+      rememberSheet(workbook.id, activeId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeSheetId = activeSheet?.id ?? null;
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !activeSheetId) return;
+    const saved = lastScroll(workbook.id, activeSheetId);
+    el.scrollLeft = saved ? saved[0] : 0;
+    el.scrollTop = saved ? saved[1] : 0;
+  }, [workbook.id, activeSheetId, mobile]);
+
+  function onCanvasScroll() {
+    const el = scrollRef.current;
+    if (!el || !activeSheetId) return;
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    const sheetId = activeSheetId;
+    scrollTimer.current = setTimeout(() => rememberScroll(workbook.id, sheetId, el.scrollLeft, el.scrollTop), 250);
   }
 
   /* Select a newly created sheet once it has arrived in the props. */
@@ -643,7 +680,7 @@ export function WorkspaceCanvas({
           {ordered.length === 0 ? emptyState : ordered.map(renderBlock)}
         </div>
       ) : (
-        <div className="relative isolate h-[calc(100vh-17rem)] min-h-[420px] overflow-auto rounded-b-xl bg-muted/30" style={bgColor ? { backgroundColor: bgColor } : undefined}>
+        <div ref={scrollRef} onScroll={onCanvasScroll} className="relative isolate h-[calc(100vh-17rem)] min-h-[420px] overflow-auto rounded-b-xl bg-muted/30" style={bgColor ? { backgroundColor: bgColor } : undefined}>
           <div
             className="relative"
             style={{

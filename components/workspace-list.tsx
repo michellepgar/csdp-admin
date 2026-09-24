@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import { lastSheet } from "@/lib/workspace-last-place";
 import { BookOpen, Plus, Search, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,9 @@ function WorkbookCard({
   onError: (message: string | null) => void;
 }) {
   const [mode, setMode] = useState<"view" | "rename" | "tags">("view");
+  // Opens the workbook on the sheet it was left on in this browser.
+  const savedSheet = useSyncExternalStore(subscribeStorage, () => lastSheet(workbook.id), () => null);
+  const href = savedSheet ? `/my-workspace/${workbook.id}?sheet=${encodeURIComponent(savedSheet)}` : `/my-workspace/${workbook.id}`;
   const [titleDraft, setTitleDraft] = useState(workbook.title);
   const [tagsDraft, setTagsDraft] = useState(workbook.tags.join(", "));
   const [pending, startTransition] = useTransition();
@@ -103,7 +107,7 @@ function WorkbookCard({
     <li className={`group relative overflow-hidden rounded-xl border border-border bg-record-background shadow-sm transition-colors hover:border-ring/50 ${pending ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-3 p-3 sm:p-4">
         <Link
-          href={`/my-workspace/${workbook.id}`}
+          href={href}
           aria-label={`Open ${workbook.title}`}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-muted/70"
         >
@@ -118,7 +122,7 @@ function WorkbookCard({
               <Button type="button" size="sm" variant="ghost" onClick={() => setMode("view")}>Cancel</Button>
             </form>
           ) : (
-            <Link href={`/my-workspace/${workbook.id}`} className="block break-words text-base font-semibold leading-tight hover:text-ring hover:underline">
+            <Link href={href} className="block break-words text-base font-semibold leading-tight hover:text-ring hover:underline">
               {workbook.title}
             </Link>
           )}
@@ -151,6 +155,11 @@ function WorkbookCard({
       </div>
     </li>
   );
+}
+
+function subscribeStorage(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
 }
 
 export function WorkspaceList({

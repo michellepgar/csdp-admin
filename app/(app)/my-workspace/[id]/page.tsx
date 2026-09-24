@@ -19,6 +19,7 @@ export default async function WorkbookPage({ params, searchParams }: { params: P
   const { workbook, sheets, blocks } = loaded;
 
   // ?sheet= keeps a refresh on the same tab; anything unknown falls back to the first sheet.
+  const sheetFromUrl = sheets.some((s) => s.id === sheet);
   const initialSheetId = sheets.find((s) => s.id === sheet)?.id ?? sheets[0]?.id ?? null;
 
   return (
@@ -38,6 +39,7 @@ export default async function WorkbookPage({ params, searchParams }: { params: P
           sheets={sheets}
           blocks={blocks}
           initialSheetId={initialSheetId}
+          sheetFromUrl={sheetFromUrl}
           touchWorkbook={touchWorkbook}
           setWorkbookBackground={setWorkbookBackground}
           createSheet={createSheet}

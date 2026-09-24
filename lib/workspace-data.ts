@@ -99,7 +99,8 @@ export async function loadWorkbook(id: string): Promise<{ workbook: Workbook; sh
     .select("id, workbook_id, name, sort_order")
     .eq("workbook_id", id)
     .eq("owner", context.owner)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
   if (sheetError) throw new Error(sheetError.message);
   const sheets = (sheetRows as SheetRow[]).map(toSheet);
 

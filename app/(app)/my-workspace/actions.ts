@@ -14,15 +14,27 @@ function orThrow(error: { message: string } | null) {
 type WorkspaceActionResult = { error: string | null };
 type WorkspaceCreateResult = { error: string | null; id?: string };
 
+/* Which pages to refresh after a successful action:
+   - "layout": every structural change (workbook/sheet/block create,
+     rename, delete, tags, order) -- the list page and the open workbook.
+   - "list": only the workbook list page (touchWorkbook).
+   - "none": high-frequency saves (block content/rect) -- see the comment
+     on updateBlockContent. */
+type RevalidateScope = "layout" | "list" | "none";
+
 /* Thrown errors inside a Server Action get redacted in production, so
    every action here returns {error} instead (same fix as
    app/(app)/general-tasks/actions.ts). The operation may itself return a
    {error} (a rule refusal) or an {id} (a create). */
-async function runResultAction(operation: () => Promise<{ error?: string; id?: string } | void>): Promise<WorkspaceCreateResult> {
+async function runResultAction(
+  operation: () => Promise<{ error?: string; id?: string } | void>,
+  revalidate: RevalidateScope = "layout",
+): Promise<WorkspaceCreateResult> {
   try {
     const outcome = await operation();
     if (outcome && outcome.error) return { error: outcome.error };
-    revalidatePath("/my-workspace", "layout");
+    if (revalidate === "layout") revalidatePath("/my-workspace", "layout");
+    else if (revalidate === "list") revalidatePath("/my-workspace");
     return outcome && outcome.id ? { error: null, id: outcome.id } : { error: null };
   } catch (error) {
     console.error("Workspace action failed", error);
@@ -31,7 +43,15 @@ async function runResultAction(operation: () => Promise<{ error?: string; id?: s
 }
 
 const BLOCK_KINDS: BlockKind[] = ["table", "note", "reminder"];
+const MAX_Z = 1_000_000;
+const MAX_REORDER_IDS = 100;
 const now = () => new Date().toISOString();
+const clampZ = (z: number) => Math.min(MAX_Z, Math.max(0, Math.round(z)));
+
+/* A form entry can also be a File; only a real string counts. */
+function str(value: FormDataEntryValue | null): string {
+  return typeof value === "string" ? value : "";
+}
 
 /* Empty/missing values must read as "not a number" (Number("") is 0). */
 function readNumber(formData: FormData, key: string): number {
@@ -54,7 +74,7 @@ function parseJson(text: FormDataEntryValue | null): unknown {
 }
 
 export async function createWorkbook(formData: FormData): Promise<WorkspaceCreateResult> {
-  const title = (((formData.get("title") as string) || "").trim() || "Untitled workbook").slice(0, 80);
+  const title = (str(formData.get("title")).trim() || "Untitled workbook").slice(0, 80);
   const workbookId = crypto.randomUUID();
   const sheetId = crypto.randomUUID();
 
@@ -83,8 +103,8 @@ export async function createWorkbook(formData: FormData): Promise<WorkspaceCreat
 }
 
 export async function renameWorkbook(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
-  const title = ((formData.get("title") as string) || "").trim().slice(0, 80);
+  const id = str(formData.get("id"));
+  const title = str(formData.get("title")).trim().slice(0, 80);
   if (!title) return { error: "Enter a title." };
 
   return runResultAction(async () => {
@@ -105,13 +125,17 @@ export async function renameWorkbook(formData: FormData): Promise<WorkspaceActio
 }
 
 export async function setWorkbookTags(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
-  const parsed = parseJson(formData.get("tags"));
-  if (!Array.isArray(parsed)) return { error: "Those tags couldn't be saved." };
-  const tags = normalizeTags(parsed.filter((t): t is string => typeof t === "string"));
+  const id = str(formData.get("id"));
+  const cannotSave = "Those tags couldn't be saved.";
+  const readTags = (): string[] | null => {
+    const parsed = parseJson(formData.get("tags"));
+    return Array.isArray(parsed) ? normalizeTags(parsed.filter((t): t is string => typeof t === "string")) : null;
+  };
 
   return runResultAction(async () => {
     if (await isDemoMode()) {
+      const tags = readTags();
+      if (!tags) return { error: cannotSave };
       await demoMutate((state) => {
         const workbook = state.workspace?.workbooks.find((w) => w.id === id);
         if (workbook) {
@@ -122,14 +146,18 @@ export async function setWorkbookTags(formData: FormData): Promise<WorkspaceActi
       return;
     }
     const { supabase, me } = await requireTeamMember();
+    const tags = readTags();
+    if (!tags) return { error: cannotSave };
     const { error } = await supabase.from("workbooks").update({ tags, updated_at: now() }).eq("id", id).eq("owner", me.name);
     orThrow(error);
   });
 }
 
 export async function touchWorkbook(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
+  const id = str(formData.get("id"));
 
+  /* Only the list page (sorted by last opened) needs refreshing -- not
+     the open workbook, whose canvas holds newer local state. */
   return runResultAction(async () => {
     if (await isDemoMode()) {
       await demoMutate((state) => {
@@ -141,11 +169,11 @@ export async function touchWorkbook(formData: FormData): Promise<WorkspaceAction
     const { supabase, me } = await requireTeamMember();
     const { error } = await supabase.from("workbooks").update({ updated_at: now() }).eq("id", id).eq("owner", me.name);
     orThrow(error);
-  });
+  }, "list");
 }
 
 export async function deleteWorkbook(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
+  const id = str(formData.get("id"));
 
   return runResultAction(async () => {
     if (await isDemoMode()) {
@@ -167,7 +195,7 @@ export async function deleteWorkbook(formData: FormData): Promise<WorkspaceActio
 }
 
 export async function createSheet(formData: FormData): Promise<WorkspaceCreateResult> {
-  const workbookId = formData.get("workbookId") as string;
+  const workbookId = str(formData.get("workbookId"));
   const sheetId = crypto.randomUUID();
 
   return runResultAction(async () => {
@@ -204,8 +232,8 @@ export async function createSheet(formData: FormData): Promise<WorkspaceCreateRe
 }
 
 export async function renameSheet(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
-  const name = ((formData.get("name") as string) || "").trim().slice(0, 40);
+  const id = str(formData.get("id"));
+  const name = str(formData.get("name")).trim().slice(0, 40);
   if (!name) return { error: "Enter a name." };
 
   return runResultAction(async () => {
@@ -223,18 +251,23 @@ export async function renameSheet(formData: FormData): Promise<WorkspaceActionRe
 }
 
 export async function reorderSheets(formData: FormData): Promise<WorkspaceActionResult> {
-  const workbookId = formData.get("workbookId") as string;
-  const parsed = parseJson(formData.get("orderedIds"));
-  if (!Array.isArray(parsed)) return { error: "That order couldn't be saved." };
-  const orderedIds = parsed.filter((v): v is string => typeof v === "string");
+  const workbookId = str(formData.get("workbookId"));
+  const cannotSave = "That order couldn't be saved.";
+  /* Deduplicated (first occurrence wins) and capped, before any update. */
+  const readIds = (): string[] | null => {
+    const parsed = parseJson(formData.get("orderedIds"));
+    if (!Array.isArray(parsed)) return null;
+    return [...new Set(parsed.filter((v): v is string => typeof v === "string"))].slice(0, MAX_REORDER_IDS);
+  };
 
   return runResultAction(async () => {
     if (await isDemoMode()) {
+      const orderedIds = readIds();
+      if (!orderedIds) return { error: cannotSave };
       await demoMutate((state) => {
         const sheets = (state.workspace?.sheets ?? []).filter((s) => s.workbookId === workbookId);
         const known = new Set(sheets.map((s) => s.id));
-        const valid = orderedIds.filter((sid) => known.has(sid));
-        valid.forEach((sid, index) => {
+        orderedIds.filter((sid) => known.has(sid)).forEach((sid, index) => {
           const sheet = sheets.find((s) => s.id === sid);
           if (sheet) sheet.sortOrder = index;
         });
@@ -243,6 +276,8 @@ export async function reorderSheets(formData: FormData): Promise<WorkspaceAction
     }
 
     const { supabase, me } = await requireTeamMember();
+    const orderedIds = readIds();
+    if (!orderedIds) return { error: cannotSave };
     const { data, error: selectError } = await supabase.from("sheets").select("id").eq("workbook_id", workbookId).eq("owner", me.name);
     orThrow(selectError);
     const known = new Set(((data ?? []) as { id: string }[]).map((s) => s.id));
@@ -255,7 +290,7 @@ export async function reorderSheets(formData: FormData): Promise<WorkspaceAction
 }
 
 export async function deleteSheet(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
+  const id = str(formData.get("id"));
   const lastSheetError = "A workbook needs at least one sheet.";
 
   return runResultAction(async () => {
@@ -291,15 +326,15 @@ export async function deleteSheet(formData: FormData): Promise<WorkspaceActionRe
 }
 
 export async function createBlock(formData: FormData): Promise<WorkspaceCreateResult> {
-  const sheetId = formData.get("sheetId") as string;
-  const kind = formData.get("kind") as BlockKind;
+  const sheetId = str(formData.get("sheetId"));
+  const kind = str(formData.get("kind")) as BlockKind;
   if (!BLOCK_KINDS.includes(kind)) return { error: "Unknown block type." };
   const x = readNumber(formData, "x");
   const y = readNumber(formData, "y");
   if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: "Invalid position." };
 
   const blockId = crypto.randomUUID();
-  const rect = defaultRect(kind, x, y);
+  const rect = clampRect(defaultRect(kind, x, y), kind);
   const content = defaultContent(kind);
 
   return runResultAction(async () => {
@@ -312,7 +347,7 @@ export async function createBlock(formData: FormData): Promise<WorkspaceCreateRe
           return;
         }
         const maxZ = workspace.blocks.filter((b) => b.sheetId === sheetId).reduce((max, b) => Math.max(max, b.z), -1);
-        workspace.blocks.push({ id: blockId, sheetId, kind, ...rect, z: maxZ + 1, content });
+        workspace.blocks.push({ id: blockId, sheetId, kind, ...rect, z: clampZ(maxZ + 1), content });
       });
       if (missing) return { error: "That sheet no longer exists." };
       return { id: blockId };
@@ -325,7 +360,7 @@ export async function createBlock(formData: FormData): Promise<WorkspaceCreateRe
 
     const { data: top, error: topError } = await supabase.from("blocks").select("z").eq("sheet_id", sheetId).eq("owner", me.name).order("z", { ascending: false }).limit(1).maybeSingle();
     orThrow(topError);
-    const nextZ = top ? (top.z as number) + 1 : 0;
+    const nextZ = top ? clampZ((top.z as number) + 1) : 0;
 
     const { error } = await supabase.from("blocks").insert({ id: blockId, sheet_id: sheetId, owner: me.name, kind, ...rect, z: nextZ, content });
     orThrow(error);
@@ -333,14 +368,18 @@ export async function createBlock(formData: FormData): Promise<WorkspaceCreateRe
   });
 }
 
+/* Deliberately does NOT revalidate: the canvas keeps its own local copy of
+   every block and re-syncs it whenever server props change, so refreshing
+   after each debounced save could overwrite newer local edits with an
+   older server copy. */
 export async function updateBlockContent(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
-  const parsed = parseJson(formData.get("content"));
+  const id = str(formData.get("id"));
   const cannotSave = "That content couldn't be saved.";
-  if (parsed === undefined) return { error: cannotSave };
 
   return runResultAction(async () => {
     if (await isDemoMode()) {
+      const parsed = parseJson(formData.get("content"));
+      if (parsed === undefined) return { error: cannotSave };
       let failed = false;
       await demoMutate((state) => {
         const block = state.workspace?.blocks.find((b) => b.id === id);
@@ -356,7 +395,10 @@ export async function updateBlockContent(formData: FormData): Promise<WorkspaceA
       return;
     }
 
+    // Authenticate BEFORE parsing the (potentially multi-MB) payload.
     const { supabase, me } = await requireTeamMember();
+    const parsed = parseJson(formData.get("content"));
+    if (parsed === undefined) return { error: cannotSave };
     // The kind always comes from the stored row, never from the client.
     const { data: block, error: blockError } = await supabase.from("blocks").select("kind").eq("id", id).eq("owner", me.name).maybeSingle();
     orThrow(blockError);
@@ -366,13 +408,14 @@ export async function updateBlockContent(formData: FormData): Promise<WorkspaceA
 
     const { error } = await supabase.from("blocks").update({ content, updated_at: now() }).eq("id", id).eq("owner", me.name);
     orThrow(error);
-  });
+  }, "none");
 }
 
+/* Deliberately does NOT revalidate -- same reason as updateBlockContent. */
 export async function updateBlockRect(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
+  const id = str(formData.get("id"));
   const raw: Rect = { x: readNumber(formData, "x"), y: readNumber(formData, "y"), w: readNumber(formData, "w"), h: readNumber(formData, "h") };
-  const hasZ = formData.has("z") && String(formData.get("z")).trim() !== "";
+  const hasZ = str(formData.get("z")).trim() !== "";
   const z = hasZ ? readNumber(formData, "z") : undefined;
   if (![raw.x, raw.y, raw.w, raw.h].every(Number.isFinite) || (z !== undefined && !Number.isFinite(z))) return { error: "Invalid position." };
 
@@ -382,7 +425,7 @@ export async function updateBlockRect(formData: FormData): Promise<WorkspaceActi
         const block = state.workspace?.blocks.find((b) => b.id === id);
         if (!block) return;
         Object.assign(block, clampRect(raw, block.kind));
-        if (z !== undefined) block.z = Math.round(z);
+        if (z !== undefined) block.z = clampZ(z);
       });
       return;
     }
@@ -392,15 +435,15 @@ export async function updateBlockRect(formData: FormData): Promise<WorkspaceActi
     orThrow(blockError);
     if (!block) return;
     const patch: Record<string, number | string> = { ...clampRect(raw, block.kind as BlockKind), updated_at: now() };
-    if (z !== undefined) patch.z = Math.round(z);
+    if (z !== undefined) patch.z = clampZ(z);
 
     const { error } = await supabase.from("blocks").update(patch).eq("id", id).eq("owner", me.name);
     orThrow(error);
-  });
+  }, "none");
 }
 
 export async function deleteBlock(formData: FormData): Promise<WorkspaceActionResult> {
-  const id = formData.get("id") as string;
+  const id = str(formData.get("id"));
 
   return runResultAction(async () => {
     if (await isDemoMode()) {

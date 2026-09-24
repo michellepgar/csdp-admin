@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, use
 import type { ReactNode } from "react";
 import { BellRing, ChevronDown, LayoutGrid, Palette, Plus, StickyNote, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ColorWell } from "@/components/color-well";
 import { WorkspaceBlockFrame } from "@/components/workspace-block-frame";
 import { WorkspaceNoteBlock } from "@/components/workspace-note-block";
 import { WorkspaceReminderBlock } from "@/components/workspace-reminder-block";
@@ -619,6 +620,7 @@ export function WorkspaceCanvas({
                         {c.value ? "" : "A"}
                       </button>
                     ))}
+                    <ColorWell title="More colors" size="h-7 w-7" value={bgColor || undefined} active={!!bgColor && !BG_COLORS.some((c) => c.value === bgColor)} onCommit={(hex) => changeBackground(hex, bgStyle)} />
                   </div>
                 </div>
                 <div>

@@ -2,11 +2,12 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Baseline, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Baseline, Redo2, Undo2, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
+import { ColorWell } from "@/components/color-well";
 import { KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
 import { FILL_COLORS, MAX_COLUMNS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, coerceCell, columnName, newCellId, parsePastedGrid } from "@/lib/workspace";
-import { applySheetOps, pasteOps } from "@/lib/sheet-ops";
+import { applySheetOps, invertSheetOps, pasteOps } from "@/lib/sheet-ops";
 import type { SheetOp } from "@/lib/sheet-ops";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
 import { evaluateTable, isFormula } from "@/lib/workspace-formula";
@@ -19,6 +20,7 @@ const GUTTER_WIDTH = 56;
 const HEAD_ROW_HEIGHT = 37;
 const BODY_ROW_HEIGHT = 33;
 const ADD_COLUMN_WIDTH = 44;
+const MAX_UNDO = 100;
 
 const TYPE_META: Record<ColumnType, { label: string; icon: ReactNode }> = {
   text: { label: "Text", icon: <Type className="h-3 w-3" aria-hidden /> },
@@ -109,6 +111,19 @@ function SwatchPanel({ colors, noneLabel, current, onPick, close }: { colors: { 
             style={{ backgroundColor: c.value }}
           />
         ))}
+      </div>
+      <div className="flex items-center gap-2 px-2 text-sm text-foreground">
+        <ColorWell
+          title="More colors"
+          size="h-6 w-6"
+          value={current}
+          active={!!current && !colors.some((c) => c.value === current)}
+          onCommit={(hex) => {
+            onPick(hex);
+            close();
+          }}
+        />
+        More colors…
       </div>
       <button
         type="button"
@@ -232,6 +247,8 @@ const samePos = (a: Pos, b: Pos) => a.r === b.r && a.c === b.c;
    one reads the latest state from refs, so memoized rows never act on a
    stale copy. */
 type TableApi = {
+  /** Applies edits locally and reports them; unless `record` is false they can be undone. */
+  run: (ops: SheetOp[], record?: boolean) => void;
   cellMouseDown: (e: MouseEvent, pos: Pos) => void;
   cellMouseEnter: (pos: Pos) => void;
   rowMouseDown: (e: MouseEvent, r: number) => void;
@@ -677,6 +694,12 @@ type Props = {
    rows it enters or leaves. */
 function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  /* Undo/redo: each entry holds an edit and the operations that reverse it
+     (lib/sheet-ops.ts), so undoing only touches what that edit changed --
+     in a shared spreadsheet it never rolls back other people's edits. */
+  const undoStack = useRef<{ undo: SheetOp[]; redo: SheetOp[] }[]>([]);
+  const redoStack = useRef<{ undo: SheetOp[]; redo: SheetOp[] }[]>([]);
+  const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [renameDraft, setRenameDraft] = useState("");
   const [sort, setSort] = useState<{ columnId: string; dir: "asc" | "desc" } | null>(null);
   const [filter, setFilter] = useState("");
@@ -716,9 +739,19 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const [api] = useState(() => {
     /* Two changes in one tick must build on each other, so the ref moves
        forward immediately instead of waiting for the re-render. */
-    const emit = (ops: SheetOp[]) => {
+    const emit = (ops: SheetOp[], record = true) => {
       if (ops.length === 0) return;
-      const next = applySheetOps(contentRef.current, ops);
+      const before = contentRef.current;
+      const next = applySheetOps(before, ops);
+      if (record) {
+        const undo = invertSheetOps(before, ops);
+        if (undo.length > 0) {
+          undoStack.current.push({ undo, redo: ops });
+          if (undoStack.current.length > MAX_UNDO) undoStack.current.shift();
+          redoStack.current = [];
+          setHistory({ canUndo: true, canRedo: false });
+        }
+      }
       contentRef.current = next;
       onChangeRef.current(next, ops);
     };
@@ -735,6 +768,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
       return row && column ? { row, column } : null;
     };
     const api: TableApi = {
+      run: emit,
       cellMouseDown: (e, pos) => {
         if (e.button !== 0) return;
         e.preventDefault(); // no text selection while dragging, and focus stays on the grid
@@ -849,10 +883,23 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
 
   /* Applies operations locally and reports them (same as the api's emit, for code outside it). */
   function runOps(ops: SheetOp[]) {
-    if (ops.length === 0) return;
-    const next = applySheetOps(contentRef.current, ops);
-    contentRef.current = next;
-    onChangeRef.current(next, ops);
+    api.run(ops);
+  }
+
+  function undo() {
+    const entry = undoStack.current.pop();
+    if (!entry) return;
+    api.run(entry.undo, false);
+    redoStack.current.push(entry);
+    setHistory({ canUndo: undoStack.current.length > 0, canRedo: true });
+  }
+
+  function redo() {
+    const entry = redoStack.current.pop();
+    if (!entry) return;
+    api.run(entry.redo, false);
+    undoStack.current.push(entry);
+    setHistory({ canUndo: true, canRedo: redoStack.current.length > 0 });
   }
 
   /* Column-level actions live beside the api but only ever run from menus. */
@@ -1050,6 +1097,12 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         e.preventDefault();
         set(sel.anchor);
         return;
+    }
+    if (mod && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+      e.preventDefault();
+      if (e.key.toLowerCase() === "y" || e.shiftKey) redo();
+      else undo();
+      return;
     }
     if (mod && ["b", "i", "u"].includes(e.key.toLowerCase())) {
       e.preventDefault();
@@ -1292,6 +1345,13 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   return (
     <div className={`relative flex min-h-0 flex-col ${mobile ? "max-h-[65vh]" : "h-full"}`}>
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-sheet-grid bg-sheet-bar px-1.5 py-1" role="toolbar" aria-label="Format the selected cells">
+        <button type="button" disabled={!history.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo" onMouseDown={(e) => e.preventDefault()} onClick={undo} className={toolButton(false)}>
+          <Undo2 className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" disabled={!history.canRedo} title="Redo (Ctrl+Y)" aria-label="Redo" onMouseDown={(e) => e.preventDefault()} onClick={redo} className={toolButton(false)}>
+          <Redo2 className="h-3.5 w-3.5" />
+        </button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
         <button type="button" disabled={!sel} title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed={!!activeFormat.b} onMouseDown={(e) => e.preventDefault()} onClick={() => toggleFormat("b")} className={toolButton(!!activeFormat.b)}>
           <Bold className="h-3.5 w-3.5" />
         </button>

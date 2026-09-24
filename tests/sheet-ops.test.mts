@@ -141,3 +141,41 @@ test("freeze rows and columns: set, clamp, clear, keep through validation", asyn
   assert.deepEqual(readSheetOps([{ t: "freeze", rows: 999, cols: -3 }]), [{ t: "freeze", rows: 20, cols: 0 }]);
   assert.equal(readSheetOps([{ t: "freeze", rows: "2", cols: 0 }]), null);
 });
+
+test("undo: every kind of edit reverses exactly back to the original table", async () => {
+  const { invertSheetOps, pasteOps } = await import("../lib/sheet-ops.ts");
+  const styled = applySheetOps(base(), [
+    { t: "addRow", id: "r3" },
+    { t: "set", cells: [["r3", "a", "last"]] },
+    { t: "fill", cells: [["r2", "a"]], color: "#FFF3B0" },
+    { t: "format", cells: [["r2", "b"]], patch: { b: true, align: "center" } },
+    { t: "colType", id: "b", type: "dropdown", options: ["1", "2"] },
+  ]);
+  let n = 0;
+  const cases: SheetOp[][] = [
+    [{ t: "set", cells: [["r1", "a", "changed"], ["r2", "b", "2"]] }],
+    [{ t: "fill", cells: [["r1", "a"], ["r2", "a"]], color: "#FF0000" }],
+    [{ t: "format", cells: [["r2", "b"]], patch: { i: true, borderOn: "trbl" } }],
+    [{ t: "removeRow", id: "r2" }],
+    [{ t: "removeCol", id: "a" }],
+    [{ t: "renameCol", id: "a", name: "Name" }],
+    [{ t: "colType", id: "b", type: "number" }],
+    [{ t: "header", on: true }, { t: "freeze", rows: 2, cols: 1 }],
+    [{ t: "addRow", id: "x" }, { t: "addCol", id: "y" }, { t: "set", cells: [["x", "y", "new"]] }],
+    pasteOps(styled, 2, 1, [["p", "q", "r"], ["s", "t", "u"]], () => `p${++n}`).ops,
+  ];
+  for (const ops of cases) {
+    const after = applySheetOps(styled, ops);
+    const undo = invertSheetOps(styled, ops);
+    assert.deepEqual(applySheetOps(after, undo), styled, JSON.stringify(ops));
+    assert.deepEqual(applySheetOps(applySheetOps(after, undo), ops), after, `redo ${JSON.stringify(ops)}`);
+  }
+});
+
+test("readSheetOps accepts insertRow/insertCol and rejects bad ones", () => {
+  assert.ok(readSheetOps([{ t: "insertRow", id: "r9", index: 1, cells: { a: "x", b: 2 } }]));
+  assert.ok(readSheetOps([{ t: "insertCol", id: "c9", index: 0, name: "N", type: "text", cells: { r1: "x" } }]));
+  assert.equal(readSheetOps([{ t: "insertRow", id: "r9", index: -1, cells: {} }]), null);
+  assert.equal(readSheetOps([{ t: "insertRow", id: "r9", index: 0, cells: { "bad id": 1 } }]), null);
+  assert.equal(readSheetOps([{ t: "insertCol", id: "c9", index: 0, name: "N", type: "nope", cells: {} }]), null);
+});

@@ -68,7 +68,8 @@ const shown = (s: Session) => applySheetOps(s.base, [...s.inflight, ...s.pending
 const unsaved = (s: Session) => !s.gone && (s.pending.length > 0 || s.inflight.length > 0);
 
 function opCells(op: SheetOp): number {
-  return "cells" in op ? op.cells.length : 1;
+  if (!("cells" in op)) return 1;
+  return Array.isArray(op.cells) ? op.cells.length : Object.keys(op.cells).length;
 }
 
 /* Takes the next save-sized batch off the front of the queue (always at least one operation). */

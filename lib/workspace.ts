@@ -107,7 +107,8 @@ export type BgStyle = (typeof BG_STYLES)[number];
 
 /* Anything not on the lists above falls back to the default. */
 export function normalizeBackground(color: unknown, style: unknown): { bgColor: string; bgStyle: BgStyle } {
-  const bgColor = typeof color === "string" && BG_COLORS.some((c) => c.value === color.toUpperCase()) ? color.toUpperCase() : "";
+  // Any #RRGGBB color (the list above, or one picked with "More colors").
+  const bgColor = normalizeFillColor(color) ?? "";
   const bgStyle = BG_STYLES.find((s) => s === style) ?? "dots";
   return { bgColor, bgStyle };
 }

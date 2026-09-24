@@ -1,5 +1,5 @@
 import { addColumn, addRow, coerceCell, newCellId, normalizeFillColor, normalizeFormat, removeColumn, removeRow, renameColumn, setCellStyles, setColumnType, setFills, setFormats, normalizeFreeze, normalizeSides, CELL_ALIGNS, CELL_FONTS, CELL_SIZES, MAX_COLUMNS, MAX_ROWS } from "./workspace.ts";
-import type { CellFormat, CellValue, ColumnType, FormatPatch, TableContent } from "./workspace.ts";
+import type { CellFormat, CellValue, ColumnType, FormatPatch, TableColumn, TableContent, TableRow } from "./workspace.ts";
 
 /* A table edit described as a small operation instead of a whole new table.
    The shared Spreadsheets page sends these to the server, which applies them
@@ -22,7 +22,10 @@ export type SheetOp =
   | { t: "renameCol"; id: string; name: string }
   | { t: "colType"; id: string; type: ColumnType; options?: string[] }
   | { t: "header"; on: boolean }
-  | { t: "freeze"; rows: number; cols: number };
+  | { t: "freeze"; rows: number; cols: number }
+  /* Put back a deleted row or column where it was (used by undo). */
+  | { t: "insertRow"; id: string; index: number; cells: Record<string, CellValue> }
+  | { t: "insertCol"; id: string; index: number; name: string; type: ColumnType; options?: string[]; cells: Record<string, CellValue> };
 
 const MAX_OPS = 2000;
 const MAX_CELLS_PER_OP = 30_000;
@@ -118,6 +121,25 @@ export function readSheetOps(raw: unknown): SheetOp[] | null {
         ops.push({ t: "colType", id: op.id, type: op.type as ColumnType, ...(options ? { options } : {}) });
         break;
       }
+      case "insertRow":
+      case "insertCol": {
+        if (!isId(op.id) || typeof op.index !== "number" || !Number.isInteger(op.index) || op.index < 0 || !isObject(op.cells)) return null;
+        const entries = Object.entries(op.cells);
+        if (entries.length > MAX_CELLS_PER_OP) return null;
+        const cells: Record<string, CellValue> = {};
+        for (const [key, value] of entries) {
+          if (!isId(key) || !isValue(value)) return null;
+          cells[key] = typeof value === "string" ? value.slice(0, 5000) : value;
+        }
+        if (op.t === "insertRow") {
+          ops.push({ t: "insertRow", id: op.id, index: op.index, cells });
+          break;
+        }
+        if (typeof op.name !== "string" || !COLUMN_TYPES.includes(op.type as ColumnType)) return null;
+        const options = Array.isArray(op.options) ? op.options.filter((o): o is string => typeof o === "string").map((o) => o.slice(0, 60)).slice(0, 100) : undefined;
+        ops.push({ t: "insertCol", id: op.id, index: op.index, name: op.name.slice(0, 60) || "Column", type: op.type as ColumnType, ...(options ? { options } : {}), cells });
+        break;
+      }
       case "freeze": {
         if (typeof op.rows !== "number" || typeof op.cols !== "number") return null;
         const freeze = normalizeFreeze({ rows: op.rows, cols: op.cols }) ?? { rows: 0, cols: 0 };
@@ -200,7 +222,104 @@ export function applySheetOp(content: TableContent, op: SheetOp): TableContent {
     }
     case "colType":
       return content.columns.some((c) => c.id === op.id) ? setColumnType(content, op.id, op.type, op.options) : content;
+    case "insertRow": {
+      if (content.rows.length >= MAX_ROWS || content.rows.some((r) => r.id === op.id)) return content;
+      const known = new Set(content.columns.map((c) => c.id));
+      const cells: Record<string, CellValue> = {};
+      for (const [columnId, value] of Object.entries(op.cells)) if (known.has(columnId)) cells[columnId] = value;
+      const rows = [...content.rows];
+      rows.splice(Math.min(op.index, rows.length), 0, { id: op.id, cells });
+      return { ...content, rows };
+    }
+    case "insertCol": {
+      if (content.columns.length >= MAX_COLUMNS || content.columns.some((c) => c.id === op.id)) return content;
+      const column: TableColumn = { id: op.id, name: op.name, type: op.type, ...(op.type === "dropdown" ? { options: op.options ?? [] } : {}) };
+      const columns = [...content.columns];
+      columns.splice(Math.min(op.index, columns.length), 0, column);
+      const rows = content.rows.map((r) => (Object.hasOwn(op.cells, r.id) ? { ...r, cells: { ...r.cells, [op.id]: op.cells[r.id] } } : r));
+      return { ...content, columns, rows };
+    }
   }
+}
+
+/* ---------- undo ---------- */
+
+const cellKey = (rowId: string, columnId: string) => `${rowId}|${columnId}`;
+const rawOf = (row: TableRow, columnId: string): CellValue => (Object.hasOwn(row.cells, columnId) ? row.cells[columnId] : null);
+
+/* The exact highlight and format each listed cell has now, as a "style" operation. */
+function styleNow(content: TableContent, cells: [string, string][]): SheetOp[] {
+  if (cells.length === 0) return [];
+  return [{ t: "style", cells: cells.map(([r, c]) => [r, c, content.fills?.[cellKey(r, c)] ?? null, content.formats?.[cellKey(r, c)] ?? null]) }];
+}
+
+/* The operations that undo one operation, given the table as it was just before it. */
+function invertOne(content: TableContent, op: SheetOp): SheetOp[] {
+  const rows = new Map(content.rows.map((r) => [r.id, r]));
+  const columns = new Map(content.columns.map((c) => [c.id, c]));
+  const exists = (r: string, c: string) => rows.has(r) && columns.has(c);
+  switch (op.t) {
+    case "set": {
+      const cells = op.cells.filter(([r, c]) => exists(r, c)).map(([r, c]) => [r, c, rawOf(rows.get(r)!, c)] as [string, string, CellValue]);
+      return cells.length > 0 ? [{ t: "set", cells }] : [];
+    }
+    case "fill":
+    case "format":
+      return styleNow(content, op.cells.filter(([r, c]) => exists(r, c)));
+    case "style":
+      return styleNow(content, op.cells.filter(([r, c]) => exists(r, c)).map(([r, c]) => [r, c] as [string, string]));
+    case "addRow":
+      return rows.has(op.id) || content.rows.length >= MAX_ROWS ? [] : [{ t: "removeRow", id: op.id }];
+    case "insertRow":
+      return rows.has(op.id) || content.rows.length >= MAX_ROWS ? [] : [{ t: "removeRow", id: op.id }];
+    case "removeRow": {
+      const row = rows.get(op.id);
+      if (!row) return [];
+      const styled = content.columns.filter((c) => content.fills?.[cellKey(row.id, c.id)] || content.formats?.[cellKey(row.id, c.id)]).map((c) => [row.id, c.id] as [string, string]);
+      return [{ t: "insertRow", id: row.id, index: content.rows.indexOf(row), cells: { ...row.cells } }, ...styleNow(content, styled)];
+    }
+    case "addCol":
+    case "insertCol":
+      return columns.has(op.id) || content.columns.length >= MAX_COLUMNS ? [] : [{ t: "removeCol", id: op.id }];
+    case "removeCol": {
+      const column = columns.get(op.id);
+      if (!column || content.columns.length <= 1) return [];
+      const cells: Record<string, CellValue> = {};
+      for (const row of content.rows) if (Object.hasOwn(row.cells, column.id)) cells[row.id] = row.cells[column.id];
+      const styled = content.rows.filter((r) => content.fills?.[cellKey(r.id, column.id)] || content.formats?.[cellKey(r.id, column.id)]).map((r) => [r.id, column.id] as [string, string]);
+      return [
+        { t: "insertCol", id: column.id, index: content.columns.indexOf(column), name: column.name, type: column.type, ...(column.options ? { options: column.options } : {}), cells },
+        ...styleNow(content, styled),
+      ];
+    }
+    case "renameCol": {
+      const column = columns.get(op.id);
+      return column && column.name !== op.name ? [{ t: "renameCol", id: column.id, name: column.name }] : [];
+    }
+    case "colType": {
+      const column = columns.get(op.id);
+      if (!column) return [];
+      return [
+        { t: "colType", id: column.id, type: column.type, ...(column.options ? { options: column.options } : {}) },
+        { t: "set", cells: content.rows.map((r) => [r.id, column.id, rawOf(r, column.id)] as [string, string, CellValue]) },
+      ];
+    }
+    case "header":
+      return [{ t: "header", on: !!content.header }];
+    case "freeze":
+      return [{ t: "freeze", rows: content.freeze?.rows ?? 0, cols: content.freeze?.cols ?? 0 }];
+  }
+}
+
+/** The operations that undo `ops` (applied to `content`): each step's reverse, last step first. */
+export function invertSheetOps(content: TableContent, ops: SheetOp[]): SheetOp[] {
+  const steps: SheetOp[][] = [];
+  let state = content;
+  for (const op of ops) {
+    steps.push(invertOne(state, op));
+    state = applySheetOp(state, op);
+  }
+  return steps.reverse().flat();
 }
 
 export function applySheetOps(content: TableContent, ops: SheetOp[]): TableContent {

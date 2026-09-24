@@ -17,10 +17,15 @@ type NoteActionResult = { error: string | null };
 // confirms success -- clearing on the raw browser "submit" event
 // instead (the old behavior) wiped a VA's just-written note the moment
 // Add was clicked, even if the save itself then failed.
+/* A note's pad color: any #RRGGBB color (a preset swatch or one picked with "More colors"). */
+function readPadColor(value: FormDataEntryValue | null): string | undefined {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : undefined;
+}
+
 export async function addGeneralNote(formData: FormData): Promise<NoteActionResult> {
   const rawText = ((formData.get("text") as string) || "").trim();
   if (!rawText) return { error: null };
-  const padColor = (formData.get("padColor") as string) || undefined;
+  const padColor = readPadColor(formData.get("padColor"));
   const urgency = formData.get("urgent") ? "Urgent" : "";
 
   if (await isDemoMode()) {
@@ -95,7 +100,7 @@ export async function updateGeneralNote(formData: FormData) {
   const id = formData.get("id") as string;
   const rawText = ((formData.get("text") as string) || "").trim();
   if (!rawText) return;
-  const padColor = (formData.get("padColor") as string) || undefined;
+  const padColor = readPadColor(formData.get("padColor"));
   const urgency = formData.get("urgent") ? "Urgent" : "";
 
   if (await isDemoMode()) {

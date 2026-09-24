@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Bold, Italic, Link2, List, ListChecks, ListOrdered, Underline } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ColorWell } from "@/components/color-well";
 import { NOTE_FONT_COLORS, NOTE_PAD_COLORS } from "@/lib/app-state";
 import { shrinkImageToDataUrl } from "@/lib/shrink-image";
 import type { NoteContent } from "@/lib/workspace";
@@ -143,6 +144,26 @@ export function WorkspaceNoteBlock({
   // Same reason as the sticky-note composer: a click outside the
   // contentEditable would blur it and collapse the selection before
   // Bold/Italic/etc. could apply to it.
+  // The color picker takes the focus, which drops the text selection; remember it first.
+  const savedRange = useRef<Range | null>(null);
+  function rememberSelection() {
+    const selection = window.getSelection();
+    const editor = editorRef.current;
+    savedRange.current = selection && selection.rangeCount > 0 && editor?.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
+  }
+  function colorText(hex: string) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    if (savedRange.current) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(savedRange.current);
+    }
+    document.execCommand("foreColor", false, hex);
+    emit();
+  }
+
   function preserveSelection(e: React.MouseEvent) {
     e.preventDefault();
   }
@@ -281,6 +302,7 @@ export function WorkspaceNoteBlock({
               style={{ backgroundColor: c.value }}
             />
           ))}
+          <ColorWell title="More pad colors" value={padColor} active={!NOTE_PAD_COLORS.some((c) => c.value === padColor)} onCommit={changePad} />
         </div>
         <Button type="button" variant="ghost" size="icon-sm" title="Bold" onMouseDown={preserveSelection} onClick={() => exec("bold")}>
           <Bold className="h-3.5 w-3.5" />
@@ -333,6 +355,7 @@ export function WorkspaceNoteBlock({
               style={{ backgroundColor: c.value }}
             />
           ))}
+          <ColorWell title="More text colors" size="h-4 w-4" onBeforeOpen={rememberSelection} onCommit={colorText} />
         </div>
         <Button type="button" variant="ghost" size="icon-sm" title="Bullet list" onMouseDown={preserveSelection} onClick={() => exec("insertUnorderedList")}>
           <List className="h-3.5 w-3.5" />

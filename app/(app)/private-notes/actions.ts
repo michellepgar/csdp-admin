@@ -21,6 +21,11 @@ export type PrivateNoteHit = { id: string; snippet: string; createdAt: string };
    the server so the whole set of notes never has to be sent to every page. A
    failed search just returns nothing -- it's a convenience, not something to
    interrupt typing with an error. */
+/* A note's pad color: any #RRGGBB color (a preset swatch or one picked with "More colors"). */
+function readPadColor(value: FormDataEntryValue | null): string | undefined {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : undefined;
+}
+
 export async function searchPrivateNotes(query: string): Promise<PrivateNoteHit[]> {
   const words = searchWords(query);
   if (words.length === 0 || query.length > 200) return [];
@@ -96,7 +101,7 @@ export async function addPrivateNote(formData: FormData): Promise<NoteActionResu
   const rawText = ((formData.get("text") as string) || "").trim();
   if (!rawText) return { error: null };
   const text = sanitizeNoteHtml(rawText);
-  const padColor = (formData.get("padColor") as string) || undefined;
+  const padColor = readPadColor(formData.get("padColor"));
   const isReminder = formData.get("isReminder") === "on";
   // Same "+ Add to Your Plan" every note already has, offered right at
   // creation too -- so marking something a reminder can also land it on
@@ -160,7 +165,7 @@ export async function updatePrivateNote(formData: FormData) {
   const rawText = ((formData.get("text") as string) || "").trim();
   if (!rawText) return;
   const text = sanitizeNoteHtml(rawText);
-  const padColor = (formData.get("padColor") as string) || undefined;
+  const padColor = readPadColor(formData.get("padColor"));
   const isReminder = formData.get("isReminder") === "on";
 
   if (await isDemoMode()) {

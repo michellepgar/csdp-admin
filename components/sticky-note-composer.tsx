@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Bold, Italic, Underline, List, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ColorWell } from "@/components/color-well";
 import { MentionAutocomplete } from "@/components/mention-autocomplete";
 import { NOTE_PAD_COLORS, NOTE_FONT_COLORS, type Va } from "@/lib/app-state";
 import { shrinkImageToDataUrl } from "@/lib/shrink-image";
@@ -210,6 +211,26 @@ export const StickyNoteComposer = forwardRef<StickyNoteComposerHandle, {
     document.execCommand(command, false, value);
   }
 
+  // The "More colors" picker takes the focus, which drops the text selection;
+  // remember it first so the chosen color lands on the selected words.
+  const savedRange = useRef<Range | null>(null);
+  function rememberSelection() {
+    const selection = window.getSelection();
+    const editor = editorRef.current;
+    savedRange.current = selection && selection.rangeCount > 0 && editor?.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
+  }
+  function colorText(hex: string) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    if (savedRange.current) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(savedRange.current);
+    }
+    document.execCommand("foreColor", false, hex);
+  }
+
   // Inserts a new checklist row right after whichever top-level block
   // the cursor is currently in (or appends one if the editor is
   // completely empty). Deliberately plain DOM methods, not
@@ -414,6 +435,7 @@ export const StickyNoteComposer = forwardRef<StickyNoteComposerHandle, {
               style={{ backgroundColor: c.value }}
             />
           ))}
+          <ColorWell title="More pad colors" value={padColor} active={!NOTE_PAD_COLORS.some((c) => c.value === padColor)} onCommit={setPadColor} />
         </div>
 
         <Button type="button" variant="ghost" size="icon-sm" title="Bold" onMouseDown={preserveSelection} onClick={() => exec("bold")}>
@@ -479,6 +501,7 @@ export const StickyNoteComposer = forwardRef<StickyNoteComposerHandle, {
               style={{ backgroundColor: c.value }}
             />
           ))}
+          <ColorWell title="More text colors" size="h-4 w-4" onBeforeOpen={rememberSelection} onCommit={colorText} />
         </div>
 
         <div className="flex items-center gap-1 border-l pl-1.5">

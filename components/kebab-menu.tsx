@@ -151,3 +151,75 @@ export function KebabMenu({
     </div>
   );
 }
+
+/* The same menu, opened at a point on screen instead of from a button -- for a
+   right-click. It stays on screen near the edges and closes on a click
+   elsewhere, Escape, scrolling or resizing. */
+export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: KebabMenuItem[]; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const menu = ref.current;
+    if (!menu) return;
+    const left = Math.max(EDGE, Math.min(x, window.innerWidth - menu.offsetWidth - EDGE));
+    const top = y + menu.offsetHeight + EDGE > window.innerHeight ? Math.max(EDGE, y - menu.offsetHeight) : y;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.visibility = "visible";
+  }, [x, y]);
+
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    const onMove = (e: Event) => {
+      if (e.target instanceof Node && ref.current?.contains(e.target)) return;
+      onClose();
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      ref={ref}
+      role="menu"
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ position: "fixed", top: 0, left: 0, visibility: "hidden" }}
+      className="z-[70] min-w-48 max-w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-ring/25 bg-background p-1 shadow-xl ring-1 ring-black/5"
+    >
+      {items.map((item, i) =>
+        item.label === "—" ? (
+          <div key={`sep-${i}`} className="my-1 h-px bg-border" role="separator" />
+        ) : (
+          <button
+            key={item.label}
+            type="button"
+            role="menuitem"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              item.onClick?.();
+              onClose();
+            }}
+            className={`block w-full whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${item.destructive ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-ring/10"}`}
+          >
+            {item.label}
+          </button>
+        ),
+      )}
+    </div>,
+    document.body,
+  );
+}

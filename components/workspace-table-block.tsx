@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { ArrowDown, ArrowUp, Baseline, Download, GripVertical, ListPlus, Redo2, Search, TableCellsMerge, TableCellsSplit, Undo2, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
 import { ColorWell } from "@/components/color-well";
-import { KebabMenu } from "@/components/kebab-menu";
+import { ContextMenu, KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
 import { DEFAULT_COLUMN_WIDTH, FILL_COLORS, MAX_COLUMNS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, clampWidth, coerceCell, columnName, newCellId, parsePastedGrid } from "@/lib/workspace";
 import { applySheetOps, invertSheetOps, mergeBox, pasteOps } from "@/lib/sheet-ops";
@@ -473,6 +473,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
       <th
         scope="row"
         onMouseDown={(e) => api.rowMouseDown(e, pos)}
+        data-row-pos={pos}
         title="Select this row"
         // Sticky cells need an opaque background, so the selection tint is layered over the header gray.
         style={{ ...(rowSelected ? { backgroundImage: SELECTED_TINT } : {}), ...(stickyTop >= 0 ? { top: stickyTop } : {}) }}
@@ -758,6 +759,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
   const [matchIndex, setMatchIndex] = useState(0);
   const findRef = useRef<HTMLInputElement>(null);
   // Where a dragged row or column would land, as a line drawn across the grid (in scroll coordinates).
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; on: "cell" | "row" | "col" } | null>(null);
   const [dropLine, setDropLine] = useState<{ kind: "row" | "col"; at: number; length: number } | null>(null);
   const dragRef = useRef<(e: React.PointerEvent<HTMLElement>, kind: "row" | "col", index: number) => void>(() => {});
   const [renameDraft, setRenameDraft] = useState("");
@@ -1743,6 +1745,56 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     dragRef.current = startDrag;
   });
 
+  /* ----- right-click menu (like a spreadsheet's) ----- */
+  function onGridContextMenu(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    // Inside a cell being edited, keep the browser's own menu (cut, copy, spelling).
+    if (target.closest("input, textarea, select, a")) return;
+    const cell = target.closest<HTMLElement>("td[data-pos]");
+    const rowHead = target.closest<HTMLElement>("th[data-row-pos]");
+    const colHead = target.closest<HTMLElement>("thead th[data-col]");
+    if (!cell && !rowHead && !colHead) return;
+    e.preventDefault();
+    // Focus first: focusing the grid with nothing selected would otherwise select A1 over this.
+    keyRef.current?.focus({ preventScroll: true });
+    const inside = (r: number, c: number) => !!sel && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2;
+    if (cell) {
+      const [r, c] = (cell.dataset.pos ?? "0:0").split(":").map(Number);
+      if (!inside(r, c)) setSelection({ anchor: { r, c }, focus: { r, c } });
+    } else if (rowHead) {
+      const r = Number(rowHead.dataset.rowPos);
+      if (!(sel && r >= sel.r1 && r <= sel.r2 && sel.c1 === 0 && sel.c2 === columns.length - 1)) setSelection({ anchor: { r, c: 0 }, focus: { r, c: columns.length - 1 } });
+    } else if (colHead) {
+      const c = columns.findIndex((col) => col.id === colHead.dataset.col);
+      if (c >= 0 && !(sel && c >= sel.c1 && c <= sel.c2 && sel.r1 === 0 && sel.r2 === view.length - 1) && view.length > 0) setSelection({ anchor: { r: 0, c }, focus: { r: view.length - 1, c } });
+    }
+    setContextMenu({ x: e.clientX, y: e.clientY, on: cell ? "cell" : rowHead ? "row" : "col" });
+  }
+
+  /* On a row number only row actions, on a column name only column actions, on cells both. */
+  function contextItems(on: "cell" | "row" | "col"): KebabMenuItem[] {
+    const [rowAbove, rowBelow, colLeft, colRight, rowDelete, colDelete] = insertItems();
+    const inserts = on === "row" ? [rowAbove, rowBelow] : on === "col" ? [colLeft, colRight] : [rowAbove, rowBelow, colLeft, colRight];
+    const deletes = on === "row" ? [rowDelete] : on === "col" ? [colDelete] : [rowDelete, colDelete];
+    const items: KebabMenuItem[] = [
+      {
+        label: "Copy",
+        onClick: () => {
+          void navigator.clipboard?.writeText(selectionText()).catch(() => setMessage("Copying was blocked by the browser; use Ctrl+C instead."));
+        },
+      },
+      { label: "Clear contents", onClick: () => setSelected(null) },
+      { label: "—" },
+      ...inserts,
+      { label: "—" },
+    ];
+    if (canMerge) items.push({ label: "Merge cells", onClick: toggleMerge });
+    else if (anchorBox) items.push({ label: "Unmerge cells", onClick: toggleMerge });
+    if (canMerge || anchorBox) items.push({ label: "—" });
+    items.push(...deletes);
+    return items;
+  }
+
   const toolButton = (active: boolean) =>
     `flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "bg-ring/20 text-ring" : "text-muted-foreground hover:bg-ring/10 hover:text-foreground"}`;
   const toolSelect = "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-40";
@@ -2005,7 +2057,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         onPointerDownCapture={(e) => {
           pointerType.current = e.pointerType;
         }}
+        onContextMenu={onGridContextMenu}
       >
+        {contextMenu && sel && <ContextMenu x={contextMenu.x} y={contextMenu.y} items={contextItems(contextMenu.on)} onClose={() => setContextMenu(null)} />}
         {dropLine && (
           <div
             aria-hidden

@@ -57,6 +57,9 @@
   --color-plan-accent-secondary: var(--plan-accent-secondary);
   --color-plan-accent-secondary-foreground: var(--plan-accent-secondary-foreground);
   --color-row-hover: var(--row-hover);
+  --color-sheet-head: var(--sheet-head);
+  --color-sheet-head-foreground: var(--sheet-head-foreground);
+  --color-sheet-grid: var(--sheet-grid);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -174,6 +177,11 @@
      as its own highlight. Two shades lighter than that base teal,
      its own token so nothing else that already uses --muted shifts. */
   --row-hover: #ECFAFB;
+  /* Spreadsheet tables (My Workspace and Spreadsheets): a neutral gray for the
+     column-name bar and row numbers, and grid lines dark enough to see. */
+  --sheet-head: #D1D6DD;
+  --sheet-head-foreground: #1F2937;
+  --sheet-grid: #B8C0CA;
   /* Back to plain white -- Michelle asked for every record row
      (Tasks, Issues, Contacts, Distribution List, EOD, Suggestions,
      General Notes, etc. all already share this one token) to go back
@@ -240,6 +248,9 @@
   --plan-accent-secondary: #8A5CF6;
   --plan-accent-secondary-foreground: #FFFFFF;
   --row-hover: oklch(0.32 0.041 260.031);
+  --sheet-head: #273244;
+  --sheet-head-foreground: #E2E8F0;
+  --sheet-grid: #3B4759;
 }
 
 @layer base {

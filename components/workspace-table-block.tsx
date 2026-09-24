@@ -421,9 +421,9 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         scope="row"
         onMouseDown={(e) => api.rowMouseDown(e, pos)}
         title="Select this row"
-        // Sticky cells need an opaque background, so the selection tint is layered over bg-muted.
+        // Sticky cells need an opaque background, so the selection tint is layered over the header gray.
         style={rowSelected ? { backgroundImage: SELECTED_TINT } : undefined}
-        className={`sticky left-0 ${isHeader ? "top-9 z-[8]" : "z-[5]"} cursor-pointer select-none border-b border-r border-ring/20 bg-muted p-0 text-xs font-normal ${rowSelected ? "text-foreground" : "text-muted-foreground"}`}
+        className={`sticky left-0 ${isHeader ? "top-9 z-[8]" : "z-[5]"} cursor-pointer select-none border-b border-r border-sheet-grid bg-sheet-head p-0 text-xs text-sheet-head-foreground ${rowSelected ? "font-semibold" : "font-normal"}`}
       >
         <div className="relative flex h-8 items-center justify-between pl-2 pr-1">
           <span className="tabular-nums">{rowNumber}</span>
@@ -506,13 +506,13 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
             onMouseEnter={() => api.cellMouseEnter({ r: pos, c })}
             onDoubleClick={editing ? undefined : () => api.startEdit({ r: pos, c }, null)}
             style={style}
-            className={`overflow-hidden border-b border-r border-ring/15 p-0 ${editing ? "" : "cursor-cell select-none"} ${isHeader ? "sticky top-9 z-[6] border-b-ring/40 bg-muted font-semibold" : ""}`}
+            className={`overflow-hidden border-b border-r border-sheet-grid p-0 ${editing ? "" : "cursor-cell select-none"} ${isHeader ? "sticky top-9 z-[6] bg-sheet-head font-semibold text-sheet-head-foreground" : ""}`}
           >
             {body}
           </td>
         );
       })}
-      <td className="border-b border-ring/15" />
+      <td className="border-b border-sheet-grid" />
     </tr>
   );
 });
@@ -1204,7 +1204,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const toolSelect = "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-40";
 
   const tableWidth = GUTTER_WIDTH + columns.length * COLUMN_WIDTH + ADD_COLUMN_WIDTH;
-  const headerCell = "sticky top-0 z-10 border-b border-r border-ring/20";
+  const headerCell = "sticky top-0 z-10 border-b border-r border-sheet-grid bg-sheet-head text-sheet-head-foreground";
   const selectedCount = sel ? (sel.r2 - sel.r1 + 1) * (sel.c2 - sel.c1 + 1) : 0;
 
   return (
@@ -1350,7 +1350,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
           <thead>
             <tr>
               <th
-                className={`${headerCell} left-0 z-20 cursor-pointer bg-muted`}
+                className={`${headerCell} left-0 z-20 cursor-pointer`}
                 title="Select all"
                 aria-label="Select all"
                 onMouseDown={(e) => {
@@ -1363,7 +1363,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
               {columns.map((column, c) => {
                 const columnSelected = !!sel && c >= sel.c1 && c <= sel.c2;
                 return (
-                  <th key={column.id} scope="col" style={columnSelected ? { backgroundImage: SELECTED_TINT } : undefined} className={`${headerCell} bg-muted p-0 text-left font-medium`}>
+                  <th key={column.id} scope="col" style={columnSelected ? { backgroundImage: SELECTED_TINT } : undefined} className={`${headerCell} p-0 text-left font-medium`}>
                     <div className="flex h-9 items-center gap-1 pl-2 pr-0.5">
                       {renamingId === column.id ? (
                         <input
@@ -1425,7 +1425,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                   </th>
                 );
               })}
-              <th className={`${headerCell} bg-muted p-0`}>
+              <th className={`${headerCell} p-0`}>
                 <button
                   type="button"
                   disabled={atMaxColumns}

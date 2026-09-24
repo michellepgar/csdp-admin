@@ -8,9 +8,9 @@ import type { Block, BlockKind, Rect } from "@/lib/workspace";
 
 /* Every class name is written out in full so Tailwind can see it. */
 const KIND_CHIP: Record<BlockKind, string> = {
-  table: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200",
-  note: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200",
-  reminder: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200",
+  table: "bg-muted text-muted-foreground",
+  note: "bg-muted text-muted-foreground",
+  reminder: "bg-muted text-muted-foreground",
 };
 
 type DragState = { mode: "move" | "resize"; pointerId: number; startX: number; startY: number; origin: Rect; live: Rect };
@@ -119,7 +119,7 @@ export function WorkspaceBlockFrame({
       onPointerDown={onActivate}
       style={style}
       className={`flex flex-col overflow-hidden rounded-xl border bg-record-background transition-shadow ${
-        active ? "border-ring/60 shadow-lg ring-2 ring-ring/30" : "border-ring/25 shadow-md"
+        active ? "border-ring/60 shadow-md" : "border-border shadow-sm"
       }`}
     >
       <div
@@ -128,7 +128,7 @@ export function WorkspaceBlockFrame({
         onPointerUp={end}
         onPointerCancel={cancel}
         title={mobile ? undefined : "Drag to move"}
-        className={`flex h-9 shrink-0 select-none items-center gap-2 border-b border-ring/20 bg-gradient-to-r from-ring/20 via-ring/10 to-muted/40 px-2 ${
+        className={`flex h-9 shrink-0 select-none items-center gap-2 border-b border-border bg-muted/50 px-2 ${
           mobile ? "" : "cursor-grab touch-none active:cursor-grabbing"
         }`}
       >

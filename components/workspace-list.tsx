@@ -100,13 +100,12 @@ function WorkbookCard({
   }
 
   return (
-    <li className={`group relative overflow-hidden rounded-xl border border-ring/20 bg-record-background shadow-sm transition-all hover:-translate-y-0.5 hover:border-ring/50 hover:shadow-lg ${pending ? "opacity-60" : ""}`}>
-      <div className="h-1.5 bg-gradient-to-r from-ring/70 via-ring/40 to-transparent" aria-hidden />
+    <li className={`group relative overflow-hidden rounded-xl border border-border bg-record-background shadow-sm transition-colors hover:border-ring/50 ${pending ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-3 p-3 sm:p-4">
         <Link
           href={`/my-workspace/${workbook.id}`}
           aria-label={`Open ${workbook.title}`}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ring/15 text-ring transition-colors group-hover:bg-ring/25"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-muted/70"
         >
           <BookOpen className="h-5 w-5" />
         </Link>
@@ -206,7 +205,7 @@ export function WorkspaceList({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ring/20 bg-header-background p-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-header-background p-3">
         <Button type="button" onClick={create} disabled={creating}>
           <Plus className="mr-1 h-4 w-4" />
           {creating ? "Creating…" : "New workbook"}
@@ -248,7 +247,7 @@ export function WorkspaceList({
       )}
 
       {workbooks.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-ring/40 bg-record-background px-4 py-12 text-center shadow-sm">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-record-background px-4 py-12 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-ring/15 text-ring"><BookOpen className="h-6 w-6" /></span>
           <p className="text-sm text-muted-foreground">No workbooks yet. Create your first one to get started.</p>
         </div>

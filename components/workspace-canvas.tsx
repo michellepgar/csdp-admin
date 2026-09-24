@@ -31,9 +31,9 @@ function useIsMobile() {
 }
 
 const KIND_META: Record<BlockKind, { label: string; icon: ReactNode; chip: string }> = {
-  table: { label: "Table", icon: <Table2 className="h-4 w-4" />, chip: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200" },
-  note: { label: "Note", icon: <StickyNote className="h-4 w-4" />, chip: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200" },
-  reminder: { label: "Reminder", icon: <BellRing className="h-4 w-4" />, chip: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200" },
+  table: { label: "Table", icon: <Table2 className="h-4 w-4" />, chip: "bg-muted text-muted-foreground" },
+  note: { label: "Note", icon: <StickyNote className="h-4 w-4" />, chip: "bg-muted text-muted-foreground" },
+  reminder: { label: "Reminder", icon: <BellRing className="h-4 w-4" />, chip: "bg-muted text-muted-foreground" },
 };
 const KINDS: BlockKind[] = ["table", "note", "reminder"];
 
@@ -441,7 +441,7 @@ export function WorkspaceCanvas({
 
   const emptyState = (
     <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-ring/15 text-ring shadow-sm">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
         <LayoutGrid className="h-6 w-6" />
       </span>
       <p className="text-sm text-muted-foreground">This sheet is empty. Add a block to start.</p>
@@ -449,8 +449,8 @@ export function WorkspaceCanvas({
   );
 
   return (
-    <div className="overflow-visible rounded-xl border border-ring/25 bg-record-background shadow-md">
-      <div className="relative z-20 flex flex-wrap items-end gap-2 rounded-t-xl border-b border-ring/25 bg-gradient-to-b from-muted to-muted/40 px-2 pt-2">
+    <div className="overflow-visible rounded-xl border border-border bg-record-background shadow-sm">
+      <div className="relative z-20 flex flex-wrap items-end gap-2 rounded-t-xl border-b border-border bg-muted/50 px-2 pt-2">
         {activeSheet && (
           <WorkspaceSheetTabs
             workbookId={workbook.id}

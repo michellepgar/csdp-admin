@@ -1,5 +1,5 @@
-import { addColumn, addRow, coerceCell, newCellId, normalizeFillColor, normalizeFormat, removeColumn, removeRow, renameColumn, setCellStyles, setColumnType, setFills, setFormats, normalizeFreeze, normalizeSides, CELL_ALIGNS, CELL_FONTS, CELL_SIZES, MAX_COLUMNS, MAX_ROWS } from "./workspace.ts";
-import type { CellFormat, CellValue, ColumnType, FormatPatch, TableColumn, TableContent, TableRow } from "./workspace.ts";
+import { addColumn, addRow, clampWidth, coerceCell, newCellId, normalizeFillColor, normalizeFormat, removeColumn, removeRow, renameColumn, setCellStyles, setColumnType, setFills, setFormats, normalizeFreeze, normalizeSides, CELL_ALIGNS, CELL_FONTS, CELL_SIZES, MAX_COLUMNS, MAX_ROWS } from "./workspace.ts";
+import type { CellFormat, CellValue, ColumnType, FormatPatch, Merge, TableColumn, TableContent, TableRow } from "./workspace.ts";
 
 /* A table edit described as a small operation instead of a whole new table.
    The shared Spreadsheets page sends these to the server, which applies them
@@ -25,7 +25,10 @@ export type SheetOp =
   | { t: "freeze"; rows: number; cols: number }
   /* Put back a deleted row or column where it was (used by undo). */
   | { t: "insertRow"; id: string; index: number; cells: Record<string, CellValue> }
-  | { t: "insertCol"; id: string; index: number; name: string; type: ColumnType; options?: string[]; cells: Record<string, CellValue> };
+  | { t: "insertCol"; id: string; index: number; name: string; type: ColumnType; options?: string[]; width?: number; cells: Record<string, CellValue> }
+  | { t: "colWidth"; id: string; width: number | null }
+  | { t: "merge"; r1: string; c1: string; r2: string; c2: string }
+  | { t: "unmerge"; r1: string; c1: string };
 
 const MAX_OPS = 2000;
 const MAX_CELLS_PER_OP = 30_000;
@@ -137,9 +140,22 @@ export function readSheetOps(raw: unknown): SheetOp[] | null {
         }
         if (typeof op.name !== "string" || !COLUMN_TYPES.includes(op.type as ColumnType)) return null;
         const options = Array.isArray(op.options) ? op.options.filter((o): o is string => typeof o === "string").map((o) => o.slice(0, 60)).slice(0, 100) : undefined;
-        ops.push({ t: "insertCol", id: op.id, index: op.index, name: op.name.slice(0, 60) || "Column", type: op.type as ColumnType, ...(options ? { options } : {}), cells });
+        const width = typeof op.width === "number" && Number.isFinite(op.width) ? clampWidth(op.width) : undefined;
+        ops.push({ t: "insertCol", id: op.id, index: op.index, name: op.name.slice(0, 60) || "Column", type: op.type as ColumnType, ...(options ? { options } : {}), ...(width ? { width } : {}), cells });
         break;
       }
+      case "colWidth":
+        if (!isId(op.id) || !(op.width === null || (typeof op.width === "number" && Number.isFinite(op.width)))) return null;
+        ops.push({ t: "colWidth", id: op.id, width: op.width === null ? null : clampWidth(op.width as number) });
+        break;
+      case "merge":
+        if (!isId(op.r1) || !isId(op.c1) || !isId(op.r2) || !isId(op.c2)) return null;
+        ops.push({ t: "merge", r1: op.r1, c1: op.c1, r2: op.r2, c2: op.c2 });
+        break;
+      case "unmerge":
+        if (!isId(op.r1) || !isId(op.c1)) return null;
+        ops.push({ t: "unmerge", r1: op.r1, c1: op.c1 });
+        break;
       case "freeze": {
         if (typeof op.rows !== "number" || typeof op.cols !== "number") return null;
         const freeze = normalizeFreeze({ rows: op.rows, cols: op.cols }) ?? { rows: 0, cols: 0 };
@@ -231,9 +247,35 @@ export function applySheetOp(content: TableContent, op: SheetOp): TableContent {
       rows.splice(Math.min(op.index, rows.length), 0, { id: op.id, cells });
       return { ...content, rows };
     }
+    case "colWidth": {
+      if (!content.columns.some((c) => c.id === op.id)) return content;
+      const columns = content.columns.map((c) => {
+        if (c.id !== op.id) return c;
+        const { width: _w, ...rest } = c;
+        void _w;
+        return op.width === null ? rest : { ...rest, width: clampWidth(op.width) };
+      });
+      return { ...content, columns };
+    }
+    case "merge": {
+      const box = mergeBox(content, op);
+      if (!box || (box.top === box.bottom && box.left === box.right)) return content;
+      const kept = (content.merges ?? []).filter((m) => {
+        const other = mergeBox(content, m);
+        return other && !overlaps(box, other);
+      });
+      return { ...content, merges: [...kept, { r1: op.r1, c1: op.c1, r2: op.r2, c2: op.c2 }] };
+    }
+    case "unmerge": {
+      const merges = (content.merges ?? []).filter((m) => !(m.r1 === op.r1 && m.c1 === op.c1));
+      if (merges.length === (content.merges ?? []).length) return content;
+      const { merges: _m, ...rest } = content;
+      void _m;
+      return merges.length > 0 ? { ...rest, merges } : rest;
+    }
     case "insertCol": {
       if (content.columns.length >= MAX_COLUMNS || content.columns.some((c) => c.id === op.id)) return content;
-      const column: TableColumn = { id: op.id, name: op.name, type: op.type, ...(op.type === "dropdown" ? { options: op.options ?? [] } : {}) };
+      const column: TableColumn = { id: op.id, name: op.name, type: op.type, ...(op.type === "dropdown" ? { options: op.options ?? [] } : {}), ...(op.width ? { width: op.width } : {}) };
       const columns = [...content.columns];
       columns.splice(Math.min(op.index, columns.length), 0, column);
       const rows = content.rows.map((r) => (Object.hasOwn(op.cells, r.id) ? { ...r, cells: { ...r.cells, [op.id]: op.cells[r.id] } } : r));
@@ -241,6 +283,20 @@ export function applySheetOp(content: TableContent, op: SheetOp): TableContent {
     }
   }
 }
+
+type Box = { top: number; bottom: number; left: number; right: number };
+
+/** Where a merge sits right now (row and column positions), or null if a row or column in it is gone. */
+export function mergeBox(content: TableContent, m: Merge): Box | null {
+  const r1 = content.rows.findIndex((r) => r.id === m.r1);
+  const r2 = content.rows.findIndex((r) => r.id === m.r2);
+  const c1 = content.columns.findIndex((c) => c.id === m.c1);
+  const c2 = content.columns.findIndex((c) => c.id === m.c2);
+  if (r1 < 0 || r2 < 0 || c1 < 0 || c2 < 0 || r2 < r1 || c2 < c1) return null;
+  return { top: r1, bottom: r2, left: c1, right: c2 };
+}
+
+const overlaps = (a: Box, b: Box) => a.top <= b.bottom && b.top <= a.bottom && a.left <= b.right && b.left <= a.right;
 
 /* ---------- undo ---------- */
 
@@ -288,7 +344,7 @@ function invertOne(content: TableContent, op: SheetOp): SheetOp[] {
       for (const row of content.rows) if (Object.hasOwn(row.cells, column.id)) cells[row.id] = row.cells[column.id];
       const styled = content.rows.filter((r) => content.fills?.[cellKey(r.id, column.id)] || content.formats?.[cellKey(r.id, column.id)]).map((r) => [r.id, column.id] as [string, string]);
       return [
-        { t: "insertCol", id: column.id, index: content.columns.indexOf(column), name: column.name, type: column.type, ...(column.options ? { options: column.options } : {}), cells },
+        { t: "insertCol", id: column.id, index: content.columns.indexOf(column), name: column.name, type: column.type, ...(column.options ? { options: column.options } : {}), ...(column.width ? { width: column.width } : {}), cells },
         ...styleNow(content, styled),
       ];
     }
@@ -303,6 +359,24 @@ function invertOne(content: TableContent, op: SheetOp): SheetOp[] {
         { t: "colType", id: column.id, type: column.type, ...(column.options ? { options: column.options } : {}) },
         { t: "set", cells: content.rows.map((r) => [r.id, column.id, rawOf(r, column.id)] as [string, string, CellValue]) },
       ];
+    }
+    case "colWidth": {
+      const column = columns.get(op.id);
+      return column ? [{ t: "colWidth", id: column.id, width: column.width ?? null }] : [];
+    }
+    case "merge": {
+      const box = mergeBox(content, op);
+      if (!box || (box.top === box.bottom && box.left === box.right)) return [];
+      // Merging drops any merge it overlaps; undo puts those back.
+      const replaced = (content.merges ?? []).filter((m) => {
+        const other = mergeBox(content, m);
+        return other && overlaps(box, other);
+      });
+      return [{ t: "unmerge", r1: op.r1, c1: op.c1 }, ...replaced.map((m) => ({ t: "merge" as const, ...m }))];
+    }
+    case "unmerge": {
+      const m = (content.merges ?? []).find((x) => x.r1 === op.r1 && x.c1 === op.c1);
+      return m ? [{ t: "merge", ...m }] : [];
     }
     case "header":
       return [{ t: "header", on: !!content.header }];

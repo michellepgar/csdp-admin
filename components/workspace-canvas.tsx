@@ -515,7 +515,7 @@ export function WorkspaceCanvas({
     if (block.kind === "table") {
       const raw = block.content as Partial<TableContent>;
       const table: TableContent = Array.isArray(raw.columns) && Array.isArray(raw.rows) && raw.columns.length > 0 ? (raw as TableContent) : tableFallback(block.id);
-      return <WorkspaceTableBlock key={block.id} content={table} mobile={mobile} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
+      return <WorkspaceTableBlock key={block.id} content={table} mobile={mobile} fileName={`${workbook.title} - ${activeSheet?.name ?? "Sheet"}`} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
     }
     const rawReminder = block.content as Partial<ReminderContent>;
     const reminder: ReminderContent =

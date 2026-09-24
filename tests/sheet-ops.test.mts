@@ -179,3 +179,51 @@ test("readSheetOps accepts insertRow/insertCol and rejects bad ones", () => {
   assert.equal(readSheetOps([{ t: "insertRow", id: "r9", index: 0, cells: { "bad id": 1 } }]), null);
   assert.equal(readSheetOps([{ t: "insertCol", id: "c9", index: 0, name: "N", type: "nope", cells: {} }]), null);
 });
+
+test("merge, overlap replacement, unmerge, column width, and their undo", async () => {
+  const { invertSheetOps, mergeBox } = await import("../lib/sheet-ops.ts");
+  const t = applySheetOps(base(), [{ t: "addRow", id: "r3" }, { t: "addCol", id: "c" }]);
+  const merged = applySheetOps(t, [{ t: "merge", r1: "r1", c1: "a", r2: "r2", c2: "b" }]);
+  assert.deepEqual(merged.merges, [{ r1: "r1", c1: "a", r2: "r2", c2: "b" }]);
+  assert.deepEqual(mergeBox(merged, merged.merges![0]), { top: 0, bottom: 1, left: 0, right: 1 });
+  // A single cell is not a merge.
+  assert.equal(applySheetOps(t, [{ t: "merge", r1: "r1", c1: "a", r2: "r1", c2: "a" }]).merges, undefined);
+  // A new merge that overlaps replaces the old one; undo brings the old one back.
+  const ops = [{ t: "merge" as const, r1: "r2", c1: "b", r2: "r3", c2: "c" }];
+  const replaced = applySheetOps(merged, ops);
+  assert.deepEqual(replaced.merges, [{ r1: "r2", c1: "b", r2: "r3", c2: "c" }]);
+  assert.deepEqual(applySheetOps(replaced, invertSheetOps(merged, ops)), merged);
+  const unmerged = applySheetOps(merged, [{ t: "unmerge", r1: "r1", c1: "a" }]);
+  assert.equal(unmerged.merges, undefined);
+  assert.deepEqual(applySheetOps(unmerged, invertSheetOps(merged, [{ t: "unmerge", r1: "r1", c1: "a" }])), merged);
+  // Widths: clamped, reset with null, kept through a type change, undone.
+  const wide = applySheetOps(t, [{ t: "colWidth", id: "a", width: 9999 }]);
+  assert.equal(wide.columns[0].width, 600);
+  assert.equal(applySheetOps(wide, [{ t: "colType", id: "a", type: "number" }]).columns[0].width, 600);
+  assert.equal("width" in applySheetOps(wide, [{ t: "colWidth", id: "a", width: null }]).columns[0], false);
+  assert.deepEqual(applySheetOps(wide, invertSheetOps(t, [{ t: "colWidth", id: "a", width: 9999 }])), t);
+  // Deleting a wide column and undoing restores its width.
+  assert.deepEqual(applySheetOps(applySheetOps(wide, [{ t: "removeCol", id: "a" }]), invertSheetOps(wide, [{ t: "removeCol", id: "a" }])), wide);
+});
+
+test("fill: formulas shift with the fill, $ keeps a reference fixed, and $ refs still calculate", async () => {
+  const { shiftFormula, evaluateTable } = await import("../lib/workspace-formula.ts");
+  assert.equal(shiftFormula("=A1*2", 1, 0), "=A2*2");
+  assert.equal(shiftFormula("=SUM(A1:B3)+C4", 2, 1), "=SUM(B3:C5)+D6");
+  assert.equal(shiftFormula("=$A$1+A$1+$A1", 3, 2), "=$A$1+C$1+$A4");
+  assert.equal(shiftFormula("=ROUND(A1,2)", 1, 0), "=ROUND(A2,2)");
+  assert.equal(shiftFormula("=A1", -1, 0), "=#REF!");
+  assert.equal(shiftFormula("plain text A1", 1, 0), "plain text A1");
+  const t: TableContent = {
+    columns: [{ id: "a", name: "A", type: "text" }, { id: "b", name: "B", type: "text" }],
+    rows: [{ id: "r1", cells: { a: "4", b: "=$A$1*2" } }],
+  };
+  assert.equal(evaluateTable(t)["r1|b"], "8");
+});
+
+test("readSheetOps checks colWidth, merge and unmerge", () => {
+  assert.deepEqual(readSheetOps([{ t: "colWidth", id: "a", width: 10 }]), [{ t: "colWidth", id: "a", width: 60 }]);
+  assert.ok(readSheetOps([{ t: "merge", r1: "a", c1: "b", r2: "c", c2: "d" }]));
+  assert.equal(readSheetOps([{ t: "merge", r1: "a", c1: "b", r2: "c" }]), null);
+  assert.equal(readSheetOps([{ t: "colWidth", id: "a", width: "wide" }]), null);
+});

@@ -512,7 +512,7 @@ export function SpreadsheetView({
 
         <div className="h-[calc(100vh-16rem)] min-h-[420px] rounded-b-xl">
           {content && activeId ? (
-            <WorkspaceTableBlock key={activeId} content={content} onChange={onTableChange} />
+            <WorkspaceTableBlock key={activeId} content={content} onChange={onTableChange} fileName={`${spreadsheet.title} - ${activeSheet?.name ?? "Sheet"}`} />
           ) : (
             <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
               {loading ? (

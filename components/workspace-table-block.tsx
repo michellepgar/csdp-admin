@@ -2,18 +2,37 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Baseline, Redo2, Undo2, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Baseline, Download, ListPlus, Redo2, Search, TableCellsMerge, TableCellsSplit, Undo2, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
 import { ColorWell } from "@/components/color-well";
 import { KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
-import { FILL_COLORS, MAX_COLUMNS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, coerceCell, columnName, newCellId, parsePastedGrid } from "@/lib/workspace";
-import { applySheetOps, invertSheetOps, pasteOps } from "@/lib/sheet-ops";
+import { DEFAULT_COLUMN_WIDTH, FILL_COLORS, MAX_COLUMNS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, clampWidth, coerceCell, columnName, newCellId, parsePastedGrid } from "@/lib/workspace";
+import { applySheetOps, invertSheetOps, mergeBox, pasteOps } from "@/lib/sheet-ops";
 import type { SheetOp } from "@/lib/sheet-ops";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
-import { evaluateTable, isFormula } from "@/lib/workspace-formula";
+import { evaluateTable, isFormula, shiftFormula } from "@/lib/workspace-formula";
 import type { CellAlign, CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, TableColumn, TableContent, TableRow } from "@/lib/workspace";
 
-const COLUMN_WIDTH = 140;
+const COLUMN_WIDTH = DEFAULT_COLUMN_WIDTH;
+const widthOf = (column: TableColumn) => column.width ?? COLUMN_WIDTH;
+
+/* Where each column starts, from the left edge of the table (after the row numbers). */
+function columnLefts(columns: TableColumn[]): number[] {
+  const lefts: number[] = [];
+  let x = GUTTER_WIDTH;
+  for (const column of columns) {
+    lefts.push(x);
+    x += widthOf(column);
+  }
+  return lefts;
+}
+
+/* A cell whose whole text is a web address becomes a link. */
+const LINK = /^(https?:\/\/|www\.)[^\s<>"]+$/i;
+function linkHref(text: string): string | null {
+  if (!LINK.test(text)) return null;
+  return /^www\./i.test(text) ? `https://${text}` : text;
+}
 const GUTTER_WIDTH = 56;
 /* Fixed heights (the column-name row is h-9 plus its bottom line; a body row
    is h-8 plus its bottom line), used to stack frozen rows under each other. */
@@ -431,16 +450,22 @@ type RowProps = {
   frozenEdge: boolean;
   /** How many of the first columns are frozen. */
   freezeCols: number;
+  /** Merged blocks starting in this row ({columnId: [rows, columns]}) and the cells here hidden under a merge, as JSON. */
+  mergesJson: string;
+  coveredJson: string;
 };
 
 /* One body row. Memoized: it only re-renders when its own row, position,
    formulas, highlights or selection change. */
-const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial, isHeader, stickyTop, frozenEdge, freezeCols }: RowProps) {
+const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial, isHeader, stickyTop, frozenEdge, freezeCols, mergesJson, coveredJson }: RowProps) {
   const computed: Record<string, string> = computedJson ? JSON.parse(computedJson) : {};
   const fills: Record<string, string> = fillsJson ? JSON.parse(fillsJson) : {};
   const formats: Record<string, CellFormat> = formatsJson ? JSON.parse(formatsJson) : {};
   const rowSelected = selFrom >= 0;
   const multi = selFrom !== selTo || activeCol < 0; // this row is part of a range, not just the one active cell
+  const merges: Record<string, [number, number]> = mergesJson ? JSON.parse(mergesJson) : {};
+  const covered = new Set<string>(coveredJson ? JSON.parse(coveredJson) : []);
+  const lefts = columnLefts(columns);
   return (
     <tr className="group/row">
       <th
@@ -466,6 +491,8 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         </div>
       </th>
       {columns.map((column, c) => {
+        if (covered.has(column.id)) return null; // hidden under a merged cell
+        const span = merges[column.id];
         const raw = cellOf(row, column.id);
         const editing = c === editCol && column.type !== "checkbox";
         const result = computed[column.id];
@@ -507,9 +534,16 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         } else {
           const text = displayText(raw, column, result);
           const right = column.type === "number" || (result !== undefined && !isError);
+          const href = linkHref(text);
           body = (
             <div title={isFormula(raw) ? String(raw) : text || undefined} style={formatStyle(formats[column.id])} className={`h-8 truncate px-2 leading-8 ${right ? "text-right tabular-nums" : ""} ${isError ? "text-destructive" : ""}`}>
-              {text}
+              {href ? (
+                <a href={href} target="_blank" rel="noopener noreferrer" title={`Open ${text}`} className="text-primary underline underline-offset-2 hover:opacity-80">
+                  {text}
+                </a>
+              ) : (
+                text
+              )}
             </div>
           );
         }
@@ -526,13 +560,15 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         if (shadows.length > 0) style.boxShadow = shadows.join(", ");
         const frozenCol = c < freezeCols;
         if (stickyTop >= 0) style.top = stickyTop;
-        if (frozenCol) style.left = GUTTER_WIDTH + c * COLUMN_WIDTH;
+        if (frozenCol) style.left = lefts[c];
         const frozen = stickyTop >= 0 || frozenCol;
         const frozenClass = frozen ? `sticky bg-sheet-cell ${stickyTop >= 0 && frozenCol ? "z-[5]" : stickyTop >= 0 ? "z-[4]" : "z-[3]"}` : "";
         return (
           <td
             key={column.id}
             data-pos={`${pos}:${c}`}
+            rowSpan={span ? span[0] : undefined}
+            colSpan={span ? span[1] : undefined}
             onMouseDown={editing ? undefined : (e) => api.cellMouseDown(e, { r: pos, c })}
             onMouseEnter={() => api.cellMouseEnter({ r: pos, c })}
             onDoubleClick={editing ? undefined : () => api.startEdit({ r: pos, c }, null)}
@@ -676,6 +712,8 @@ type Props = {
   onFlush?: () => void;
   /** The frame is a stacked card (no fixed height): the grid caps its own height. */
   mobile?: boolean;
+  /** Name for "Download CSV" (without the extension). */
+  fileName?: string;
 };
 
 /* The editable grid body of a table block, behaving like a spreadsheet: a
@@ -692,7 +730,7 @@ type Props = {
    ignored for comparison -- the latest one is kept in a ref). Rows are
    memoized on primitive props, so moving the selection re-renders only the
    rows it enters or leaves. */
-function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
+function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName = "table" }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   /* Undo/redo: each entry holds an edit and the operations that reverse it
      (lib/sheet-ops.ts), so undoing only touches what that edit changed --
@@ -700,6 +738,12 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const undoStack = useRef<{ undo: SheetOp[]; redo: SheetOp[] }[]>([]);
   const redoStack = useRef<{ undo: SheetOp[]; redo: SheetOp[] }[]>([]);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
+  const [resizing, setResizing] = useState<{ id: string; width: number } | null>(null);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findText, setFindText] = useState("");
+  const [replaceText, setReplaceText] = useState("");
+  const [matchIndex, setMatchIndex] = useState(0);
+  const findRef = useRef<HTMLInputElement>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [sort, setSort] = useState<{ columnId: string; dir: "asc" | "desc" } | null>(null);
   const [filter, setFilter] = useState("");
@@ -1013,6 +1057,29 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const freezeRows = Math.min(view.length, Math.max(content.freeze?.rows ?? 0, hasHeader ? 1 : 0));
   const freezeCols = Math.min(columns.length, content.freeze?.cols ?? 0);
 
+  /* Merged blocks, by position. Only shown while the rows are in their own
+     order: a sorted or filtered view would split them up. */
+  const mergeInfo = useMemo(() => {
+    const anchors: Record<string, Record<string, [number, number]>> = {};
+    const covered: Record<string, string[]> = {};
+    const boxes: { top: number; bottom: number; left: number; right: number }[] = [];
+    if (viewActive) return { anchors, covered, boxes };
+    for (const m of content.merges ?? []) {
+      const box = mergeBox(content, m);
+      if (!box) continue;
+      boxes.push(box);
+      (anchors[m.r1] ??= {})[m.c1] = [box.bottom - box.top + 1, box.right - box.left + 1];
+      for (let r = box.top; r <= box.bottom; r++) {
+        for (let c = box.left; c <= box.right; c++) {
+          if (r === box.top && c === box.left) continue;
+          (covered[rows[r].id] ??= []).push(columns[c].id);
+        }
+      }
+    }
+    return { anchors, covered, boxes };
+  }, [content, rows, columns, viewActive]);
+  const boxAt = (r: number, c: number) => mergeInfo.boxes.find((b) => r >= b.top && r <= b.bottom && c >= b.left && c <= b.right) ?? null;
+
   // Keep the moving end of the selection on screen (keyboard moves can leave it behind).
   const focusKey = sel ? `${sel.focus.r}:${sel.focus.c}` : "";
   useEffect(() => {
@@ -1065,7 +1132,17 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     const move = (dr: number, dc: number, extend: boolean) => {
       e.preventDefault();
       const base = extend ? sel.focus : sel.anchor;
-      const next = { r: Math.min(Math.max(base.r + dr, 0), maxR), c: Math.min(Math.max(base.c + dc, 0), maxC) };
+      // Moving forward out of a merged cell starts after the whole block.
+      const from = boxAt(base.r, base.c);
+      const startR = from && dr > 0 ? from.bottom : base.r;
+      const startC = from && dc > 0 ? from.right : base.c;
+      const next = { r: Math.min(Math.max(startR + dr, 0), maxR), c: Math.min(Math.max(startC + dc, 0), maxC) };
+      // Landing inside a merged cell selects the merged cell itself.
+      const into = extend ? null : boxAt(next.r, next.c);
+      if (into) {
+        next.r = into.top;
+        next.c = into.left;
+      }
       if (extend) set(sel.anchor, next);
       else set(next);
     };
@@ -1097,6 +1174,16 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         e.preventDefault();
         set(sel.anchor);
         return;
+    }
+    if (mod && (e.key.toLowerCase() === "f" || e.key.toLowerCase() === "h")) {
+      e.preventDefault();
+      openFind();
+      return;
+    }
+    if (mod && (e.key.toLowerCase() === "d" || e.key.toLowerCase() === "r")) {
+      e.preventDefault();
+      fill(e.key.toLowerCase() === "d" ? "down" : "right");
+      return;
     }
     if (mod && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
       e.preventDefault();
@@ -1334,11 +1421,244 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     runOps([{ t: "set", cells: [[activeRow.id, activeColumn.id, value]] }]);
   }
 
+  /* ----- merge ----- */
+  const anchorBox = sel ? boxAt(sel.anchor.r, sel.anchor.c) : null;
+  const canMerge = !!sel && !viewActive && (sel.r1 !== sel.r2 || sel.c1 !== sel.c2);
+
+  function toggleMerge() {
+    if (!sel) return;
+    if (anchorBox && !canMerge) {
+      const row = rows[anchorBox.top];
+      const column = columns[anchorBox.left];
+      if (row && column) runOps([{ t: "unmerge", r1: row.id, c1: column.id }]);
+      return;
+    }
+    if (!canMerge) return;
+    const top = rows[view[sel.r1]];
+    const bottom = rows[view[sel.r2]];
+    const left = columns[sel.c1];
+    const right = columns[sel.c2];
+    if (!top || !bottom || !left || !right) return;
+    // Like Excel, a merged cell keeps only the top-left value.
+    const others = selectedCells().filter(([r, c]) => !(r === top.id && c === left.id));
+    const lost = others.filter(([r, c]) => {
+      const v = rows.find((x) => x.id === r)?.cells[c];
+      return v !== null && v !== undefined && v !== "";
+    });
+    if (lost.length > 0 && !window.confirm(`Merging keeps only the top-left value. ${lost.length} other value${lost.length === 1 ? "" : "s"} will be cleared. Continue?`)) return;
+    runOps([
+      ...(lost.length > 0 ? [{ t: "set" as const, cells: lost.map(([r, c]) => [r, c, null] as [string, string, CellValue]) }] : []),
+      { t: "merge", r1: top.id, c1: left.id, r2: bottom.id, c2: right.id },
+    ]);
+    setSelection({ anchor: { r: sel.r1, c: sel.c1 }, focus: { r: sel.r1, c: sel.c1 } });
+  }
+
+  /* ----- insert and delete rows / columns ----- */
+  function insertRows(where: "above" | "below") {
+    if (!sel) return;
+    const count = Math.min(50, sel.r2 - sel.r1 + 1, MAX_ROWS - rows.length);
+    const at = where === "above" ? view[sel.r1] : view[sel.r2] + 1;
+    runOps(Array.from({ length: count }, (_, i) => ({ t: "insertRow" as const, id: newCellId(), index: at + i, cells: {} })));
+  }
+
+  function insertColumns(where: "left" | "right") {
+    if (!sel) return;
+    const count = Math.min(10, sel.c2 - sel.c1 + 1, MAX_COLUMNS - columns.length);
+    const at = where === "left" ? sel.c1 : sel.c2 + 1;
+    runOps(Array.from({ length: count }, (_, i) => ({ t: "insertCol" as const, id: newCellId(), index: at + i, name: "New column", type: "text" as const, cells: {} })));
+  }
+
+  function deleteSelectedRows() {
+    if (!sel) return;
+    const targets = view.slice(sel.r1, sel.r2 + 1).map((i) => rows[i]).filter(Boolean);
+    const hasData = targets.some((r) => Object.values(r.cells).some((v) => v !== null && v !== undefined && v !== ""));
+    if (hasData && !window.confirm(`Delete ${targets.length} row${targets.length === 1 ? "" : "s"} and everything in ${targets.length === 1 ? "it" : "them"}?`)) return;
+    runOps(targets.map((r) => ({ t: "removeRow" as const, id: r.id })));
+    setSelection(null);
+  }
+
+  function deleteSelectedColumns() {
+    if (!sel) return;
+    const targets = columns.slice(sel.c1, sel.c2 + 1);
+    if (targets.length >= columns.length) {
+      window.alert("A table needs at least one column, so not every column can be deleted.");
+      return;
+    }
+    const hasData = rows.some((r) => targets.some((c) => r.cells[c.id] !== null && r.cells[c.id] !== undefined && r.cells[c.id] !== ""));
+    if (hasData && !window.confirm(`Delete ${targets.length} column${targets.length === 1 ? "" : "s"} and everything in ${targets.length === 1 ? "it" : "them"}?`)) return;
+    runOps(targets.map((c) => ({ t: "removeCol" as const, id: c.id })));
+    setSelection(null);
+  }
+
+  function insertItems(): KebabMenuItem[] {
+    const rowCount = sel ? sel.r2 - sel.r1 + 1 : 1;
+    const colCount = sel ? sel.c2 - sel.c1 + 1 : 1;
+    const rowsLabel = rowCount === 1 ? "row" : `${Math.min(rowCount, 50)} rows`;
+    const colsLabel = colCount === 1 ? "column" : `${Math.min(colCount, 10)} columns`;
+    return [
+      { label: `Insert ${rowsLabel} above`, onClick: () => insertRows("above") },
+      { label: `Insert ${rowsLabel} below`, onClick: () => insertRows("below") },
+      { label: `Insert ${colsLabel} left`, onClick: () => insertColumns("left") },
+      { label: `Insert ${colsLabel} right`, onClick: () => insertColumns("right") },
+      { label: rowCount === 1 ? "Delete row" : `Delete ${rowCount} rows`, destructive: true, onClick: deleteSelectedRows },
+      { label: colCount === 1 ? "Delete column" : `Delete ${colCount} columns`, destructive: true, onClick: deleteSelectedColumns },
+    ];
+  }
+
+  /* ----- fill down / right (Ctrl+D / Ctrl+R): formulas shift like Excel's ----- */
+  function fill(direction: "down" | "right") {
+    if (!sel) return;
+    const values: [string, string, CellValue][] = [];
+    const styles: [string, string, string | null, CellFormat | null][] = [];
+    const copy = (from: TableRow, fromCol: TableColumn, to: TableRow, toCol: TableColumn, dRow: number, dCol: number) => {
+      const raw = cellOf(from, fromCol.id);
+      values.push([to.id, toCol.id, typeof raw === "string" && isFormula(raw) ? shiftFormula(raw, dRow, dCol) : raw]);
+      styles.push([to.id, toCol.id, content.fills?.[`${from.id}|${fromCol.id}`] ?? null, content.formats?.[`${from.id}|${fromCol.id}`] ?? null]);
+    };
+    if (direction === "down") {
+      if (sel.r1 === sel.r2) return;
+      const source = rows[view[sel.r1]];
+      for (let r = sel.r1 + 1; r <= sel.r2; r++) {
+        const target = rows[view[r]];
+        for (let c = sel.c1; c <= sel.c2; c++) copy(source, columns[c], target, columns[c], view[r] - view[sel.r1], 0);
+      }
+    } else {
+      if (sel.c1 === sel.c2) return;
+      for (let r = sel.r1; r <= sel.r2; r++) {
+        const row = rows[view[r]];
+        for (let c = sel.c1 + 1; c <= sel.c2; c++) copy(row, columns[sel.c1], row, columns[c], 0, c - sel.c1);
+      }
+    }
+    runOps([{ t: "set", cells: values }, { t: "style", cells: styles }]);
+  }
+
+  /* ----- find and replace (Ctrl+F / Ctrl+H) ----- */
+  const findNeedle = findText.trim().toLowerCase();
+  const matches = useMemo(() => {
+    const found: Pos[] = [];
+    if (!findOpen || !findNeedle) return found;
+    view.forEach((rowIndex, r) => {
+      const row = rows[rowIndex];
+      columns.forEach((column, c) => {
+        if (textOf(row, column.id).toLowerCase().includes(findNeedle)) found.push({ r, c });
+      });
+    });
+    return found;
+  }, [findOpen, findNeedle, view, rows, columns, textOf]);
+  const currentMatch = matches.length > 0 ? matches[Math.min(matchIndex, matches.length - 1)] : null;
+
+  function openFind() {
+    setFindOpen(true);
+    setTimeout(() => findRef.current?.select(), 0);
+  }
+
+  function goToMatch(step: number) {
+    if (matches.length === 0) return;
+    const next = (Math.min(matchIndex, matches.length - 1) + step + matches.length) % matches.length;
+    setMatchIndex(next);
+    setSelection({ anchor: matches[next], focus: matches[next] });
+  }
+
+  const replaceIn = (raw: CellValue): string | null => {
+    if (raw === null || raw === undefined || typeof raw === "boolean" || !findNeedle) return null;
+    const text = String(raw);
+    const pattern = new RegExp(findText.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    return pattern.test(text) ? text.replace(pattern, replaceText) : null;
+  };
+
+  function replaceCurrent() {
+    if (!currentMatch) return;
+    const row = rows[view[currentMatch.r]];
+    const column = columns[currentMatch.c];
+    const next = replaceIn(cellOf(row, column.id));
+    if (next !== null) runOps([{ t: "set", cells: [[row.id, column.id, next]] }]);
+    goToMatch(1);
+  }
+
+  function replaceAll() {
+    const cells: [string, string, CellValue][] = [];
+    for (const m of matches) {
+      const row = rows[view[m.r]];
+      const column = columns[m.c];
+      const next = replaceIn(cellOf(row, column.id));
+      if (next !== null) cells.push([row.id, column.id, next]);
+    }
+    if (cells.length > 0) runOps([{ t: "set", cells }]);
+    setMessage(cells.length > 0 ? `Replaced ${cells.length} cell${cells.length === 1 ? "" : "s"}.` : "Nothing to replace.");
+  }
+
+  /* ----- sum, average and count of the selected cells ----- */
+  const stats = useMemo(() => {
+    if (!sel || (sel.r1 === sel.r2 && sel.c1 === sel.c2)) return null;
+    let sum = 0;
+    let numbers = 0;
+    let filled = 0;
+    for (let r = sel.r1; r <= sel.r2; r++) {
+      const row = rows[view[r]];
+      if (!row) continue;
+      for (let c = sel.c1; c <= sel.c2; c++) {
+        const text = textOf(row, columns[c].id).trim();
+        if (!text) continue;
+        filled++;
+        const n = Number(text.replace(/,/g, ""));
+        if (Number.isFinite(n) && !text.startsWith("#")) {
+          sum += n;
+          numbers++;
+        }
+      }
+    }
+    return { sum, numbers, filled };
+  }, [sel, view, rows, columns, textOf]);
+  const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+  /* ----- download as CSV (opens in Excel and Google Sheets) ----- */
+  function downloadCsv() {
+    const quote = (text: string) => (/[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
+    const lines = [columns.map((c) => quote(c.name)).join(",")];
+    for (const row of rows) lines.push(columns.map((c) => quote(displayText(cellOf(row, c.id), c, computedByRow[row.id]?.[c.id]))).join(","));
+    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${fileName.replace(/[\\/:*?"<>|]+/g, " ").trim() || "table"}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /* ----- column resize: drag a column's right edge; double-click resets it ----- */
+  function startResize(e: React.PointerEvent<HTMLDivElement>, column: TableColumn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startWidth = widthOf(column);
+    let width = startWidth;
+    const onMove = (ev: PointerEvent) => {
+      width = clampWidth(startWidth + ev.clientX - startX);
+      setResizing({ id: column.id, width });
+    };
+    const onUp = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+      setResizing(null);
+      if (width !== startWidth) runOps([{ t: "colWidth", id: column.id, width }]);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  }
+  const shownWidth = (column: TableColumn) => (resizing?.id === column.id ? resizing.width : widthOf(column));
+  const headerLefts = columnLefts(columns);
+
   const toolButton = (active: boolean) =>
     `flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "bg-ring/20 text-ring" : "text-muted-foreground hover:bg-ring/10 hover:text-foreground"}`;
   const toolSelect = "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-40";
 
-  const tableWidth = GUTTER_WIDTH + columns.length * COLUMN_WIDTH + ADD_COLUMN_WIDTH;
+  const tableWidth = GUTTER_WIDTH + columns.reduce((sum, c) => sum + (resizing?.id === c.id ? resizing.width : widthOf(c)), 0) + ADD_COLUMN_WIDTH;
   const headerCell = "sticky top-0 z-10 border-b border-r border-sheet-grid bg-sheet-head text-sheet-head-foreground";
   const selectedCount = sel ? (sel.r2 - sel.r1 + 1) * (sel.c2 - sel.c1 + 1) : 0;
 
@@ -1451,6 +1771,21 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
             </div>
           )}
         />
+        <button
+          type="button"
+          disabled={!canMerge && !anchorBox}
+          title={anchorBox && !canMerge ? "Unmerge cells" : viewActive ? "Clear sort and filters to merge cells" : "Merge cells (select a block of cells first)"}
+          aria-label={anchorBox && !canMerge ? "Unmerge cells" : "Merge cells"}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={toggleMerge}
+          className={toolButton(!!anchorBox && !canMerge)}
+        >
+          {anchorBox && !canMerge ? <TableCellsSplit className="h-3.5 w-3.5" /> : <TableCellsMerge className="h-3.5 w-3.5" />}
+        </button>
+        <KebabMenu ariaLabel="Insert or delete rows and columns" title="Insert or delete rows and columns" disabled={!sel} icon={<ListPlus className="h-3.5 w-3.5" />} items={insertItems()} />
+        <button type="button" title="Find and replace (Ctrl+F)" aria-label="Find and replace" aria-pressed={findOpen} onMouseDown={(e) => e.preventDefault()} onClick={() => (findOpen ? setFindOpen(false) : openFind())} className={toolButton(findOpen)}>
+          <Search className="h-3.5 w-3.5" />
+        </button>
         <KebabMenu
           ariaLabel="Freeze rows and columns"
           title="Freeze rows and columns"
@@ -1495,6 +1830,64 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         />
       </div>
       <FormulaBar key={`${activeRow?.id ?? ""}|${activeColumn?.id ?? ""}|${activeText}`} reference={rangeLabel} value={activeText} disabled={!activeRow || !activeColumn} onCommit={commitFormulaBar} onDone={() => keyRef.current?.focus({ preventScroll: true })} />
+      {findOpen && (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-sheet-grid bg-sheet-bar px-1.5 py-1 text-xs">
+          <input
+            ref={findRef}
+            type="search"
+            value={findText}
+            onChange={(e) => {
+              setFindText(e.target.value);
+              setMatchIndex(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                goToMatch(e.shiftKey ? -1 : 1);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setFindOpen(false);
+                keyRef.current?.focus({ preventScroll: true });
+              }
+            }}
+            placeholder="Find…"
+            aria-label="Find"
+            className="h-7 w-36 min-w-0 rounded-md border border-sheet-grid bg-sheet-cell px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+          <input
+            type="text"
+            value={replaceText}
+            onChange={(e) => setReplaceText(e.target.value)}
+            placeholder="Replace with…"
+            aria-label="Replace with"
+            className="h-7 w-36 min-w-0 rounded-md border border-sheet-grid bg-sheet-cell px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+          <span className="min-w-16 tabular-nums text-muted-foreground">{findNeedle ? (matches.length > 0 ? `${Math.min(matchIndex, matches.length - 1) + 1} of ${matches.length}` : "No matches") : ""}</span>
+          <button type="button" disabled={matches.length === 0} onClick={() => goToMatch(-1)} className="rounded-md px-2 py-1 font-medium text-ring hover:bg-ring/15 disabled:opacity-40">
+            Previous
+          </button>
+          <button type="button" disabled={matches.length === 0} onClick={() => goToMatch(1)} className="rounded-md px-2 py-1 font-medium text-ring hover:bg-ring/15 disabled:opacity-40">
+            Next
+          </button>
+          <button type="button" disabled={!currentMatch} onClick={replaceCurrent} className="rounded-md px-2 py-1 font-medium text-ring hover:bg-ring/15 disabled:opacity-40">
+            Replace
+          </button>
+          <button type="button" disabled={matches.length === 0} onClick={replaceAll} className="rounded-md px-2 py-1 font-medium text-ring hover:bg-ring/15 disabled:opacity-40">
+            Replace all
+          </button>
+          <button
+            type="button"
+            aria-label="Close find"
+            onClick={() => {
+              setFindOpen(false);
+              keyRef.current?.focus({ preventScroll: true });
+            }}
+            className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-ring/15"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
       <textarea
         ref={keyRef}
         aria-label="Selected cells. Type to edit, arrow keys to move."
@@ -1528,7 +1921,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
           <colgroup>
             <col style={{ width: GUTTER_WIDTH }} />
             {columns.map((c) => (
-              <col key={c.id} style={{ width: COLUMN_WIDTH }} />
+              <col key={c.id} style={{ width: shownWidth(c) }} />
             ))}
             <col style={{ width: ADD_COLUMN_WIDTH }} />
           </colgroup>
@@ -1551,8 +1944,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                   <th
                     key={column.id}
                     scope="col"
-                    style={{ ...(columnSelected ? { backgroundImage: SELECTED_TINT } : {}), ...(c < freezeCols ? { left: GUTTER_WIDTH + c * COLUMN_WIDTH } : {}) }}
-                    className={`${headerCell} p-0 text-left font-medium ${c < freezeCols ? "z-[15]" : ""} ${c === freezeCols - 1 ? "border-r-2 border-r-sheet-freeze" : ""}`}
+                    style={{ ...(columnSelected ? { backgroundImage: SELECTED_TINT } : {}), ...(c < freezeCols ? { left: headerLefts[c] } : {}) }}
+                    className={`${headerCell} relative p-0 text-left font-medium ${c < freezeCols ? "z-[15]" : ""} ${c === freezeCols - 1 ? "border-r-2 border-r-sheet-freeze" : ""}`}
                   >
                     <div className="flex h-9 items-center gap-1 pl-2 pr-0.5">
                       {renamingId === column.id ? (
@@ -1612,6 +2005,15 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                       />
                       <KebabMenu items={menuItems(column)} ariaLabel={`Options for column ${column.name}`} />
                     </div>
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize column ${column.name}`}
+                      title="Drag to resize · double-click to reset"
+                      onPointerDown={(e) => startResize(e, column)}
+                      onDoubleClick={() => column.width && runOps([{ t: "colWidth", id: column.id, width: null }])}
+                      className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize touch-none hover:bg-ring/40"
+                    />
                   </th>
                 );
               })}
@@ -1659,6 +2061,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                   stickyTop={pos < freezeRows ? HEAD_ROW_HEIGHT + pos * BODY_ROW_HEIGHT : -1}
                   frozenEdge={pos === freezeRows - 1}
                   freezeCols={freezeCols}
+                  mergesJson={mergeInfo.anchors[row.id] ? JSON.stringify(mergeInfo.anchors[row.id]) : ""}
+                  coveredJson={mergeInfo.covered[row.id] ? JSON.stringify(mergeInfo.covered[row.id]) : ""}
                 />
               );
             })}
@@ -1701,6 +2105,14 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
           aria-label="Filter rows"
           className="h-6 w-32 min-w-0 rounded-md border border-border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         />
+        {stats && (
+          <span className="text-xs tabular-nums text-foreground" title="For the selected cells">
+            {stats.numbers > 0 ? `Sum ${fmt(stats.sum)} · Average ${fmt(stats.sum / stats.numbers)} · ` : ""}Count {stats.filled}
+          </span>
+        )}
+        <button type="button" onClick={downloadCsv} title="Download this table as a CSV file (opens in Excel or Google Sheets)" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ring transition-colors hover:bg-ring/15">
+          <Download className="h-3.5 w-3.5" /> CSV
+        </button>
         {message ? (
           <span role="status" className="text-xs font-medium text-status-warning-foreground">
             {message}

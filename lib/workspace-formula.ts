@@ -32,7 +32,9 @@ function columnIndex(letters: string): number {
   return n - 1;
 }
 
-function tokenize(text: string): Token[] {
+function tokenize(formula: string): Token[] {
+  // "$" only marks a reference as absolute for fill down/right; it means nothing when working out a value.
+  const text = formula.replace(/\$/g, "");
   const tokens: Token[] = [];
   let i = 0;
   while (i < text.length) {
@@ -274,4 +276,22 @@ export function evaluateTable(content: TableContent): Record<string, string> {
     });
   });
   return display;
+}
+
+/** A formula moved by (rows, cols), as when filled down or right: each cell
+ *  reference shifts along with it, except the parts marked absolute with "$"
+ *  (e.g. $A$1). References pushed off the table's top or left edge become
+ *  #REF!-style invalid references and show an error, as in Excel. */
+export function shiftFormula(formula: string, rows: number, cols: number): string {
+  if (!isFormula(formula)) return formula;
+  return formula.replace(/(^|[^A-Za-z0-9_$])(\$?)([A-Za-z]{1,2})(\$?)(\d+)(?![\d(A-Za-z_])/g, (match, lead: string, colAbs: string, letters: string, rowAbs: string, digits: string) => {
+    let col = 0;
+    for (const ch of letters.toUpperCase()) col = col * 26 + (ch.charCodeAt(0) - 64);
+    const newCol = colAbs ? col : col + cols;
+    const newRow = rowAbs ? Number(digits) : Number(digits) + rows;
+    if (newCol < 1 || newRow < 1) return `${lead}#REF!`;
+    let name = "";
+    for (let n = newCol; n > 0; n = Math.floor((n - 1) / 26)) name = String.fromCharCode(65 + ((n - 1) % 26)) + name;
+    return `${lead}${colAbs}${name}${rowAbs}${newRow}`;
+  });
 }

@@ -1,7 +1,16 @@
 export type BlockKind = "table" | "note" | "reminder";
 export type ColumnType = "text" | "number" | "date" | "checkbox" | "dropdown";
 export type CellValue = string | number | boolean | null;
-export type TableColumn = { id: string; name: string; type: ColumnType; options?: string[] };
+/** width: the column's width in pixels when someone resized it (otherwise the default). */
+export type TableColumn = { id: string; name: string; type: ColumnType; options?: string[]; width?: number };
+export const DEFAULT_COLUMN_WIDTH = 140;
+export const MIN_COLUMN_WIDTH = 60;
+export const MAX_COLUMN_WIDTH = 600;
+export const clampWidth = (w: number) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(w)));
+
+/** A merged block of cells, from its top-left to its bottom-right cell (by row and column id). */
+export type Merge = { r1: string; c1: string; r2: string; c2: string };
+const MAX_MERGES = 500;
 export type TableRow = { id: string; cells: Record<string, CellValue> };
 /** Text styling for one cell. Absent keys mean the default (regular, normal size, the app's font). */
 /** border lists the cell's drawn sides, in the order t, r, b, l (e.g. "tb"). color is the text color. */
@@ -34,7 +43,7 @@ export const TEXT_COLORS: { name: string; value: string }[] = [
 /** fills: cell highlight colors and formats: text styling, both keyed `${rowId}|${columnId}`. */
 /** header: the first row is a header row -- kept at the top and left out of sorting and filtering.
  *  freeze: how many of the first rows / columns stay in place while scrolling. */
-export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat>; header?: true; freeze?: Freeze };
+export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat>; header?: true; freeze?: Freeze; merges?: Merge[] };
 export type Freeze = { rows: number; cols: number };
 export const MAX_FREEZE_ROWS = 20;
 export const MAX_FREEZE_COLS = 10;
@@ -484,7 +493,7 @@ export function renameColumn(content: TableContent, columnId: string, name: stri
 export function setColumnType(content: TableContent, columnId: string, type: ColumnType, options?: string[]): TableContent {
   const columns = content.columns.map((c) => {
     if (c.id !== columnId) return c;
-    const next: TableColumn = { id: c.id, name: c.name, type };
+    const next: TableColumn = { id: c.id, name: c.name, type, ...(c.width ? { width: c.width } : {}) };
     if (type === "dropdown") next.options = options ?? c.options ?? [];
     return next;
   });
@@ -592,6 +601,7 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
       name: (typeof c.name === "string" ? c.name.trim() : "").slice(0, MAX_NAME_LENGTH) || "Column",
       type,
     };
+    if (typeof c.width === "number" && Number.isFinite(c.width)) column.width = clampWidth(c.width);
     if (type === "dropdown") {
       column.options = Array.isArray(c.options)
         ? c.options.filter((o): o is string => typeof o === "string" && o.trim() !== "").map((o) => o.trim().slice(0, MAX_NAME_LENGTH)).slice(0, 100)
@@ -615,6 +625,14 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
   }
   const result: TableContent = { columns, rows };
   if (raw.header === true) result.header = true;
+  if (Array.isArray(raw.merges)) {
+    // Kept even if a row or column in it is gone for now (an undo can bring it back); the grid skips those.
+    const merges = raw.merges
+      .filter((m): m is Merge => isPlainObject(m) && ["r1", "c1", "r2", "c2"].every((k) => typeof m[k] === "string" && /^[\w-]{1,64}$/.test(m[k] as string)))
+      .map((m) => ({ r1: m.r1, c1: m.c1, r2: m.r2, c2: m.c2 }))
+      .slice(0, MAX_MERGES);
+    if (merges.length > 0) result.merges = merges;
+  }
   const freeze = normalizeFreeze(raw.freeze);
   if (freeze) result.freeze = freeze;
   if (isPlainObject(raw.fills)) {

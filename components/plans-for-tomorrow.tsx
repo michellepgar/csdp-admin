@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { CategoryColumns, type CategoryColumn } from "@/components/category-columns";
 import { StatusBadge } from "@/components/status-badge";
@@ -67,7 +68,7 @@ function resolveTaskItem(item: PlanItem, schools: School[], schoolData: Record<s
    Plan already use, so it still reads as a priority sitting among
    ordinary tasks. A genuinely free-text priority has no real category
    to join, so it gets its own dedicated "Priorities" column instead. */
-export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, taskCategories, workNotes, currentUserName, addPlan, removePlanItem }: {
+export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalTasks, taskCategories, workNotes, currentUserName, addPlan, removePlanItem, startCollapsed = false }: {
   planItems: PlanItem[];
   vas: Va[];
   schools: School[];
@@ -79,8 +80,12 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
   /** The "Add" button (an ReactNode so this list stays a plain display component). */
   addPlan?: React.ReactNode;
   removePlanItem: (formData: FormData) => void;
+  /** Folded down to its title row (with a Show button) -- the Overview does this
+   *  once someone has started their day, to leave room for the priority list. */
+  startCollapsed?: boolean;
 }) {
   const noteLookup = makeNoteLookup(workNotes);
+  const [collapsed, setCollapsed] = useState(startCollapsed);
   const [vaFilter, setVaFilter] = useState("");
   const [viewMode, setViewMode] = useState<"columns" | "list">("columns");
 
@@ -99,11 +104,41 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
     .filter((name) => currentVaNames.has(name))
     .sort((a, b) => a.localeCompare(b));
   const vaNames = allVaNames.filter((name) => !vaFilter || name === vaFilter);
+  const plannedCount = allVaNames.reduce((sum, name) => sum + (byVa.get(name)?.length ?? 0) + (emailByVa.get(name)?.length ?? 0), 0);
+
+  if (collapsed) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-expanded={false}
+          className="inline-flex items-center gap-1.5 rounded-md py-1 pr-2 font-semibold transition-colors hover:text-ring"
+        >
+          <ChevronRight className="h-4 w-4" />
+          Planned Work
+        </button>
+        <span className="text-sm text-muted-foreground">{plannedCount === 0 ? "Nothing planned" : `${plannedCount} planned`}</span>
+        <button type="button" onClick={() => setCollapsed(false)} className="rounded-md px-2 py-1 text-sm font-medium text-ring transition-colors hover:bg-ring/10">
+          Show
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">Planned Work</h2>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          aria-expanded
+          title="Hide Planned Work"
+          className="inline-flex items-center gap-1.5 rounded-md py-1 pr-2 font-semibold transition-colors hover:text-ring"
+        >
+          <ChevronDown className="h-4 w-4" />
+          Planned Work
+        </button>
         <div className="flex flex-wrap items-center gap-2">
         {addPlan}
         {allVaNames.length > 0 && (

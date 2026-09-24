@@ -63,6 +63,8 @@ export default async function OverviewPage() {
 
     const myReminderNotes = (state.privateNotes || []).filter((n) => n.author === me?.name && n.isReminder);
   const shift = shiftAvailability(state.shiftStates, me?.name ?? "");
+  // Started today and not ended yet (a shift left open from an earlier day doesn't count).
+  const dayRunning = !!me && shift.canEnd && !shift.canStart;
 
   /* Same "existing table" data the header's Quick add already computes
      (app/(app)/layout.tsx) -- Currently Working On's own quick-add
@@ -130,7 +132,12 @@ export default async function OverviewPage() {
         </div>
       )}
 
+      {/* While someone's day is running, Planned Work starts folded so the
+          priority list has room; it opens again once they end their day.
+          (Keyed on that, so starting or ending the day resets it.) */}
       <PlansForTomorrow
+        key={dayRunning ? "day-running" : "day-off"}
+        startCollapsed={dayRunning}
         planItems={state.planItems || []}
         vas={state.vas}
         schools={state.schools}

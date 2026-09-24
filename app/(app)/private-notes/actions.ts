@@ -252,6 +252,37 @@ export async function unsharePrivateNote(formData: FormData) {
   revalidatePath("/private-notes");
 }
 
+/* Someone a note was shared WITH removes it from their own notes: they come
+   off its sharing list, so it disappears from their Private Notes page only.
+   The note itself -- and the author's copy -- is untouched. (Only the author
+   can delete a note outright; see removePrivateNote.) */
+export async function leaveSharedNote(formData: FormData) {
+  const id = formData.get("id") as string;
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const note = (state.privateNotes || []).find((n) => n.id === id && n.author !== "Jane");
+      if (note?.sharedWith) note.sharedWith = note.sharedWith.filter((n) => n !== "Jane");
+    });
+    revalidatePath("/private-notes");
+    return;
+  }
+
+  const { supabase, me } = await requireTeamMember();
+
+  const { data: note } = await supabase.from("private_notes").select("author, shared_with").eq("id", id).maybeSingle();
+  if (!note || note.author === me.name) return;
+  const sharedWith = (note.shared_with as string[] | null) || [];
+  if (!sharedWith.includes(me.name)) return;
+
+  const { error } = await supabase
+    .from("private_notes")
+    .update({ shared_with: sharedWith.filter((n) => n !== me.name) })
+    .eq("id", id);
+  orThrow(error);
+  revalidatePath("/private-notes");
+}
+
 export async function ackPrivateNote(formData: FormData) {
   const id = formData.get("id") as string;
 

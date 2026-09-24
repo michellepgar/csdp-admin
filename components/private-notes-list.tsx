@@ -9,6 +9,7 @@ import { NoteCardContent } from "@/components/note-card-content";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { CommentToggleButton, CommentThreadPanel } from "@/components/comment-thread";
 import type { PrivateNote, Va } from "@/lib/app-state";
+import { leaveSharedNote } from "@/app/(app)/private-notes/actions";
 
 /* One note, as either its read-only card or (if you're the author) its
    own edit form -- editing reuses the exact same StickyNoteComposer
@@ -163,10 +164,27 @@ function PrivateNoteRow({
             Edit
           </Button>
         )}
-        {(isAuthor || isSharedWithMe) && (
+        {isAuthor && (
           <form action={removePrivateNote}>
             <input type="hidden" name="id" value={n.id} />
-            <ConfirmDeleteButton confirmMessage="Remove this note?" pendingLabel="…" variant="ghost" size="sm">✕</ConfirmDeleteButton>
+            <ConfirmDeleteButton
+              confirmMessage={sharedWith.length > 0 ? `Delete this note? It will also be removed for ${sharedWith.join(", ")}.` : "Delete this note?"}
+              pendingLabel="…"
+              variant="ghost"
+              size="sm"
+              title="Delete this note"
+            >
+              ✕
+            </ConfirmDeleteButton>
+          </form>
+        )}
+        {/* Someone it was shared with only takes it off their own notes; the author keeps it. */}
+        {isSharedWithMe && (
+          <form action={leaveSharedNote}>
+            <input type="hidden" name="id" value={n.id} />
+            <ConfirmDeleteButton confirmMessage={`Remove this note from your notes? ${n.author} will still have it.`} pendingLabel="…" variant="ghost" size="sm" title="Remove from my notes">
+              ✕
+            </ConfirmDeleteButton>
           </form>
         )}
         <CommentToggleButton

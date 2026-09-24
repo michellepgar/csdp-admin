@@ -48,6 +48,18 @@ type SaveState = {
 };
 type BlockErrors = { content?: string; rect?: string; action?: string };
 
+/* Stable stand-in for a table block whose stored content is malformed (fresh
+   random ids every render would remount every cell). */
+const tableFallbacks = new Map<string, TableContent>();
+function tableFallback(id: string): TableContent {
+  let table = tableFallbacks.get(id);
+  if (!table) {
+    table = defaultContent("table") as TableContent;
+    tableFallbacks.set(id, table);
+  }
+  return table;
+}
+
 const rectKey = (r: Rect & { z: number }) => `${r.x},${r.y},${r.w},${r.h},${r.z}`;
 
 /* One workbook: the sheet tabs, an "Add block" menu, and the active sheet's
@@ -369,8 +381,8 @@ export function WorkspaceCanvas({
     }
     if (block.kind === "table") {
       const raw = block.content as Partial<TableContent>;
-      const table: TableContent = Array.isArray(raw.columns) && Array.isArray(raw.rows) && raw.columns.length > 0 ? (raw as TableContent) : (defaultContent("table") as TableContent);
-      return <WorkspaceTableBlock key={block.id} content={table} onChange={(content) => changeContent(block.id, content)} />;
+      const table: TableContent = Array.isArray(raw.columns) && Array.isArray(raw.rows) && raw.columns.length > 0 ? (raw as TableContent) : tableFallback(block.id);
+      return <WorkspaceTableBlock key={block.id} content={table} mobile={mobile} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
     }
     return (
       <div className="flex h-full min-h-20 items-center justify-center p-4 text-center text-sm text-muted-foreground">

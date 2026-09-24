@@ -7,6 +7,7 @@ import { ColorWell } from "@/components/color-well";
 import { MentionAutocomplete } from "@/components/mention-autocomplete";
 import { NOTE_PAD_COLORS, NOTE_FONT_COLORS, type Va } from "@/lib/app-state";
 import { shrinkImageToDataUrl } from "@/lib/shrink-image";
+import { padTextClass } from "@/lib/note-pad";
 
 const FONT_FAMILIES = [
   { value: "", label: "Sans" },
@@ -149,7 +150,6 @@ export const StickyNoteComposer = forwardRef<StickyNoteComposerHandle, {
     const draft = draftKey ? loadDraft(draftKey) : null;
     if (draft?.html) {
       editorRef.current.innerHTML = draft.html;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- A browser-only saved draft restores its companion color after hydration.
       setPadColor(draft.padColor);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The editor intentionally loads its initial props and draft only once per mount.
@@ -540,7 +540,7 @@ export const StickyNoteComposer = forwardRef<StickyNoteComposerHandle, {
         // uses (general-notes-list.tsx/private-notes-list.tsx).
         // .note-checklist-item is defined in globals.css (its indent
         // and checkbox alignment).
-        className="note-html min-h-24 w-full overflow-x-auto rounded-[0.75rem] border border-ring/40 p-3 text-sm shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_2px_6px_-2px_rgb(0_0_0/0.18)] transition-shadow outline-none focus:border-ring focus:ring-3 focus:ring-ring/25 empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
+        className={`note-html min-h-24 w-full overflow-x-auto ${padTextClass(padColor)} rounded-[0.75rem] border border-ring/40 p-3 text-sm shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_2px_6px_-2px_rgb(0_0_0/0.18)] transition-shadow outline-none focus:border-ring focus:ring-3 focus:ring-ring/25 empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded`}
         style={{ backgroundColor: padColor }}
       />
       <MentionAutocomplete query={mentionQuery} anchorRect={mentionAnchorRect} vas={vas} onSelect={selectMention} onClose={() => setMentionQuery(null)} />

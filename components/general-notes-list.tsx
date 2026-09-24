@@ -7,6 +7,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { CommentToggleButton, CommentThreadPanel } from "@/components/comment-thread";
 import type { GeneralNote, Va } from "@/lib/app-state";
+import { padTextClass } from "@/lib/note-pad";
 
 /* A note's id paired with whether the current viewer is allowed to
  * delete it — computed server-side (page.tsx) and passed down as plain
@@ -93,7 +94,7 @@ function GeneralNoteRow({
   return (
     <div
       id={`note-${n.id}`}
-      className={`note-card rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : ""} ${isHighlighted ? "note-highlight-flash" : ""}`}
+      className={`note-card rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : padTextClass(n.padColor)} ${isHighlighted ? "note-highlight-flash" : ""}`}
       style={n.urgency !== "Urgent" && n.padColor ? { backgroundColor: n.padColor } : undefined}
     >
       <div className="flex items-start justify-between gap-3">

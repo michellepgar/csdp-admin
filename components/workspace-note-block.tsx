@@ -7,6 +7,7 @@ import { ColorWell } from "@/components/color-well";
 import { NOTE_FONT_COLORS, NOTE_PAD_COLORS } from "@/lib/app-state";
 import { shrinkImageToDataUrl } from "@/lib/shrink-image";
 import type { NoteContent } from "@/lib/workspace";
+import { padTextClass } from "@/lib/note-pad";
 
 const FONT_FAMILIES = [
   { value: "", label: "Sans" },
@@ -387,8 +388,8 @@ export function WorkspaceNoteBlock({
         onPaste={handlePaste}
         onDrop={handleDrop}
         onBlur={onFlush}
-        style={{ backgroundColor: padColor, color: "#1a1a1a" }}
-        className="note-html min-h-0 w-full flex-1 overflow-auto break-words p-3 text-sm outline-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded"
+        style={{ backgroundColor: padColor }}
+        className={`${padTextClass(padColor) || "note-on-light-pad"} note-html min-h-0 w-full flex-1 overflow-auto break-words p-3 text-sm outline-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-1 [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-1 [&_a]:text-primary [&_a]:underline [&_img]:my-1 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded`}
       />
     </div>
   );

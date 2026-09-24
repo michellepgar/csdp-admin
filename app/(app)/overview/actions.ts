@@ -9,6 +9,7 @@ import { MAX_WORK_NOTE, parseNoteKey } from "@/lib/work-notes";
 import { comparePriorities, movePriorityId } from "@/lib/plan-order";
 import { shiftAvailability } from "@/lib/shift";
 import { meetingLabel } from "@/lib/meeting";
+import { clearTaskFromPlans, clearTaskFromPlansDemo } from "@/lib/plan-cleanup";
 
 type PlanActionResult = { error: string | null };
 /* savePlan's own result -- `changed` is the number of plan_items rows
@@ -1109,6 +1110,7 @@ export async function completeWorkItem(formData: FormData): Promise<PlanActionRe
         const task = (state.generalTasks || []).find((t) => t.id === target.id);
         if (!task || !task.vaAssigned.includes("Jane")) { outcome = { error: "You can only complete a task you're signed on to." }; return; }
         task.status = "Completed";
+        clearTaskFromPlansDemo(state, { generalTaskId: task.id });
         return;
       }
       for (const sd of Object.values(state.schoolData)) {
@@ -1118,6 +1120,7 @@ export async function completeWorkItem(formData: FormData): Promise<PlanActionRe
         task.status = "Completed";
         const assignment = sd.taskFiles?.flatMap((f) => f.categories).find((a) => a.id === target.id);
         if (assignment) assignment.status = "Completed";
+        clearTaskFromPlansDemo(state, { taskFileCategoryId: task.id });
         return;
       }
     });
@@ -1144,6 +1147,7 @@ export async function completeWorkItem(formData: FormData): Promise<PlanActionRe
       if (!task || !(task.va_assigned || []).includes(me.name)) throw new Error("You can only complete a task you're signed on to.");
       const { error: updateError } = await supabase.from("general_tasks").update({ status: "Completed" }).eq("id", target.id);
       orThrow(updateError);
+      await clearTaskFromPlans(supabase, { generalTaskId: target.id });
       revalidatePath("/overview");
       revalidatePath("/general-tasks");
       return;
@@ -1157,6 +1161,7 @@ export async function completeWorkItem(formData: FormData): Promise<PlanActionRe
     if (!file) throw new Error("Couldn't find that task's school.");
     const { error: rpcError } = await supabase.rpc("update_task_assignment", { p_school_id: file.school_id, p_task_id: assignment.id, p_patch: { status: "Completed" } });
     orThrow(rpcError);
+    await clearTaskFromPlans(supabase, { taskFileCategoryId: assignment.id });
     revalidatePath("/overview");
     revalidatePath(`/schools/${file.school_id}`);
   });

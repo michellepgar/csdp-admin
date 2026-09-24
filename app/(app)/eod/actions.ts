@@ -25,6 +25,8 @@ function readEodFields(formData: FormData) {
 export async function addEodReport(formData: FormData): Promise<EodActionResult> {
   const { date, timeIn, timeOut, breakStart, breakEnd, tasks } = readEodFields(formData);
   if (!date) return { error: "Date is required." };
+  if (!timeIn || !timeOut) return { error: "Fill in Time in and Time out so your hours are counted." };
+  if (tasks.length === 0) return { error: "Add at least one line about what you worked on." };
 
   if (await isDemoMode()) {
     await demoMutate((state) => {

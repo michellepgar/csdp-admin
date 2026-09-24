@@ -69,6 +69,11 @@ const SIZE_OPTIONS: { value: CellSize | ""; label: string; px: number }[] = [
 ];
 
 /* Inline text styling for a formatted cell (display and editor alike). */
+/** "12", "-3.5", "1,200", "$40", "15%" -- anything a spreadsheet would treat as a number. */
+function looksNumeric(text: string): boolean {
+  return /^[-+]?\$?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?%?$|^[-+]?\$?\.\d+%?$/.test(text.trim());
+}
+
 function formatStyle(format: CellFormat | undefined): CSSProperties | undefined {
   if (!format) return undefined;
   const style: CSSProperties = {};
@@ -547,7 +552,8 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
           );
         } else {
           const text = displayText(raw, column, result);
-          const right = column.type === "number" || (result !== undefined && !isError);
+          // Numbers sit on the right, words on the left -- typed or from a formula, like a spreadsheet.
+          const right = column.type === "number" || (!isError && looksNumeric(text));
           const href = linkHref(text);
           body = (
             <div title={isFormula(raw) ? String(raw) : text || undefined} style={formatStyle(formats[column.id])} className={`h-8 truncate px-2 leading-8 ${right ? "text-right tabular-nums" : ""} ${isError ? "text-destructive" : ""}`}>

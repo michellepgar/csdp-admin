@@ -25,7 +25,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   return (
     <div>
       <PageHeader title="Messages" />
-      <PageBody>
+      <PageBody roomForFloatingButtons={false}>
         <ChatView me={me.name} people={people} initialRoom={room} canAddPriority={isAdmin(me)} />
       </PageBody>
     </div>

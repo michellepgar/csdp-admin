@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { AutoSubmitDropdown } from "@/components/auto-submit-dropdown";
 import { NoteCardContent } from "@/components/note-card-content";
+import { padTextClass } from "@/lib/note-pad";
 import { StickyNoteComposer } from "@/components/sticky-note-composer";
 import { CommentToggleButton, CommentThreadPanel } from "@/components/comment-thread";
 import type { PrivateNote, Va } from "@/lib/app-state";
@@ -89,7 +90,7 @@ function PrivateNoteRow({
   return (
     <div
       data-private-note-id={n.id}
-      className={`note-card relative rounded-md border p-3 ${!n.padColor ? "bg-record-background" : ""}`}
+      className={`note-card relative rounded-md border p-3 ${!n.padColor ? "bg-record-background" : padTextClass(n.padColor)}`}
       style={n.padColor ? { backgroundColor: n.padColor } : undefined}
     >
       {/* A dedicated drag handle, NOT the whole card -- making the

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, GripVertical, Pencil, X } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Pencil } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SignatureChip } from "@/components/signature-chip";
@@ -211,7 +211,8 @@ export function ChecklistCard({
                       <input type="hidden" name="schoolId" value={schoolId} />
                       <input type="hidden" name="itemId" value={item.id} />
                       <input type="hidden" name="notNeeded" value="true" />
-                      <SubmitButton pendingLabel="…" variant="ghost" size="icon-xs"><span className="text-destructive/70"><X className="h-3 w-3" /><span className="sr-only">Mark {item.description} not needed</span></span></SubmitButton>
+                      {/* Words, not a red ✕: this skips the item for this school, it doesn't delete it. */}
+                      <SubmitButton pendingLabel="…" variant="ghost" size="xs" title="Not needed for this school (you can undo it)" className="h-5 px-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">N/A<span className="sr-only"> — mark {item.description} not needed</span></SubmitButton>
                     </form>
                   </>
                 )}

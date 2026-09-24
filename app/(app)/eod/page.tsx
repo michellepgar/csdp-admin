@@ -26,7 +26,11 @@ export default async function EodPage({ searchParams }: { searchParams: Promise<
     <div>
       <PageHeader title="EOD Reports" />
       <PageBody>
-      <EodEntryForm action={addEodReport} defaultTasks={draftTasks} />
+      <EodEntryForm
+        action={addEodReport}
+        defaultTasks={draftTasks}
+        existingDates={(state.eodReports || []).filter((r) => r.author === me.name).map((r) => r.date)}
+      />
 
       <EodList
         reports={state.eodReports || []}

@@ -485,6 +485,45 @@
   border-color: transparent transparent rgba(0, 0, 0, 0.12) transparent;
 }
 
+/* A note on a colored pad takes its text colors from the pad, not the page
+   theme: a light pad (white, pink, yellow...) always gets dark text, even
+   in dark mode, and a dark custom pad gets light text. lib/note-pad.ts
+   picks the class. */
+.note-on-light-pad {
+  color-scheme: light;
+  --foreground: #173B4D;
+  --card-foreground: #173B4D;
+  --background: #FFFFFF;
+  --card: #FFFFFF;
+  --muted: #D7F1F4;
+  --muted-foreground: #4A5E6A;
+  --secondary: #D7F1F4;
+  --secondary-foreground: #173B4D;
+  --accent: #D7F1F4;
+  --accent-foreground: #173B4D;
+  --border: rgb(0 0 0 / 14%);
+  --input: rgb(0 0 0 / 18%);
+  --record-background: #FFFFFF;
+  color: var(--foreground);
+}
+.note-on-dark-pad {
+  color-scheme: dark;
+  --foreground: #F8FAFC;
+  --card-foreground: #F8FAFC;
+  --background: oklch(0.208 0.042 265.755);
+  --card: oklch(0.208 0.042 265.755);
+  --muted: rgb(255 255 255 / 12%);
+  --muted-foreground: #CBD5E1;
+  --secondary: rgb(255 255 255 / 12%);
+  --secondary-foreground: #F8FAFC;
+  --accent: rgb(255 255 255 / 12%);
+  --accent-foreground: #F8FAFC;
+  --border: rgb(255 255 255 / 18%);
+  --input: rgb(255 255 255 / 22%);
+  --record-background: oklch(0.208 0.042 265.755);
+  color: var(--foreground);
+}
+
 /* A sticky note's checklist row (components/sticky-note-composer.tsx)
    -- not a real <ul>/<li> (a checkbox has nothing to do with list
    markers), so it doesn't inherit the [&_ul]/[&_ol] indent those get

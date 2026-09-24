@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/dropdown";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { EodEntryForm } from "@/components/eod-entry-form";
+import { teamDateIso } from "@/lib/shift";
 import {
   fmtEodDate,
   fmtMonthLabel,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/app-state";
 
 function todayYearMonth() {
-  return new Date().toISOString().slice(0, 7);
+  return teamDateIso().slice(0, 7);
 }
 
 /* The same fields an "Add EOD report" submits, pre-filled from an

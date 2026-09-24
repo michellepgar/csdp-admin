@@ -5,6 +5,7 @@ import { GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NoteCardContent } from "@/components/note-card-content";
 import type { PrivateNote } from "@/lib/app-state";
+import { padTextClass } from "@/lib/note-pad";
 
 const DEFAULT_BOARD_NOTE_WIDTH = 192; // matches the w-48 class this card used before boardWidth existed
 const MIN_BOARD_NOTE_WIDTH = 140;
@@ -148,7 +149,7 @@ function BoardNote({
       onDragOver={reorderMode ? onDragOver : undefined}
       onDrop={reorderMode ? onDrop : undefined}
       onDragEnd={reorderMode ? onDragEnd : undefined}
-      className={`note-card relative shrink-0 rounded-md border p-3 shadow-md ${!note.padColor ? "bg-record-background" : ""} ${
+      className={`note-card relative shrink-0 rounded-md border p-3 shadow-md ${!note.padColor ? "bg-record-background" : padTextClass(note.padColor)} ${
         isDragging ? "opacity-40" : ""
       } ${reorderMode ? "cursor-grab active:cursor-grabbing" : ""} ${height != null ? "note-scroll overflow-y-auto" : ""}`}
       style={{

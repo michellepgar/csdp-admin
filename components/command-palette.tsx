@@ -9,6 +9,7 @@ import {
   Clock,
   Contact,
   DatabaseBackup,
+  FileText,
   LayoutDashboard,
   Lock,
   Mail,
@@ -24,6 +25,7 @@ import {
   Sheet,
 } from "lucide-react";
 import type { PrivateNoteHit } from "@/app/(app)/private-notes/actions";
+import { searchWork, type WorkHit } from "@/app/(app)/search-actions";
 import { cn } from "@/lib/utils";
 import { resumeHref } from "@/lib/workspace-last-place";
 
@@ -52,8 +54,9 @@ const ADMIN_PAGES: PaletteItem[] = [
 
 /* Jump-to-anywhere search (Ctrl/Cmd + K, or the search box in the top bar):
    type a few letters of a page or a school and press Enter. From two letters
-   on it also searches your private notes by keyword (every word typed has to
-   be in the note) and lists the matches, each opening on that note. */
+   on it also searches file names (every school's Tasks and General Tasks) and
+   your private notes by keyword (every word typed has to be in it), each
+   match opening right on that file or note. */
 export function CommandPalette({
   open,
   onClose,
@@ -73,6 +76,7 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [noteHits, setNoteHits] = useState<PrivateNoteHit[]>([]);
+  const [workHits, setWorkHits] = useState<WorkHit[]>([]);
   const searchId = useRef(0);
 
   const pageAndSchoolItems = useMemo(() => {
@@ -96,7 +100,11 @@ export function CommandPalette({
         : [],
     [searchingNotes, trimmed, noteHits],
   );
-  const items = useMemo(() => [...pageAndSchoolItems, ...noteItems], [pageAndSchoolItems, noteItems]);
+  const workItems = useMemo<PaletteItem[]>(
+    () => (searchingNotes ? workHits.map((hit) => ({ key: hit.key, label: hit.label, hint: hit.hint, href: hit.href, icon: hit.kind === "file" ? FileText : ClipboardList })) : []),
+    [searchingNotes, workHits],
+  );
+  const items = useMemo(() => [...pageAndSchoolItems, ...workItems, ...noteItems], [pageAndSchoolItems, workItems, noteItems]);
 
   // Looks up matching notes a moment after you stop typing; an answer that
   // arrives after you've typed more is thrown away.
@@ -104,12 +112,15 @@ export function CommandPalette({
     if (!open || trimmed.length < 2) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Too little typed to search: clear the previous matches.
       setNoteHits([]);
+      setWorkHits([]);
       return;
     }
     const id = ++searchId.current;
     const timer = setTimeout(async () => {
-      const hits = await searchNotes(trimmed).catch(() => []);
-      if (id === searchId.current) setNoteHits(hits);
+      const [hits, work] = await Promise.all([searchNotes(trimmed).catch(() => []), searchWork(trimmed).catch(() => [])]);
+      if (id !== searchId.current) return;
+      setNoteHits(hits);
+      setWorkHits(work);
     }, 250);
     return () => {
       clearTimeout(timer);

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { syncContactRowEmail } from "@/lib/sync-contact-row";
+import { clearTaskFromPlans, clearTaskFromPlansDemo, statusLeavesPlan } from "@/lib/plan-cleanup";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { getOrderedItems, hasExactIds, normalizedCategoryName } from "@/lib/task-ordering";
 import { groupTaskTables, selectedCategoryFiles, normalizeSelectedCategoryIds, saveTaskFile, duplicateFileNameInTable, type TaskFileActionResult } from "@/lib/shared-task-files";
@@ -404,6 +405,7 @@ export async function setTaskStatus(formData: FormData) {
       if (task) task.status = status;
       const assignment = findDemoAssignment(state, schoolId, taskId);
       if (assignment) assignment.status = status;
+      if (statusLeavesPlan(status)) clearTaskFromPlansDemo(state, { taskFileCategoryId: taskId });
     });
     revalidateSchool(schoolId);
     return;
@@ -413,6 +415,7 @@ export async function setTaskStatus(formData: FormData) {
 
   const { error } = await supabase.rpc("update_task_assignment", { p_school_id: schoolId, p_task_id: taskId, p_patch: { status } });
   orThrow(error);
+  if (statusLeavesPlan(status)) await clearTaskFromPlans(supabase, { taskFileCategoryId: taskId });
   revalidateSchool(schoolId);
 }
 

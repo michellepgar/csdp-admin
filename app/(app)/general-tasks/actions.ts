@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { isAdmin } from "@/lib/app-state";
+import { clearTaskFromPlans, clearTaskFromPlansDemo, statusLeavesPlan } from "@/lib/plan-cleanup";
 
 function orThrow(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -110,6 +111,7 @@ export async function setGeneralTaskStatus(formData: FormData) {
     await demoMutate((state) => {
       const task = (state.generalTasks || []).find((t) => t.id === taskId);
       if (task) task.status = status;
+      if (statusLeavesPlan(status)) clearTaskFromPlansDemo(state, { generalTaskId: taskId });
     });
     revalidatePath("/general-tasks");
     return;
@@ -119,6 +121,7 @@ export async function setGeneralTaskStatus(formData: FormData) {
 
   const { error } = await supabase.from("general_tasks").update({ status }).eq("id", taskId);
   orThrow(error);
+  if (statusLeavesPlan(status)) await clearTaskFromPlans(supabase, { generalTaskId: taskId });
   revalidatePath("/general-tasks");
 }
 

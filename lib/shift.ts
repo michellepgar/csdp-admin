@@ -17,6 +17,11 @@ function calendarDate(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TEAM_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
+/** Today's date (YYYY-MM-DD) on the team's clock, e.g. the EOD form's default date. */
+export function teamDateIso(now: Date = new Date()): string {
+  return calendarDate(now);
+}
+
 export interface ShiftAvailability {
   canStart: boolean;
   canEnd: boolean;

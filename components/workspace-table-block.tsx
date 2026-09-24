@@ -1795,6 +1795,16 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     return items;
   }
 
+  function addRowAtEnd() {
+    setFilter(""); // a new blank row would not match the filter
+    const id = newCellId();
+    runOps([{ t: "addRow", id }]);
+    // Select the new row's first cell so typing goes straight into it.
+    const pos = rows.length;
+    keyRef.current?.focus({ preventScroll: true });
+    setSelection({ anchor: { r: pos, c: 0 }, focus: { r: pos, c: 0 } });
+  }
+
   const toolButton = (active: boolean) =>
     `flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "bg-ring/20 text-ring" : "text-muted-foreground hover:bg-ring/10 hover:text-foreground"}`;
   const toolSelect = "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-40";
@@ -2228,24 +2238,32 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
                 />
               );
             })}
+            {/* Add a row: a "+" under the row numbers, like the "+" after the last column. */}
+            <tr>
+              <td colSpan={columns.length + 2} className="p-0">
+                <button
+                  type="button"
+                  disabled={atMaxRows}
+                  title={atMaxRows ? `A table can have at most ${MAX_ROWS.toLocaleString("en-US")} rows.` : "Add a row"}
+                  aria-label="Add a row"
+                  onClick={addRowAtEnd}
+                  className="group/add flex h-8 w-full items-center text-muted-foreground transition-colors hover:bg-ring/10 hover:text-ring disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <span className="sticky left-0 flex h-8 shrink-0 items-center justify-center border-r border-sheet-grid bg-sheet-head group-hover/add:bg-ring/10" style={{ width: GUTTER_WIDTH }}>
+                    <Plus className="h-4 w-4" />
+                  </span>
+                  <span className="sticky pl-2 text-xs opacity-0 transition-opacity group-hover/add:opacity-100" style={{ left: GUTTER_WIDTH }}>
+                    Add row
+                  </span>
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
         {rows.length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No rows yet. Use “Row” below.</p>}
         {rows.length > 0 && view.length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No rows match “{filter}”.</p>}
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-sheet-grid bg-sheet-bar px-2 py-1">
-        <button
-          type="button"
-          disabled={atMaxRows}
-          title={atMaxRows ? `A table can have at most ${MAX_ROWS.toLocaleString("en-US")} rows.` : "Add a row"}
-          onClick={() => {
-            setFilter(""); // a new blank row would not match the filter
-            runOps([{ t: "addRow", id: newCellId() }]);
-          }}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ring transition-colors hover:bg-ring/15 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-        >
-          <Plus className="h-3.5 w-3.5" /> Row
-        </button>
         {viewActive && (
           <button
             type="button"

@@ -3,7 +3,20 @@ export type ColumnType = "text" | "number" | "date" | "checkbox" | "dropdown";
 export type CellValue = string | number | boolean | null;
 export type TableColumn = { id: string; name: string; type: ColumnType; options?: string[] };
 export type TableRow = { id: string; cells: Record<string, CellValue> };
-export type TableContent = { columns: TableColumn[]; rows: TableRow[] };
+/** Cell highlights: `${rowId}|${columnId}` -> one of FILL_COLORS' values. */
+export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string> };
+
+/* Highlight colors for table cells: light tints, so dark cell text always reads. */
+export const FILL_COLORS: { name: string; value: string }[] = [
+  { name: "Yellow", value: "#FFF3B0" },
+  { name: "Green", value: "#D4F5D4" },
+  { name: "Blue", value: "#CFE8FF" },
+  { name: "Pink", value: "#FFD6E8" },
+  { name: "Orange", value: "#FFDDB8" },
+  { name: "Red", value: "#F8B4B4" },
+  { name: "Grey", value: "#E5E7EB" },
+];
+export const fillKey = (rowId: string, columnId: string) => `${rowId}|${columnId}`;
 export type NoteContent = { html: string; padColor?: string };
 export type ReminderContent = { text: string; due: string | null; done: boolean };
 export type BlockContent = TableContent | NoteContent | ReminderContent;
@@ -184,6 +197,8 @@ export function coerceCell(raw: CellValue | undefined, type: ColumnType, options
     return ["true", "yes", "y", "1", "x", "✓"].includes(String(raw).trim().toLowerCase());
   }
   const text = typeof raw === "string" ? raw.trim() : String(raw);
+  // A formula (=A1+B1) is kept as typed in text and number columns; it is worked out when shown.
+  if ((type === "text" || type === "number") && typeof raw === "string" && text.length > 1 && text.startsWith("=")) return text;
   if (type === "text") {
     if (typeof raw === "number" && !Number.isFinite(raw)) return null;
     return text === "" ? null : String(raw);
@@ -208,8 +223,33 @@ export function addRow(content: TableContent): TableContent {
   return { ...content, rows: [...content.rows, { id: newId(), cells: {} }] };
 }
 
+function pruneFills(fills: Record<string, string> | undefined, keep: (rowId: string, columnId: string) => boolean): Record<string, string> | undefined {
+  if (!fills) return undefined;
+  const next: Record<string, string> = {};
+  for (const [key, color] of Object.entries(fills)) {
+    const [rowId, columnId] = key.split("|");
+    if (keep(rowId, columnId)) next[key] = color;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
 export function removeRow(content: TableContent, rowId: string): TableContent {
-  return { ...content, rows: content.rows.filter((r) => r.id !== rowId) };
+  const { fills: _old, ...rest } = content;
+  void _old;
+  const fills = pruneFills(content.fills, (r) => r !== rowId);
+  return { ...rest, rows: content.rows.filter((r) => r.id !== rowId), ...(fills ? { fills } : {}) };
+}
+
+/** Sets (or, with null, clears) one cell's highlight. */
+export function setFill(content: TableContent, rowId: string, columnId: string, color: string | null): TableContent {
+  if (!content.rows.some((r) => r.id === rowId) || !content.columns.some((c) => c.id === columnId)) return content;
+  const key = fillKey(rowId, columnId);
+  const fills = { ...(content.fills ?? {}) };
+  if (color && FILL_COLORS.some((c) => c.value === color)) fills[key] = color;
+  else delete fills[key];
+  const { fills: _old, ...rest } = content;
+  void _old;
+  return Object.keys(fills).length > 0 ? { ...rest, fills } : rest;
 }
 
 export function addColumn(content: TableContent, name?: string, type: ColumnType = "text"): TableContent {
@@ -220,6 +260,7 @@ export function addColumn(content: TableContent, name?: string, type: ColumnType
 
 export function removeColumn(content: TableContent, columnId: string): TableContent {
   if (content.columns.length <= 1) return content;
+  const fills = pruneFills(content.fills, (_r, c) => c !== columnId);
   return {
     columns: content.columns.filter((c) => c.id !== columnId),
     rows: content.rows.map((r) => {
@@ -227,6 +268,7 @@ export function removeColumn(content: TableContent, columnId: string): TableCont
       delete cells[columnId];
       return { ...r, cells };
     }),
+    ...(fills ? { fills } : {}),
   };
 }
 
@@ -246,6 +288,7 @@ export function setColumnType(content: TableContent, columnId: string, type: Col
   const column = columns.find((c) => c.id === columnId);
   if (!column) return content;
   return {
+    ...(content.fills ? { fills: content.fills } : {}),
     columns,
     rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells, [columnId]: coerceCell(Object.hasOwn(r.cells, columnId) ? r.cells[columnId] : null, column.type, column.options) } })),
   };
@@ -266,7 +309,7 @@ export function applyPaste(content: TableContent, startRow: number, startCol: nu
   if (!Number.isFinite(startRow) || !Number.isFinite(startCol) || startRow < 0 || startCol < 0) return content;
   startRow = Math.trunc(startRow);
   startCol = Math.trunc(startCol);
-  let next: TableContent = { columns: [...content.columns], rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells } })) };
+  let next: TableContent = { columns: [...content.columns], rows: content.rows.map((r) => ({ ...r, cells: { ...r.cells } })), ...(content.fills ? { fills: content.fills } : {}) };
   let width = 0;
   for (const line of grid) if (line.length > width) width = line.length;
   const neededCols = Math.min(MAX_COLUMNS, startCol + width);
@@ -346,6 +389,16 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
     rows.push({ id: uniqueId(r.id, seenRows), cells });
   }
   const result: TableContent = { columns, rows };
+  if (isPlainObject(raw.fills)) {
+    const rowIds = new Set(rows.map((r) => r.id));
+    const columnIds = new Set(columns.map((c) => c.id));
+    const fills: Record<string, string> = {};
+    for (const [key, color] of Object.entries(raw.fills)) {
+      const [rowId, columnId] = key.split("|");
+      if (typeof color === "string" && FILL_COLORS.some((c) => c.value === color) && rowIds.has(rowId) && columnIds.has(columnId)) fills[key] = color;
+    }
+    if (Object.keys(fills).length > 0) result.fills = fills;
+  }
   if (JSON.stringify(result).length > MAX_CONTENT_JSON) return null;
   return result;
 }

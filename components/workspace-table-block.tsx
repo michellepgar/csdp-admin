@@ -1,12 +1,13 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ReactNode } from "react";
-import { Calendar, Hash, ListChecks, Plus, SquareCheck, Trash2, Type } from "lucide-react";
+import { ArrowDown, ArrowUp, Calendar, Hash, Highlighter, ListChecks, Plus, SquareCheck, Trash2, Type, X } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
 import { KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
-import { MAX_COLUMNS, MAX_ROWS, addColumn, addRow, applyPaste, coerceCell, parsePastedGrid, removeColumn, removeRow, renameColumn, setCell, setColumnType } from "@/lib/workspace";
+import { FILL_COLORS, MAX_COLUMNS, MAX_ROWS, addColumn, addRow, applyPaste, coerceCell, parsePastedGrid, removeColumn, removeRow, renameColumn, setCell, setColumnType, setFill } from "@/lib/workspace";
+import { evaluateTable, isFormula } from "@/lib/workspace-formula";
 import type { CellValue, ColumnType, TableColumn, TableContent, TableRow } from "@/lib/workspace";
 
 const COLUMN_WIDTH = 140;
@@ -42,12 +43,16 @@ type TableApi = {
    on blur or Enter (setCell coerces, so a half-typed "1." must not be nulled
    mid-keystroke). Escape throws the draft away. An unparseable number is
    never committed: it stays flagged while typing and reverts on blur. */
-function TextCell({ value, numeric, rowIndex, colIndex, api, onCommit }: { value: CellValue; numeric: boolean; rowIndex: number; colIndex: number; api: TableApi; onCommit: (value: string) => void }) {
+function TextCell({ value, computed, numeric, rowIndex, colIndex, api, onCommit }: { value: CellValue; computed?: string; numeric: boolean; rowIndex: number; colIndex: number; api: TableApi; onCommit: (value: string) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
   const draftRef = useRef<string | null>(null);
   const shown = value === null || value === undefined ? "" : String(value);
   const isInvalid = (text: string | null) => numeric && text !== null && text.trim() !== "" && coerceCell(text, "number") === null;
   const invalid = isInvalid(draft);
+  // A formula shows its result until you click in to edit it.
+  const showResult = computed !== undefined && !focused && draft === null;
+  const isError = showResult && computed.startsWith("#");
 
   function update(next: string | null) {
     draftRef.current = next;
@@ -89,11 +94,22 @@ function TextCell({ value, numeric, rowIndex, colIndex, api, onCommit }: { value
       type="text"
       data-cell={`${rowIndex}:${colIndex}`}
       inputMode={numeric ? "decimal" : undefined}
-      value={draft ?? shown}
+      value={showResult ? computed : (draft ?? shown)}
       title={invalid ? "Enter a number" : draft === null && shown ? shown : undefined}
       aria-invalid={invalid || undefined}
       onChange={(e) => update(e.target.value)}
-      onBlur={commit}
+      onFocus={(e) => {
+        setFocused(true);
+        // The box swaps a formula's result for its text on focus; select that text afterwards so typing replaces it.
+        if (computed !== undefined) {
+          const el = e.currentTarget;
+          setTimeout(() => el.select(), 0);
+        }
+      }}
+      onBlur={() => {
+        setFocused(false);
+        commit();
+      }}
       onPaste={(e) => {
         if (api.paste(e, rowIndex, colIndex)) update(null);
       }}
@@ -110,14 +126,17 @@ function TextCell({ value, numeric, rowIndex, colIndex, api, onCommit }: { value
           update(null);
         }
       }}
-      className={`${CELL_INPUT} truncate ${numeric ? "text-right tabular-nums" : ""} ${invalid ? "bg-destructive/10 ring-1 ring-inset ring-destructive" : ""}`}
+      className={`${CELL_INPUT} truncate ${numeric || (showResult && !isError) ? "text-right tabular-nums" : ""} ${isError ? "text-destructive" : ""} ${invalid ? "bg-destructive/10 ring-1 ring-inset ring-destructive" : ""}`}
     />
   );
 }
 
 /* One body row. Memoized: it only re-renders when its own row object, its
    index or the columns change. */
-const TableRowView = memo(function TableRowView({ row, rowIndex, columns, api }: { row: TableRow; rowIndex: number; columns: TableColumn[]; api: TableApi }) {
+const TableRowView = memo(function TableRowView({ row, rowIndex, columns, api, computedJson, fillsJson }: { row: TableRow; rowIndex: number; columns: TableColumn[]; api: TableApi; computedJson: string; fillsJson: string }) {
+  // Passed as JSON text so the memo comparison is by value.
+  const computed: Record<string, string> = computedJson ? JSON.parse(computedJson) : {};
+  const fills: Record<string, string> = fillsJson ? JSON.parse(fillsJson) : {};
   return (
     <tr className="group/row">
       <th scope="row" className="sticky left-0 z-[5] border-b border-r border-ring/20 bg-muted p-0 text-xs font-normal text-muted-foreground group-hover/row:bg-ring/15">
@@ -178,10 +197,10 @@ const TableRowView = memo(function TableRowView({ row, rowIndex, columns, api }:
             </div>
           );
         } else {
-          body = <TextCell value={raw} numeric={column.type === "number"} rowIndex={rowIndex} colIndex={colIndex} api={api} onCommit={(v) => api.commit(row.id, column.id, v)} />;
+          body = <TextCell value={raw} computed={computed[column.id]} numeric={column.type === "number"} rowIndex={rowIndex} colIndex={colIndex} api={api} onCommit={(v) => api.commit(row.id, column.id, v)} />;
         }
         return (
-          <td key={column.id} className="overflow-hidden border-b border-r border-ring/15 p-0 transition-colors group-hover/row:bg-ring/5">
+          <td key={column.id} data-row={row.id} data-col={column.id} style={fills[column.id] ? { backgroundColor: fills[column.id], color: "#1a1a1a" } : undefined} className="overflow-hidden border-b border-r border-ring/15 p-0 transition-colors group-hover/row:bg-ring/5">
             {body}
           </td>
         );
@@ -285,6 +304,11 @@ type Props = {
    every row, so a paste re-renders all rows once.) */
 function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [sort, setSort] = useState<{ columnId: string; dir: "asc" | "desc" } | null>(null);
+  const [filter, setFilter] = useState("");
+  const [activeCell, setActiveCell] = useState<{ rowId: string; colId: string } | null>(null);
+  // Original row positions in the order they are shown; null while nothing is sorted or filtered.
+  const viewRef = useRef<number[] | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const renameCancelled = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -323,6 +347,14 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         if (value !== null && row && column && coerceCell(value, column.type, column.options) !== cellOf(row, column.id)) {
           next = setCell(current, row.id, column.id, value);
         }
+        const view = viewRef.current;
+        if (view) {
+          // Sorted or filtered: Enter moves to the next row you can see.
+          if (next !== current) emit(next);
+          const at = view.indexOf(rowIndex);
+          if (at >= 0 && at + 1 < view.length) focusCell(view[at + 1], colIndex);
+          return;
+        }
         if (rowIndex + 1 < next.rows.length) {
           if (next !== current) emit(next);
           focusCell(rowIndex + 1, colIndex);
@@ -341,6 +373,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         if (!/[\t\n\r]/.test(text)) return false;
         const grid = parsePastedGrid(text);
         e.preventDefault();
+        if (viewRef.current) return true; // a sorted or filtered view would paste into the wrong rows
         if (grid.length > 0) emit(applyPaste(contentRef.current, rowIndex, colIndex, grid));
         return true;
       },
@@ -392,6 +425,57 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   });
 
   const { columns, rows } = content;
+
+  // Worked-out formula results, keyed by row then column.
+  const computedByRow = useMemo(() => {
+    const result: Record<string, Record<string, string>> = {};
+    if (!rows.some((r) => Object.values(r.cells).some((v) => isFormula(v)))) return result;
+    for (const [key, text] of Object.entries(evaluateTable(content))) {
+      const [rowId, columnId] = key.split("|");
+      (result[rowId] ??= {})[columnId] = text;
+    }
+    return result;
+  }, [content, rows]);
+
+  const fillsByRow = useMemo(() => {
+    const result: Record<string, Record<string, string>> = {};
+    for (const [key, color] of Object.entries(content.fills ?? {})) {
+      const [rowId, columnId] = key.split("|");
+      (result[rowId] ??= {})[columnId] = color;
+    }
+    return result;
+  }, [content.fills]);
+
+  // Which rows to show, and in what order. This is only a view: the saved table keeps its own order.
+  const view = useMemo(() => {
+    const textOf = (row: TableRow, columnId: string): string => {
+      const shownText = computedByRow[row.id]?.[columnId];
+      if (shownText !== undefined) return shownText;
+      const raw = cellOf(row, columnId);
+      return raw === null || raw === undefined ? "" : String(raw);
+    };
+    const needle = filter.trim().toLowerCase();
+    let indexes = rows.map((_, i) => i);
+    if (needle) indexes = indexes.filter((i) => columns.some((c) => textOf(rows[i], c.id).toLowerCase().includes(needle)));
+    if (sort) {
+      const dir = sort.dir === "asc" ? 1 : -1;
+      const numeric = (text: string) => text.trim() !== "" && Number.isFinite(Number(text));
+      indexes = [...indexes].sort((a, b) => {
+        const x = textOf(rows[a], sort.columnId);
+        const y = textOf(rows[b], sort.columnId);
+        if (x === "" && y === "") return a - b;
+        if (x === "") return 1; // blanks always last
+        if (y === "") return -1;
+        const order = numeric(x) && numeric(y) ? Number(x) - Number(y) : x.localeCompare(y, undefined, { numeric: true, sensitivity: "base" });
+        return order === 0 ? a - b : order * dir;
+      });
+    }
+    return indexes;
+  }, [rows, columns, computedByRow, filter, sort]);
+  const viewActive = filter.trim() !== "" || sort !== null;
+  useLayoutEffect(() => {
+    viewRef.current = viewActive ? view : null;
+  });
   const atMaxRows = rows.length >= MAX_ROWS;
   const atMaxColumns = columns.length >= MAX_COLUMNS;
   const nearRowLimit = rows.length > MAX_ROWS * 0.9;
@@ -419,6 +503,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     const onlyColumn = columns.length <= 1;
     return [
       { label: "Rename", onClick: () => startRename(column) },
+      { label: "Sort A → Z", onClick: () => setSort({ columnId: column.id, dir: "asc" }) },
+      { label: "Sort Z → A", onClick: () => setSort({ columnId: column.id, dir: "desc" }) },
+      ...(sort?.columnId === column.id ? [{ label: "Clear sort", onClick: () => setSort(null) }] : []),
       {
         label: "Change type",
         panel: (close) => <TypePanel column={column} onApply={(type, options) => columnActions.changeType(column.id, type, options)} close={close} />,
@@ -434,7 +521,14 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
 
   return (
     <div className={`flex min-h-0 flex-col ${mobile ? "max-h-[65vh]" : "h-full"}`}>
-      <div ref={wrapRef} className="min-h-0 flex-1 overflow-auto">
+      <div
+        ref={wrapRef}
+        className="min-h-0 flex-1 overflow-auto"
+        onFocus={(e) => {
+          const cell = (e.target as HTMLElement).closest("td[data-col]");
+          if (cell) setActiveCell({ rowId: cell.getAttribute("data-row") ?? "", colId: cell.getAttribute("data-col") ?? "" });
+        }}
+      >
         <table className="border-separate border-spacing-0 text-sm" style={{ width: tableWidth, tableLayout: "fixed" }}>
           <colgroup>
             <col style={{ width: GUTTER_WIDTH }} />
@@ -482,6 +576,11 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                         <span className="min-w-0 flex-1 cursor-text truncate" title={`${column.name} (double-click to rename)`} onDoubleClick={() => startRename(column)}>
                           {column.name}
                         </span>
+                        {sort?.columnId === column.id && (
+                          <span className="shrink-0 text-ring" title={sort.dir === "asc" ? "Sorted A to Z" : "Sorted Z to A"}>
+                            {sort.dir === "asc" ? <ArrowUp className="h-3.5 w-3.5" aria-hidden /> : <ArrowDown className="h-3.5 w-3.5" aria-hidden />}
+                          </span>
+                        )}
                       </>
                     )}
                     <KebabMenu items={menuItems(column)} ariaLabel={`Options for column ${column.name}`} />
@@ -506,19 +605,24 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
-              <TableRowView key={row.id} row={row} rowIndex={rowIndex} columns={columns} api={api} />
-            ))}
+            {view.map((rowIndex) => {
+              const row = rows[rowIndex];
+              const computed = computedByRow[row.id];
+              const fills = fillsByRow[row.id];
+              return <TableRowView key={row.id} row={row} rowIndex={rowIndex} columns={columns} api={api} computedJson={computed ? JSON.stringify(computed) : ""} fillsJson={fills ? JSON.stringify(fills) : ""} />;
+            })}
           </tbody>
         </table>
         {rows.length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No rows yet. Use “Row” below.</p>}
+        {rows.length > 0 && view.length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No rows match “{filter}”.</p>}
       </div>
-      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-ring/20 bg-muted/50 px-2 py-1">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-ring/20 bg-muted/50 px-2 py-1">
         <button
           type="button"
           disabled={atMaxRows}
           title={atMaxRows ? `A table can have at most ${MAX_ROWS.toLocaleString("en-US")} rows.` : "Add a row"}
           onClick={() => {
+            setFilter(""); // a new blank row would not match the filter
             contentRef.current = addRow(contentRef.current);
             onChangeRef.current(contentRef.current);
           }}
@@ -526,8 +630,51 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         >
           <Plus className="h-3.5 w-3.5" /> Row
         </button>
+        <div className="flex items-center gap-1" role="group" aria-label="Highlight the selected cell">
+          <Highlighter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          {FILL_COLORS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              disabled={!activeCell}
+              title={activeCell ? `Highlight ${c.name.toLowerCase()}` : "Click a cell first"}
+              aria-label={`Highlight ${c.name.toLowerCase()}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                if (!activeCell) return;
+                contentRef.current = setFill(contentRef.current, activeCell.rowId, activeCell.colId, c.value);
+                onChangeRef.current(contentRef.current);
+              }}
+              className="h-4 w-4 rounded-full border border-border transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+              style={{ backgroundColor: c.value }}
+            />
+          ))}
+          <button
+            type="button"
+            disabled={!activeCell}
+            title={activeCell ? "Remove highlight" : "Click a cell first"}
+            aria-label="Remove highlight"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              if (!activeCell) return;
+              contentRef.current = setFill(contentRef.current, activeCell.rowId, activeCell.colId, null);
+              onChangeRef.current(contentRef.current);
+            }}
+            className="flex h-4 w-4 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        <input
+          type="search"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter rows…"
+          aria-label="Filter rows"
+          className="h-6 w-32 min-w-0 rounded-md border border-border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        />
         <span className={`text-xs tabular-nums ${nearRowLimit ? "font-medium text-status-warning-foreground" : "text-muted-foreground"}`}>
-          Rows: {rows.length.toLocaleString("en-US")} of {MAX_ROWS.toLocaleString("en-US")}
+          {viewActive && view.length !== rows.length ? `${view.length.toLocaleString("en-US")} shown · ` : ""}Rows: {rows.length.toLocaleString("en-US")} of {MAX_ROWS.toLocaleString("en-US")}
         </span>
       </div>
     </div>

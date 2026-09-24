@@ -120,3 +120,14 @@ test("readSheetOps keeps only valid align, color and sides", () => {
   assert.ok(ops);
   assert.deepEqual((ops[0] as { patch: object }).patch, { borderOn: "tb" });
 });
+
+test("header row flag: on, off, repeatable, survives column removal and validation", async () => {
+  const { validateBlockContent } = await import("../lib/workspace.ts");
+  const on = applySheetOps(base(), [{ t: "header", on: true }, { t: "header", on: true }]);
+  assert.equal(on.header, true);
+  assert.equal(applySheetOps(on, [{ t: "removeCol", id: "b" }]).header, true);
+  assert.equal((validateBlockContent("table", on, (h) => h) as TableContent).header, true);
+  assert.equal("header" in applySheetOps(on, [{ t: "header", on: false }]), false);
+  assert.deepEqual(readSheetOps([{ t: "header", on: true }]), [{ t: "header", on: true }]);
+  assert.equal(readSheetOps([{ t: "header", on: "yes" }]), null);
+});

@@ -20,7 +20,8 @@ export type SheetOp =
   | { t: "addCol"; id: string; name?: string }
   | { t: "removeCol"; id: string }
   | { t: "renameCol"; id: string; name: string }
-  | { t: "colType"; id: string; type: ColumnType; options?: string[] };
+  | { t: "colType"; id: string; type: ColumnType; options?: string[] }
+  | { t: "header"; on: boolean };
 
 const MAX_OPS = 2000;
 const MAX_CELLS_PER_OP = 30_000;
@@ -116,6 +117,10 @@ export function readSheetOps(raw: unknown): SheetOp[] | null {
         ops.push({ t: "colType", id: op.id, type: op.type as ColumnType, ...(options ? { options } : {}) });
         break;
       }
+      case "header":
+        if (typeof op.on !== "boolean") return null;
+        ops.push({ t: "header", on: op.on });
+        break;
       default:
         return null;
     }
@@ -173,6 +178,13 @@ export function applySheetOp(content: TableContent, op: SheetOp): TableContent {
       return removeColumn(content, op.id);
     case "renameCol":
       return renameColumn(content, op.id, op.name);
+    case "header": {
+      if (op.on) return content.header ? content : { ...content, header: true };
+      if (!content.header) return content;
+      const { header: _h, ...rest } = content;
+      void _h;
+      return rest;
+    }
     case "colType":
       return content.columns.some((c) => c.id === op.id) ? setColumnType(content, op.id, op.type, op.options) : content;
   }

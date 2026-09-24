@@ -403,11 +403,13 @@ type RowProps = {
   activeCol: number;
   editCol: number;
   editInitial: string | null;
+  /** Row 1 marked as a header: bold, and pinned under the column names while scrolling. */
+  isHeader: boolean;
 };
 
 /* One body row. Memoized: it only re-renders when its own row, position,
    formulas, highlights or selection change. */
-const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial }: RowProps) {
+const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial, isHeader }: RowProps) {
   const computed: Record<string, string> = computedJson ? JSON.parse(computedJson) : {};
   const fills: Record<string, string> = fillsJson ? JSON.parse(fillsJson) : {};
   const formats: Record<string, CellFormat> = formatsJson ? JSON.parse(formatsJson) : {};
@@ -421,7 +423,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
         title="Select this row"
         // Sticky cells need an opaque background, so the selection tint is layered over bg-muted.
         style={rowSelected ? { backgroundImage: SELECTED_TINT } : undefined}
-        className={`sticky left-0 z-[5] cursor-pointer select-none border-b border-r border-ring/20 bg-muted p-0 text-xs font-normal ${rowSelected ? "text-foreground" : "text-muted-foreground"}`}
+        className={`sticky left-0 ${isHeader ? "top-9 z-[8]" : "z-[5]"} cursor-pointer select-none border-b border-r border-ring/20 bg-muted p-0 text-xs font-normal ${rowSelected ? "text-foreground" : "text-muted-foreground"}`}
       >
         <div className="relative flex h-8 items-center justify-between pl-2 pr-1">
           <span className="tabular-nums">{rowNumber}</span>
@@ -504,7 +506,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
             onMouseEnter={() => api.cellMouseEnter({ r: pos, c })}
             onDoubleClick={editing ? undefined : () => api.startEdit({ r: pos, c }, null)}
             style={style}
-            className={`overflow-hidden border-b border-r border-ring/15 p-0 ${editing ? "" : "cursor-cell select-none"}`}
+            className={`overflow-hidden border-b border-r border-ring/15 p-0 ${editing ? "" : "cursor-cell select-none"} ${isHeader ? "sticky top-9 z-[6] border-b-ring/40 bg-muted font-semibold" : ""}`}
           >
             {body}
           </td>
@@ -857,9 +859,11 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
     },
     [computedByRow],
   );
+  const hasHeader = !!content.header && rows.length > 0;
   const view = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    let indexes = rows.map((_, i) => i);
+    // A header row (row 1) is always shown first and left out of filtering and sorting.
+    let indexes = rows.map((_, i) => i).slice(hasHeader ? 1 : 0);
     if (needle) indexes = indexes.filter((i) => columns.some((c) => textOf(rows[i], c.id).toLowerCase().includes(needle)));
     const active = Object.entries(columnFilters)
       .filter(([columnId]) => columns.some((c) => c.id === columnId))
@@ -878,8 +882,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
         return order === 0 ? a - b : order * dir;
       });
     }
-    return indexes;
-  }, [rows, columns, textOf, filter, sort, columnFilters]);
+    return hasHeader ? [0, ...indexes] : indexes;
+  }, [rows, columns, textOf, filter, sort, columnFilters, hasHeader]);
   const filteredColumns = columns.filter((c) => columnFilters[c.id]).length;
   const viewActive = filter.trim() !== "" || sort !== null || filteredColumns > 0;
 
@@ -1127,17 +1131,40 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
   /* Every distinct value in a column (as shown), for its filter list. */
   function columnValues(columnId: string): string[] {
     const seen = new Set<string>();
-    for (const row of rows) seen.add(textOf(row, columnId));
+    for (const row of hasHeader ? rows.slice(1) : rows) seen.add(textOf(row, columnId));
     return [...seen].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })));
+  }
+
+  /* Row 1's values become the column names (blank ones keep their name) and the row goes. */
+  function firstRowToNames() {
+    const first = rows[0];
+    if (!first) return;
+    const ops: SheetOp[] = [];
+    for (const column of columns) {
+      const name = textOf(first, column.id).trim();
+      if (name && name !== column.name) ops.push({ t: "renameCol", id: column.id, name });
+    }
+    ops.push({ t: "removeRow", id: first.id });
+    if (content.header) ops.push({ t: "header", on: false });
+    runOps(ops);
   }
 
   function sortFilterItems(column: TableColumn): KebabMenuItem[] {
     const sorted = sort?.columnId === column.id;
     const filtered = !!columnFilters[column.id];
+    // Choosing the sort that's already on turns it off.
+    const sortItem = (dir: "asc" | "desc", label: string): KebabMenuItem => {
+      const on = sorted && sort?.dir === dir;
+      return { label: `${on ? "✓ " : ""}${label}`, onClick: () => setSort(on ? null : { columnId: column.id, dir }) };
+    };
     return [
-      { label: "Sort A → Z", onClick: () => setSort({ columnId: column.id, dir: "asc" }) },
-      { label: "Sort Z → A", onClick: () => setSort({ columnId: column.id, dir: "desc" }) },
-      ...(sorted ? [{ label: "Clear sort", onClick: () => setSort(null) }] : []),
+      sortItem("asc", "Sort A → Z"),
+      sortItem("desc", "Sort Z → A"),
+      {
+        label: hasHeader ? "✓ Row 1 is a header" : "Row 1 is a header (keep it on top)",
+        onClick: () => runOps([{ t: "header", on: !hasHeader }]),
+      },
+      ...(rows.length > 0 ? [{ label: "Use row 1 as column names", onClick: firstRowToNames }] : []),
       {
         label: filtered ? "Change filter…" : "Filter by values…",
         panel: (close) => (
@@ -1438,6 +1465,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false }: Props) {
                   activeCol={sel && sel.anchor.r === pos ? sel.anchor.c : -1}
                   editCol={editCol}
                   editInitial={editCol >= 0 ? editing!.initial : null}
+                  isHeader={hasHeader && rowIndex === 0}
                 />
               );
             })}

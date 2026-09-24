@@ -32,7 +32,8 @@ export const TEXT_COLORS: { name: string; value: string }[] = [
 ];
 
 /** fills: cell highlight colors and formats: text styling, both keyed `${rowId}|${columnId}`. */
-export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat> };
+/** header: the first row is a header row -- kept at the top and left out of sorting and filtering. */
+export type TableContent = { columns: TableColumn[]; rows: TableRow[]; fills?: Record<string, string>; formats?: Record<string, CellFormat>; header?: true };
 
 /* A highlight is any #RRGGBB color: the swatches below, or a color pasted from a spreadsheet. */
 const HEX_COLOR = /^#[0-9A-F]{6}$/;
@@ -447,6 +448,7 @@ export function removeColumn(content: TableContent, columnId: string): TableCont
   const keep = (_r: string, c: string) => c !== columnId;
   return withCellMaps(
     {
+      ...content,
       columns: content.columns.filter((c) => c.id !== columnId),
       rows: content.rows.map((r) => {
         const cells = { ...r.cells };
@@ -598,6 +600,7 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
     rows.push({ id: uniqueId(r.id, seenRows), cells });
   }
   const result: TableContent = { columns, rows };
+  if (raw.header === true) result.header = true;
   if (isPlainObject(raw.fills)) {
     const rowIds = new Set(rows.map((r) => r.id));
     const columnIds = new Set(columns.map((c) => c.id));

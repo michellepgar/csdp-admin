@@ -313,6 +313,12 @@ export function todayActivityByVa(
 
   for (const item of planItems) {
     if (item.kind === "task" || !item.vaName) continue;
+    if (item.kind === "meeting") {
+      // Running now, or ended during this shift.
+      if (item.completedAt && !isRecentFor(item.completedAt, item.vaName)) continue;
+      push(item.vaName, { schoolName: "Meeting", category: "Meeting", fileName: item.label, status: item.completedAt ? "Done" : "In a meeting", itemKey: `p:${item.id}` });
+      continue;
+    }
     if (item.completedAt) {
       if (!isRecentFor(item.completedAt, item.vaName)) continue;
       // A checked reminder is DONE: it shows here only as reviewed (a check

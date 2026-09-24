@@ -91,7 +91,7 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
 
   const byVa = new Map<string, PlanItem[]>();
   for (const item of planItems) {
-    if (!item.vaName || item.kind === "note" || item.completedAt) continue;
+    if (!item.vaName || item.kind === "note" || item.kind === "meeting" || item.completedAt) continue;
     if (!byVa.has(item.vaName)) byVa.set(item.vaName, []);
     byVa.get(item.vaName)!.push(item);
   }

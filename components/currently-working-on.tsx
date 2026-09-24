@@ -10,6 +10,7 @@ import { Send } from "lucide-react";
 import { SegmentedToggle } from "@/components/segmented-toggle";
 import { WorkNoteButton } from "@/components/work-note-button";
 import { CompleteTaskButton } from "@/components/complete-task-button";
+import { EndMeetingButton } from "@/components/end-meeting-button";
 import { makeNoteLookup, parseNoteKey } from "@/lib/work-notes";
 import type { TodayActivityItem } from "@/lib/shared-task-files";
 import type { TaskCategory } from "@/lib/app-state";
@@ -27,8 +28,10 @@ const TODAY_STATUS_TONE: Record<string, StatusTone> = {
   "Waiting on Them": "paused",
   // A reminder that was checked off in Your Plan.
   Reviewed: "success",
-  // An Email Tracker item marked Done.
+  // An Email Tracker item marked Done, or a meeting that has ended.
   Done: "success",
+  // A meeting going on right now.
+  "In a meeting": "danger",
 };
 
 // What the status badge says -- a checked reminder shows a check mark.
@@ -46,6 +49,8 @@ function canComplete(t: TodayActivityItem): boolean {
   if (t.itemKey.startsWith("t:") || t.itemKey.startsWith("g:")) return true;
   return t.schoolName === "Reminder" && t.status === "In Progress" && t.itemKey.startsWith("p:");
 }
+
+const isRunningMeeting = (t: TodayActivityItem) => t.schoolName === "Meeting" && t.status === "In a meeting" && !!t.itemKey;
 
 // Where a task's link goes: its school page (or General Tasks) with the task
 // flagged, so the page scrolls to it and flashes it on arrival.
@@ -76,6 +81,8 @@ function eodPhraseFor(t: TodayActivityItem, taskCategories: TaskCategory[]): str
    builds the same line as plain text for "Send to EOD". */
 function eodLineText(t: TodayActivityItem, taskCategories: TaskCategory[], note?: string): string {
   const notePrefix = note ? `${note} - ` : "";
+  // A meeting's own label is already its EOD line ("Meeting with Dr. Lee - Weekly sync").
+  if (t.schoolName === "Meeting") return `${notePrefix}${t.fileName}`;
   const statusSuffix = t.status ? ` - ${statusText(t.status)}` : "";
   return `${notePrefix}${eodPhraseFor(t, taskCategories)} - ${t.fileName}${statusSuffix}`;
 }
@@ -85,6 +92,12 @@ function vaListRow(t: TodayActivityItem, key: number, taskCategories: TaskCatego
     <li key={key} className="flex flex-wrap items-center gap-1.5 text-sm">
       {t.schoolName === "Reminder" ? (
         <span className="font-bold">{t.fileName}</span>
+      ) : t.schoolName === "Meeting" ? (
+        <>
+          {note && <span className="italic text-amber-800 dark:text-amber-200">{note} -</span>}
+          <span className="font-bold">{t.fileName}</span>
+          {t.status === "In a meeting" && <span className="text-destructive">- in a meeting now</span>}
+        </>
       ) : (
         <>
           {note && <span className="italic text-amber-800 dark:text-amber-200">{note} -</span>}
@@ -129,12 +142,12 @@ function columnsFor(items: TodayActivityItem[], noteFor: (item: TodayActivityIte
     rows: rows.map((t, i) => ({
       key: `${category}-${i}`,
       label: t.fileName,
-      sublabel: t.schoolName === "Reminder" ? undefined : t.schoolName,
-      href: t.schoolName === "Reminder" ? undefined : itemHref(t),
+      sublabel: t.schoolName === "Reminder" || t.schoolName === "Meeting" ? undefined : t.schoolName,
+      href: t.schoolName === "Reminder" || t.schoolName === "Meeting" ? undefined : itemHref(t),
       status: t.status ? statusText(t.status) : undefined,
       statusTone: TODAY_STATUS_TONE[t.status] ?? "neutral",
       note: noteFor(t),
-      action: isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined,
+      action: isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}{isRunningMeeting(t) && <EndMeetingButton itemKey={t.itemKey} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined,
     })),
   }));
 }
@@ -212,7 +225,7 @@ export function CurrentlyWorkingOn({ todayByVa, vas, workNotes, currentUserName,
                   <div className="min-w-0 flex-1 p-3">
                     <SendToEodLink show={isMine} draftText={eodDraftText} />
                     <ul className="space-y-1.5">
-                      {items.map((t, i) => vaListRow(t, i, taskCategories, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
+                      {items.map((t, i) => vaListRow(t, i, taskCategories, noteFor(t), isMine && t.itemKey ? <>{canComplete(t) && <CompleteTaskButton itemKey={t.itemKey} label={t.fileName} />}{isRunningMeeting(t) && <EndMeetingButton itemKey={t.itemKey} />}<WorkNoteButton itemKey={t.itemKey} note={noteFor(t)} label={t.fileName} /></> : undefined))}
                     </ul>
                   </div>
                 ) : (

@@ -328,3 +328,11 @@ test("normalizeBackground only accepts listed colors and styles", () => {
   assert.equal(isDarkColor("#111827"), true);
   assert.equal(isDarkColor("#F3F4F6"), false);
 });
+
+test("meetingLabel builds the EOD line from who and what", async () => {
+  const { meetingLabel } = await import("../lib/meeting.ts");
+  assert.equal(meetingLabel("Dr. Lee", "Weekly sync"), "Meeting with Dr. Lee - Weekly sync");
+  assert.equal(meetingLabel("  Dr. Lee ", ""), "Meeting with Dr. Lee");
+  assert.equal(meetingLabel("", "Weekly sync"), "Meeting - Weekly sync");
+  assert.equal(meetingLabel("", ""), "Meeting");
+});

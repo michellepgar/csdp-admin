@@ -8,6 +8,7 @@ import { diffPlanSelection } from "@/lib/shared-task-files";
 import { MAX_WORK_NOTE, parseNoteKey } from "@/lib/work-notes";
 import { comparePriorities, movePriorityId } from "@/lib/plan-order";
 import { shiftAvailability } from "@/lib/shift";
+import { meetingLabel } from "@/lib/meeting";
 
 type PlanActionResult = { error: string | null };
 /* savePlan's own result -- `changed` is the number of plan_items rows
@@ -119,7 +120,11 @@ export async function savePlan(formData: FormData): Promise<SavePlanResult> {
         demoError = "You haven't started your day yet. Click Start my day first.";
         return;
       }
-      if (endShift) state.shiftStates = [...(state.shiftStates || []).filter((s) => s.vaName !== "Jane"), { vaName: "Jane", status: "ended", changedAt: new Date().toISOString() }];
+      if (endShift) {
+        state.shiftStates = [...(state.shiftStates || []).filter((s) => s.vaName !== "Jane"), { vaName: "Jane", status: "ended", changedAt: new Date().toISOString() }];
+        // A meeting left running ends with the day.
+        for (const p of state.planItems || []) if (p.kind === "meeting" && p.vaName === "Jane" && !p.completedAt) p.completedAt = new Date().toISOString();
+      }
       for (const [index, item] of newItems.entries()) {
         const name = item.name.trim();
         const categoryName = item.categoryName.trim();
@@ -377,6 +382,9 @@ export async function savePlan(formData: FormData): Promise<SavePlanResult> {
     if (endShift) {
       const { error } = await supabase.from("shift_state").upsert({ va_name: me.name, status: "ended", changed_at: new Date().toISOString() }, { onConflict: "va_name" });
       orThrow(error);
+      // A meeting left running ends with the day.
+      const { error: meetingError } = await supabase.from("plan_items").update({ completed_at: new Date().toISOString() }).eq("va_name", me.name).eq("kind", "meeting").is("completed_at", null);
+      orThrow(meetingError);
     }
     revalidatePath("/overview");
     for (const schoolId of touchedSchoolIds) revalidatePath(`/schools/${schoolId}`);
@@ -1361,5 +1369,62 @@ export async function startWorkNow(formData: FormData): Promise<PlanActionResult
 
     revalidatePath("/overview");
     revalidatePath(`/schools/${schoolId}`);
+  });
+}
+
+/* Meetings, from Your Plan: "Start meeting" logs one as running now (it
+   shows on Currently Working On until ended); "Already had one" logs a
+   finished one. Either way it becomes an EOD line -- see lib/meeting.ts.
+   Refreshes the whole app, since Your Plan sits on every page. */
+export async function startMeeting(formData: FormData): Promise<PlanActionResult> {
+  const label = meetingLabel(String(formData.get("with") ?? ""), String(formData.get("topic") ?? ""));
+  const alreadyDone = formData.get("done") === "1";
+  const now = new Date().toISOString();
+
+  if (await isDemoMode()) {
+    let demoError: string | null = null;
+    await demoMutate((state) => {
+      if (!alreadyDone && (state.planItems || []).some((p) => p.kind === "meeting" && p.vaName === "Jane" && !p.completedAt)) {
+        demoError = "You're already in a meeting. End it first.";
+        return;
+      }
+      (state.planItems ??= []).push({ id: `demo-meeting-${Date.now()}`, kind: "meeting", vaName: "Jane", label, createdBy: "Jane", createdAt: now, startedAt: now, ...(alreadyDone ? { completedAt: now } : {}) });
+    });
+    revalidatePath("/", "layout");
+    return { error: demoError };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
+    if (!alreadyDone) {
+      const { data: running, error: runningError } = await supabase.from("plan_items").select("id").eq("va_name", me.name).eq("kind", "meeting").is("completed_at", null).limit(1);
+      orThrow(runningError);
+      if ((running || []).length > 0) throw new Error("You're already in a meeting. End it first.");
+    }
+    const { error } = await supabase.from("plan_items").insert({ kind: "meeting", va_name: me.name, label, created_by: me.name, started_at: now, ...(alreadyDone ? { completed_at: now } : {}) });
+    orThrow(error);
+    revalidatePath("/", "layout");
+  });
+}
+
+export async function endMeeting(formData: FormData): Promise<PlanActionResult> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: null };
+  const now = new Date().toISOString();
+
+  if (await isDemoMode()) {
+    await demoMutate((state) => {
+      const item = (state.planItems || []).find((p) => p.id === id && p.kind === "meeting" && p.vaName === "Jane");
+      if (item && !item.completedAt) item.completedAt = now;
+    });
+    revalidatePath("/", "layout");
+    return { error: null };
+  }
+
+  return runPlanAction(async () => {
+    const { supabase, me } = await requireTeamMember();
+    const { error } = await supabase.from("plan_items").update({ completed_at: now }).eq("id", id).eq("va_name", me.name).eq("kind", "meeting").is("completed_at", null);
+    orThrow(error);
+    revalidatePath("/", "layout");
   });
 }

@@ -229,7 +229,9 @@ export const EMAIL_STATUS_OPTIONS = ["Needs My Response", "Waiting on Them", "Do
    note kinds are always someone's own). */
 export interface PlanItem {
   id: string;
-  kind: "task" | "priority" | "note";
+  /** "meeting": a meeting logged from Your Plan -- startedAt when it began,
+   *  completedAt once ended; its label is the EOD line ("Meeting with Dr. Lee - Weekly sync"). */
+  kind: "task" | "priority" | "note" | "meeting";
   vaName?: string;
   schoolId?: string;
   taskFileCategoryId?: string;

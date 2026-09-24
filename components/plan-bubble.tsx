@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, ChevronDown, ClipboardList, ListChecks, Mail, Play } from "lucide-react";
+import { Bell, Check, ChevronDown, ClipboardList, ListChecks, Mail, Play, Square, Users } from "lucide-react";
+import { endMeeting, startMeeting } from "@/app/(app)/overview/actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { PlanPriorityStartForm } from "@/components/plan-priority-start-form";
@@ -37,7 +38,11 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
   const [expanded, setExpanded] = useState(false);
   const [startingPriority, setStartingPriority] = useState<PlanItem | null>(null);
   const dockRef = useRef<HTMLDivElement>(null);
-  const hasContent = myPlanItems.length > 0 || myOpenEmailItems.length > 0;
+  // Always shown now: the Meeting quick add is useful even with an empty plan.
+  const hasContent = true;
+  const [meetingFormOpen, setMeetingFormOpen] = useState(false);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
+  const [meetingBusy, setMeetingBusy] = useState(false);
 
   // Publishes how much bottom-right space this bubble/window takes (its
   // own height plus a 1rem gap) as --plan-dock, so the floating chat
@@ -78,7 +83,22 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
 
   if (!hasContent) return null;
 
-  const actionableItems = myPlanItems.filter((item) => item.kind !== "note");
+  const actionableItems = myPlanItems.filter((item) => item.kind !== "note" && item.kind !== "meeting");
+  const runningMeeting = myPlanItems.find((item) => item.kind === "meeting" && !item.completedAt);
+  const badgeCount = myPlanItems.filter((item) => item.kind !== "meeting").length + myOpenEmailItems.length;
+
+  async function submitMeeting(formData: FormData) {
+    setMeetingBusy(true);
+    setMeetingError(null);
+    try {
+      const result = await startMeeting(formData);
+      if (result.error) setMeetingError(result.error);
+      else setMeetingFormOpen(false);
+    } catch {
+      setMeetingError("Couldn't save the meeting. Please try again.");
+    }
+    setMeetingBusy(false);
+  }
   // A started reminder moves off this list -- it shows on Currently
   // Working On instead until it's completed there (see startReminder's
   // own comment in app/(app)/overview/actions.ts).
@@ -93,6 +113,38 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
             <ChevronDown className="h-4 w-4" />
           </button>
           <div className="max-h-80 space-y-3 overflow-y-auto p-2.5">
+            {/* Meeting: one click shows the team you're in a meeting (on
+                Currently Working On) and gives your EOD a line for it. */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1 text-xs font-semibold uppercase text-muted-foreground"><Users className="h-3.5 w-3.5" /> Meeting</div>
+              {runningMeeting ? (
+                <div className={`${ROW_BASE} items-start border-l-violet-500`}>
+                  <span className="min-w-0 flex-1 break-words">
+                    <span className="block text-xs font-semibold text-violet-700 dark:text-violet-300">In a meeting now</span>
+                    {runningMeeting.label}
+                  </span>
+                  <form action={async (formData) => { await endMeeting(formData); }} className="shrink-0">
+                    <input type="hidden" name="id" value={runningMeeting.id} />
+                    <SubmitButton variant="outline" size="xs" pendingLabel="…"><Square className="h-3 w-3" /> End meeting</SubmitButton>
+                  </form>
+                </div>
+              ) : meetingFormOpen ? (
+                <form action={submitMeeting} className="space-y-1.5 rounded-lg border border-l-4 border-l-violet-500 bg-background/60 p-2.5 text-sm shadow-sm">
+                  <input name="with" maxLength={80} placeholder="With who? (optional)" aria-label="Who the meeting is with" autoFocus className="h-8 w-full rounded-md border bg-background px-2 text-sm" />
+                  <input name="topic" maxLength={120} placeholder="What about? (optional)" aria-label="What the meeting is about" className="h-8 w-full rounded-md border bg-background px-2 text-sm" />
+                  {meetingError && <p role="alert" className="text-xs text-destructive">{meetingError}</p>}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button type="submit" size="xs" disabled={meetingBusy} className="bg-violet-600 text-white hover:bg-violet-700"><Play className="h-3 w-3" /> Start meeting</Button>
+                    <Button type="submit" size="xs" variant="outline" disabled={meetingBusy} name="done" value="1" title="Log a meeting that already happened">Already had one</Button>
+                    <Button type="button" size="xs" variant="ghost" onClick={() => { setMeetingFormOpen(false); setMeetingError(null); }}>Cancel</Button>
+                  </div>
+                </form>
+              ) : (
+                <Button type="button" size="xs" variant="outline" className="w-full justify-center border-violet-400/60 text-violet-700 hover:bg-violet-500/10 dark:text-violet-300" onClick={() => setMeetingFormOpen(true)}>
+                  <Users className="h-3 w-3" /> I&apos;m in a meeting
+                </Button>
+              )}
+            </div>
             {actionableItems.length > 0 && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1 text-xs font-semibold uppercase text-muted-foreground"><ListChecks className="h-3.5 w-3.5" /> To Do</div>
@@ -177,7 +229,12 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
           {/* White badge (not the usual status-danger red) -- that red
               is now too close to the new coral bubble color to read as
               its own separate element against it. */}
-          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-plan-accent shadow-sm">{myPlanItems.length + myOpenEmailItems.length}</span>
+          {badgeCount > 0 && <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-plan-accent shadow-sm">{badgeCount}</span>}
+          {runningMeeting && (
+            <span className="absolute -bottom-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white shadow-sm" title="You're in a meeting">
+              <Users className="h-3 w-3" />
+            </span>
+          )}
         </button>
       )}
       {startingPriority && (

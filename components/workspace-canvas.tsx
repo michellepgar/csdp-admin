@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import type { ReactNode } from "react";
-import { BellRing, ChevronDown, LayoutGrid, Plus, StickyNote, Table2 } from "lucide-react";
+import { BellRing, ChevronDown, LayoutGrid, Palette, Plus, StickyNote, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WorkspaceBlockFrame } from "@/components/workspace-block-frame";
 import { WorkspaceNoteBlock } from "@/components/workspace-note-block";
@@ -10,7 +10,8 @@ import { WorkspaceReminderBlock } from "@/components/workspace-reminder-block";
 import { WorkspaceSheetTabs } from "@/components/workspace-sheet-tabs";
 import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
 import { WorkspaceTableBlock } from "@/components/workspace-table-block";
-import { defaultContent, defaultRect, findFreePosition } from "@/lib/workspace";
+import { BG_COLORS, BG_STYLES, defaultContent, defaultRect, findFreePosition, isDarkColor } from "@/lib/workspace";
+import type { BgStyle } from "@/lib/workspace";
 import type { Block, BlockContent, BlockKind, NoteContent, Rect, ReminderContent, Sheet, TableContent, Workbook } from "@/lib/workspace";
 
 const MOBILE_QUERY = "(max-width: 639px)";
@@ -37,7 +38,15 @@ const KIND_META: Record<BlockKind, { label: string; icon: ReactNode; chip: strin
 };
 const KINDS: BlockKind[] = ["table", "note", "reminder"];
 
-const DOT_BACKGROUND = "radial-gradient(circle, color-mix(in oklab, var(--foreground) 22%, transparent) 1px, transparent 1.6px)";
+const STYLE_LABELS: Record<BgStyle, string> = { dots: "Dots", grid: "Grid", plain: "Plain" };
+
+/* The canvas pattern for a style, drawn in a line color that reads on the chosen background. */
+function patternFor(style: BgStyle, color: string): { backgroundImage?: string; backgroundSize?: string } {
+  const ink = color ? (isDarkColor(color) ? "rgb(255 255 255 / 0.16)" : "rgb(0 0 0 / 0.16)") : "color-mix(in oklab, var(--foreground) 22%, transparent)";
+  if (style === "plain") return {};
+  if (style === "grid") return { backgroundImage: `linear-gradient(${ink} 1px, transparent 1px), linear-gradient(90deg, ${ink} 1px, transparent 1px)`, backgroundSize: "24px 24px" };
+  return { backgroundImage: `radial-gradient(circle, ${ink} 1px, transparent 1.6px)`, backgroundSize: "24px 24px" };
+}
 
 type SaveState = {
   timer: ReturnType<typeof setTimeout> | null;
@@ -91,6 +100,7 @@ export function WorkspaceCanvas({
   blocks: propBlocks,
   initialSheetId,
   touchWorkbook,
+  setWorkbookBackground,
   createSheet,
   renameSheet,
   reorderSheets,
@@ -106,6 +116,7 @@ export function WorkspaceCanvas({
   /** The sheet named by ?sheet= (validated by the page), or the first sheet. */
   initialSheetId: string | null;
   touchWorkbook: WorkspaceAction;
+  setWorkbookBackground: WorkspaceAction;
   createSheet: WorkspaceAction;
   renameSheet: WorkspaceAction;
   reorderSheets: WorkspaceAction;
@@ -122,6 +133,9 @@ export function WorkspaceCanvas({
   const [errors, setErrors] = useState<Record<string, BlockErrors>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bgOpen, setBgOpen] = useState(false);
+  const [bgColor, setBgColor] = useState(workbook.bgColor ?? "");
+  const [bgStyle, setBgStyle] = useState<BgStyle>((workbook.bgStyle as BgStyle | undefined) ?? "dots");
   const [adding, startAdding] = useTransition();
   const [pendingSelectId, setPendingSelectId] = useState<string | null>(null);
 
@@ -246,6 +260,25 @@ export function WorkspaceCanvas({
     touchWorkbook(formData).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workbook.id]);
+
+  function changeBackground(color: string, style: BgStyle) {
+    const previous = { color: bgColor, style: bgStyle };
+    setBgColor(color);
+    setBgStyle(style);
+    const formData = new FormData();
+    formData.set("id", workbook.id);
+    formData.set("color", color);
+    formData.set("style", style);
+    setWorkbookBackground(formData)
+      .then((result) => {
+        if (result.error) throw new Error(result.error);
+      })
+      .catch(() => {
+        setBgColor(previous.color);
+        setBgStyle(previous.style);
+        setNotice("Couldn't save the background. Try again in a moment.");
+      });
+  }
 
   /* ---- rect saves ---- */
   function saveRect(id: string, rect: Rect & { z: number }) {
@@ -467,8 +500,56 @@ export function WorkspaceCanvas({
             deleteSheet={deleteSheet}
           />
         )}
+        <div className="relative mb-2 ml-auto flex items-center gap-2">
         <div
-          className="relative mb-2 ml-auto"
+          className="relative"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setBgOpen(false);
+          }}
+        >
+          <Button type="button" variant="outline" size="sm" onClick={() => setBgOpen((open) => !open)} aria-haspopup="dialog" aria-expanded={bgOpen} title="Change the background">
+            <Palette className="mr-1 h-4 w-4" />
+            Background
+          </Button>
+          {bgOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setBgOpen(false)} aria-hidden />
+              <div role="dialog" aria-label="Background" className="absolute right-0 top-full z-40 mt-1 w-64 space-y-3 rounded-lg border border-border bg-record-background p-3 shadow-xl">
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Color</p>
+                  <div className="flex flex-wrap gap-2">
+                    {BG_COLORS.map((c) => (
+                      <button
+                        key={c.name}
+                        type="button"
+                        title={c.name}
+                        aria-label={c.name}
+                        aria-pressed={bgColor === c.value}
+                        onClick={() => changeBackground(c.value, bgStyle)}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-[10px] text-muted-foreground transition-transform hover:scale-110 ${bgColor === c.value ? "border-primary" : "border-border"}`}
+                        style={c.value ? { backgroundColor: c.value } : undefined}
+                      >
+                        {c.value ? "" : "A"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Style</p>
+                  <div className="flex gap-1.5">
+                    {BG_STYLES.map((s) => (
+                      <Button key={s} type="button" size="sm" variant={bgStyle === s ? "default" : "outline"} aria-pressed={bgStyle === s} onClick={() => changeBackground(bgColor, s)}>
+                        {STYLE_LABELS[s]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <div
+          className="relative"
           onKeyDown={(e) => {
             if (e.key === "Escape") setMenuOpen(false);
           }}
@@ -498,6 +579,7 @@ export function WorkspaceCanvas({
             </>
           )}
         </div>
+        </div>
       </div>
 
       {notice && (
@@ -507,18 +589,17 @@ export function WorkspaceCanvas({
       )}
 
       {mobile ? (
-        <div className="flex flex-col gap-3 rounded-b-xl bg-muted/30 p-3">
+        <div className="flex flex-col gap-3 rounded-b-xl bg-muted/30 p-3" style={bgColor ? { backgroundColor: bgColor } : undefined}>
           {ordered.length === 0 ? emptyState : ordered.map(renderBlock)}
         </div>
       ) : (
-        <div className="relative isolate h-[calc(100vh-17rem)] min-h-[420px] overflow-auto rounded-b-xl bg-muted/30">
+        <div className="relative isolate h-[calc(100vh-17rem)] min-h-[420px] overflow-auto rounded-b-xl bg-muted/30" style={bgColor ? { backgroundColor: bgColor } : undefined}>
           <div
             className="relative"
             style={{
               minWidth: `max(100%, ${right + CANVAS_SLACK}px)`,
               minHeight: `max(100%, ${bottom + CANVAS_SLACK}px)`,
-              backgroundImage: DOT_BACKGROUND,
-              backgroundSize: "24px 24px",
+              ...patternFor(bgStyle, bgColor),
             }}
           >
             {sheetBlocks.map(renderBlock)}

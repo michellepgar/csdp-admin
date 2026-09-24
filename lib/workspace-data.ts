@@ -1,5 +1,6 @@
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { isDemoMode, getDemoState } from "@/lib/demo-session";
+import { normalizeBackground } from "@/lib/workspace";
 import type { Block, BlockContent, BlockKind, Sheet, Workbook } from "@/lib/workspace";
 
 /* Server-only read side of My Workspace. Every real-mode query is filtered
@@ -9,7 +10,7 @@ import type { Block, BlockContent, BlockKind, Sheet, Workbook } from "@/lib/work
 
 const DEMO_OWNER = "Jane";
 
-type WorkbookRow = { id: string; title: string; tags: string[] | null; created_at: string; updated_at: string };
+type WorkbookRow = { id: string; title: string; tags: string[] | null; bg_color: string | null; bg_style: string | null; created_at: string; updated_at: string };
 type SheetRow = { id: string; workbook_id: string; name: string; sort_order: number };
 type BlockRow = { id: string; sheet_id: string; kind: string; x: number; y: number; w: number; h: number; z: number; content: unknown };
 
@@ -17,6 +18,7 @@ const toWorkbook = (row: WorkbookRow): Workbook => ({
   id: row.id,
   title: row.title,
   tags: row.tags ?? [],
+  ...normalizeBackground(row.bg_color, row.bg_style),
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -59,7 +61,7 @@ export async function loadWorkbooks(): Promise<Workbook[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("workbooks")
-    .select("id, title, tags, created_at, updated_at")
+    .select("id, title, tags, bg_color, bg_style, created_at, updated_at")
     .eq("owner", context.owner)
     .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -83,7 +85,7 @@ export async function loadWorkbook(id: string): Promise<{ workbook: Workbook; sh
   const supabase = await createClient();
   const { data: workbookRow, error: workbookError } = await supabase
     .from("workbooks")
-    .select("id, title, tags, created_at, updated_at")
+    .select("id, title, tags, bg_color, bg_style, created_at, updated_at")
     .eq("id", id)
     .eq("owner", context.owner)
     .maybeSingle();

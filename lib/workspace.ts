@@ -9,7 +9,38 @@ export type ReminderContent = { text: string; due: string | null; done: boolean 
 export type BlockContent = TableContent | NoteContent | ReminderContent;
 export type Rect = { x: number; y: number; w: number; h: number };
 
-export type Workbook = { id: string; title: string; tags: string[]; createdAt: string; updatedAt: string };
+export type Workbook = { id: string; title: string; tags: string[]; bgColor?: string; bgStyle?: string; createdAt: string; updatedAt: string };
+
+/* Canvas backgrounds a workbook can choose. Colors are a fixed list of
+   literals (the empty value means "the theme's own color"). */
+export const BG_COLORS: { name: string; value: string }[] = [
+  { name: "Default", value: "" },
+  { name: "Paper", value: "#F3F4F6" },
+  { name: "Cream", value: "#FBF3DC" },
+  { name: "Sky", value: "#DCEBFA" },
+  { name: "Mint", value: "#DDF1E4" },
+  { name: "Blush", value: "#F8E1E7" },
+  { name: "Slate", value: "#1E293B" },
+  { name: "Charcoal", value: "#111827" },
+];
+export const BG_STYLES = ["dots", "grid", "plain"] as const;
+export type BgStyle = (typeof BG_STYLES)[number];
+
+/* Anything not on the lists above falls back to the default. */
+export function normalizeBackground(color: unknown, style: unknown): { bgColor: string; bgStyle: BgStyle } {
+  const bgColor = typeof color === "string" && BG_COLORS.some((c) => c.value === color.toUpperCase()) ? color.toUpperCase() : "";
+  const bgStyle = BG_STYLES.find((s) => s === style) ?? "dots";
+  return { bgColor, bgStyle };
+}
+
+/* True when white dots/lines read better than dark ones on this color. */
+export function isDarkColor(hex: string): boolean {
+  const m = /^#([0-9A-Fa-f]{6})$/.exec(hex);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const luminance = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return luminance < 0.5;
+}
 export type Sheet = { id: string; workbookId: string; name: string; sortOrder: number };
 export type Block = { id: string; sheetId: string; kind: BlockKind; x: number; y: number; w: number; h: number; z: number; content: BlockContent };
 export type WorkspaceData = { workbooks: Workbook[]; sheets: Sheet[]; blocks: Block[] };

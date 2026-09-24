@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { WorkspaceCanvas } from "@/components/workspace-canvas";
 import { loadWorkbook, loadWorkspaceContext } from "@/lib/workspace-data";
-import { touchWorkbook, createSheet, renameSheet, reorderSheets, deleteSheet, createBlock, updateBlockContent, updateBlockRect, deleteBlock } from "../actions";
+import { touchWorkbook, setWorkbookBackground, createSheet, renameSheet, reorderSheets, deleteSheet, createBlock, updateBlockContent, updateBlockRect, deleteBlock } from "../actions";
 
 export default async function WorkbookPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ sheet?: string }> }) {
   const { id } = await params;
@@ -39,6 +39,7 @@ export default async function WorkbookPage({ params, searchParams }: { params: P
           blocks={blocks}
           initialSheetId={initialSheetId}
           touchWorkbook={touchWorkbook}
+          setWorkbookBackground={setWorkbookBackground}
           createSheet={createSheet}
           renameSheet={renameSheet}
           reorderSheets={reorderSheets}

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  normalizeBackground,
+  isDarkColor,
   MAX_COLUMNS, MAX_ROWS,
   columnName, findFreePosition, defaultContent, defaultRect, clampRect, parsePastedGrid, coerceCell,
   addRow, removeRow, addColumn, removeColumn, renameColumn, setColumnType, setCell, applyPaste,
@@ -317,4 +319,12 @@ test("inherited-property ids are replaced and never read through the prototype",
 
 test("year 0000 is not a valid date", () => {
   assert.equal(coerceCell("0000-01-01", "date"), null);
+});
+
+test("normalizeBackground only accepts listed colors and styles", () => {
+  assert.deepEqual(normalizeBackground("#dceBfa", "grid"), { bgColor: "#DCEBFA", bgStyle: "grid" });
+  assert.deepEqual(normalizeBackground("red", "wavy"), { bgColor: "", bgStyle: "dots" });
+  assert.deepEqual(normalizeBackground(5, undefined), { bgColor: "", bgStyle: "dots" });
+  assert.equal(isDarkColor("#111827"), true);
+  assert.equal(isDarkColor("#F3F4F6"), false);
 });

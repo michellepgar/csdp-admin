@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireTeamMember } from "@/lib/require-team-member";
 import { isDemoMode, demoMutate } from "@/lib/demo-session";
 import { sanitizeNoteHtml } from "@/lib/sanitize-note-html";
-import { validateBlockContent, defaultContent, defaultRect, clampRect, normalizeTags } from "@/lib/workspace";
+import { validateBlockContent, defaultContent, defaultRect, clampRect, normalizeTags, normalizeBackground } from "@/lib/workspace";
 import type { Block, BlockKind, Rect, Sheet, Workbook } from "@/lib/workspace";
 
 function orThrow(error: { message: string } | null) {
@@ -151,6 +151,29 @@ export async function setWorkbookTags(formData: FormData): Promise<WorkspaceActi
     const { error } = await supabase.from("workbooks").update({ tags, updated_at: now() }).eq("id", id).eq("owner", me.name);
     orThrow(error);
   });
+}
+
+/* The canvas keeps the chosen background in its own state, so nothing needs
+   refreshing afterwards. */
+export async function setWorkbookBackground(formData: FormData): Promise<WorkspaceActionResult> {
+  const id = str(formData.get("id"));
+  const { bgColor, bgStyle } = normalizeBackground(str(formData.get("color")), str(formData.get("style")));
+
+  return runResultAction(async () => {
+    if (await isDemoMode()) {
+      await demoMutate((state) => {
+        const workbook = state.workspace?.workbooks.find((w) => w.id === id);
+        if (workbook) {
+          workbook.bgColor = bgColor;
+          workbook.bgStyle = bgStyle;
+        }
+      });
+      return;
+    }
+    const { supabase, me } = await requireTeamMember();
+    const { error } = await supabase.from("workbooks").update({ bg_color: bgColor || null, bg_style: bgStyle }).eq("id", id).eq("owner", me.name);
+    orThrow(error);
+  }, "none");
 }
 
 export async function touchWorkbook(formData: FormData): Promise<WorkspaceActionResult> {

@@ -8,7 +8,9 @@ import { WorkspaceBlockFrame } from "@/components/workspace-block-frame";
 import { WorkspaceNoteBlock } from "@/components/workspace-note-block";
 import { WorkspaceSheetTabs } from "@/components/workspace-sheet-tabs";
 import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
-import type { Block, BlockContent, BlockKind, NoteContent, Rect, Sheet, Workbook } from "@/lib/workspace";
+import { WorkspaceTableBlock } from "@/components/workspace-table-block";
+import { defaultContent } from "@/lib/workspace";
+import type { Block, BlockContent, BlockKind, NoteContent, Rect, Sheet, TableContent, Workbook } from "@/lib/workspace";
 
 const MOBILE_QUERY = "(max-width: 639px)";
 const CONTENT_DEBOUNCE_MS = 600;
@@ -365,9 +367,14 @@ export function WorkspaceCanvas({
       const html = typeof (block.content as Partial<NoteContent>).html === "string" ? (block.content as NoteContent).html : "";
       return <WorkspaceNoteBlock key={block.id} content={{ html }} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
     }
+    if (block.kind === "table") {
+      const raw = block.content as Partial<TableContent>;
+      const table: TableContent = Array.isArray(raw.columns) && Array.isArray(raw.rows) && raw.columns.length > 0 ? (raw as TableContent) : (defaultContent("table") as TableContent);
+      return <WorkspaceTableBlock key={block.id} content={table} onChange={(content) => changeContent(block.id, content)} />;
+    }
     return (
       <div className="flex h-full min-h-20 items-center justify-center p-4 text-center text-sm text-muted-foreground">
-        {block.kind === "table" ? "Table blocks are coming next" : "Reminder blocks are coming next"}
+        Reminder blocks are coming next
       </div>
     );
   }

@@ -10,7 +10,7 @@ import { WorkspaceReminderBlock } from "@/components/workspace-reminder-block";
 import { WorkspaceSheetTabs } from "@/components/workspace-sheet-tabs";
 import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
 import { WorkspaceTableBlock } from "@/components/workspace-table-block";
-import { defaultContent } from "@/lib/workspace";
+import { defaultContent, defaultRect, findFreePosition } from "@/lib/workspace";
 import type { Block, BlockContent, BlockKind, NoteContent, Rect, ReminderContent, Sheet, TableContent, Workbook } from "@/lib/workspace";
 
 const MOBILE_QUERY = "(max-width: 639px)";
@@ -334,12 +334,13 @@ export function WorkspaceCanvas({
   function addBlock(kind: BlockKind) {
     setMenuOpen(false);
     if (!activeSheet) return;
-    const step = Math.min(sheetBlocks.length, 12);
+    const size = defaultRect(kind);
+    const spot = findFreePosition(sheetBlocks, size);
     const formData = new FormData();
     formData.set("sheetId", activeSheet.id);
     formData.set("kind", kind);
-    formData.set("x", String(24 + 24 * step));
-    formData.set("y", String(24 + 24 * step));
+    formData.set("x", String(spot.x));
+    formData.set("y", String(spot.y));
     startAdding(async () => {
       try {
         const result = await createBlock(formData);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MAX_COLUMNS, MAX_ROWS,
-  columnName, defaultContent, defaultRect, clampRect, parsePastedGrid, coerceCell,
+  columnName, findFreePosition, defaultContent, defaultRect, clampRect, parsePastedGrid, coerceCell,
   addRow, removeRow, addColumn, removeColumn, renameColumn, setColumnType, setCell, applyPaste,
   validateBlockContent, normalizeTags, tagColor, dueState,
   type TableContent,
@@ -41,6 +41,23 @@ test("defaultRect and clampRect keep blocks reachable and within size limits", (
   assert.equal(c.y, 0);
   assert.equal(c.w, 240);
   assert.equal(c.h, 1200);
+});
+
+test("findFreePosition places new blocks in free space", () => {
+  const size = { w: 260, h: 180 };
+  assert.deepEqual(findFreePosition([], size), { x: 24, y: 24 });
+  const first = { x: 24, y: 24, ...size };
+  const second = findFreePosition([first], size);
+  const overlaps = (a: { x: number; y: number }, b: typeof first) => a.x < b.x + b.w && a.x + size.w > b.x && a.y < b.y + b.h && a.y + size.h > b.y;
+  assert.equal(overlaps(second, first), false);
+  // First row full (nothing fits at any x up to maxX): wraps below.
+  const wide = { x: 0, y: 0, w: 2000, h: 200 };
+  const wrapped = findFreePosition([wide], size);
+  assert.ok(wrapped.y >= 200);
+  assert.equal(overlaps(wrapped, wide), false);
+  for (const p of [findFreePosition([], size, { step: 10 }), second, wrapped, findFreePosition([{ x: -50, y: -50, w: 10, h: 10 }], size)]) {
+    assert.ok(p.x >= 0 && p.y >= 0);
+  }
 });
 
 test("parsePastedGrid reads Excel/Sheets clipboard text", () => {

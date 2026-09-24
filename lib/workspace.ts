@@ -28,13 +28,34 @@ const MAX_NAME_LENGTH = 60;
 export const MIN_SIZE: Record<BlockKind, { w: number; h: number }> = {
   table: { w: 240, h: 120 },
   note: { w: 160, h: 100 },
-  reminder: { w: 220, h: 80 },
+  reminder: { w: 240, h: 130 },
 };
 const DEFAULT_SIZE: Record<BlockKind, { w: number; h: number }> = {
   table: { w: 480, h: 280 },
   note: { w: 260, h: 180 },
-  reminder: { w: 280, h: 110 },
+  reminder: { w: 300, h: 160 },
 };
+
+/** First spot (top to bottom, left to right on a grid) where a block of `size`
+    clears every rect by `gap`; below the lowest block if the scan finds none. */
+export function findFreePosition(
+  rects: { x: number; y: number; w: number; h: number }[],
+  size: { w: number; h: number },
+  options: { maxX?: number; step?: number; gap?: number } = {},
+): { x: number; y: number } {
+  const step = Math.max(1, options.step ?? 24);
+  const gap = Math.max(0, options.gap ?? 16);
+  const maxX = Math.max(step, options.maxX ?? 720);
+  const bottom = rects.reduce((max, r) => Math.max(max, r.y + r.h), 0);
+  const hits = (x: number, y: number) =>
+    rects.some((r) => x < r.x + r.w + gap && x + size.w + gap > r.x && y < r.y + r.h + gap && y + size.h + gap > r.y);
+  for (let y = step; y <= bottom + step; y += step) {
+    for (let x = step; x <= maxX; x += step) {
+      if (!hits(x, y)) return { x, y };
+    }
+  }
+  return { x: step, y: Math.max(step, bottom + gap) };
+}
 
 const RESERVED_IDS = ["__proto__", "constructor", "prototype"];
 const COLUMN_TYPES: ColumnType[] = ["text", "number", "date", "checkbox", "dropdown"];

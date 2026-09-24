@@ -112,11 +112,18 @@ function ReminderBlockImpl({ content, onChange, onFlush }: Props) {
     el.style.height = `${el.scrollHeight}px`;
   }, [shownText]);
 
-  const tint = state === "overdue" ? "bg-status-danger text-status-danger-foreground" : state === "today" ? "bg-status-warning text-status-warning-foreground" : "";
+  // Text stays in the normal foreground colour; the state is a soft tint, a
+  // strong left border and the badge, so it reads in light and dark themes.
+  const tint =
+    state === "overdue"
+      ? "border-l-4 border-status-danger-foreground bg-status-danger/40"
+      : state === "today"
+        ? "border-l-4 border-status-warning-foreground bg-status-warning/40"
+        : "border-l-4 border-transparent";
 
   return (
-    <div className={`flex min-h-full flex-col gap-2 p-3 transition-colors ${tint}`}>
-      <div className="flex items-start gap-3">
+    <div className={`flex min-h-full flex-col justify-center gap-1.5 px-2.5 py-2 transition-colors ${tint}`}>
+      <div className="flex items-start gap-2.5">
         <input
           type="checkbox"
           checked={content.done}
@@ -139,12 +146,12 @@ function ReminderBlockImpl({ content, onChange, onFlush }: Props) {
               setDraftBoth(null);
             }
           }}
-          className={`min-w-0 flex-1 resize-none overflow-hidden rounded-md bg-transparent px-1.5 py-1 text-base leading-snug outline-none placeholder:text-muted-foreground focus-visible:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${
-            content.done ? "text-muted-foreground line-through" : ""
+          className={`min-w-0 flex-1 resize-none overflow-hidden rounded-md bg-transparent px-1.5 py-0.5 text-base leading-snug text-foreground outline-none placeholder:text-muted-foreground focus-visible:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            content.done ? "!text-muted-foreground line-through" : ""
           }`}
         />
       </div>
-      <div className="flex flex-wrap items-center gap-2 pl-9">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-[34px]">
         <input
           type="date"
           value={content.due ?? ""}

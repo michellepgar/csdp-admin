@@ -41,13 +41,15 @@ test("the top bar search also finds private notes, and the Private Notes page fi
   assert.match(palette, /searchNotes\(trimmed\)/);
   assert.match(palette, /highlightNote=\$\{hit\.id\}/);
   assert.match(readFileSync("app/(app)/layout.tsx", "utf8"), /searchNotes=\{searchPrivateNotes\}/);
-  const page = readFileSync("app/(app)/private-notes/page.tsx", "utf8");
+  const page = readFileSync("components/private-notes-section.tsx", "utf8");
   assert.match(page, /noteMatches\(n\.text, words\)/);
   assert.match(page, /<NoteFocus id=\{highlightNote\}/);
+  // The old address still works: it forwards to My Workspace's Private Notes tab.
+  assert.match(readFileSync("app/(app)/private-notes/page.tsx", "utf8"), /redirect\(/);
 });
 
 test("the priority board sits above the notes list and folds away, remembered by a cookie", () => {
-  const page = readFileSync("app/(app)/private-notes/page.tsx", "utf8");
+  const page = readFileSync("components/private-notes-section.tsx", "utf8");
   assert.ok(page.indexOf("<PrivateNotesBoard") < page.indexOf("<PrivateNotesList"));
   assert.match(page, /<CollapsibleSection title="My Priority Board"[^>]*cookieName="priority-board-collapsed"/);
   assert.match(readFileSync("components/collapsible-section.tsx", "utf8"), /document\.cookie = `\$\{cookieName\}=/);
@@ -58,7 +60,7 @@ test("a reminder in Your Plan is started (not checked off directly), same as a t
   const start = bubble.indexOf("reminders.map");
   const reminders = bubble.slice(start, bubble.indexOf("myOpenEmailItems.length > 0", start));
   // Opening the reminder is just a link to the note...
-  assert.match(reminders, /<Link href=\{`\/private-notes\?highlightNote=\$\{item\.noteId\}`\}/);
+  assert.match(reminders, /<Link href=\{`\/my-workspace\?tab=notes&highlightNote=\$\{item\.noteId\}`\}/);
   // ...and Start (not a direct "reviewed" checkbox) is what moves it to
   // Currently Working On, where it's completed instead -- matching a
   // task's own Start button on this same board.

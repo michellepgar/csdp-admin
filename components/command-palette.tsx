@@ -33,7 +33,7 @@ type PaletteItem = { key: string; label: string; hint: string; href: string; ico
 
 const PAGES: PaletteItem[] = [
   { key: "p-overview", label: "Overview", hint: "Page", href: "/overview", icon: LayoutDashboard },
-  { key: "p-private", label: "Private Notes", hint: "Page", href: "/private-notes", icon: Lock },
+  { key: "p-private", label: "Private Notes", hint: "My Workspace", href: "/my-workspace?tab=notes", icon: Lock },
   { key: "p-my-workspace", label: "My Workspace", hint: "Personal", href: "/my-workspace", icon: Lock },
   { key: "p-messages", label: "Messages", hint: "Page", href: "/messages", icon: MessageSquare },
   { key: "p-general-tasks", label: "General Tasks", hint: "Page", href: "/general-tasks", icon: ClipboardList },
@@ -94,8 +94,8 @@ export function CommandPalette({
     () =>
       searchingNotes
         ? [
-            { key: "n-all", label: `Search private notes for “${trimmed}”`, hint: "Private notes", href: `/private-notes?q=${encodeURIComponent(trimmed)}`, icon: Search },
-            ...noteHits.map((hit) => ({ key: `n-${hit.id}`, label: hit.snippet, hint: "Private note", href: `/private-notes?highlightNote=${hit.id}`, icon: StickyNote })),
+            { key: "n-all", label: `Search private notes for “${trimmed}”`, hint: "Private notes", href: `/my-workspace?tab=notes&q=${encodeURIComponent(trimmed)}`, icon: Search },
+            ...noteHits.map((hit) => ({ key: `n-${hit.id}`, label: hit.snippet, hint: "Private note", href: `/my-workspace?tab=notes&highlightNote=${hit.id}`, icon: StickyNote })),
           ]
         : [],
     [searchingNotes, trimmed, noteHits],

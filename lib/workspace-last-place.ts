@@ -65,6 +65,12 @@ export function rememberScroll(workbookId: string, sheetId: string, left: number
 /* ---- the spreadsheet / workbook last worked on, per section ---- */
 
 export type Section = "spreadsheets" | "workspace";
+
+/** My Workspace's Private Notes tab. */
+export const PRIVATE_NOTES_HREF = "/my-workspace?tab=notes";
+/** Remembered in place of a workbook id when the Private Notes tab was the
+    last thing open in My Workspace. */
+export const PRIVATE_NOTES_PLACE = "private-notes";
 const OPENED_KEY = "csdp-last-opened";
 const OPENED_EVENT = "csdp-last-opened";
 const BASE: Record<Section, string> = { spreadsheets: "/spreadsheets", workspace: "/my-workspace" };
@@ -105,6 +111,7 @@ export function lastOpened(section: Section): string | null {
 /** Where the sidebar sends you: back into the one you were working on, else the list. */
 export function resumeHref(section: Section): string {
   const id = lastOpened(section);
+  if (section === "workspace" && id === PRIVATE_NOTES_PLACE) return PRIVATE_NOTES_HREF;
   return id ? `${BASE[section]}/${id}` : BASE[section];
 }
 

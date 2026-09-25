@@ -116,7 +116,7 @@ export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
       state.vas = state.vas.filter((v) => v.id !== id);
     });
     revalidatePath("/team");
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return { error: null };
   }
 

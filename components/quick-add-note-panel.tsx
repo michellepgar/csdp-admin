@@ -63,7 +63,7 @@ export function QuickAddNotePanel({ data, onClose }: { data: QuickAddData; onClo
         />
         <p className="text-xs text-muted-foreground">
           Only you can see it. For colors, formatting or sharing, use{" "}
-          <Link href="/private-notes" prefetch={false} onClick={onClose} className="text-primary underline underline-offset-2">Private Notes</Link>.
+          <Link href="/my-workspace?tab=notes" prefetch={false} onClick={onClose} className="text-primary underline underline-offset-2">Private Notes</Link> (in My Workspace).
         </p>
       </Field>
       <label className="flex items-center gap-2 text-sm">

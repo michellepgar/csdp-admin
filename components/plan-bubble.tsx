@@ -186,7 +186,7 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
                       {/* Opening the reminder just shows you the note -- Start (on
                           the right) is what moves it to Currently Working On. */}
                       {item.noteId ? (
-                        <Link href={`/private-notes?highlightNote=${item.noteId}`} prefetch={false} title="Open this note" className="hover:underline">{item.label}</Link>
+                        <Link href={`/my-workspace?tab=notes&highlightNote=${item.noteId}`} prefetch={false} title="Open this note" className="hover:underline">{item.label}</Link>
                       ) : (
                         item.label
                       )}

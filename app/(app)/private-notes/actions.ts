@@ -117,7 +117,7 @@ export async function addPrivateNote(formData: FormData): Promise<NoteActionResu
         (state.planItems ??= []).push({ id: `demo-note-plan-${Date.now()}`, kind: "note", vaName: "Jane", noteId: id, label, createdBy: "Jane", createdAt: new Date().toISOString() });
       }
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     if (addToPlan) revalidatePath("/overview");
     return { error: null };
   }
@@ -149,7 +149,7 @@ export async function addPrivateNote(formData: FormData): Promise<NoteActionResu
         console.error("Add note to plan (from note creation) failed", planError);
       }
     }
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return { error: null };
   } catch (error) {
     console.error("Add private note failed", error);
@@ -177,7 +177,7 @@ export async function updatePrivateNote(formData: FormData) {
         note.isReminder = isReminder;
       }
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -191,7 +191,7 @@ export async function updatePrivateNote(formData: FormData) {
     .update({ text, pad_color: padColor || null, is_reminder: isReminder })
     .eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 export async function sharePrivateNote(formData: FormData) {
@@ -207,7 +207,7 @@ export async function sharePrivateNote(formData: FormData) {
         if (!note.sharedWith.includes(vaName)) note.sharedWith.push(vaName);
       }
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -223,7 +223,7 @@ export async function sharePrivateNote(formData: FormData) {
     .update({ shared_with: [...sharedWith, vaName] })
     .eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 export async function unsharePrivateNote(formData: FormData) {
@@ -235,7 +235,7 @@ export async function unsharePrivateNote(formData: FormData) {
       const note = (state.privateNotes || []).find((n) => n.id === id && n.author === "Jane");
       if (note?.sharedWith) note.sharedWith = note.sharedWith.filter((n) => n !== vaName);
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -249,7 +249,7 @@ export async function unsharePrivateNote(formData: FormData) {
     .update({ shared_with: ((note.shared_with as string[]) || []).filter((n) => n !== vaName) })
     .eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* Someone a note was shared WITH removes it from their own notes: they come
@@ -264,7 +264,7 @@ export async function leaveSharedNote(formData: FormData) {
       const note = (state.privateNotes || []).find((n) => n.id === id && n.author !== "Jane");
       if (note?.sharedWith) note.sharedWith = note.sharedWith.filter((n) => n !== "Jane");
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -280,7 +280,7 @@ export async function leaveSharedNote(formData: FormData) {
     .update({ shared_with: sharedWith.filter((n) => n !== me.name) })
     .eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 export async function ackPrivateNote(formData: FormData) {
@@ -294,7 +294,7 @@ export async function ackPrivateNote(formData: FormData) {
         if (!note.ackBy.includes("Jane")) note.ackBy.push("Jane");
       }
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -310,7 +310,7 @@ export async function ackPrivateNote(formData: FormData) {
     .update({ ack_by: [...ackBy, me.name] })
     .eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* Same rule as canDeletePrivateNote in lib/app-state.ts -- the author
@@ -336,7 +336,7 @@ export async function removePrivateNote(formData: FormData) {
       if (!canDelete) return;
       state.privateNotes = (state.privateNotes || []).filter((n) => n.id !== id);
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -354,7 +354,7 @@ export async function removePrivateNote(formData: FormData) {
 
   const { error } = await supabase.from("private_notes").delete().eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* A note is visible to (and thus board-manageable by) its author or
@@ -388,7 +388,7 @@ export async function pinPrivateNote(id: string) {
       note.boardRotation = 0;
       note.boardZ = maxZ + 1;
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -408,7 +408,7 @@ export async function pinPrivateNote(id: string) {
 
   const { error } = await supabase.from("private_notes").update({ board_x: 0, board_rotation: 0, board_z: nextZ }).eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 // Clamp shared with the client-side drag handler in
@@ -432,7 +432,7 @@ export async function resizePinnedNoteWidth(id: string, width: number) {
       const note = (state.privateNotes || []).find((n) => n.id === id);
       if (note) note.boardWidth = clamped;
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -443,7 +443,7 @@ export async function resizePinnedNoteWidth(id: string, width: number) {
 
   const { error } = await supabase.from("private_notes").update({ board_width: clamped }).eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* Same as resizePinnedNoteWidth, for board_height -- Michelle asked
@@ -460,7 +460,7 @@ export async function resizePinnedNoteHeight(id: string, height: number) {
       const note = (state.privateNotes || []).find((n) => n.id === id);
       if (note) note.boardHeight = clamped;
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -471,7 +471,7 @@ export async function resizePinnedNoteHeight(id: string, height: number) {
 
   const { error } = await supabase.from("private_notes").update({ board_height: clamped }).eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* Reassigns the left-to-right order of every pinned note -- same
@@ -486,14 +486,14 @@ export async function reorderPinnedNotes(orderedIds: string[]) {
         if (note) note.boardZ = i;
       });
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
   const { supabase } = await requireTeamMember();
 
   await Promise.all(orderedIds.map((id, i) => supabase.from("private_notes").update({ board_z: i }).eq("id", id)));
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* Returns a note from the board to the ordinary list by clearing all
@@ -511,7 +511,7 @@ export async function unpinPrivateNote(id: string) {
         note.boardZ = undefined;
       }
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -525,7 +525,7 @@ export async function unpinPrivateNote(id: string) {
     .update({ board_x: null, board_y: null, board_rotation: null, board_width: null, board_height: null, board_z: null })
     .eq("id", id);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* Visible to, and postable by, only the note's author and whoever
@@ -549,7 +549,7 @@ export async function addPrivateNoteComment(formData: FormData) {
       (note.comments ??= []).push({ id: `demo-${Date.now()}`, author: "Jane", text: sanitizeNoteHtml(text, state.vas || []), createdAt: new Date().toISOString() });
       note.commentAckBy = ["Jane"];
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -565,7 +565,7 @@ export async function addPrivateNoteComment(formData: FormData) {
   orThrow(error);
   const { error: ackError } = await supabase.from("private_notes").update({ comment_ack_by: [me.name] }).eq("id", noteId);
   orThrow(ackError);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 /* Author-only, matching every other edit rule in this app. */
@@ -584,7 +584,7 @@ export async function editPrivateNoteComment(formData: FormData) {
         return;
       }
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -598,7 +598,7 @@ export async function editPrivateNoteComment(formData: FormData) {
 
   const { error } = await supabase.from("private_note_comments").update({ text: html, edited_at: new Date().toISOString() }).eq("id", commentId);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 export async function removePrivateNoteComment(formData: FormData) {
@@ -612,7 +612,7 @@ export async function removePrivateNoteComment(formData: FormData) {
         if (note.comments.length !== before) return;
       }
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -623,7 +623,7 @@ export async function removePrivateNoteComment(formData: FormData) {
 
   const { error } = await supabase.from("private_note_comments").delete().eq("id", commentId);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }
 
 export async function ackPrivateNoteComments(formData: FormData) {
@@ -636,7 +636,7 @@ export async function ackPrivateNoteComments(formData: FormData) {
       note.commentAckBy ??= [];
       if (!note.commentAckBy.includes("Jane")) note.commentAckBy.push("Jane");
     });
-    revalidatePath("/private-notes");
+    revalidatePath("/my-workspace");
     return;
   }
 
@@ -649,5 +649,5 @@ export async function ackPrivateNoteComments(formData: FormData) {
 
   const { error } = await supabase.from("private_notes").update({ comment_ack_by: [...ackBy, me.name] }).eq("id", noteId);
   orThrow(error);
-  revalidatePath("/private-notes");
+  revalidatePath("/my-workspace");
 }

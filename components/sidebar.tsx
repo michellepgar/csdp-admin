@@ -242,22 +242,6 @@ export function Sidebar({
 
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
         {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">My Space</div>}
-        <IconTooltip label="Private Notes" active={collapsed}>
-          <Link
-            href="/private-notes"
-            prefetch={false}
-            title={!collapsed ? "Private Notes" : undefined}
-            className={navLinkClass("/private-notes", collapsed ? "justify-center px-2" : "gap-2 px-3")}
-          >
-            <span className="relative flex-none">
-              <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              {needsPrivateNoteAck && (
-                <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="A note was shared with you -- open it to clear this" />
-              )}
-            </span>
-            {!collapsed && <span className="min-w-0 truncate">Private Notes</span>}
-          </Link>
-        </IconTooltip>
         <IconTooltip label="My Workspace" active={collapsed}>
           <Link
             href={workspaceHref}
@@ -265,7 +249,13 @@ export function Sidebar({
             title={!collapsed ? "My Workspace" : undefined}
             className={navLinkClass("/my-workspace", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            {/* Private Notes lives inside My Workspace now, so its "a note was shared with you" dot shows here. */}
+            <span className="relative flex-none">
+              <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              {needsPrivateNoteAck && (
+                <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="A note was shared with you -- open Private Notes in My Workspace to clear this" />
+              )}
+            </span>
             {!collapsed && <span className="min-w-0 truncate">My Workspace</span>}
           </Link>
         </IconTooltip>

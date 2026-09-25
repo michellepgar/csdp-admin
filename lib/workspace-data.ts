@@ -121,3 +121,17 @@ export async function loadWorkbook(id: string): Promise<{ workbook: Workbook; sh
 
   return { workbook: toWorkbook(workbookRow as WorkbookRow), sheets, blocks };
 }
+
+/** Whether a note someone shared with you is still waiting for you to open it
+    (the red dot on My Workspace's Private Notes tab). A cheap lookup of just
+    the notes shared with you, not the whole app. */
+export async function hasUnreadSharedNote(context: { owner: string; demo: boolean }): Promise<boolean> {
+  if (context.demo) {
+    const notes = (await getDemoState()).privateNotes ?? [];
+    return notes.some((n) => (n.sharedWith ?? []).includes(context.owner) && !(n.ackBy ?? []).includes(context.owner));
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("private_notes").select("ack_by").contains("shared_with", [context.owner]);
+  if (error) return false;
+  return (data ?? []).some((n) => !((n.ack_by as string[] | null) ?? []).includes(context.owner));
+}

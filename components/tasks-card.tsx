@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, GripVertical, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
 import { TaskTableAddFileRow } from "@/components/task-table-add-file-row";
 import { KebabMenu } from "@/components/kebab-menu";
@@ -281,6 +281,8 @@ export function TasksCard(props: TasksCardProps) {
   // several categoryIds server-side, the UI just never offered more
   // than one.
   const [newTableCategoryIds, setNewTableCategoryIds] = useState<string[]>([]);
+  // The new-table picker stays folded behind an "Add new table" button.
+  const [newTableOpen, setNewTableOpen] = useState(false);
   const [editFileError, setEditFileError] = useState<string | null>(null);
   const [editedFileName, setEditedFileName] = useState("");
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
@@ -478,6 +480,12 @@ export function TasksCard(props: TasksCardProps) {
           </div>
         )}
 
+        {!newTableOpen && (
+          <Button type="button" variant="outline" size="sm" className="border-dashed" onClick={() => setNewTableOpen(true)}>
+            <Plus className="h-3.5 w-3.5" /> Add new table
+          </Button>
+        )}
+        {newTableOpen && (
         <div className="space-y-2 rounded-md border border-dashed p-2">
           {/* Only ever starts a brand new table now -- adding a file to
               a table that already exists happens right on that table
@@ -493,13 +501,23 @@ export function TasksCard(props: TasksCardProps) {
               </label>
             ))}
           </div>
-          <form action={(formData) => submitTaskFileForm(props.addTask, formData, setAddFileError, () => setNewFileName(""))} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <form
+            action={(formData) => submitTaskFileForm(props.addTask, formData, setAddFileError, () => {
+              // The new table now shows below with its own Add file box for more files.
+              setNewFileName("");
+              setNewTableCategoryIds([]);
+              setNewTableOpen(false);
+            })}
+            className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+          >
             <input type="hidden" name="schoolId" value={schoolId} />
             {newTableCategoryIds.map((id) => <input key={id} type="hidden" name="categoryIds" value={id} />)}
             <Input name="fileName" placeholder="File name" required value={newFileName} onChange={(event) => setNewFileName(event.target.value)} className="w-full sm:max-w-md sm:flex-1" />
             <SubmitButton pendingLabel="Adding…" disabled={newTableCategoryIds.length === 0}>Add</SubmitButton>
+            <Button type="button" variant="ghost" onClick={() => { setNewTableOpen(false); setNewTableCategoryIds([]); setNewFileName(""); setAddFileError(null); }}>Cancel</Button>
           </form>
         </div>
+        )}
         {addFileError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{addFileError}</p>}
 
         {orderedFiles.length === 0 ? (

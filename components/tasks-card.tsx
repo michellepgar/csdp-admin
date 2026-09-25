@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowDownAZ, ArrowUpDown, ArrowUpZA, ChevronDown, ChevronRight, Copy, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
 import { TaskTableAddFileRow } from "@/components/task-table-add-file-row";
+import { loadFileSorts, saveFileSorts, type FileSortDirection } from "@/lib/file-sort-memory";
 import { KebabMenu } from "@/components/kebab-menu";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/submit-button";
@@ -248,7 +249,7 @@ type TasksCardProps = {
 
 /* File names in A–Z or Z–A order, the way people read them: "file 2" before
    "file 10", capitals and accents ignored. No direction = order unchanged. */
-function sortFilesByName<T extends { fileName: string }>(files: T[], direction: "asc" | "desc" | undefined): T[] {
+function sortFilesByName<T extends { fileName: string }>(files: T[], direction: FileSortDirection | undefined): T[] {
   if (!direction) return files;
   const sorted = [...files].sort((a, b) => a.fileName.localeCompare(b.fileName, undefined, { numeric: true, sensitivity: "base" }));
   return direction === "asc" ? sorted : sorted.reverse();
@@ -292,15 +293,19 @@ export function TasksCard(props: TasksCardProps) {
   // The new-table picker stays folded behind an "Add new table" button.
   const [newTableOpen, setNewTableOpen] = useState(false);
   // Per table: file names A–Z or Z–A (absent = the table's own saved order).
-  const [fileSort, setFileSort] = useState<Record<string, "asc" | "desc">>({});
+  // Remembered in this browser, so a refresh keeps it.
+  const [fileSort, setFileSort] = useState<Record<string, FileSortDirection>>({});
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- The saved sort lives in browser storage, readable only after the page loads.
+    setFileSort(loadFileSorts(schoolId));
+  }, [schoolId]);
   function cycleFileSort(tableKey: string) {
-    setFileSort((prev) => {
-      const next = { ...prev };
-      if (!prev[tableKey]) next[tableKey] = "asc";
-      else if (prev[tableKey] === "asc") next[tableKey] = "desc";
-      else delete next[tableKey];
-      return next;
-    });
+    const next = { ...fileSort };
+    if (!fileSort[tableKey]) next[tableKey] = "asc";
+    else if (fileSort[tableKey] === "asc") next[tableKey] = "desc";
+    else delete next[tableKey];
+    setFileSort(next);
+    saveFileSorts(schoolId, next);
   }
   const [editFileError, setEditFileError] = useState<string | null>(null);
   const [editedFileName, setEditedFileName] = useState("");

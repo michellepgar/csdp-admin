@@ -704,3 +704,17 @@ textarea {
 input[type="number"] {
   border-radius: 0.5rem;
 }
+
+/* The page-change bar (components/navigation-progress.tsx): runs quickly to
+   most of the way, then creeps, until the new page arrives. */
+.nav-progress-loading {
+  width: 90%;
+  animation: nav-progress 8s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+}
+@keyframes nav-progress {
+  from { width: 0%; }
+  to { width: 90%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-loading { animation: none; width: 60%; }
+}

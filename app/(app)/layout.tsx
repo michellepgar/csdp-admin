@@ -7,6 +7,7 @@ import { groupTaskTables, openEmailItemsByVa } from "@/lib/shared-task-files";
 import type { QuickAddData, QuickAddTable } from "@/components/quick-add-dialog";
 import { SidebarShell } from "@/components/sidebar-shell";
 import { LiveRefresh } from "@/components/live-refresh";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { addSchool } from "./layout-actions";
 import { resolveTaskPlanItem, resolvePriorityPlanItem, startReminder } from "@/app/(app)/overview/actions";
 import { markMentionRead } from "@/app/(app)/mentions/actions";
@@ -166,6 +167,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {children}
     </SidebarShell>
     <LiveRefresh />
+    <NavigationProgress />
     <FloatingChat
       me={me.name}
       canAddPriority={isAdmin(me)}

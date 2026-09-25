@@ -27,9 +27,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() checks the sign-in token's signature right here when the
+  // project signs tokens with its public keys, instead of a round trip to
+  // Supabase's sign-in server on every page change (it falls back to that
+  // round trip on its own for older, shared-secret tokens). It still
+  // refreshes an expiring session, like getUser() did.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   // The login page's "See a demo" link sets this cookie instead of a real
   // Supabase session -- treated as "signed in" here too, or every demo

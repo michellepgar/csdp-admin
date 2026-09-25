@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDownAZ, ArrowUpDown, ArrowUpZA, ChevronDown, ChevronRight, Copy, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { TaskTableCategoryPicker } from "@/components/task-table-category-picker";
 import { TaskTableAddFileRow } from "@/components/task-table-add-file-row";
 import { KebabMenu } from "@/components/kebab-menu";
@@ -246,6 +246,14 @@ type TasksCardProps = {
   updateTaskFileName: (formData: FormData) => Promise<TaskFileActionResult>;
 };
 
+/* File names in A–Z or Z–A order, the way people read them: "file 2" before
+   "file 10", capitals and accents ignored. No direction = order unchanged. */
+function sortFilesByName<T extends { fileName: string }>(files: T[], direction: "asc" | "desc" | undefined): T[] {
+  if (!direction) return files;
+  const sorted = [...files].sort((a, b) => a.fileName.localeCompare(b.fileName, undefined, { numeric: true, sensitivity: "base" }));
+  return direction === "asc" ? sorted : sorted.reverse();
+}
+
 export function TasksCard(props: TasksCardProps) {
   const { schoolId, categories, taskFiles, vas, canEdit, currentUserName } = props;
   const [editorOpen, setEditorOpen] = useState(false);
@@ -283,6 +291,17 @@ export function TasksCard(props: TasksCardProps) {
   const [newTableCategoryIds, setNewTableCategoryIds] = useState<string[]>([]);
   // The new-table picker stays folded behind an "Add new table" button.
   const [newTableOpen, setNewTableOpen] = useState(false);
+  // Per table: file names A–Z or Z–A (absent = the table's own saved order).
+  const [fileSort, setFileSort] = useState<Record<string, "asc" | "desc">>({});
+  function cycleFileSort(tableKey: string) {
+    setFileSort((prev) => {
+      const next = { ...prev };
+      if (!prev[tableKey]) next[tableKey] = "asc";
+      else if (prev[tableKey] === "asc") next[tableKey] = "desc";
+      else delete next[tableKey];
+      return next;
+    });
+  }
   const [editFileError, setEditFileError] = useState<string | null>(null);
   const [editedFileName, setEditedFileName] = useState("");
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
@@ -395,18 +414,6 @@ export function TasksCard(props: TasksCardProps) {
     if (!next) return;
     setOrderedCategories(next);
     props.reorderTaskCategories(next.map((item) => item.id));
-  }
-
-  /* Moves a file one step up or down within its own table by swapping it
-     with its neighbour there, then saves the whole school's file order. */
-  function moveFileStep(tableFiles: TaskFile[], fileId: string, direction: "up" | "down") {
-    const index = tableFiles.findIndex((file) => file.id === fileId);
-    const neighbour = tableFiles[direction === "up" ? index - 1 : index + 1];
-    if (index < 0 || !neighbour) return;
-    const next = moveItem(orderedFiles, fileId, neighbour.id);
-    if (!next) return;
-    setOrderedFiles(next.map((file, sortOrder) => ({ ...file, sortOrder })));
-    props.reorderTasks(schoolId, next.map((item) => item.id));
   }
 
   return (
@@ -538,6 +545,20 @@ export function TasksCard(props: TasksCardProps) {
           // asked to be told, not just quietly allowed it (a file name is a
           // label, not an identity: see supabase/phase40_unrestricted_file_names.sql).
           const duplicateNames = duplicateFileNamesInTable(group.files);
+          const sortDirection = fileSort[group.key];
+          const shownFiles = sortFilesByName(group.files, sortDirection);
+          const sortButton = (
+            <button
+              type="button"
+              onClick={() => cycleFileSort(group.key)}
+              title={!sortDirection ? "Sort file names A to Z" : sortDirection === "asc" ? "Sort file names Z to A" : "Back to this table's own order"}
+              aria-label={!sortDirection ? "Sort file names A to Z" : sortDirection === "asc" ? "Sorted A to Z. Sort Z to A" : "Sorted Z to A. Back to this table's own order"}
+              className={`inline-flex h-6 items-center gap-0.5 rounded px-1 text-xs font-medium hover:bg-primary/10 hover:text-primary ${sortDirection ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              {!sortDirection ? <ArrowUpDown className="h-3.5 w-3.5" /> : sortDirection === "asc" ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />}
+              {sortDirection && <span>{sortDirection === "asc" ? "A–Z" : "Z–A"}</span>}
+            </button>
+          );
           const isSelecting = selectMode.has(group.key);
           const selectedInTable = selectedFileIds[group.key] || [];
           return (
@@ -552,6 +573,7 @@ export function TasksCard(props: TasksCardProps) {
                 {collapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
                 <span className="truncate">{group.categories.map((c) => c.name).join(" + ")}</span>
               </button>
+              {group.files.length > 1 && <span className="sm:hidden">{sortButton}</span>}
               {canEdit && group.files.length > 0 && (
                 <Button type="button" variant="ghost" size="xs" onClick={() => toggleTableSelectMode(group.key)}>{isSelecting ? "Done" : "Select"}</Button>
               )}
@@ -587,7 +609,7 @@ export function TasksCard(props: TasksCardProps) {
             {/* Phones: one card per file (name, then each category with its count
                 and VA/status) instead of a wide table that scrolls sideways. */}
             <div className="space-y-2 p-2 sm:hidden">
-              {group.files.map((file) => {
+              {shownFiles.map((file) => {
                 const countCategoryIds = new Set(columns.find((column) => column.kind === "count")?.categories.map((category) => category.id));
                 return (
                   <div key={file.id} className="space-y-2 rounded-lg border bg-card p-2.5 shadow-sm">
@@ -647,9 +669,9 @@ export function TasksCard(props: TasksCardProps) {
                   adjacent categories read as their own distinctly
                   colored band next to the plainer Count/File name
                   headers beside them. */}
-              <thead><tr className="border-b bg-muted/40">{isSelecting && <th className="w-7"><span className="sr-only">Select</span></th>}{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 break-words ${column.kind === "task" ? `px-4 text-center text-sm font-bold ${columns.slice(0, index + 1).filter((c) => c.kind === "task").length % 2 === 1 ? "bg-title-background" : "bg-title-background/60"} ${dividerClass(index)}` : "px-2 text-left font-medium"}`}>{column.kind === "file" ? "File name" : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : column.category.name}</th>)}</tr></thead>
+              <thead><tr className="border-b bg-muted/40">{isSelecting && <th className="w-7"><span className="sr-only">Select</span></th>}{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 break-words ${column.kind === "task" ? `px-4 text-center text-sm font-bold ${columns.slice(0, index + 1).filter((c) => c.kind === "task").length % 2 === 1 ? "bg-title-background" : "bg-title-background/60"} ${dividerClass(index)}` : "px-2 text-left font-medium"}`}>{column.kind === "file" ? <span className="inline-flex items-center gap-1">File name{group.files.length > 1 && sortButton}</span> : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : column.category.name}</th>)}</tr></thead>
               <tbody>
-                {group.files.map((file, fileIndex) => (
+                {shownFiles.map((file) => (
                   <tr key={file.id} className="border-b last:border-b-0 hover:bg-row-hover">
                     {isSelecting && (
                       <td className="px-1 py-2 align-top">
@@ -676,13 +698,6 @@ export function TasksCard(props: TasksCardProps) {
                       }
                       return <td key="file" className="px-2 py-2 align-top">
                       <div className="flex min-h-7 min-w-0 items-center gap-1">
-                        {/* Only worth showing once there's a second file to trade places with. */}
-                        {canEdit && group.files.length > 1 && (
-                          <span className="flex shrink-0 flex-col">
-                            <button type="button" disabled={fileIndex === 0} onClick={() => moveFileStep(group.files, file.id, "up")} aria-label={`Move ${file.fileName} up`} title="Move up" className="flex h-3.5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent"><ArrowUp className="h-3 w-3" /></button>
-                            <button type="button" disabled={fileIndex === group.files.length - 1} onClick={() => moveFileStep(group.files, file.id, "down")} aria-label={`Move ${file.fileName} down`} title="Move down" className="flex h-3.5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent"><ArrowDown className="h-3 w-3" /></button>
-                          </span>
-                        )}
                         {editingFileId === file.id ? (
                           <form action={(formData) => submitTaskFileForm(props.updateTaskFileName, formData, setEditFileError, () => setEditingFileId(null))} className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                             <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskFileId" value={file.id} />

@@ -14,7 +14,11 @@ const MAX_MERGES = 500;
 export type TableRow = { id: string; cells: Record<string, CellValue> };
 /** Text styling for one cell. Absent keys mean the default (regular, normal size, the app's font). */
 /** border lists the cell's drawn sides, in the order t, r, b, l (e.g. "tb"). color is the text color. */
-export type CellFormat = { b?: true; i?: true; u?: true; size?: CellSize; font?: CellFont; align?: CellAlign; color?: string; border?: string };
+/** num is how a number shows (plain text, 1,000.12, 10%, $1,000.12, a date); dp is its decimal places. */
+export type CellFormat = { b?: true; i?: true; u?: true; size?: CellSize; font?: CellFont; align?: CellAlign; color?: string; border?: string; num?: NumFormat; dp?: number };
+export type NumFormat = "text" | "number" | "percent" | "currency" | "date";
+export const NUM_FORMATS: NumFormat[] = ["text", "number", "percent", "currency", "date"];
+export const MAX_DECIMALS = 6;
 export type CellSize = "sm" | "lg" | "xl";
 export type CellFont = "serif" | "mono" | "hand";
 export type CellAlign = "left" | "center" | "right";
@@ -78,6 +82,8 @@ export function normalizeFormat(raw: unknown): CellFormat | null {
   if (color) out.color = color;
   const border = normalizeSides(r.border);
   if (border) out.border = border;
+  if (NUM_FORMATS.includes(r.num as NumFormat)) out.num = r.num as NumFormat;
+  if (Number.isInteger(r.dp) && (r.dp as number) >= 0 && (r.dp as number) <= MAX_DECIMALS) out.dp = r.dp as number;
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -346,7 +352,7 @@ export function setFills(content: TableContent, cells: [string, string][], color
 
 /** A change to apply to cells' formats: true/false turns a style on/off, null resets size or font. */
 /** A change to cells' formats. borderOn/borderOff add or remove sides ("trbl"), keeping the others. */
-export type FormatPatch = { b?: boolean; i?: boolean; u?: boolean; size?: CellSize | null; font?: CellFont | null; align?: CellAlign | null; color?: string | null; borderOn?: string; borderOff?: string };
+export type FormatPatch = { b?: boolean; i?: boolean; u?: boolean; size?: CellSize | null; font?: CellFont | null; align?: CellAlign | null; color?: string | null; borderOn?: string; borderOff?: string; num?: NumFormat | null; dp?: number | null };
 
 export function setFormats(content: TableContent, cells: [string, string][], patch: FormatPatch): TableContent {
   const rowIds = new Set(content.rows.map((r) => r.id));
@@ -365,6 +371,8 @@ export function setFormats(content: TableContent, cells: [string, string][], pat
     if (patch.font !== undefined) next.font = patch.font ?? undefined;
     if (patch.align !== undefined) next.align = patch.align ?? undefined;
     if (patch.color !== undefined) next.color = patch.color ?? undefined;
+    if (patch.num !== undefined) next.num = patch.num ?? undefined;
+    if (patch.dp !== undefined) next.dp = patch.dp ?? undefined;
     if (patch.borderOn || patch.borderOff) {
       const on = normalizeSides(patch.borderOn);
       const off = normalizeSides(patch.borderOff);
@@ -690,4 +698,52 @@ export function dueState(due: string | null, todayIso: string): "none" | "overdu
   if (due < todayIso) return "overdue";
   if (due === todayIso) return "today";
   return "upcoming";
+}
+
+/* ---- Number formats (the table toolbar's "123" menu) ---- */
+
+/** The number a cell's text stands for: "1,200", "$40", "15%" (0.15), "-3.5". Null for anything else. */
+export function parseCellNumber(text: string): number | null {
+  const t = text.trim();
+  const m = /^([-+])?\$?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)(%)?$/.exec(t);
+  if (!m) return null;
+  let value = Number(m[2].replace(/,/g, ""));
+  if (!Number.isFinite(value)) return null;
+  if (m[1] === "-") value = -value;
+  if (m[3]) value /= 100;
+  return value;
+}
+
+/** How many decimal places a number's text shows, e.g. "1.50" -> 2. */
+export function decimalsShown(text: string): number {
+  const m = /\.(\d+)/.exec(text.replace(/[%$,]/g, ""));
+  return m ? Math.min(m[1].length, MAX_DECIMALS) : 0;
+}
+
+const fixed = (value: number, dp: number, grouped: boolean) =>
+  value.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp, useGrouping: grouped });
+
+/** A cell's text as its number format shows it. Anything that isn't a number (or a date) is left as is. */
+export function formatCellValue(text: string, format: CellFormat | undefined): string {
+  const num = format?.num;
+  if (!num && format?.dp === undefined) return text;
+  if (num === "text" || text.trim() === "") return text;
+  if (num === "date") {
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text.trim());
+    if (iso) return `${iso[2]}/${iso[3]}/${iso[1]}`;
+    const parsed = Date.parse(text);
+    if (Number.isNaN(parsed) || parseCellNumber(text) !== null) return text;
+    const d = new Date(parsed);
+    return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+  }
+  const value = parseCellNumber(text);
+  if (value === null) return text;
+  if (num === "percent") return `${fixed(value * 100, format?.dp ?? 2, true)}%`;
+  if (num === "currency") {
+    const shown = `$${fixed(Math.abs(value), format?.dp ?? 2, true)}`;
+    return value < 0 ? `-${shown}` : shown;
+  }
+  if (num === "number") return fixed(value, format?.dp ?? 2, true);
+  // No format picked, only decimal places.
+  return fixed(value, format?.dp ?? 0, false);
 }

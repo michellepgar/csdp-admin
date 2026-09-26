@@ -4,14 +4,15 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { CSSProperties, ClipboardEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { ArrowDown, ArrowUp, Baseline, Download, GripVertical, ListPlus, Redo2, Search, TableCellsMerge, TableCellsSplit, Undo2, Bold, Calendar, Grid2x2, Hash, Italic, ListChecks, ListFilter, PaintBucket, PanelBottom, PanelLeft, PanelRight, PanelTop, Plus, Snowflake, Square, SquareCheck, SquareDashed, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2, Type, Underline, X } from "lucide-react";
 import { ColorWell } from "@/components/color-well";
+import { recentColors, rememberRecentColor, type RecentColorKind } from "@/lib/recent-colors";
 import { ContextMenu, KebabMenu } from "@/components/kebab-menu";
 import type { KebabMenuItem } from "@/components/kebab-menu";
-import { DEFAULT_COLUMN_WIDTH, FILL_COLORS, MAX_COLUMNS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, clampWidth, coerceCell, columnName, newCellId, parsePastedGrid } from "@/lib/workspace";
+import { DEFAULT_COLUMN_WIDTH, FILL_COLORS, MAX_COLUMNS, MAX_DECIMALS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, clampWidth, coerceCell, columnName, decimalsShown, formatCellValue, newCellId, parsePastedGrid } from "@/lib/workspace";
 import { applySheetOps, invertSheetOps, mergeBox, pasteOps } from "@/lib/sheet-ops";
 import type { SheetOp } from "@/lib/sheet-ops";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
 import { evaluateTable, isFormula, shiftFormula } from "@/lib/workspace-formula";
-import type { CellAlign, CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, TableColumn, TableContent, TableRow } from "@/lib/workspace";
+import type { CellAlign, CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, NumFormat, TableColumn, TableContent, TableRow } from "@/lib/workspace";
 
 const COLUMN_WIDTH = DEFAULT_COLUMN_WIDTH;
 const widthOf = (column: TableColumn) => column.width ?? COLUMN_WIDTH;
@@ -108,16 +109,55 @@ const BORDER_CHOICES: { value: BorderChoice; label: string; icon: ReactNode }[] 
   { value: "none", label: "No borders", icon: <SquareDashed className="h-4 w-4" /> },
 ];
 
+const NUMBER_FORMAT_CHOICES: { value: NumFormat | null; label: string; example: string }[] = [
+  { value: null, label: "Automatic", example: "as typed" },
+  { value: "text", label: "Plain text", example: "0012" },
+  { value: "number", label: "Number", example: "1,000.12" },
+  { value: "percent", label: "Percent", example: "10.12%" },
+  { value: "currency", label: "Currency", example: "$1,000.12" },
+  { value: "date", label: "Date", example: "09/26/2026" },
+];
+
 const ALIGN_CHOICES: { value: CellAlign; label: string; icon: ReactNode }[] = [
   { value: "left", label: "Align left", icon: <TextAlignStart className="h-3.5 w-3.5" /> },
   { value: "center", label: "Align center", icon: <TextAlignCenter className="h-3.5 w-3.5" /> },
   { value: "right", label: "Align right", icon: <TextAlignEnd className="h-3.5 w-3.5" /> },
 ];
 
-/* A row of color swatches plus a "none" choice, used for text color and highlight. */
-function SwatchPanel({ colors, noneLabel, current, onPick, close }: { colors: { name: string; value: string }[]; noneLabel: string; current: string | undefined; onPick: (color: string | null) => void; close: () => void }) {
+/* A row of color swatches plus a "none" choice, used for text color and highlight.
+   The colors you used most recently (in this browser) show on top. */
+function SwatchPanel({ colors, noneLabel, current, onPick: pick, close, recentKind }: { colors: { name: string; value: string }[]; noneLabel: string; current: string | undefined; onPick: (color: string | null) => void; close: () => void; recentKind: RecentColorKind }) {
+  const [recent] = useState(() => recentColors(recentKind));
+  const onPick = (color: string | null) => {
+    if (color) rememberRecentColor(recentKind, color);
+    pick(color);
+  };
   return (
     <div className="w-44 space-y-2">
+      {recent.length > 0 && (
+        <div className="space-y-1">
+          <div className="px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recent</div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {recent.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                title={colors.find((c) => c.value === hex)?.name ?? hex}
+                aria-label={`Recent color ${colors.find((c) => c.value === hex)?.name ?? hex}`}
+                aria-pressed={current === hex}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onPick(hex);
+                  close();
+                }}
+                className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${current === hex ? "border-foreground" : "border-border"}`}
+                style={{ backgroundColor: hex }}
+              />
+            ))}
+          </div>
+          <div className="border-t border-border pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Colors</div>
+        </div>
+      )}
       <div className="grid grid-cols-4 gap-1.5">
         {colors.map((c) => (
           <button
@@ -551,9 +591,11 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
             </div>
           );
         } else {
-          const text = displayText(raw, column, result);
-          // Numbers sit on the right, words on the left -- typed or from a formula, like a spreadsheet.
-          const right = column.type === "number" || (!isError && looksNumeric(text));
+          const cellFormat = formats[column.id];
+          const text = formatCellValue(displayText(raw, column, result), cellFormat);
+          // Numbers (and dates) sit on the right, words on the left -- typed or from a formula,
+          // like a spreadsheet. Plain text format keeps everything on the left.
+          const right = cellFormat?.num !== "text" && (column.type === "number" || (!isError && (looksNumeric(text) || (cellFormat?.num === "date" && /^\d{2}\/\d{2}\/\d{4}$/.test(text)))));
           const href = linkHref(text);
           body = (
             <div title={isFormula(raw) ? String(raw) : text || undefined} style={formatStyle(formats[column.id])} className={`h-8 truncate px-2 leading-8 ${right ? "text-right tabular-nums" : ""} ${isError ? "text-destructive" : ""}`}>
@@ -766,7 +808,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
   const findRef = useRef<HTMLInputElement>(null);
   // Where a dragged row or column would land, as a line drawn across the grid (in scroll coordinates).
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; on: "cell" | "row" | "col" } | null>(null);
-  const [dropLine, setDropLine] = useState<{ kind: "row" | "col"; at: number; length: number } | null>(null);
+  const [dropLine, setDropLine] = useState<{ kind: "row" | "col"; at: number; length: number; freeze?: true } | null>(null);
   const dragRef = useRef<(e: React.PointerEvent<HTMLElement>, kind: "row" | "col", index: number) => void>(() => {});
   const [renameDraft, setRenameDraft] = useState("");
   const [sort, setSort] = useState<{ columnId: string; dir: "asc" | "desc" } | null>(null);
@@ -1138,7 +1180,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
       const values: string[] = [];
       for (let c = sel.c1; c <= sel.c2; c++) {
         const column = columns[c];
-        const text = displayText(cellOf(row, column.id), column, computedByRow[row.id]?.[column.id]);
+        const text = formatCellValue(displayText(cellOf(row, column.id), column, computedByRow[row.id]?.[column.id]), formatsByRow[row.id]?.[column.id]);
         values.push(/[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
       }
       lines.push(values.join("\t"));
@@ -1317,6 +1359,20 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     runOps([{ t: "format", cells: selectedCells(), patch }]);
   }
 
+  /* Number format ("123" menu) and decimal places, like a spreadsheet. */
+  function setNumberFormat(num: NumFormat | null) {
+    format({ num, dp: null });
+  }
+  function stepDecimals(delta: 1 | -1) {
+    if (!sel) return;
+    const row = rows[view[sel.anchor.r]];
+    const column = columns[sel.anchor.c];
+    const text = row && column ? displayText(cellOf(row, column.id), column, computedByRow[row.id]?.[column.id]) : "";
+    const numbered = activeFormat.num === "number" || activeFormat.num === "currency" || activeFormat.num === "percent";
+    const now = activeFormat.dp ?? (numbered ? 2 : decimalsShown(text));
+    format({ dp: Math.max(0, Math.min(MAX_DECIMALS, now + delta)) });
+  }
+
   function toggleFormat(flag: "b" | "i" | "u") {
     format({ [flag]: !activeFormat[flag] });
   }
@@ -1430,6 +1486,61 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
 
   function freeze(rows: number, cols: number) {
     runOps([{ t: "freeze", rows, cols }]);
+  }
+
+  /* Drag the gray bar in the top-left corner down (rows) or right (columns)
+     to freeze everything above / left of where you let go -- like a
+     spreadsheet. Dragging it back to the corner unfreezes. */
+  function freezeDragStart(e: React.PointerEvent<HTMLElement>, kind: "row" | "col") {
+    e.preventDefault();
+    e.stopPropagation();
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const targets = Array.from(wrap.querySelectorAll<HTMLElement>(kind === "row" ? "tbody > tr" : "thead th[data-col]")).filter(
+      (el) => kind === "col" || !!el.querySelector("th[data-row-pos]"),
+    );
+    if (targets.length === 0) return;
+    const limit = Math.min(targets.length, kind === "row" ? MAX_FREEZE_ROWS : MAX_FREEZE_COLS);
+    const least = kind === "row" && hasHeader ? 1 : 0;
+    let count = kind === "row" ? freezeRows : freezeCols;
+    document.body.style.cursor = kind === "row" ? "row-resize" : "col-resize";
+
+    const place = (ev: PointerEvent) => {
+      const point = kind === "row" ? ev.clientY : ev.clientX;
+      let at = 0;
+      for (const el of targets) {
+        const r = el.getBoundingClientRect();
+        if (point > (kind === "row" ? r.top + r.height / 2 : r.left + r.width / 2)) at++;
+        else break;
+      }
+      count = Math.max(least, Math.min(limit, at));
+      const box = wrap.getBoundingClientRect();
+      const edge = count > 0 ? targets[count - 1].getBoundingClientRect() : targets[0].getBoundingClientRect();
+      const line =
+        kind === "row"
+          ? (count > 0 ? edge.bottom : edge.top) - box.top + wrap.scrollTop
+          : (count > 0 ? edge.right : edge.left) - box.left + wrap.scrollLeft;
+      setDropLine({ kind, at: line, length: kind === "row" ? wrap.scrollWidth : wrap.scrollHeight, freeze: true });
+    };
+    const finish = (apply: boolean) => {
+      handle.removeEventListener("pointermove", place);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onCancel);
+      document.body.style.cursor = "";
+      setDropLine(null);
+      if (!apply) return;
+      const rowsNow = content.freeze?.rows ?? 0;
+      const colsNow = content.freeze?.cols ?? 0;
+      if (kind === "row" && count !== freezeRows) freeze(count, colsNow);
+      if (kind === "col" && count !== freezeCols) freeze(rowsNow, count);
+    };
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    handle.addEventListener("pointermove", place);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onCancel);
   }
 
   // The active cell, for the formula bar.
@@ -1873,6 +1984,45 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
           ))}
         </select>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+        <KebabMenu
+          ariaLabel="Number format"
+          title="Number format (plain text, number, percent, currency, date)"
+          disabled={!sel}
+          active={!!activeFormat.num}
+          icon={<span className="px-0.5 text-[11px] font-bold tabular-nums">123</span>}
+          content={(close) => (
+            <div className="w-56 py-1" role="menu" aria-label="Number format">
+              {NUMBER_FORMAT_CHOICES.map((choice) => {
+                const current = (activeFormat.num ?? null) === choice.value;
+                return (
+                  <button
+                    key={choice.label}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={current}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setNumberFormat(choice.value);
+                      close();
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-ring/10 ${current ? "font-semibold text-foreground" : "text-foreground"}`}
+                  >
+                    <span className="w-3.5 text-primary">{current ? "✓" : ""}</span>
+                    <span className="flex-1">{choice.label}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">{choice.example}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        />
+        <button type="button" disabled={!sel} title="Fewer decimal places" aria-label="Fewer decimal places" onMouseDown={(e) => e.preventDefault()} onClick={() => stepDecimals(-1)} className={toolButton(false)}>
+          <span className="text-[11px] font-bold leading-none">.0<span className="text-[9px]">←</span></span>
+        </button>
+        <button type="button" disabled={!sel} title="More decimal places" aria-label="More decimal places" onMouseDown={(e) => e.preventDefault()} onClick={() => stepDecimals(1)} className={toolButton(false)}>
+          <span className="text-[11px] font-bold leading-none">.00<span className="text-[9px]">→</span></span>
+        </button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
         {ALIGN_CHOICES.map((a) => (
           <button key={a.value} type="button" disabled={!sel} title={a.label} aria-label={a.label} aria-pressed={activeFormat.align === a.value} onMouseDown={(e) => e.preventDefault()} onClick={() => setAlign(a.value)} className={toolButton(activeFormat.align === a.value)}>
             {a.icon}
@@ -1889,7 +2039,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
               <span className="mt-0.5 h-1 w-4 rounded-sm border border-border" style={{ backgroundColor: activeFormat.color ?? "transparent" }} />
             </span>
           }
-          content={(close) => <SwatchPanel colors={TEXT_COLORS} noneLabel="Automatic" current={activeFormat.color} close={close} onPick={(color) => format({ color })} />}
+          content={(close) => <SwatchPanel colors={TEXT_COLORS} noneLabel="Automatic" current={activeFormat.color} close={close} recentKind="text" onPick={(color) => format({ color })} />}
         />
         <KebabMenu
           ariaLabel="Highlight color"
@@ -1901,7 +2051,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
               <span className="mt-0.5 h-1 w-4 rounded-sm border border-border" style={{ backgroundColor: activeFill ?? "transparent" }} />
             </span>
           }
-          content={(close) => <SwatchPanel colors={FILL_COLORS} noneLabel="No highlight" current={activeFill} close={close} onPick={(color) => highlight(color)} />}
+          content={(close) => <SwatchPanel colors={FILL_COLORS} noneLabel="No highlight" current={activeFill} close={close} recentKind="fill" onPick={(color) => highlight(color)} />}
         />
         <KebabMenu
           ariaLabel="Borders"
@@ -2079,8 +2229,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         {dropLine && (
           <div
             aria-hidden
-            className="pointer-events-none absolute z-30 rounded-full bg-ring"
-            style={dropLine.kind === "row" ? { left: 0, top: dropLine.at - 1, width: dropLine.length, height: 3 } : { top: 0, left: dropLine.at - 1, width: 3, height: dropLine.length }}
+            className={`pointer-events-none absolute z-30 rounded-full ${dropLine.freeze ? "bg-sheet-freeze" : "bg-ring"}`}
+            style={dropLine.kind === "row" ? { left: 0, top: dropLine.at - (dropLine.freeze ? 2 : 1), width: dropLine.length, height: dropLine.freeze ? 5 : 3 } : { top: 0, left: dropLine.at - (dropLine.freeze ? 2 : 1), width: dropLine.freeze ? 5 : 3, height: dropLine.length }}
           />
         )}
         <table className="border-separate border-spacing-0 text-sm" style={{ width: tableWidth, tableLayout: "fixed" }}>
@@ -2103,7 +2253,31 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
                   keyRef.current?.focus({ preventScroll: true });
                   setSelection({ anchor: { r: 0, c: 0 }, focus: { r: view.length - 1, c: columns.length - 1 } });
                 }}
-              />
+              >
+                {/* Freeze handles: drag the bottom bar down for rows, the right bar across for columns. */}
+                {view.length > 0 && (
+                  <span
+                    role="separator"
+                    aria-orientation="horizontal"
+                    aria-label="Drag down to freeze rows"
+                    title="Drag down to freeze rows"
+                    onPointerDown={(e) => freezeDragStart(e, "row")}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="absolute inset-x-0 bottom-0 h-[5px] cursor-row-resize touch-none bg-sheet-freeze/70 transition-colors hover:bg-ring"
+                  />
+                )}
+                {columns.length > 0 && (
+                  <span
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="Drag right to freeze columns"
+                    title="Drag right to freeze columns"
+                    onPointerDown={(e) => freezeDragStart(e, "col")}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="absolute inset-y-0 right-0 w-[5px] cursor-col-resize touch-none bg-sheet-freeze/70 transition-colors hover:bg-ring"
+                  />
+                )}
+              </th>
               {columns.map((column, c) => {
                 const columnSelected = !!sel && c >= sel.c1 && c <= sel.c2;
                 return (

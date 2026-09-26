@@ -1,4 +1,4 @@
-import { addColumn, addRow, clampWidth, coerceCell, newCellId, normalizeFillColor, normalizeFormat, removeColumn, removeRow, renameColumn, setCellStyles, setColumnType, setFills, setFormats, normalizeFreeze, normalizeSides, CELL_ALIGNS, CELL_FONTS, CELL_SIZES, MAX_COLUMNS, MAX_ROWS } from "./workspace.ts";
+import { addColumn, addRow, clampWidth, coerceCell, newCellId, normalizeFillColor, normalizeFormat, removeColumn, removeRow, renameColumn, setCellStyles, setColumnType, setFills, setFormats, normalizeFreeze, normalizeSides, CELL_ALIGNS, CELL_FONTS, CELL_SIZES, MAX_COLUMNS, MAX_DECIMALS, MAX_ROWS, NUM_FORMATS } from "./workspace.ts";
 import type { CellFormat, CellValue, ColumnType, FormatPatch, Merge, TableColumn, TableContent, TableRow } from "./workspace.ts";
 
 /* A table edit described as a small operation instead of a whole new table.
@@ -64,6 +64,9 @@ function readPatch(raw: unknown): FormatPatch | null {
   else if (normalizeFillColor(raw.color)) patch.color = normalizeFillColor(raw.color);
   if (typeof raw.borderOn === "string") patch.borderOn = normalizeSides(raw.borderOn);
   if (typeof raw.borderOff === "string") patch.borderOff = normalizeSides(raw.borderOff);
+  if (raw.num === null || NUM_FORMATS.includes(raw.num as never)) patch.num = raw.num as FormatPatch["num"];
+  if (raw.dp === null) patch.dp = null;
+  else if (Number.isInteger(raw.dp) && (raw.dp as number) >= 0 && (raw.dp as number) <= MAX_DECIMALS) patch.dp = raw.dp as number;
   return patch;
 }
 

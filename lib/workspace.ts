@@ -1,4 +1,6 @@
-export type BlockKind = "table" | "note" | "reminder";
+import { validateReviewContent, type ReviewContent } from "./feature-review.ts";
+
+export type BlockKind = "table" | "note" | "reminder" | "review";
 export type ColumnType = "text" | "number" | "date" | "checkbox" | "dropdown";
 export type CellValue = string | number | boolean | null;
 /** width: the column's width in pixels when someone resized it (otherwise the default). */
@@ -100,7 +102,7 @@ export const FILL_COLORS: { name: string; value: string }[] = [
 export const fillKey = (rowId: string, columnId: string) => `${rowId}|${columnId}`;
 export type NoteContent = { html: string; padColor?: string };
 export type ReminderContent = { text: string; due: string | null; done: boolean };
-export type BlockContent = TableContent | NoteContent | ReminderContent;
+export type BlockContent = TableContent | NoteContent | ReminderContent | ReviewContent;
 export type Rect = { x: number; y: number; w: number; h: number };
 
 export type Workbook = { id: string; title: string; tags: string[]; bgColor?: string; bgStyle?: string; createdAt: string; updatedAt: string; /** Shared spreadsheets only: who last changed it. */ updatedBy?: string | null };
@@ -155,11 +157,13 @@ export const MIN_SIZE: Record<BlockKind, { w: number; h: number }> = {
   table: { w: 240, h: 120 },
   note: { w: 160, h: 100 },
   reminder: { w: 240, h: 130 },
+  review: { w: 360, h: 320 },
 };
 const DEFAULT_SIZE: Record<BlockKind, { w: number; h: number }> = {
   table: { w: 480, h: 280 },
   note: { w: 260, h: 180 },
   reminder: { w: 300, h: 160 },
+  review: { w: 1200, h: 760 },
 };
 
 /** First spot (top to bottom, left to right on a grid) where a block of `size`
@@ -204,6 +208,7 @@ export function columnName(index: number): string {
 export function defaultContent(kind: BlockKind): BlockContent {
   if (kind === "note") return { html: "" };
   if (kind === "reminder") return { text: "", due: null, done: false };
+  if (kind === "review") return { cards: [] };
   const columns: TableColumn[] = [0, 1, 2].map((i) => ({ id: newId(), name: columnName(i), type: "text" }));
   const rows: TableRow[] = [0, 1, 2].map(() => ({ id: newId(), cells: {} }));
   return { columns, rows };
@@ -589,6 +594,7 @@ export function validateBlockContent(kind: BlockKind, raw: unknown, sanitizeHtml
     const due = typeof raw.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.due) ? normalizeDate(raw.due) : null;
     return { text, due, done: raw.done === true };
   }
+  if (kind === "review") return validateReviewContent(raw);
   if (kind !== "table") return null;
   if (!Array.isArray(raw.columns) || raw.columns.length === 0 || raw.columns.length > MAX_COLUMNS) return null;
   if (!Array.isArray(raw.rows) || raw.rows.length > MAX_ROWS) return null;

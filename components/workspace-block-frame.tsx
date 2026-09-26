@@ -11,6 +11,7 @@ const KIND_CHIP: Record<BlockKind, string> = {
   table: "bg-muted text-muted-foreground",
   note: "bg-muted text-muted-foreground",
   reminder: "bg-muted text-muted-foreground",
+  review: "bg-primary/10 text-primary",
 };
 
 type DragState = { mode: "move" | "resize"; pointerId: number; startX: number; startY: number; origin: Rect; live: Rect };

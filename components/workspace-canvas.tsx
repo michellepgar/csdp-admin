@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import type { ReactNode } from "react";
-import { BellRing, ChevronDown, LayoutGrid, Palette, Plus, StickyNote, Table2 } from "lucide-react";
+import { BellRing, ChevronDown, Columns3, LayoutGrid, Palette, Plus, StickyNote, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ColorWell } from "@/components/color-well";
 import { WorkspaceBlockFrame } from "@/components/workspace-block-frame";
@@ -11,6 +11,8 @@ import { WorkspaceReminderBlock } from "@/components/workspace-reminder-block";
 import { WorkspaceSheetTabs } from "@/components/workspace-sheet-tabs";
 import type { WorkspaceAction } from "@/components/workspace-sheet-tabs";
 import { WorkspaceTableBlock } from "@/components/workspace-table-block";
+import { FeatureReviewBlock } from "@/components/feature-review-block";
+import { validateReviewContent } from "@/lib/feature-review";
 import { BG_COLORS, BG_STYLES, MAX_RECT, applyPasteStyles, defaultContent, defaultRect, findFreePosition, isDarkColor, parsePastedGrid, tableFromGrid } from "@/lib/workspace";
 import { readClipboardTableStyles } from "@/lib/clipboard-table";
 import { lastScroll, lastSheet, rememberOpened, rememberScroll, rememberSheet } from "@/lib/workspace-last-place";
@@ -38,8 +40,9 @@ const KIND_META: Record<BlockKind, { label: string; icon: ReactNode; chip: strin
   table: { label: "Table", icon: <Table2 className="h-4 w-4" />, chip: "bg-muted text-muted-foreground" },
   note: { label: "Note", icon: <StickyNote className="h-4 w-4" />, chip: "bg-muted text-muted-foreground" },
   reminder: { label: "Reminder", icon: <BellRing className="h-4 w-4" />, chip: "bg-muted text-muted-foreground" },
+  review: { label: "Feature Review", icon: <Columns3 className="h-4 w-4" />, chip: "bg-primary/10 text-primary" },
 };
-const KINDS: BlockKind[] = ["table", "note", "reminder"];
+const KINDS: BlockKind[] = ["table", "note", "reminder", "review"];
 
 const STYLE_LABELS: Record<BgStyle, string> = { dots: "Dots", grid: "Grid", plain: "Plain" };
 
@@ -517,6 +520,10 @@ export function WorkspaceCanvas({
       const raw = block.content as Partial<TableContent>;
       const table: TableContent = Array.isArray(raw.columns) && Array.isArray(raw.rows) && raw.columns.length > 0 ? (raw as TableContent) : tableFallback(block.id);
       return <WorkspaceTableBlock key={block.id} content={table} mobile={mobile} fileName={`${workbook.title} - ${activeSheet?.name ?? "Sheet"}`} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
+    }
+    if (block.kind === "review") {
+      const review = validateReviewContent(block.content) ?? { cards: [] };
+      return <FeatureReviewBlock key={block.id} blockId={block.id} content={review} onChange={(content) => changeContent(block.id, content)} onFlush={() => flushContent(block.id)} />;
     }
     const rawReminder = block.content as Partial<ReminderContent>;
     const reminder: ReminderContent =

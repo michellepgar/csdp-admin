@@ -42,7 +42,7 @@ async function runResultAction(
   }
 }
 
-const BLOCK_KINDS: BlockKind[] = ["table", "note", "reminder"];
+const BLOCK_KINDS: BlockKind[] = ["table", "note", "reminder", "review"];
 const MAX_Z = 1_000_000;
 const MAX_REORDER_IDS = 100;
 const now = () => new Date().toISOString();

@@ -482,7 +482,8 @@ export function SpreadsheetView({
         ) : null}
       </div>
 
-      <div className="overflow-visible rounded-xl border border-sheet-grid bg-sheet-cell shadow-sm">
+      {/* isolate: the sheet tabs and grid layers stay under the page title when scrolling. */}
+      <div className="isolate overflow-visible rounded-xl border border-sheet-grid bg-sheet-cell shadow-sm">
         <div className="relative z-20 flex flex-wrap items-end gap-2 rounded-t-xl border-b border-sheet-grid bg-sheet-bar px-2 pt-2">
           {activeSheet ? (
             <WorkspaceSheetTabs

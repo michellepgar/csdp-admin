@@ -571,7 +571,9 @@ export function WorkspaceCanvas({
   );
 
   return (
-    <div className="overflow-visible rounded-xl border border-border bg-record-background no-record-hover shadow-sm">
+    // isolate: the workbook's own layers (tab bar, blocks, menus) stack among
+    // themselves, so none of them can slide over the page title when scrolling.
+    <div className="isolate overflow-visible rounded-xl border border-border bg-record-background no-record-hover shadow-sm">
       <div className="relative z-20 flex flex-wrap items-end gap-2 rounded-t-xl border-b border-border bg-muted/50 px-2 pt-2">
         {activeSheet && (
           <WorkspaceSheetTabs

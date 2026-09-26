@@ -4,7 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { WorkspaceCanvas } from "@/components/workspace-canvas";
-import { loadWorkbook, loadWorkspaceContext } from "@/lib/workspace-data";
+import { hasUnreadSharedNote, loadWorkbook, loadWorkspaceContext } from "@/lib/workspace-data";
+import { WorkspaceTabs } from "@/components/workspace-tabs";
 import { touchWorkbook, setWorkbookBackground, createSheet, renameSheet, reorderSheets, deleteSheet, createBlock, updateBlockContent, updateBlockRect, deleteBlock } from "../actions";
 
 export default async function WorkbookPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ sheet?: string }> }) {
@@ -14,7 +15,7 @@ export default async function WorkbookPage({ params, searchParams }: { params: P
   const context = await loadWorkspaceContext();
   if (!context) redirect("/login");
 
-  const loaded = await loadWorkbook(id);
+  const [loaded, notesAlert] = await Promise.all([loadWorkbook(id), hasUnreadSharedNote(context)]);
   if (!loaded) redirect("/my-workspace"); // deleted (or a bad link): show the list
   const { workbook, sheets, blocks } = loaded;
 
@@ -26,13 +27,17 @@ export default async function WorkbookPage({ params, searchParams }: { params: P
     <div>
       <PageHeader title={workbook.title} />
       <PageBody gap={6}>
-        <Link
-          href="/my-workspace"
-          className="inline-flex items-center gap-1.5 rounded-full border border-ring/30 bg-ring/10 px-3 py-1 text-sm font-medium text-ring shadow-sm transition-colors hover:bg-ring/20"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          All workbooks
-        </Link>
+        {/* The My Workspace tabs here too, so Private Notes is one click away from any workbook. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <WorkspaceTabs active="workbooks" notesAlert={notesAlert} />
+          <Link
+            href="/my-workspace"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ring/30 bg-ring/10 px-3 py-1 text-sm font-medium text-ring shadow-sm transition-colors hover:bg-ring/20"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            All workbooks
+          </Link>
+        </div>
         <WorkspaceCanvas
           key={workbook.id}
           workbook={workbook}

@@ -116,6 +116,7 @@ const NUMBER_FORMAT_CHOICES: { value: NumFormat | null; label: string; example: 
   { value: "percent", label: "Percent", example: "10.12%" },
   { value: "currency", label: "Currency", example: "$1,000.12" },
   { value: "date", label: "Date", example: "09/26/2026" },
+  { value: "phone", label: "Phone number", example: "(555) 010-1234" },
 ];
 
 const ALIGN_CHOICES: { value: CellAlign; label: string; icon: ReactNode }[] = [
@@ -1986,7 +1987,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
         <KebabMenu
           ariaLabel="Number format"
-          title="Number format (plain text, number, percent, currency, date)"
+          title="Number format (plain text, number, percent, currency, date, phone number)"
           disabled={!sel}
           active={!!activeFormat.num}
           icon={<span className="px-0.5 text-[11px] font-bold tabular-nums">123</span>}

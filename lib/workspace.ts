@@ -16,10 +16,10 @@ const MAX_MERGES = 500;
 export type TableRow = { id: string; cells: Record<string, CellValue> };
 /** Text styling for one cell. Absent keys mean the default (regular, normal size, the app's font). */
 /** border lists the cell's drawn sides, in the order t, r, b, l (e.g. "tb"). color is the text color. */
-/** num is how a number shows (plain text, 1,000.12, 10%, $1,000.12, a date); dp is its decimal places. */
+/** num is how a number shows (plain text, 1,000.12, 10%, $1,000.12, a date, a phone number); dp is its decimal places. */
 export type CellFormat = { b?: true; i?: true; u?: true; size?: CellSize; font?: CellFont; align?: CellAlign; color?: string; border?: string; num?: NumFormat; dp?: number };
-export type NumFormat = "text" | "number" | "percent" | "currency" | "date";
-export const NUM_FORMATS: NumFormat[] = ["text", "number", "percent", "currency", "date"];
+export type NumFormat = "text" | "number" | "percent" | "currency" | "date" | "phone";
+export const NUM_FORMATS: NumFormat[] = ["text", "number", "percent", "currency", "date", "phone"];
 export const MAX_DECIMALS = 6;
 export type CellSize = "sm" | "lg" | "xl";
 export type CellFont = "serif" | "mono" | "hand";
@@ -729,11 +729,24 @@ export function decimalsShown(text: string): number {
 const fixed = (value: number, dp: number, grouped: boolean) =>
   value.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp, useGrouping: grouped });
 
+/** A 10-digit phone number as (###) ###-####, however it was typed (a leading
+    US 1 shows as +1). Anything else -- an incomplete number, an extension --
+    stays exactly as typed. */
+export function formatPhone(text: string): string {
+  const digits = text.replace(/\D/g, "");
+  if (/[a-z]/i.test(text)) return text;
+  const local = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (local.length !== 10) return text;
+  const shown = `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`;
+  return local === digits ? shown : `+1 ${shown}`;
+}
+
 /** A cell's text as its number format shows it. Anything that isn't a number (or a date) is left as is. */
 export function formatCellValue(text: string, format: CellFormat | undefined): string {
   const num = format?.num;
   if (!num && format?.dp === undefined) return text;
   if (num === "text" || text.trim() === "") return text;
+  if (num === "phone") return formatPhone(text);
   if (num === "date") {
     const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text.trim());
     if (iso) return `${iso[2]}/${iso[3]}/${iso[1]}`;

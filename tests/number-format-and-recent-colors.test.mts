@@ -50,3 +50,15 @@ test("recent colors put the newest first, once each, and keep only a few", () =>
   for (let i = 0; i < 20; i++) list = withRecentColor(list, `#0000${String(i).padStart(2, "0")}`);
   assert.equal(list.length, MAX_RECENT_COLORS);
 });
+
+test("phone number format shows 10 digits as (###) ###-#### and leaves the rest as typed", async () => {
+  const { formatPhone } = await import("../lib/workspace.ts");
+  assert.equal(formatCellValue("5550101234", { num: "phone" }), "(555) 010-1234");
+  assert.equal(formatCellValue("555.010.1234", { num: "phone" }), "(555) 010-1234");
+  assert.equal(formatCellValue("555-010-1234", { num: "phone" }), "(555) 010-1234");
+  assert.equal(formatCellValue("1 555 010 1234", { num: "phone" }), "+1 (555) 010-1234");
+  assert.equal(formatCellValue("555010", { num: "phone" }), "555010");
+  assert.equal(formatCellValue("555-0101 ext 22", { num: "phone" }), "555-0101 ext 22");
+  assert.equal(formatPhone("(555) 010-1234"), "(555) 010-1234");
+  assert.deepEqual(normalizeFormat({ num: "phone" }), { num: "phone" });
+});

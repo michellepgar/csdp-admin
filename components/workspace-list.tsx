@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
-import { forgetOpened, lastOpened, lastSheet, PRIVATE_NOTES_PLACE } from "@/lib/workspace-last-place";
+import { forgetOpened, lastSheet } from "@/lib/workspace-last-place";
 import { BookOpen, Plus, Search, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -188,12 +188,11 @@ export function WorkspaceList({
 }) {
   const router = useRouter();
   const section = wording.basePath === "/spreadsheets" ? "spreadsheets" : "workspace";
-  // The one the sidebar would reopen was deleted: go back to opening this list.
+  // The list is now the last place open here, so the sidebar's link comes
+  // back to the list (opening a spreadsheet / workbook remembers that instead).
   useEffect(() => {
-    const id = lastOpened(section);
-    // Back on the Workbooks tab from Private Notes: the sidebar opens this list again.
-    if (id === PRIVATE_NOTES_PLACE || (id && !workbooks.some((w) => w.id === id))) forgetOpened(section);
-  }, [section, workbooks]);
+    forgetOpened(section);
+  }, [section]);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [sort, setSort] = useState<"opened" | "name">("opened");

@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, GripVertical, Pencil } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { SignatureChip } from "@/components/signature-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { checklistSummary, vaColorByName, type ChecklistTemplateItem, type ChecklistProgressEntry, type Va } from "@/lib/app-state";
+import { checklistSummary, type ChecklistTemplateItem, type ChecklistProgressEntry } from "@/lib/app-state";
 
 const COLLAPSED_COOKIE_NAME = "checklist-collapsed";
 
@@ -15,7 +14,6 @@ export function ChecklistCard({
   schoolId,
   template,
   progress,
-  vas,
   initialHidden,
   toggleChecklistItem,
   setChecklistNotNeeded,
@@ -26,11 +24,9 @@ export function ChecklistCard({
 }: {
   schoolId: string;
   template: ChecklistTemplateItem[];
-  /* Keyed by item id (already scoped to this school by the caller) --
-     status plus who last checked it off, since anyone on the team can
-     now do so, not just the assigned VA. */
+  /* Keyed by item id (already scoped to this school by the caller). Who
+     checked an item off is still saved, but not shown on the checklist. */
   progress: Record<string, ChecklistProgressEntry>;
-  vas: Va[];
   /* Read server-side from the checklist-collapsed cookie by the
      caller (app/(app)/schools/[id]/page.tsx) and handed in as the
      starting value -- same reasoning as the sidebar's own
@@ -206,7 +202,6 @@ export function ChecklistCard({
                   </form>
                 ) : (
                   <>
-                    {done && entry?.checkedBy && <SignatureChip name={entry.checkedBy} color={vaColorByName(vas, entry.checkedBy)} small />}
                     <form action={setChecklistNotNeeded}>
                       <input type="hidden" name="schoolId" value={schoolId} />
                       <input type="hidden" name="itemId" value={item.id} />

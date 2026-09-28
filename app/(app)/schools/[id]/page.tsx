@@ -167,7 +167,6 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
         schoolId={schoolId}
         template={checklistTemplate}
         progress={checklistProgressForSchool}
-        vas={state.vas}
         initialHidden={checklistCollapsed}
         toggleChecklistItem={toggleChecklistItem}
         setChecklistNotNeeded={setChecklistNotNeeded}

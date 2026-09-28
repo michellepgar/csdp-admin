@@ -276,6 +276,9 @@ export function TasksCard(props: TasksCardProps) {
   const [orderedCategories, setOrderedCategories] = useState(categories);
   const [orderedFiles, setOrderedFiles] = useState(taskFiles);
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
+  // Dragging a file (by its grip) to a new place in its table.
+  const [dragFile, setDragFile] = useState<{ id: string; table: string } | null>(null);
+  const [dropFileId, setDropFileId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCategoryError, setEditCategoryError] = useState<string | null>(null);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
@@ -410,6 +413,19 @@ export function TasksCard(props: TasksCardProps) {
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     return next;
+  }
+
+  /* Drops the dragged file where another file in the same table is: moving down
+     puts it after that file, moving up puts it before -- then saves the order. */
+  function dropFile(tableFiles: TaskFile[], targetId: string) {
+    const dragged = dragFile;
+    setDragFile(null);
+    setDropFileId(null);
+    if (!dragged || dragged.id === targetId || !tableFiles.some((f) => f.id === dragged.id)) return;
+    const next = moveItem(orderedFiles, dragged.id, targetId);
+    if (!next) return;
+    setOrderedFiles(next.map((file, sortOrder) => ({ ...file, sortOrder })));
+    props.reorderTasks(schoolId, next.map((item) => item.id));
   }
 
   function dropCategory(targetId: string) {
@@ -677,7 +693,25 @@ export function TasksCard(props: TasksCardProps) {
               <thead><tr className="border-b bg-muted/40">{isSelecting && <th className="w-7"><span className="sr-only">Select</span></th>}{columns.map((column, index) => <th key={column.kind === "task" ? `task:${column.category.id}` : column.kind} className={`py-2 break-words ${column.kind === "task" ? `px-4 text-center text-sm font-bold ${columns.slice(0, index + 1).filter((c) => c.kind === "task").length % 2 === 1 ? "bg-title-background" : "bg-title-background/60"} ${dividerClass(index)}` : "px-2 text-left font-medium"}`}>{column.kind === "file" ? <span className="inline-flex items-center gap-1">File name{group.files.length > 1 && sortButton}</span> : column.kind === "count" ? "Count" : column.kind === "remove" ? <span className="sr-only">Remove file</span> : column.category.name}</th>)}</tr></thead>
               <tbody>
                 {shownFiles.map((file) => (
-                  <tr key={file.id} className="border-b last:border-b-0 hover:bg-row-hover">
+                  <tr
+                    key={file.id}
+                    onDragOver={(e) => {
+                      if (!dragFile || dragFile.table !== group.key) return;
+                      e.preventDefault();
+                      if (dropFileId !== file.id) setDropFileId(file.id);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      dropFile(group.files, file.id);
+                    }}
+                    className={`border-b last:border-b-0 hover:bg-row-hover ${dragFile?.id === file.id ? "opacity-40" : ""} ${
+                      dropFileId === file.id && dragFile && dragFile.id !== file.id
+                        ? group.files.findIndex((f) => f.id === dragFile.id) < group.files.findIndex((f) => f.id === file.id)
+                          ? "shadow-[inset_0_-3px_0_var(--primary)]"
+                          : "shadow-[inset_0_3px_0_var(--primary)]"
+                        : ""
+                    }`}
+                  >
                     {isSelecting && (
                       <td className="px-1 py-2 align-top">
                         <input type="checkbox" checked={selectedInTable.includes(file.id)} onChange={() => toggleFileSelected(group.key, file.id)} aria-label={`Select ${file.fileName}`} />
@@ -703,6 +737,28 @@ export function TasksCard(props: TasksCardProps) {
                       }
                       return <td key="file" className="px-2 py-2 align-top">
                       <div className="flex min-h-7 min-w-0 items-center gap-1">
+                        {/* Drag the grip up or down to reorder (not while sorted A–Z / Z–A). */}
+                        {canEdit && group.files.length > 1 && !sortDirection && (
+                          <span
+                            draggable
+                            onDragStart={(e) => {
+                              setDragFile({ id: file.id, table: group.key });
+                              e.dataTransfer.effectAllowed = "move";
+                              e.dataTransfer.setData("text/plain", file.fileName);
+                              const row = e.currentTarget.closest("tr");
+                              if (row) e.dataTransfer.setDragImage(row, 16, 16);
+                            }}
+                            onDragEnd={() => {
+                              setDragFile(null);
+                              setDropFileId(null);
+                            }}
+                            title="Drag to move this file up or down"
+                            aria-label={`Drag to reorder ${file.fileName}`}
+                            className="-ml-1 flex h-6 w-4 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground/50 hover:bg-primary/10 hover:text-primary active:cursor-grabbing"
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </span>
+                        )}
                         {editingFileId === file.id ? (
                           <form action={(formData) => submitTaskFileForm(props.updateTaskFileName, formData, setEditFileError, () => setEditingFileId(null))} className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                             <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="taskFileId" value={file.id} />

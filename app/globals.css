@@ -182,13 +182,14 @@
   --row-hover: #ECFAFB;
   /* Spreadsheet tables (My Workspace and Spreadsheets): all white -- cells,
      column names, row numbers, toolbar, formula bar and sheet tabs -- with
-     light gray grid lines, and a darker line where rows/columns are frozen. */
+     gray grid lines (darkened from #E1E3E6, which Michelle found too pale),
+     and a darker line where rows/columns are frozen. */
   --sheet-head: #FFFFFF;
   --sheet-head-foreground: #3C4043;
-  --sheet-grid: #E1E3E6;
+  --sheet-grid: #C4C9CF;
   --sheet-bar: #FFFFFF;
   --sheet-cell: #FFFFFF;
-  --sheet-freeze: #BDC1C6;
+  --sheet-freeze: #9AA0A6;
   /* Back to plain white -- Michelle asked for every record row
      (Tasks, Issues, Contacts, Distribution List, EOD, Suggestions,
      General Notes, etc. all already share this one token) to go back
@@ -257,10 +258,10 @@
   --row-hover: oklch(0.32 0.041 260.031);
   --sheet-head: #273244;
   --sheet-head-foreground: #E2E8F0;
-  --sheet-grid: #3B4759;
+  --sheet-grid: #4A586C;
   --sheet-bar: #1B2433;
   --sheet-cell: var(--record-background);
-  --sheet-freeze: #56657A;
+  --sheet-freeze: #65778F;
 }
 
 @layer base {

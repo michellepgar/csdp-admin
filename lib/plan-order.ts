@@ -1,4 +1,4 @@
-import type { PlanItem } from "@/lib/app-state";
+import type { GeneralTask, PlanItem, SchoolDataEntry } from "@/lib/app-state";
 
 /* Task Priorities are shown in the order the admins set. Ordered ones
    (sortOrder set) come first, lowest number = highest priority; anything
@@ -20,4 +20,25 @@ export function movePriorityId(items: PlanItem[], id: string, direction: "up" | 
   if (from < 0 || to < 0 || to >= ids.length) return null;
   [ids[from], ids[to]] = [ids[to], ids[from]];
   return ids;
+}
+
+/* Your Plan's "Continue In Progress" section: planned tasks that were already
+   started -- paused by Start my day, or still In Progress -- so picking up
+   yesterday's work comes before starting anything new. */
+export function continuingPlanItemIds(
+  planItems: PlanItem[],
+  schoolData: Record<string, SchoolDataEntry | undefined>,
+  generalTasks: GeneralTask[],
+): string[] {
+  const started = (status: string | undefined) => status === "Paused" || status === "In Progress";
+  return planItems
+    .filter((item) => {
+      if (item.kind !== "task") return false;
+      if (item.taskFileCategoryId) {
+        const files = (item.schoolId ? schoolData[item.schoolId]?.taskFiles : undefined) ?? [];
+        return started(files.flatMap((f) => f.categories).find((c) => c.id === item.taskFileCategoryId)?.status);
+      }
+      return !!item.generalTaskId && started(generalTasks.find((t) => t.id === item.generalTaskId)?.status);
+    })
+    .map((item) => item.id);
 }

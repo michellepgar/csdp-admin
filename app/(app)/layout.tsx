@@ -17,6 +17,7 @@ import { addGeneralTask } from "@/app/(app)/general-tasks/actions";
 import { addPrivateNote, searchPrivateNotes } from "@/app/(app)/private-notes/actions";
 import { addIssue } from "@/app/(app)/issues/actions";
 import { addSuggestion } from "@/app/(app)/suggestions/actions";
+import { continuingPlanItemIds } from "@/lib/plan-order";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Demo mode has no real Supabase session for is_team_member() to check
@@ -102,6 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const myMentions = (state.mentions || []).filter((m) => m.mentionedName === me.name);
 
   const myPlanItems = (state.planItems || []).filter((p) => p.vaName === me.name && !p.completedAt);
+  const continuingPlanIds = continuingPlanItemIds(myPlanItems, state.schoolData, state.generalTasks || []);
   const myOpenEmailItems = openEmailItemsByVa(state.schools, state.schoolData).get(me.name) || [];
 
   /* What the header's Quick add needs to put a file into an existing table:
@@ -153,6 +155,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       myMentions={myMentions}
       markMentionRead={markMentionRead}
       myPlanItems={myPlanItems}
+      continuingPlanIds={continuingPlanIds}
       myWorkNotes={(state.workNotes || []).filter((n) => n.vaName === me.name)}
       myOpenEmailItems={myOpenEmailItems}
       taskCategories={state.taskCategories || []}

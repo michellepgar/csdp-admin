@@ -47,6 +47,7 @@ export function SidebarShell({
   myMentions,
   markMentionRead,
   myPlanItems,
+  continuingPlanIds,
   myWorkNotes,
   myOpenEmailItems,
   taskCategories,
@@ -74,6 +75,7 @@ export function SidebarShell({
   myMentions: Mention[];
   markMentionRead: (formData: FormData) => void;
   myPlanItems: PlanItem[];
+  continuingPlanIds: string[];
   myWorkNotes: WorkNote[];
   myOpenEmailItems: OpenEmailItem[];
   taskCategories: TaskCategory[];
@@ -230,6 +232,7 @@ export function SidebarShell({
         myWorkNotes={myWorkNotes}
         currentUserName={currentName}
         myPlanItems={myPlanItems}
+        continuingPlanIds={continuingPlanIds}
         myOpenEmailItems={myOpenEmailItems}
         schools={schools}
         taskCategories={taskCategories}

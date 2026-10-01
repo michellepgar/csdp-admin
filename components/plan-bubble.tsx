@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, ChevronDown, ClipboardList, ListChecks, Mail, Play, Square, Users } from "lucide-react";
+import { Bell, Check, ChevronDown, ClipboardList, ListChecks, Mail, Play, RotateCcw, Square, Users } from "lucide-react";
 import { endMeeting, startMeeting } from "@/app/(app)/overview/actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
@@ -21,10 +21,12 @@ import type { PlanItem, TaskCategory, GeneralTaskCategory, WorkNote } from "@/li
    items rather than active work). */
 const ROW_BASE = "flex items-center justify-between gap-2 rounded-lg border-l-4 border bg-background/60 p-2.5 text-sm shadow-sm transition-shadow hover:shadow-md";
 
-export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEmailItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, startReminder, setEmailStatus }: {
+export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, continuingPlanIds, myOpenEmailItems, schools, taskCategories, generalTaskCategories, resolveTaskPlanItem, resolvePriorityPlanItem, startReminder, setEmailStatus }: {
   myWorkNotes: WorkNote[];
   currentUserName: string;
   myPlanItems: PlanItem[];
+  /** Planned tasks already started (paused by Start my day, or still In Progress): shown first, under Continue In Progress. */
+  continuingPlanIds: string[];
   myOpenEmailItems: OpenEmailItem[];
   schools: { id: string; name: string }[];
   taskCategories: TaskCategory[];
@@ -83,7 +85,10 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
 
   if (!hasContent) return null;
 
+  const continuing = new Set(continuingPlanIds);
   const actionableItems = myPlanItems.filter((item) => item.kind !== "note" && item.kind !== "meeting");
+  const continueItems = actionableItems.filter((item) => continuing.has(item.id));
+  const toDoItems = actionableItems.filter((item) => !continuing.has(item.id));
   const runningMeeting = myPlanItems.find((item) => item.kind === "meeting" && !item.completedAt);
   const badgeCount = myPlanItems.filter((item) => item.kind !== "meeting").length + myOpenEmailItems.length;
 
@@ -104,6 +109,35 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
   // own comment in app/(app)/overview/actions.ts).
   const reminders = myPlanItems.filter((item) => item.kind === "note" && !item.startedAt);
 
+  // One task or priority row. `again`: already started before, so its button says Continue.
+  const planRow = (item: PlanItem, again: boolean) => (
+    <div key={item.id} className={`${ROW_BASE} items-start ${again ? "border-l-ring" : item.kind === "priority" ? "border-l-plan-accent" : "border-l-border"}`}>
+      <span className="min-w-0 flex-1 break-words">
+        {item.label}
+        {noteLookup(planItemNoteKey(item), currentUserName) && (
+          <span className="mt-1 block rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">{noteLookup(planItemNoteKey(item), currentUserName)}</span>
+        )}
+      </span>
+      <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), currentUserName)} label={item.label} />
+      {item.kind === "priority" ? (
+        <Button type="button" variant="plan" size="xs" className="shrink-0" onClick={() => setStartingPriority(item)}><Play className="h-3 w-3" /> Start</Button>
+      ) : (
+        <form action={resolveTaskPlanItem} className="shrink-0">
+          <input type="hidden" name="id" value={item.id} />
+          {item.taskFileCategoryId ? (
+            <>
+              <input type="hidden" name="taskFileCategoryId" value={item.taskFileCategoryId} />
+              <input type="hidden" name="schoolId" value={item.schoolId} />
+            </>
+          ) : (
+            <input type="hidden" name="generalTaskId" value={item.generalTaskId} />
+          )}
+          <SubmitButton variant="plan" size="xs" pendingLabel="…">{again ? <RotateCcw className="h-3 w-3" /> : <Play className="h-3 w-3" />} {again ? "Continue" : "Start"}</SubmitButton>
+        </form>
+      )}
+    </div>
+  );
+
   return (
     <div ref={dockRef} className="fixed bottom-4 right-4 z-50">
       {expanded ? (
@@ -113,6 +147,13 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
             <ChevronDown className="h-4 w-4" />
           </button>
           <div className="max-h-80 space-y-3 overflow-y-auto p-2.5">
+            {/* Work already started (paused by Start my day, or still In Progress) comes first. */}
+            {continueItems.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1 text-xs font-semibold uppercase text-ring"><RotateCcw className="h-3.5 w-3.5" /> Continue In Progress</div>
+                {continueItems.map((item) => planRow(item, true))}
+              </div>
+            )}
             {/* Meeting: one click shows the team you're in a meeting (on
                 Currently Working On) and gives your EOD a line for it. */}
             <div className="space-y-1.5">
@@ -145,36 +186,10 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, myOpenEm
                 </Button>
               )}
             </div>
-            {actionableItems.length > 0 && (
+            {toDoItems.length > 0 && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1 text-xs font-semibold uppercase text-muted-foreground"><ListChecks className="h-3.5 w-3.5" /> To Do</div>
-                {actionableItems.map((item) => (
-                  <div key={item.id} className={`${ROW_BASE} items-start ${item.kind === "priority" ? "border-l-plan-accent" : "border-l-border"}`}>
-                    <span className="min-w-0 flex-1 break-words">
-                      {item.label}
-                      {noteLookup(planItemNoteKey(item), currentUserName) && (
-                        <span className="mt-1 block rounded bg-amber-50 px-1.5 py-1 text-xs italic text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">{noteLookup(planItemNoteKey(item), currentUserName)}</span>
-                      )}
-                    </span>
-                    <WorkNoteButton itemKey={planItemNoteKey(item)} note={noteLookup(planItemNoteKey(item), currentUserName)} label={item.label} />
-                    {item.kind === "priority" ? (
-                      <Button type="button" variant="plan" size="xs" className="shrink-0" onClick={() => setStartingPriority(item)}><Play className="h-3 w-3" /> Start</Button>
-                    ) : (
-                      <form action={resolveTaskPlanItem} className="shrink-0">
-                        <input type="hidden" name="id" value={item.id} />
-                        {item.taskFileCategoryId ? (
-                          <>
-                            <input type="hidden" name="taskFileCategoryId" value={item.taskFileCategoryId} />
-                            <input type="hidden" name="schoolId" value={item.schoolId} />
-                          </>
-                        ) : (
-                          <input type="hidden" name="generalTaskId" value={item.generalTaskId} />
-                        )}
-                        <SubmitButton variant="plan" size="xs" pendingLabel="…"><Play className="h-3 w-3" /> Start</SubmitButton>
-                      </form>
-                    )}
-                  </div>
-                ))}
+                {toDoItems.map((item) => planRow(item, false))}
               </div>
             )}
             {reminders.length > 0 && (

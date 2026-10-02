@@ -10,9 +10,9 @@ import type { KebabMenuItem } from "@/components/kebab-menu";
 import { DEFAULT_COLUMN_WIDTH, FILL_COLORS, MAX_COLUMNS, MAX_DECIMALS, MAX_FREEZE_COLS, MAX_FREEZE_ROWS, MAX_ROWS, TEXT_COLORS, clampWidth, coerceCell, columnName, decimalsShown, formatCellValue, newCellId, parsePastedGrid } from "@/lib/workspace";
 import { applySheetOps, invertSheetOps, mergeBox, pasteOps } from "@/lib/sheet-ops";
 import type { SheetOp } from "@/lib/sheet-ops";
-import { readClipboardTableStyles } from "@/lib/clipboard-table";
+import { clipboardTableHtml, readClipboardTableStyles, sameClipboardText } from "@/lib/clipboard-table";
 import { evaluateTable, isFormula, shiftFormula } from "@/lib/workspace-formula";
-import type { CellAlign, CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, NumFormat, TableColumn, TableContent, TableRow } from "@/lib/workspace";
+import type { CellAlign, CellFont, CellFormat, CellSize, CellValue, ColumnType, FormatPatch, NumFormat, PastedStyle, TableColumn, TableContent, TableRow } from "@/lib/workspace";
 
 const COLUMN_WIDTH = DEFAULT_COLUMN_WIDTH;
 const widthOf = (column: TableColumn) => column.width ?? COLUMN_WIDTH;
@@ -303,7 +303,22 @@ function displayText(raw: CellValue, column: TableColumn, computed?: string): st
 /* A position on screen: r is the row's place among the rows shown (sorting and
    filtering change it), c is the column index. */
 type Pos = { r: number; c: number };
-type Selection = { anchor: Pos; focus: Pos };
+type Range = { anchor: Pos; focus: Pos };
+/** The current range plus, with Ctrl/Cmd+click, other separate ranges picked before it. */
+type Selection = Range & { extra?: Range[] };
+type Rect = { r1: number; r2: number; c1: number; c2: number };
+const rectOf = (range: Range): Rect => ({ r1: Math.min(range.anchor.r, range.focus.r), r2: Math.max(range.anchor.r, range.focus.r), c1: Math.min(range.anchor.c, range.focus.c), c2: Math.max(range.anchor.c, range.focus.c) });
+
+/* The last range copied from any table on this page: its text (to recognise it
+   when it comes back from the clipboard) and each cell's color and formatting,
+   including what HTML can't carry (number format, borders). */
+type CopiedRange = { text: string; styles: (PastedStyle | null)[][] };
+let lastCopy: CopiedRange | null = null;
+const rememberLastCopy = (copy: CopiedRange) => {
+  lastCopy = copy;
+};
+/** The styles of our own last copy when the clipboard text is that copy, otherwise null. */
+const ownCopyStyles = (text: string) => (lastCopy && sameClipboardText(lastCopy.text, text) ? lastCopy.styles : null);
 type Editing = { rowId: string; colId: string; initial: string | null };
 type Move = "down" | "right" | "none";
 const samePos = (a: Pos, b: Pos) => a.r === b.r && a.c === b.c;
@@ -500,12 +515,14 @@ type RowProps = {
   freezeCols: number;
   /** Merged blocks starting in this row ({columnId: [rows, columns]}) and the cells here hidden under a merge, as JSON. */
   mergesJson: string;
+  /** Column indexes in this row picked with Ctrl/Cmd+click (separate from the current range), comma-separated. */
+  extraCols: string;
   coveredJson: string;
 };
 
 /* One body row. Memoized: it only re-renders when its own row, position,
    formulas, highlights or selection change. */
-const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial, isHeader, stickyTop, frozenEdge, freezeCols, mergesJson, coveredJson }: RowProps) {
+const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, api, computedJson, fillsJson, formatsJson, selFrom, selTo, activeCol, editCol, editInitial, isHeader, stickyTop, frozenEdge, freezeCols, mergesJson, coveredJson, extraCols }: RowProps) {
   const computed: Record<string, string> = computedJson ? JSON.parse(computedJson) : {};
   const fills: Record<string, string> = fillsJson ? JSON.parse(fillsJson) : {};
   const formats: Record<string, CellFormat> = formatsJson ? JSON.parse(formatsJson) : {};
@@ -513,6 +530,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
   const multi = selFrom !== selTo || activeCol < 0; // this row is part of a range, not just the one active cell
   const merges: Record<string, [number, number]> = mergesJson ? JSON.parse(mergesJson) : {};
   const covered = new Set<string>(coveredJson ? JSON.parse(coveredJson) : []);
+  const extra = new Set<number>(extraCols ? extraCols.split(",").map(Number) : []);
   const lefts = columnLefts(columns);
   return (
     <tr className="group/row">
@@ -617,6 +635,7 @@ const TableRowView = memo(function TableRowView({ row, pos, rowNumber, columns, 
           if (!isError) style.color = "#1a1a1a";
         }
         if (rowSelected && c >= selFrom && c <= selTo && !editing && (multi || c !== activeCol)) style.backgroundImage = RANGE_TINT;
+        else if (extra.has(c) && !editing) style.backgroundImage = SELECTED_TINT;
         const shadows: string[] = [];
         if (c === activeCol || editing) shadows.push("inset 0 0 0 2px var(--ring)");
         for (const side of formats[column.id]?.border ?? "") if (SIDE_SHADOW[side]) shadows.push(SIDE_SHADOW[side]);
@@ -866,9 +885,10 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
       contentRef.current = next;
       onChangeRef.current(next, ops);
     };
-    const select = (anchor: Pos, focus: Pos = anchor) => {
-      selectionRef.current = { anchor, focus };
-      setSelection({ anchor, focus });
+    const select = (anchor: Pos, focus: Pos = anchor, extra?: Range[]) => {
+      const next: Selection = extra && extra.length > 0 ? { anchor, focus, extra } : { anchor, focus };
+      selectionRef.current = next;
+      setSelection(next);
       setMessage(null);
     };
     const focusGrid = () => keyRef.current?.focus({ preventScroll: true });
@@ -886,8 +906,14 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         e.preventDefault(); // no text selection while dragging, and focus stays on the grid
         focusGrid();
         const current = selectionRef.current;
+        // Ctrl/Cmd+click (or drag) adds a separate cell or range; what was selected stays selected.
+        if ((e.ctrlKey || e.metaKey) && current) {
+          select(pos, pos, [...(current.extra ?? []), { anchor: current.anchor, focus: current.focus }]);
+          dragging.current = true;
+          return;
+        }
         if (e.shiftKey && current) {
-          select(current.anchor, pos);
+          select(current.anchor, pos, current.extra);
           return;
         }
         // On a touch screen there is no double-click: tapping the selected cell again edits it.
@@ -900,7 +926,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
       },
       cellMouseEnter: (pos) => {
         const current = selectionRef.current;
-        if (dragging.current && current && !samePos(current.focus, pos)) select(current.anchor, pos);
+        if (dragging.current && current && !samePos(current.focus, pos)) select(current.anchor, pos, current.extra);
       },
       rowMouseDown: (e, r) => {
         if (e.button !== 0) return;
@@ -965,8 +991,17 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         const pasted = pasteOps(contentRef.current, startRow, pos.c, grid);
         emit(pasted.ops);
         const next = contentRef.current;
-        // The values land at once; the spreadsheet's colors and text styling follow a moment later.
-        if (html) {
+        // Copied from a table here: its colors and formatting come along at once.
+        const own = ownCopyStyles(text);
+        if (own && own.length === grid.length) {
+          const cells: [string, string, string | null, CellFormat | null][] = [];
+          own.forEach((line, r) => {
+            const rowId = pasted.rowIds[r];
+            if (rowId) line.forEach((style, c) => pasted.columnIds[c] && cells.push([rowId, pasted.columnIds[c], style?.fill ?? null, style?.format ?? null]));
+          });
+          emit([{ t: "style", cells }]);
+        } else if (html) {
+          // From another spreadsheet: the values land at once; its colors and text styling follow a moment later.
           void readClipboardTableStyles(html).then((styles) => {
             if (!styles || styles.length !== grid.length) return;
             const cells: [string, string, string | null, CellFormat | null][] = [];
@@ -1112,13 +1147,16 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     const clamp = (p: Pos): Pos => ({ r: Math.min(Math.max(p.r, 0), view.length - 1), c: Math.min(Math.max(p.c, 0), columns.length - 1) });
     const anchor = clamp(selection.anchor);
     const focus = clamp(selection.focus);
-    return { anchor, focus, r1: Math.min(anchor.r, focus.r), r2: Math.max(anchor.r, focus.r), c1: Math.min(anchor.c, focus.c), c2: Math.max(anchor.c, focus.c) };
+    const extra = (selection.extra ?? []).map((range) => ({ anchor: clamp(range.anchor), focus: clamp(range.focus) }));
+    return { anchor, focus, extra, extraRects: extra.map(rectOf), r1: Math.min(anchor.r, focus.r), r2: Math.max(anchor.r, focus.r), c1: Math.min(anchor.c, focus.c), c2: Math.max(anchor.c, focus.c) };
   }, [selection, view.length, columns.length]);
+  /* Every selected block: the current range first, then any picked with Ctrl/Cmd+click. */
+  const selRects: Rect[] = sel ? [{ r1: sel.r1, r2: sel.r2, c1: sel.c1, c2: sel.c2 }, ...sel.extraRects] : [];
 
   useLayoutEffect(() => {
     viewRef.current = view;
     viewActiveRef.current = viewActive;
-    selectionRef.current = sel ? { anchor: sel.anchor, focus: sel.focus } : null;
+    selectionRef.current = sel ? { anchor: sel.anchor, focus: sel.focus, ...(sel.extra.length > 0 ? { extra: sel.extra } : {}) } : null;
   });
 
   // Frozen rows and columns (a header row always counts as frozen), kept within what exists.
@@ -1157,12 +1195,19 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
 
   /* Every [rowId, columnId] inside the selection. */
   function selectedCells(): [string, string][] {
-    if (!sel) return [];
+    const seen = new Set<string>();
     const cells: [string, string][] = [];
-    for (let r = sel.r1; r <= sel.r2; r++) {
-      const row = rows[view[r]];
-      if (!row) continue;
-      for (let c = sel.c1; c <= sel.c2; c++) cells.push([row.id, columns[c].id]);
+    for (const rect of selRects) {
+      for (let r = rect.r1; r <= rect.r2; r++) {
+        const row = rows[view[r]];
+        if (!row) continue;
+        for (let c = rect.c1; c <= rect.c2; c++) {
+          const key = `${row.id}|${columns[c].id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          cells.push([row.id, columns[c].id]);
+        }
+      }
     }
     return cells;
   }
@@ -1172,21 +1217,41 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     runOps([{ t: "set", cells: selectedCells().map(([r, c]) => [r, c, value] as [string, string, CellValue]) }]);
   }
 
-  function selectionText(): string {
-    if (!sel) return "";
-    const lines: string[] = [];
+  /* The current range's cells as shown, row by row, and each one's color and formatting. */
+  function selectionGrid(): { values: string[][]; styles: (PastedStyle | null)[][] } {
+    const values: string[][] = [];
+    const styles: (PastedStyle | null)[][] = [];
+    if (!sel) return { values, styles };
     for (let r = sel.r1; r <= sel.r2; r++) {
       const row = rows[view[r]];
       if (!row) continue;
-      const values: string[] = [];
+      const line: string[] = [];
+      const lineStyles: (PastedStyle | null)[] = [];
       for (let c = sel.c1; c <= sel.c2; c++) {
         const column = columns[c];
-        const text = formatCellValue(displayText(cellOf(row, column.id), column, computedByRow[row.id]?.[column.id]), formatsByRow[row.id]?.[column.id]);
-        values.push(/[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
+        const cellFormat = formatsByRow[row.id]?.[column.id];
+        const fill = fillsByRow[row.id]?.[column.id];
+        line.push(formatCellValue(displayText(cellOf(row, column.id), column, computedByRow[row.id]?.[column.id]), cellFormat));
+        lineStyles.push(fill || cellFormat ? { ...(fill ? { fill } : {}), ...(cellFormat ? { format: cellFormat } : {}) } : null);
       }
-      lines.push(values.join("\t"));
+      values.push(line);
+      styles.push(lineStyles);
     }
-    return lines.join("\n");
+    return { values, styles };
+  }
+
+  function selectionText(): string {
+    return selectionGrid()
+      .values.map((line) => line.map((text) => (/[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text)).join("\t"))
+      .join("\n");
+  }
+
+  /* Remembers what was copied, so pasting it here brings its colors and formatting too. */
+  function rememberCopy(): { text: string; html: string } {
+    const { values, styles } = selectionGrid();
+    const text = selectionText();
+    rememberLastCopy({ text, styles });
+    return { text, html: clipboardTableHtml(values, styles) };
   }
 
   function onGridKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -1293,7 +1358,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
   function onGridCopy(e: ClipboardEvent<HTMLTextAreaElement>, cut: boolean) {
     if (!sel) return;
     e.preventDefault();
-    e.clipboardData.setData("text/plain", selectionText());
+    const copied = rememberCopy();
+    e.clipboardData.setData("text/plain", copied.text);
+    e.clipboardData.setData("text/html", copied.html);
     if (cut) setSelected(null);
   }
 
@@ -1301,9 +1368,20 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     if (!sel) return;
     e.preventDefault();
     const text = e.clipboardData.getData("text/plain");
-    if (api.pasteGrid(text, e.clipboardData.getData("text/html"), sel.anchor)) return;
-    // One value goes into every selected cell, as in Excel.
-    setSelected(text.replace(/(\r\n|\n)$/, ""));
+    const html = e.clipboardData.getData("text/html");
+    if (api.pasteGrid(text, html, sel.anchor)) return;
+    // One value goes into every selected cell, as in Excel -- with the copied cell's color and formatting.
+    const value = text.replace(/(\r\n|\n)$/, "");
+    const cells = selectedCells();
+    const ownStyles = ownCopyStyles(text);
+    const own = ownStyles ? (ownStyles[0]?.[0] ?? null) : undefined;
+    const styleOps = (style: PastedStyle | null): SheetOp[] => [{ t: "style", cells: cells.map(([r, c]) => [r, c, style?.fill ?? null, style?.format ?? null] as [string, string, string | null, CellFormat | null]) }];
+    runOps([{ t: "set", cells: cells.map(([r, c]) => [r, c, value] as [string, string, CellValue]) }, ...(own !== undefined ? styleOps(own) : [])]);
+    if (own === undefined && html) {
+      void readClipboardTableStyles(html).then((styles) => {
+        if (styles && styles.length === 1 && styles[0].length === 1) runOps(styleOps(styles[0][0]));
+      });
+    }
   }
 
   function selectColumn(c: number) {
@@ -1393,11 +1471,12 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
       return;
     }
     const groups = new Map<string, [string, string][]>();
-    for (let r = sel.r1; r <= sel.r2; r++) {
+    for (const rect of selRects) {
+    for (let r = rect.r1; r <= rect.r2; r++) {
       const row = rows[view[r]];
       if (!row) continue;
-      for (let c = sel.c1; c <= sel.c2; c++) {
-        const top = r === sel.r1, bottom = r === sel.r2, left = c === sel.c1, right = c === sel.c2;
+      for (let c = rect.c1; c <= rect.c2; c++) {
+        const top = r === rect.r1, bottom = r === rect.r2, left = c === rect.c1, right = c === rect.c2;
         let on = "";
         if (choice === "all") on = `t${right ? "r" : ""}${bottom ? "b" : ""}l`;
         else if (choice === "outside") on = `${top ? "t" : ""}${right ? "r" : ""}${bottom ? "b" : ""}${left ? "l" : ""}`;
@@ -1410,6 +1489,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         list.push([row.id, columns[c].id]);
         groups.set(on, list);
       }
+    }
     }
     runOps([...groups].map(([on, cells]) => ({ t: "format" as const, cells, patch: { borderOn: on } })));
   }
@@ -1875,7 +1955,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     e.preventDefault();
     // Focus first: focusing the grid with nothing selected would otherwise select A1 over this.
     keyRef.current?.focus({ preventScroll: true });
-    const inside = (r: number, c: number) => !!sel && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2;
+    const inside = (r: number, c: number) => selRects.some((rect) => r >= rect.r1 && r <= rect.r2 && c >= rect.c1 && c <= rect.c2);
     if (cell) {
       const [r, c] = (cell.dataset.pos ?? "0:0").split(":").map(Number);
       if (!inside(r, c)) setSelection({ anchor: { r, c }, focus: { r, c } });
@@ -1898,7 +1978,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
       {
         label: "Copy",
         onClick: () => {
-          void navigator.clipboard?.writeText(selectionText()).catch(() => setMessage("Copying was blocked by the browser; use Ctrl+C instead."));
+          void navigator.clipboard?.writeText(rememberCopy().text).catch(() => setMessage("Copying was blocked by the browser; use Ctrl+C instead."));
         },
       },
       { label: "Clear contents", onClick: () => setSelected(null) },
@@ -2393,6 +2473,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
               const fills = fillsByRow[row.id];
               const formats = formatsByRow[row.id];
               const inSel = !!sel && pos >= sel.r1 && pos <= sel.r2;
+              const extraCols: number[] = [];
+              for (const rect of sel?.extraRects ?? []) if (pos >= rect.r1 && pos <= rect.r2) for (let c = rect.c1; c <= rect.c2; c++) extraCols.push(c);
               const editCol = editing && editing.rowId === row.id ? columns.findIndex((c) => c.id === editing.colId) : -1;
               return (
                 <TableRowView
@@ -2416,6 +2498,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
                   freezeCols={freezeCols}
                   mergesJson={mergeInfo.anchors[row.id] ? JSON.stringify(mergeInfo.anchors[row.id]) : ""}
                   coveredJson={mergeInfo.covered[row.id] ? JSON.stringify(mergeInfo.covered[row.id]) : ""}
+                  extraCols={extraCols.join(",")}
                 />
               );
             })}

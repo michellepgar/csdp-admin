@@ -120,3 +120,36 @@ export async function readClipboardTableStyles(html: string): Promise<(PastedSty
     frame.remove();
   }
 }
+
+const HTML_FONT: Record<string, string> = { serif: "Georgia, serif", mono: "Consolas, monospace", hand: "'Comic Sans MS', cursive" };
+const HTML_SIZE: Record<string, string> = { sm: "11px", lg: "18px", xl: "22px" };
+const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** A copied range as an HTML table with each cell's color and text styling inline, so
+ *  pasting into another sheet, Excel or Google Sheets keeps how it looks. Pure: no DOM. */
+export function clipboardTableHtml(values: string[][], styles: (PastedStyle | null)[][]): string {
+  const rows = values.map((line, r) => {
+    const cells = line.map((text, c) => {
+      const style = styles[r]?.[c];
+      const css: string[] = [];
+      if (style?.fill) css.push(`background-color:${style.fill}`);
+      const f = style?.format;
+      if (f?.b) css.push("font-weight:bold");
+      if (f?.i) css.push("font-style:italic");
+      if (f?.u) css.push("text-decoration:underline");
+      if (f?.color) css.push(`color:${f.color}`);
+      if (f?.align) css.push(`text-align:${f.align}`);
+      if (f?.font && HTML_FONT[f.font]) css.push(`font-family:${HTML_FONT[f.font]}`);
+      if (f?.size && HTML_SIZE[f.size]) css.push(`font-size:${HTML_SIZE[f.size]}`);
+      return `<td${css.length > 0 ? ` style="${escapeHtml(css.join(";"))}"` : ""}>${escapeHtml(text)}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  });
+  return `<table>${rows.join("")}</table>`;
+}
+
+/** Plain clipboard text compared the way a copy comes back from the clipboard (Windows turns \n into \r\n, Excel adds a last line break). */
+export function sameClipboardText(a: string, b: string): boolean {
+  const norm = (text: string) => text.replace(/\r\n?/g, "\n").replace(/\n$/, "");
+  return norm(a) === norm(b);
+}

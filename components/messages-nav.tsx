@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { tabInUse } from "@/lib/user-activity";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { getChatSummary, purgeExpiredChatAttachments } from "@/app/(app)/messages/actions";
 import { createClient } from "@/lib/supabase/client";
 import { type ChatMessage, type ChatSummary } from "@/lib/chat";
 
-const REAL_POLL_MS = 20_000;
+// A backup only: new messages arrive over realtime. Was 20s; each check wakes a
+// server function (CPU time is limited on the Vercel plan), so 60s, skipped while
+// the tab is hidden or nobody is using it.
+const REAL_POLL_MS = 60_000;
 const DEMO_POLL_MS = 3_000;
 
 function isDemoSession() {
@@ -56,7 +60,9 @@ export function MessagesNav({ collapsed, linkClassName }: { collapsed: boolean; 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial read of the unread counts; later updates arrive from the poll and realtime callbacks.
     void refresh();
-    const timer = setInterval(() => void refresh(), isDemoSession() ? DEMO_POLL_MS : REAL_POLL_MS);
+    const timer = setInterval(() => {
+      if (tabInUse()) void refresh();
+    }, isDemoSession() ? DEMO_POLL_MS : REAL_POLL_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") void refresh();
     };

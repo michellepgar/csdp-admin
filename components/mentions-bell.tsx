@@ -8,6 +8,7 @@ import { AtSign, Bell, ClipboardList, Flag, Volume2, VolumeX, X } from "lucide-r
 import type { Mention } from "@/lib/app-state";
 import { countMyUnreadNotifications } from "@/app/(app)/mentions/actions";
 import { playChime, readSoundOn, SOUND_KEY } from "@/lib/notification-sound";
+import { onUserBack, tabInUse } from "@/lib/user-activity";
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 416;
@@ -16,10 +17,12 @@ const TOAST_WIDTH = 260;
 // Michelle found the old bottom-left toast stack (shared with chat messages,
 // staying until dismissed) too intrusive for something this frequent.
 const TOAST_AUTO_DISMISS_MS = 5_000;
-// How often an open tab asks whether something new arrived. Short on purpose:
-// an assignment should reach the person within a few seconds. The check is a
-// single head-only count query, and the page only re-fetches when it changes.
-const POLL_MS = 6_000;
+// How often an open tab asks whether something new arrived. Fairly short: an
+// assignment should reach the person quickly. The check is a single head-only
+// count query, and the page only re-fetches when it changes. Was 6s; each
+// check wakes a server function (CPU time is limited on the Vercel plan), so
+// it's 20s now and pauses while nobody is using the tab (lib/user-activity.ts).
+const POLL_MS = 20_000;
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 }
@@ -129,16 +132,18 @@ export function MentionsBell({
   useEffect(() => {
     let cancelled = false;
     async function check() {
-      if (document.visibilityState !== "visible") return;
+      if (!tabInUse()) return;
       const count = await countMyUnreadNotifications();
       if (!cancelled && count >= 0 && count !== unreadRef.current) router.refresh();
     }
     const timer = setInterval(check, POLL_MS);
     document.addEventListener("visibilitychange", check);
     window.addEventListener("focus", check);
+    const stopBack = onUserBack(check);
     return () => {
       cancelled = true;
       clearInterval(timer);
+      stopBack();
       document.removeEventListener("visibilitychange", check);
       window.removeEventListener("focus", check);
     };

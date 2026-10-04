@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { onUserBack, tabInUse } from "@/lib/user-activity";
 
 // Was 15s -- every firing re-runs the layout's own ~39-table Promise.all
 // (see lib/fetch-app-state.ts) plus the current page's own query, for every
@@ -10,7 +11,10 @@ import { useRouter } from "next/navigation";
 // slow right now") while still keeping a page current well within a shift;
 // coming back to a tab still refreshes right away (onReturn below) so it's
 // never stale for longer than that on return.
-const INTERVAL_MS = 30_000;
+// Now 60s, and paused while nobody is using the tab (lib/user-activity.ts):
+// each refresh costs server CPU time on Vercel, which is limited on the plan.
+// The notification bell still pulls in new assignments sooner.
+const INTERVAL_MS = 60_000;
 const MIN_GAP_MS = 5_000;
 
 /* Keeps the page current with what teammates are doing, without anyone
@@ -37,7 +41,7 @@ export function LiveRefresh() {
     }
 
     function refresh() {
-      if (document.visibilityState !== "visible" || busy()) return;
+      if (!tabInUse() || busy()) return;
       last = Date.now();
       router.refresh();
     }
@@ -49,8 +53,10 @@ export function LiveRefresh() {
     const timer = setInterval(refresh, INTERVAL_MS);
     document.addEventListener("visibilitychange", onReturn);
     window.addEventListener("focus", onReturn);
+    const stopBack = onUserBack(onReturn);
     return () => {
       clearInterval(timer);
+      stopBack();
       document.removeEventListener("visibilitychange", onReturn);
       window.removeEventListener("focus", onReturn);
     };

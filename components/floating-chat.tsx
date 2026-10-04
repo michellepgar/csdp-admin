@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tabInUse } from "@/lib/user-activity";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ExternalLink, MessageCircle, Send, Users, X } from "lucide-react";
@@ -129,7 +130,7 @@ export function FloatingChat({ me, people, canAddPriority }: { me: string; peopl
     window.addEventListener("chat:close", onClose);
 
     const timer = setInterval(() => {
-      if (!openRef.current) return;
+      if (!openRef.current || !tabInUse()) return;
       const openRoom = roomRef.current;
       void fetchChatMessages(openRoom).then((result) => {
         if (result.error || openRoom !== roomRef.current) return;

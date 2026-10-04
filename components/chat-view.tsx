@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tabInUse } from "@/lib/user-activity";
 import { Send, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchChatMessages, markChatRead } from "@/app/(app)/messages/actions";
@@ -106,6 +107,7 @@ export function ChatView({ me, people, initialRoom, canAddPriority }: { me: stri
     // Safety net alongside the live push: re-read the open chat now and
     // then (fast in the demo, which has no realtime).
     const timer = setInterval(() => {
+      if (!tabInUse()) return;
       const openRoom = roomRef.current;
       void fetchChatMessages(openRoom).then((result) => {
         if (result.error || openRoom !== roomRef.current) return;

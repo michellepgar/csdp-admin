@@ -112,6 +112,9 @@ export async function savePlan(formData: FormData): Promise<SavePlanResult> {
   // Set by the End Today's Work window (not by the plain "Add" on Next
   // Shift Plan): saving the plan also closes the shift.
   const endShift = formData.get("endShift") === "1";
+  // The planned ids the window showed when it opened -- only those can be unchecked (see diffPlanSelection).
+  const shownJson = formData.get("shown") as string | null;
+  const shownIds: string[] = shownJson ? JSON.parse(shownJson) : [];
 
   if (await isDemoMode()) {
     let demoError: string | null = null;
@@ -173,8 +176,8 @@ export async function savePlan(formData: FormData): Promise<SavePlanResult> {
       }
       const existingTask = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane" && p.taskFileCategoryId).map((p) => ({ id: p.id, refId: p.taskFileCategoryId }));
       const existingGeneral = (state.planItems || []).filter((p) => p.kind === "task" && p.vaName === "Jane" && p.generalTaskId).map((p) => ({ id: p.id, refId: p.generalTaskId }));
-      const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);
-      const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds);
+      const taskDiff = diffPlanSelection(existingTask, checkedTaskIds, shownIds);
+      const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds, shownIds);
       const toDeleteIds = [...taskDiff.toDeleteIds, ...generalDiff.toDeleteIds];
       state.planItems = (state.planItems || []).filter((p) => !toDeleteIds.includes(p.id));
       changed += toDeleteIds.length;
@@ -320,8 +323,8 @@ export async function savePlan(formData: FormData): Promise<SavePlanResult> {
     orThrow(selectError);
     const existingTask = (existingRows || []).filter((r) => r.task_file_category_id).map((r) => ({ id: r.id, refId: r.task_file_category_id as string }));
     const existingGeneral = (existingRows || []).filter((r) => r.general_task_id).map((r) => ({ id: r.id, refId: r.general_task_id as string }));
-    const taskDiff = diffPlanSelection(existingTask, checkedTaskIds);
-    const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds);
+    const taskDiff = diffPlanSelection(existingTask, checkedTaskIds, shownIds);
+    const generalDiff = diffPlanSelection(existingGeneral, checkedGeneralIds, shownIds);
 
     /* Whatever's about to be newly inserted must still exist. checkedTaskIds/
        checkedGeneralIds came from the browser's own "checked" set, built once

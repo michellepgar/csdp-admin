@@ -10,10 +10,23 @@ test("diffPlanSelection returns ids to insert and rows to delete, by refId (work
   ];
   const checkedIds = ["tfc-2", "tfc-3"];
 
-  const { toInsert, toDeleteIds } = diffPlanSelection(existing, checkedIds);
+  const { toInsert, toDeleteIds } = diffPlanSelection(existing, checkedIds, ["tfc-1", "tfc-2"]);
 
   assert.deepEqual(toInsert, ["tfc-3"]);
   assert.deepEqual(toDeleteIds, ["p1"]);
+});
+
+test("diffPlanSelection never deletes a plan item the window wasn't showing (planned after it opened)", () => {
+  const existing = [
+    { id: "p1", refId: "tfc-1" },
+    { id: "p2", refId: "added-later" },
+  ];
+  // The window opened when only tfc-1 was planned; tfc-1 stays checked.
+  assert.deepEqual(diffPlanSelection(existing, ["tfc-1"], ["tfc-1"]).toDeleteIds, []);
+  // Unchecking what it showed still removes it.
+  assert.deepEqual(diffPlanSelection(existing, [], ["tfc-1"]).toDeleteIds, ["p1"]);
+  // An older window that sends no list removes nothing.
+  assert.deepEqual(diffPlanSelection(existing, []).toDeleteIds, []);
 });
 
 test("savePlan drops a newly-checked id that no longer exists, instead of letting the insert fail the whole save", () => {

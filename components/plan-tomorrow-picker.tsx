@@ -93,11 +93,22 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
     .map((t) => ({ id: t.id, schoolName: "General", category: t.category, fileName: t.description, status: t.status }));
   const carryOver = [...schoolCarryOver, ...generalCarryOver];
 
-  const alreadyPlannedTaskIds = new Set(myPlanItems.filter((p) => p.kind === "task" && p.taskFileCategoryId).map((p) => p.taskFileCategoryId));
-  const alreadyPlannedGeneralIds = new Set(myPlanItems.filter((p) => p.kind === "task" && p.generalTaskId).map((p) => p.generalTaskId));
-  const [checked, setChecked] = useState<Set<string>>(
-    () => new Set([...(mode === "end" ? carryOver.map((t) => t.id) : []), ...alreadyPlannedTaskIds, ...alreadyPlannedGeneralIds] as string[]),
-  );
+  const plannedIds = () => myPlanItems.filter((p) => p.kind === "task").map((p) => (p.taskFileCategoryId || p.generalTaskId) as string).filter(Boolean);
+  const startingChecks = () => new Set([...(mode === "end" ? carryOver.map((t) => t.id) : []), ...plannedIds()]);
+  const [checked, setChecked] = useState<Set<string>>(startingChecks);
+  // What was already planned when the window opened: only these can be unchecked on save.
+  const [shownIds, setShownIds] = useState<string[]>(plannedIds);
+
+  /* Opening the window starts from the plan as it is NOW. The window stays on
+     the page between uses, so without this a plan added to since the page
+     loaded (with the other planning window, or Start my day) looked unplanned
+     here, and saving removed it. */
+  function openWindow() {
+    setSavedMessage(null);
+    setChecked(startingChecks());
+    setShownIds(plannedIds());
+    setOpen(true);
+  }
 
   const school = schools.find((s) => s.id === schoolId);
   const schoolCategories = school ? visibleSchoolItems(taskCategories, school.id) : [];
@@ -251,9 +262,9 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
   return (
     <div>
       {mode === "end" ? (
-        <Button type="button" variant="plan" size="sm" disabled={disabled} title={disabled ? disabledReason : undefined} onClick={() => { setSavedMessage(null); setOpen(true); }}>End Today&apos;s Work</Button>
+        <Button type="button" variant="plan" size="sm" disabled={disabled} title={disabled ? disabledReason : undefined} onClick={openWindow}>End Today&apos;s Work</Button>
       ) : (
-        <Button type="button" variant="plan" size="xs" onClick={() => { setSavedMessage(null); setOpen(true); }}><Plus className="h-3 w-3" /> Add</Button>
+        <Button type="button" variant="plan" size="xs" onClick={openWindow}><Plus className="h-3 w-3" /> Add</Button>
       )}
       {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-3 sm:p-6" onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label={title}>
@@ -469,12 +480,14 @@ export function PlanTomorrowPicker({ mode, disabled, disabledReason, currentUser
                 formData.set("labels", JSON.stringify(buildLabels()));
                 formData.set("reminders", JSON.stringify(pendingReminders.map((r) => ({ label: r.label, noteId: r.noteId }))));
                 formData.set("newItems", JSON.stringify(newItems));
+                formData.set("shown", JSON.stringify(shownIds));
                 if (mode === "end") formData.set("endShift", "1");
                 const result = await savePlan(formData);
                 if (result.error) setError(result.error);
-                else if (!result.changed) {
+                else if (!result.changed && mode !== "end") {
                   // Nothing to save -- leave the window open so it's clear the click
                   // registered, rather than silently closing like a real save does.
+                  // (Ending the day always closes it: the day did end, plan changed or not.)
                   setSavedMessage("No plans saved — nothing was added or changed.");
                 } else {
                   setPendingReminders([]);

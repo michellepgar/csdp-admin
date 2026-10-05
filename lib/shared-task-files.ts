@@ -355,15 +355,22 @@ export function todayActivityByVa(
    rows to insert for newly-checked ids, and existing rows to delete for
    ids that got unchecked. Generic over refId so the same helper covers
    both task_file_category_id and general_task_id -- the caller maps
-   whichever one a plan_items row actually has into `refId` first. */
+   whichever one a plan_items row actually has into `refId` first.
+
+   `shownIds`: the planned ids the planning window was showing when it was
+   opened. Only those can be "unchecked" -- anything planned after that
+   (from the other planning window, Start my day, another tab) was never on
+   screen to uncheck, so it stays. Without it nothing is deleted. */
 export function diffPlanSelection(
   existing: { id: string; refId?: string }[],
   checkedIds: string[],
+  shownIds?: string[],
 ): { toInsert: string[]; toDeleteIds: string[] } {
   const existingIds = new Set(existing.map((row) => row.refId).filter(Boolean));
   const checkedSet = new Set(checkedIds);
+  const shown = new Set(shownIds ?? []);
   return {
     toInsert: checkedIds.filter((id) => !existingIds.has(id)),
-    toDeleteIds: existing.filter((row) => row.refId && !checkedSet.has(row.refId)).map((row) => row.id),
+    toDeleteIds: existing.filter((row) => row.refId && shown.has(row.refId) && !checkedSet.has(row.refId)).map((row) => row.id),
   };
 }

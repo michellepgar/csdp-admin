@@ -312,13 +312,14 @@ const rectOf = (range: Range): Rect => ({ r1: Math.min(range.anchor.r, range.foc
 /* The last range copied from any table on this page: its text (to recognise it
    when it comes back from the clipboard) and each cell's color and formatting,
    including what HTML can't carry (number format, borders). */
-type CopiedRange = { text: string; styles: (PastedStyle | null)[][] };
+type CopiedRange = { text: string; html: string; styles: (PastedStyle | null)[][] };
 let lastCopy: CopiedRange | null = null;
 const rememberLastCopy = (copy: CopiedRange) => {
   lastCopy = copy;
 };
-/** The styles of our own last copy when the clipboard text is that copy, otherwise null. */
-const ownCopyStyles = (text: string) => (lastCopy && sameClipboardText(lastCopy.text, text) ? lastCopy.styles : null);
+/** The styles of our own last copy when the clipboard holds that copy (same text, and our HTML if any), otherwise null. */
+const ownCopyStyles = (text: string, html: string) =>
+  lastCopy && sameClipboardText(lastCopy.text, text) && (!html || html.includes(lastCopy.html)) ? lastCopy.styles : null;
 type Editing = { rowId: string; colId: string; initial: string | null };
 type Move = "down" | "right" | "none";
 const samePos = (a: Pos, b: Pos) => a.r === b.r && a.c === b.c;
@@ -989,18 +990,18 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
         if (grid.length === 0) return true;
         const startRow = viewRef.current[pos.r] ?? contentRef.current.rows.length;
         const pasted = pasteOps(contentRef.current, startRow, pos.c, grid);
-        emit(pasted.ops);
-        const next = contentRef.current;
-        // Copied from a table here: its colors and formatting come along at once.
-        const own = ownCopyStyles(text);
+        // Copied from a table here: its colors and formatting come along in the same edit (one Undo).
+        const own = ownCopyStyles(text, html);
         if (own && own.length === grid.length) {
           const cells: [string, string, string | null, CellFormat | null][] = [];
           own.forEach((line, r) => {
             const rowId = pasted.rowIds[r];
             if (rowId) line.forEach((style, c) => pasted.columnIds[c] && cells.push([rowId, pasted.columnIds[c], style?.fill ?? null, style?.format ?? null]));
           });
-          emit([{ t: "style", cells }]);
-        } else if (html) {
+          emit([...pasted.ops, { t: "style", cells }]);
+        } else emit(pasted.ops);
+        const next = contentRef.current;
+        if (!own && html) {
           // From another spreadsheet: the values land at once; its colors and text styling follow a moment later.
           void readClipboardTableStyles(html).then((styles) => {
             if (!styles || styles.length !== grid.length) return;
@@ -1193,11 +1194,11 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     wrapRef.current?.querySelector(`td[data-pos="${focusKey}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [focusKey]);
 
-  /* Every [rowId, columnId] inside the selection. */
-  function selectedCells(): [string, string][] {
+  /* Every [rowId, columnId] inside the selection (by default every block, Ctrl/Cmd+clicked ones included). */
+  function selectedCells(rects: Rect[] = selRects): [string, string][] {
     const seen = new Set<string>();
     const cells: [string, string][] = [];
-    for (const rect of selRects) {
+    for (const rect of rects) {
       for (let r = rect.r1; r <= rect.r2; r++) {
         const row = rows[view[r]];
         if (!row) continue;
@@ -1250,8 +1251,9 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
   function rememberCopy(): { text: string; html: string } {
     const { values, styles } = selectionGrid();
     const text = selectionText();
-    rememberLastCopy({ text, styles });
-    return { text, html: clipboardTableHtml(values, styles) };
+    const html = clipboardTableHtml(values, styles);
+    rememberLastCopy({ text, html, styles });
+    return { text, html };
   }
 
   function onGridKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -1361,7 +1363,8 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     const copied = rememberCopy();
     e.clipboardData.setData("text/plain", copied.text);
     e.clipboardData.setData("text/html", copied.html);
-    if (cut) setSelected(null);
+    // Only the current range is copied, so only it is emptied -- not other Ctrl/Cmd+clicked cells.
+    if (cut) runOps([{ t: "set", cells: selectedCells(selRects.slice(0, 1)).map(([r, c]) => [r, c, null] as [string, string, CellValue]) }]);
   }
 
   function onGridPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
@@ -1373,7 +1376,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     // One value goes into every selected cell, as in Excel -- with the copied cell's color and formatting.
     const value = text.replace(/(\r\n|\n)$/, "");
     const cells = selectedCells();
-    const ownStyles = ownCopyStyles(text);
+    const ownStyles = ownCopyStyles(text, html);
     const own = ownStyles ? (ownStyles[0]?.[0] ?? null) : undefined;
     const styleOps = (style: PastedStyle | null): SheetOp[] => [{ t: "style", cells: cells.map(([r, c]) => [r, c, style?.fill ?? null, style?.format ?? null] as [string, string, string | null, CellFormat | null]) }];
     runOps([{ t: "set", cells: cells.map(([r, c]) => [r, c, value] as [string, string, CellValue]) }, ...(own !== undefined ? styleOps(own) : [])]);
@@ -1657,7 +1660,7 @@ function TableBlockImpl({ content, onChange, onFlush, mobile = false, fileName =
     const right = columns[sel.c2];
     if (!top || !bottom || !left || !right) return;
     // Like Excel, a merged cell keeps only the top-left value.
-    const others = selectedCells().filter(([r, c]) => !(r === top.id && c === left.id));
+    const others = selectedCells(selRects.slice(0, 1)).filter(([r, c]) => !(r === top.id && c === left.id));
     const lost = others.filter(([r, c]) => {
       const v = rows.find((x) => x.id === r)?.cells[c];
       return v !== null && v !== undefined && v !== "";

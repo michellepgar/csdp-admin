@@ -20,7 +20,11 @@ function start() {
     lastActive = Date.now();
     if (wasIdle) for (const listener of backListeners) listener();
   };
-  for (const type of ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"]) window.addEventListener(type, mark, { passive: true, capture: true });
+  for (const type of ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "focus"]) window.addEventListener(type, mark, { passive: true, capture: true });
+  // Coming back to the tab counts too, so the page catches up the moment it's shown again.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") mark();
+  }, { capture: true });
 }
 
 /** True when nobody has used this tab for a while. */

@@ -243,7 +243,7 @@ type TasksCardProps = {
   renameTaskCategory: (formData: FormData) => Promise<TaskFileActionResult>;
   setTaskCategoryHasCount: (formData: FormData) => void;
   setTaskCategoryEodPhrase: (formData: FormData) => void;
-  reorderTasks: (schoolId: string, orderedIds: string[]) => void;
+  reorderTasks: (schoolId: string, orderedIds: string[]) => void | Promise<void>;
   updateTaskFileName: (formData: FormData) => Promise<TaskFileActionResult>;
 };
 
@@ -284,6 +284,7 @@ export function TasksCard(props: TasksCardProps) {
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [newFileName, setNewFileName] = useState("");
   const [addFileError, setAddFileError] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
   // The top form only ever starts a brand NEW table now -- each table
   // already grew its own "+ Add file" row (TaskTableAddFileRow below),
   // so a separate "add to an existing table" mode here was doing the
@@ -424,8 +425,14 @@ export function TasksCard(props: TasksCardProps) {
     if (!dragged || dragged.id === targetId || !tableFiles.some((f) => f.id === dragged.id)) return;
     const next = moveItem(orderedFiles, dragged.id, targetId);
     if (!next) return;
+    const before = orderedFiles;
     setOrderedFiles(next.map((file, sortOrder) => ({ ...file, sortOrder })));
-    props.reorderTasks(schoolId, next.map((item) => item.id));
+    setOrderError(null);
+    // Refused when the school's files changed since this page loaded (a teammate added or removed one).
+    Promise.resolve(props.reorderTasks(schoolId, next.map((item) => item.id))).catch(() => {
+      setOrderedFiles(before);
+      setOrderError("Couldn't save the new order. Someone may have just added or removed a file here. Refresh the page and try again.");
+    });
   }
 
   function dropCategory(targetId: string) {
@@ -547,6 +554,7 @@ export function TasksCard(props: TasksCardProps) {
         </div>
         )}
         {addFileError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{addFileError}</p>}
+        {orderError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{orderError}</p>}
 
         {orderedFiles.length === 0 ? (
           <p className="text-sm text-muted-foreground">No files yet.</p>

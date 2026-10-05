@@ -49,8 +49,9 @@ test("savePlan tells the picker apart a real save from a click that changed noth
   assert.match(savePlan, /return \{ changed: toDeleteIds\.length \+ rows\.length \};/);
   const picker = readFileSync("components/plan-tomorrow-picker.tsx", "utf8");
   assert.match(picker, /No plans saved — nothing was added or changed\./);
-  // Only a genuine no-op (result.changed falsy, no error) keeps the window open with that message.
-  assert.match(picker, /else if \(!result\.changed\) \{/);
+  // Only a genuine no-op (result.changed falsy, no error) keeps the window open with that message --
+  // and never when ending the day, which did end either way.
+  assert.match(picker, /else if \(!result\.changed && mode !== "end"\) \{/);
 });
 
 test("admin-settings actions use the cheap admin gate, not a full fetchAppState(), for every action", () => {

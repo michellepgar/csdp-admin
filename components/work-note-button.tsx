@@ -34,7 +34,7 @@ export function WorkNoteButton({ itemKey, note, label, className }: { itemKey: s
         aria-label={hasNote ? `Edit your note on "${label}"` : `Add a note to "${label}"`}
         title={hasNote ? "Edit note" : "Add a note"}
         className={cn(
-          "flex h-5 w-5 flex-none items-center justify-center rounded transition-colors",
+          "flex size-[24px] flex-none items-center justify-center rounded transition-colors",
           hasNote ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300" : "text-muted-foreground hover:bg-muted hover:text-foreground",
           className,
         )}

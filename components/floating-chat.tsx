@@ -253,7 +253,7 @@ export function FloatingChat({ me, people, canAddPriority }: { me: string; peopl
                   <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
                     <div className={cn("relative max-w-[85%] rounded-2xl px-2.5 py-1.5 text-xs shadow-sm", m.body && "pr-6", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
                       <ChatMessageActions message={m} canAddPriority={canAddPriority} mine={mine} compact />
-                      {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-[11px] font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
+                      {!mine && room === TEAM_ROOM && <div className={`mb-0.5 text-[11px] font-semibold ${colorByName.get(m.senderName) ? "va-text" : ""}`} style={{ "--va-color": colorByName.get(m.senderName) } as React.CSSProperties}>{m.senderName}</div>}
                       {m.attachment && (
                         <div className={m.body ? "mb-1" : undefined}>
                           <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} compact messageId={m.id} onChanged={(updated) => mergeIn([updated])} sentAt={m.createdAt} />

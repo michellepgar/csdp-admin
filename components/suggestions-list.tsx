@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<Status, string> = { Requested: "Requested", "Working 
 const COLUMN: Record<Status, { icon: LucideIcon; band: string; pill: string; card: string; drop: string; hint: string }> = {
   Requested: {
     icon: Lightbulb,
-    band: "bg-sky-600 text-white",
+    band: "bg-sky-700 text-white",
     pill: "bg-white/25 text-white",
     card: "border-t-sky-500",
     drop: "ring-2 ring-sky-500/60 bg-sky-500/5",
@@ -34,15 +34,15 @@ const COLUMN: Record<Status, { icon: LucideIcon; band: string; pill: string; car
   },
   "Working On It": {
     icon: Hammer,
-    band: "bg-amber-500 text-white",
-    pill: "bg-white/25 text-white",
+    band: "bg-amber-400 text-amber-950",
+    pill: "bg-black/10 text-amber-950",
     card: "border-t-amber-500",
     drop: "ring-2 ring-amber-500/60 bg-amber-500/5",
     hint: "Being built right now.",
   },
   Added: {
     icon: CheckCircle2,
-    band: "bg-emerald-600 text-white",
+    band: "bg-emerald-700 text-white",
     pill: "bg-white/25 text-white",
     card: "border-t-emerald-500",
     drop: "ring-2 ring-emerald-500/60 bg-emerald-500/5",

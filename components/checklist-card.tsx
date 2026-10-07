@@ -188,7 +188,7 @@ export function ChecklistCard({
                         a pill -- rounded-sm overrides the button's own
                         rounded-lg/icon-radius classes (twMerge keeps only the
                         last radius utility). */}
-                    <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"} size="icon-xs" className="rounded-sm">{done ? "✓" : " "}</SubmitButton>
+                    <SubmitButton pendingLabel="…" variant={done ? "default" : "outline"} size="icon-xs" className="rounded-sm" aria-label={done ? `Mark "${item.description}" not done` : `Mark "${item.description}" done`} aria-pressed={done}>{done ? "✓" : " "}</SubmitButton>
                   </form>
                 )}
                 <span className={`min-w-0 flex-1 text-xs ${notNeeded ? "text-muted-foreground line-through" : ""}`}>{item.description}</span>
@@ -207,7 +207,7 @@ export function ChecklistCard({
                       <input type="hidden" name="itemId" value={item.id} />
                       <input type="hidden" name="notNeeded" value="true" />
                       {/* Words, not a red ✕: this skips the item for this school, it doesn't delete it. */}
-                      <SubmitButton pendingLabel="…" variant="ghost" size="xs" title="Not needed for this school (you can undo it)" className="h-5 px-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">N/A<span className="sr-only"> — mark {item.description} not needed</span></SubmitButton>
+                      <SubmitButton pendingLabel="…" variant="ghost" size="xs" title="Not needed for this school (you can undo it)" className="h-[24px] px-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">N/A<span className="sr-only"> — mark {item.description} not needed</span></SubmitButton>
                     </form>
                   </>
                 )}

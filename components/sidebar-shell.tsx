@@ -148,6 +148,10 @@ export function SidebarShell({
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Keyboard users: the first Tab shows this, so they can jump past the top bar and sidebar. */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-foreground focus:shadow-lg focus:ring-2 focus:ring-ring">
+        Skip to main content
+      </a>
       <AppTopBar
         onToggleSidebar={handleSidebarToggle}
         sidebarCollapsed={collapsed}
@@ -225,7 +229,7 @@ export function SidebarShell({
           Tried a page-open fade/slide effect here for a while --
           Michelle ended up preferring no transition at all, so this is
           plain, un-keyed content with no animation. */}
-      <main className="min-w-0 flex-1">{children}</main>
+      <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">{children}</main>
       </div>
 
       <PlanBubble

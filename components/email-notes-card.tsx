@@ -29,6 +29,7 @@ export function EmailNotesCard({
             name="emailNotes"
             defaultValue={emailNotes || ""}
             placeholder="Notes about this school's email situation…"
+            aria-label="Email notes for this school"
             rows={4}
             className="w-full rounded-md border px-2 py-1.5 text-sm"
           />

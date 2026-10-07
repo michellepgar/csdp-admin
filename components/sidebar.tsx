@@ -148,7 +148,7 @@ export function Sidebar({
 
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
         {!collapsed && (
-          <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">
+          <div className="px-3 pt-4 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
             Schools ({schools.length})
           </div>
         )}
@@ -197,8 +197,9 @@ export function Sidebar({
                     className={cn(
                       "flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm",
                       pathname === `/schools/${s.id}` ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground" : "hover:bg-muted",
+                      color && "va-text",
                     )}
-                    style={color ? { color } : undefined}
+                    style={color ? ({ "--va-color": color } as React.CSSProperties) : undefined}
                   >
                     <School className="h-4 w-4 flex-none" />
                     <span className="min-w-0 truncate">{s.name}</span>
@@ -241,7 +242,7 @@ export function Sidebar({
           ))}
 
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
-        {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">My Space</div>}
+        {!collapsed && <div className="px-3 pt-4 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">My Space</div>}
         <IconTooltip label="My Workspace" active={collapsed}>
           <Link
             href={workspaceHref}
@@ -263,7 +264,7 @@ export function Sidebar({
           <MessagesNav collapsed={collapsed} linkClassName={navLinkClass("/messages", collapsed ? "justify-center px-2" : "gap-2 px-3")} />
         </IconTooltip>
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
-        {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Resources</div>}
+        {!collapsed && <div className="px-3 pt-4 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Resources</div>}
         <IconTooltip label="General Tasks" active={collapsed}>
           <Link
             href="/general-tasks"
@@ -377,7 +378,7 @@ export function Sidebar({
         {isAdmin && (
           <>
             <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
-            {!collapsed && <div className="px-3 pt-4 text-xs font-semibold uppercase text-muted-foreground">Admin</div>}
+            {!collapsed && <div className="px-3 pt-4 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Admin</div>}
             <IconTooltip label="Team" active={collapsed}>
               <Link
                 href="/team"

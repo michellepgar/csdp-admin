@@ -88,6 +88,7 @@ export default async function TeamPage() {
                       type="email"
                       defaultValue={va.email || ""}
                       placeholder="Login email"
+                      aria-label={`Login email for ${va.name}`}
                       className="h-8 w-48"
                     />
                   </AutoSubmitForm>
@@ -100,6 +101,7 @@ export default async function TeamPage() {
                       type="color"
                       name="value"
                       defaultValue={va.color || "#888888"}
+                      aria-label={`Color for ${va.name}`}
                       className="h-8 w-11 rounded border"
                     />
                   </AutoSubmitForm>

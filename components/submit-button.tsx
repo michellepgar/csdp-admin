@@ -21,6 +21,8 @@ export function SubmitButton({
   title,
   formAction,
   onClick,
+  "aria-label": ariaLabel,
+  "aria-pressed": ariaPressed,
 }: {
   children: React.ReactNode;
   pendingLabel: React.ReactNode;
@@ -41,6 +43,9 @@ export function SubmitButton({
      ConfirmDeleteButton uses this to call preventDefault() when the
      user declines a confirmation prompt. */
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /* A name for screen readers when the button shows only a symbol (✓, ✕). */
+  "aria-label"?: string;
+  "aria-pressed"?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
@@ -53,6 +58,8 @@ export function SubmitButton({
       size={size}
       className={className}
       title={title}
+      aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
     >
       {pending ? pendingLabel : children}
     </Button>

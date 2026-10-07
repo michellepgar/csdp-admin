@@ -36,9 +36,13 @@ export function ConfirmDeleteButton({
   // squeezing it into the square icon size made the text spill out of the
   // button (and out of its header). A symbol or icon (✕, trash) stays compact.
   const isText = typeof props.children === "string" && props.children.trim().length > 2;
+  // A ✕ or trash icon is named by its own question ("Remove file … and all of its tasks"), for screen readers and on hover.
+  const iconName = isText ? undefined : confirmMessage.replace(/\?[\s\S]*$/, "").trim();
   return (
     <SubmitButton
       {...props}
+      aria-label={props["aria-label"] ?? iconName}
+      title={props.title ?? iconName}
       variant={isText ? "outline" : "ghost"}
       size={isText ? "xs" : iconSize}
       className={

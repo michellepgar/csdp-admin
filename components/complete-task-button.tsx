@@ -27,7 +27,7 @@ export function CompleteTaskButton({ itemKey, label }: { itemKey: string; label:
         }
         aria-label={`Mark "${label}" as completed`}
         title="Mark as completed"
-        className="flex h-5 w-5 flex-none items-center justify-center rounded border border-emerald-500/40 text-emerald-600 transition-colors hover:bg-emerald-500 hover:text-white disabled:opacity-60 dark:text-emerald-400"
+        className="flex size-[24px] flex-none items-center justify-center rounded border border-emerald-500/40 text-emerald-600 transition-colors hover:bg-emerald-500 hover:text-white disabled:opacity-60 dark:text-emerald-400"
       >
         {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
       </button>

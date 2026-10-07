@@ -65,11 +65,12 @@ export default async function AdminSettingsPage() {
             with what&apos;s in the file you pick. This cannot be undone.
           </p>
           <form action={restoreBackup} className="flex flex-wrap items-center gap-2">
-            <input type="file" name="file" accept=".json" required className="text-sm" />
+            <input type="file" name="file" accept=".json" required aria-label="Backup file to restore" className="text-sm" />
             <input
               type="text"
               name="confirm"
               placeholder="Type RESTORE to confirm"
+              aria-label="Type RESTORE to confirm"
               autoComplete="off"
               className="max-w-[200px] rounded-md border px-2 py-1.5 text-sm"
             />
@@ -92,7 +93,7 @@ export default async function AdminSettingsPage() {
       </section>
 
       <section className="space-y-3 rounded-md border border-destructive/50 p-4">
-        <h2 className="font-semibold text-destructive">Start New School Year</h2>
+        <h2 className="bg-destructive font-semibold text-white">Start New School Year</h2>
         <p className="text-sm text-muted-foreground">
           Clears every school&apos;s Tasks list — file names, statuses, counts, and VA signatures — so each school starts the
           new year with an empty Tasks section. Also clears every school&apos;s Yearly Checklist progress (who checked off
@@ -106,6 +107,7 @@ export default async function AdminSettingsPage() {
             type="text"
             name="confirm"
             placeholder="Type RESET to confirm"
+            aria-label="Type RESET to confirm"
             autoComplete="off"
             className="max-w-[220px] rounded-md border px-2 py-1.5 text-sm"
           />

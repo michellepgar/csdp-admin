@@ -90,7 +90,7 @@ export function ChatMessageActions({ message, canAddPriority, mine }: { message:
           aria-expanded={open}
           title="Add this message to General Notes or Task Priorities"
           className={cn(
-            "absolute right-0.5 top-1 flex h-5 w-5 items-center justify-center rounded-md disabled:opacity-50",
+            "absolute right-0.5 top-0.5 flex size-[24px] items-center justify-center rounded-md disabled:opacity-50",
             mine ? "text-primary-foreground/80 hover:bg-primary-foreground/20" : "text-muted-foreground hover:bg-muted",
           )}
         >

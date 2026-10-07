@@ -142,7 +142,7 @@ export function AppTopBar({
       >
         <Search className="h-4 w-4 flex-none" />
         <span className="min-w-0 flex-1 truncate">Search pages, schools and notes…</span>
-        <kbd className="hidden flex-none rounded border bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 sm:block dark:bg-slate-800 dark:text-slate-300">Ctrl K</kbd>
+        <kbd className="hidden flex-none rounded border bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 sm:block dark:bg-slate-800 dark:text-slate-300">Ctrl K</kbd>
       </button>
 
       <div className="flex-1" />

@@ -113,7 +113,7 @@ export function StatusSelect({
             if (rect) setMenuPos({ top: rect.bottom, left: rect.left, minWidth: rect.width });
             setOpen((o) => !o);
           }}
-          className={`rounded-md border px-1.5 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${toneClassName}`}
+          className={`min-h-[24px] rounded-md border px-1.5 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${toneClassName}`}
         >
           {current?.label ?? value ?? "—"}
         </button>

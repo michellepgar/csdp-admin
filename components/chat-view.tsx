@@ -254,7 +254,7 @@ export function ChatView({ me, people, initialRoom, canAddPriority }: { me: stri
                   {!mine && <Avatar name={m.senderName} color={colorByName.get(m.senderName)} className="h-7 w-7" />}
                   <div className={cn("relative max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm", m.body && "pr-6", mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
                     <ChatMessageActions message={m} canAddPriority={canAddPriority} mine={mine} />
-                    {!mine && room === TEAM_ROOM && <div className="mb-0.5 text-xs font-semibold" style={{ color: colorByName.get(m.senderName) }}>{m.senderName}</div>}
+                    {!mine && room === TEAM_ROOM && <div className={`mb-0.5 text-xs font-semibold ${colorByName.get(m.senderName) ? "va-text" : ""}`} style={{ "--va-color": colorByName.get(m.senderName) } as React.CSSProperties}>{m.senderName}</div>}
                     {m.attachment && (
                       <div className={m.body ? "mb-1.5" : undefined}>
                         <MessageAttachment attachment={m.attachment} url={attachmentUrls[m.attachment.path]} mine={mine} messageId={m.id} onChanged={(updated) => mergeIn([updated])} sentAt={m.createdAt} />

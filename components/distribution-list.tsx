@@ -50,7 +50,7 @@ function DistributedCheckbox({
       <input type="hidden" name="rowId" value={rowId} />
       <input type="hidden" name="distributed" value={String(!distributed)} />
       <button type="submit" aria-label={distributed ? "Mark as not distributed" : "Mark as distributed"}>
-        <input type="checkbox" checked={distributed} readOnly className="pointer-events-none h-4 w-4" />
+        <input type="checkbox" checked={distributed} readOnly tabIndex={-1} aria-hidden="true" className="pointer-events-none h-4 w-4" />
       </button>
     </form>
   );

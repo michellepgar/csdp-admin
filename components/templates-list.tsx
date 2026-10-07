@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Copy, Mail, Plus } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
+import { SectionCard } from "@/components/section-card";
+import { categoryTone } from "@/lib/category-tone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { EmailTemplate } from "@/lib/app-state";
@@ -64,38 +67,52 @@ export function TemplatesList({
   }
 
   return (
-    <div className="space-y-3">
-      <Button
-        type="button"
-        onClick={() => setEditingId(editingId === "new" ? null : "new")}
-      >
-        {editingId === "new" ? "Cancel" : "+ New template"}
-      </Button>
+    <SectionCard
+      icon={<Mail />}
+      title="Email templates"
+      count={templates.length}
+      right={
+        <Button
+          type="button"
+          size="xs"
+          variant="secondary"
+          className="bg-white/90 text-header-background hover:bg-white"
+          onClick={() => setEditingId(editingId === "new" ? null : "new")}
+        >
+          {editingId === "new" ? "Cancel" : <><Plus className="h-3 w-3" /> New template</>}
+        </Button>
+      }
+    >
 
       {editingId === "new" && (
         <TemplateForm template={null} onCancel={() => setEditingId(null)} saveTemplate={saveTemplate} />
       )}
 
-      {templates.length === 0 && (
-        <p className="text-sm text-muted-foreground">No templates yet. Add one to build the shared library.</p>
+      {templates.length === 0 && editingId !== "new" && (
+        <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">No templates yet. Add one to build the shared library.</p>
       )}
 
       {templates.map((t) => {
         const isOpen = openId === t.id;
         const isEditing = editingId === t.id;
+        const tone = categoryTone(t.category);
         return (
-          <div key={t.id} className="rounded-md border bg-card">
-            <button
-              type="button"
-              onClick={() => setOpenId(isOpen ? null : t.id)}
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium"
-            >
-              <span>
-                {t.name}
-                {t.category && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">{t.category}</span>}
-              </span>
-              <span className="text-xs text-muted-foreground">{isOpen ? "Collapse" : "View"}</span>
-            </button>
+          <div key={t.id} className={`rounded-lg border border-l-4 ${tone.edge} bg-card shadow-sm transition-shadow hover:shadow-md`}>
+            <div className="flex items-center gap-2 px-3 py-2.5">
+              <button type="button" onClick={() => setOpenId(isOpen ? null : t.id)} className="min-w-0 flex-1 text-left">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold">{t.name}</span>
+                  {t.category && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tone.pill}`}>{t.category}</span>}
+                </span>
+                {!isOpen && !isEditing && <span className="mt-0.5 block truncate text-sm text-muted-foreground">{t.subject || t.body}</span>}
+              </button>
+              <Button type="button" size="xs" variant="outline" onClick={() => copyTemplate(t)}>
+                <Copy className="h-3 w-3" /> {copiedId === t.id ? "Copied!" : "Copy"}
+              </Button>
+              <Button type="button" size="xs" variant="ghost" onClick={() => setOpenId(isOpen ? null : t.id)}>
+                {isOpen ? "Collapse" : "View"}
+              </Button>
+            </div>
 
             {isEditing ? (
               <div className="border-t p-3">
@@ -106,9 +123,6 @@ export function TemplatesList({
                 <p className="text-sm"><strong>Subject:</strong> {t.subject}</p>
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">{t.body}</p>
                 <div className="flex items-center gap-2">
-                  <Button type="button" size="sm" onClick={() => copyTemplate(t)}>
-                    {copiedId === t.id ? "Copied!" : "Copy"}
-                  </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(t.id)}>
                     Edit
                   </Button>
@@ -128,6 +142,6 @@ export function TemplatesList({
           </div>
         );
       })}
-    </div>
+    </SectionCard>
   );
 }

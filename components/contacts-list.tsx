@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Eye, Pencil } from "lucide-react";
+import { Contact, Eye, Pencil } from "lucide-react";
+import { SectionCard } from "@/components/section-card";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
@@ -460,9 +461,18 @@ export function ContactsList({
           createSchool/findOrCreateGroupByName in
           app/(app)/layout-actions.ts), so a separate manual path was
           redundant. */}
-      <div className="rounded-md border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">Nurse Leader</span>
+      <SectionCard
+        icon={<Contact />}
+        title="Nurse leader"
+        right={
+          !editingLeader && (
+            <Button type="button" size="xs" variant="secondary" className="bg-white/90 text-header-background hover:bg-white" onClick={() => setEditingLeader(true)}>
+              <Pencil className="h-3 w-3" /> Edit
+            </Button>
+          )
+        }
+      >
+        <div className="flex flex-wrap items-center gap-3">
           {editingLeader ? (
             <form
               action={setNurseLeader}
@@ -475,16 +485,17 @@ export function ContactsList({
             </form>
           ) : (
             <>
-              <span className="text-sm text-muted-foreground">
-                {nurseLeader.name}
-                {nurseLeader.name && nurseLeader.email ? " — " : ""}
-                {nurseLeader.email}
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-800 dark:bg-teal-500/15 dark:text-teal-200" aria-hidden>
+                {(nurseLeader.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
               </span>
-              <Button type="button" variant="link" size="sm" onClick={() => setEditingLeader(true)}>Edit</Button>
+              <div className="min-w-0">
+                <p className="font-semibold">{nurseLeader.name || "No nurse leader yet"}</p>
+                {nurseLeader.email && <a href={`mailto:${nurseLeader.email}`} className="text-sm text-primary hover:underline">{nurseLeader.email}</a>}
+              </div>
             </>
           )}
         </div>
-      </div>
+      </SectionCard>
 
       {groups.map((group) => {
         // Always alphabetical by school name, regardless of the order
@@ -495,7 +506,7 @@ export function ContactsList({
         // before "School 10", not after it.
         const sortedRows = [...group.rows].sort((a, b) => a.school.localeCompare(b.school, undefined, { numeric: true, sensitivity: "base" }));
         return (
-        <div key={group.id} className="rounded-md border bg-card">
+        <div key={group.id} className="overflow-hidden rounded-xl border bg-card shadow-sm">
           {/* bg-header-background + text-white -- Michelle asked for the
               group name's own background to match the PAGE title's
               color (the h1 bar at the very top), not the softer
@@ -517,7 +528,7 @@ export function ContactsList({
             ) : (
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{group.name}</span>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setEditingGroupName(group.id)}>✏️</Button>
+                <button type="button" onClick={() => setEditingGroupName(group.id)} aria-label={`Rename the ${group.name} group`} title="Rename group" className="flex size-[26px] items-center justify-center rounded-md bg-white/20 text-white transition-colors hover:bg-white/30"><Pencil className="h-3.5 w-3.5" /></button>
               </div>
             )}
             <form action={removeContactGroup}>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle, Megaphone } from "lucide-react";
+import { EmptyState } from "@/components/section-card";
 import { ZoomableHtml } from "@/components/image-lightbox";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
@@ -94,14 +96,14 @@ function GeneralNoteRow({
   return (
     <div
       id={`note-${n.id}`}
-      className={`note-card rounded-md border p-3 ${n.urgency === "Urgent" ? "border-destructive/50 bg-destructive/5" : !n.padColor ? "bg-record-background" : padTextClass(n.padColor)} ${isHighlighted ? "note-highlight-flash" : ""}`}
+      className={`note-card rounded-xl border border-l-4 p-3 shadow-sm transition-shadow hover:shadow-md ${n.urgency === "Urgent" ? "border-destructive/40 border-l-destructive bg-destructive/5" : !n.padColor ? "border-l-slate-300 bg-record-background dark:border-l-slate-600" : `border-l-black/20 ${padTextClass(n.padColor)}`} ${isHighlighted ? "note-highlight-flash" : ""}`}
       style={n.urgency !== "Urgent" && n.padColor ? { backgroundColor: n.padColor } : undefined}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
           {n.urgency === "Urgent" && (
-            <span className="mb-1 inline-block rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-              Urgent
+            <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
+              <AlertTriangle className="h-3 w-3" aria-hidden /> Urgent
             </span>
           )}
           {/* text is sanitized server-side (lib/sanitize-note-html.ts)
@@ -217,7 +219,7 @@ export function GeneralNotesList({
   }, [highlightedId]);
 
   if (sorted.length === 0) {
-    return <p className="text-sm text-muted-foreground">No notes yet.</p>;
+    return <EmptyState icon={<Megaphone />} title="No notes yet" hint="Notes you post for the team show up here." />;
   }
 
   return (

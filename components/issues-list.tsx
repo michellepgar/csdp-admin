@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { EmptyState, SectionCard } from "@/components/section-card";
 import { SubmitButton } from "@/components/submit-button";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Button } from "@/components/ui/button";
@@ -93,8 +95,8 @@ export function AddIssueForm({
   const selectedCategory = issueCategories.find((c) => c.name === categoryName);
 
   return (
-    <div className="space-y-2">
-      <form action={addIssue} className="space-y-2 rounded-md border bg-card p-3">
+    <SectionCard icon={<AlertCircle />} title="Report an issue or concern">
+      <form action={addIssue} className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <input type="hidden" name="type" value={customType ? "custom" : type} />
           {customType && <input type="hidden" name="customTypeId" value={customType.id} />}
@@ -233,7 +235,7 @@ export function AddIssueForm({
           ))}
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }
 
@@ -375,10 +377,10 @@ type TableProps = {
    every field visible, at the cost of repeating the Reported By/Date/
    Status/delete/Comments columns four times. */
 
-export function SoftwareIssueTable({ showCategory = true, emptyText = "No software issues reported.", issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, editIssue, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { showCategory?: boolean; emptyText?: string }) {
+export function SoftwareIssueTable({ showCategory = true, emptyText = "No software issues reported", issues, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, editIssue, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { showCategory?: boolean; emptyText?: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  if (issues.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
+  if (issues.length === 0) return <EmptyState icon={<CheckCircle2 />} title={emptyText} hint="New ones will show up here." />;
   const reversed = [...issues].reverse();
   return (
     <>
@@ -532,7 +534,7 @@ export function SoftwareIssueTable({ showCategory = true, emptyText = "No softwa
 function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdmin, vas, expandIssueId, setIssueStatus, editIssue, removeIssue, addIssueComment, editIssueComment, removeIssueComment, ackIssueComments }: TableProps & { emptyMessage: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(expandIssueId ?? null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  if (issues.length === 0) return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+  if (issues.length === 0) return <EmptyState icon={<CheckCircle2 />} title={emptyMessage} hint="New ones will show up here." />;
   const reversed = [...issues].reverse();
   return (
     <>
@@ -660,9 +662,9 @@ function SchoolRecordTable({ issues, emptyMessage, currentUserName, currentIsAdm
 }
 
 export function CorrectionTable(props: TableProps) {
-  return <SchoolRecordTable {...props} emptyMessage="No Review Patient Information entries." />;
+  return <SchoolRecordTable {...props} emptyMessage="No Review Patient Information entries" />;
 }
 
 export function ChartingTable(props: TableProps) {
-  return <SchoolRecordTable {...props} emptyMessage="No Charting Questions entries." />;
+  return <SchoolRecordTable {...props} emptyMessage="No Charting Questions entries" />;
 }

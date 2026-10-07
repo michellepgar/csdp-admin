@@ -1,8 +1,10 @@
 "use client";
 
 import { useId, useState } from "react";
+import { ClipboardPen } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
+import { SectionCard } from "@/components/section-card";
 import { Button } from "@/components/ui/button";
 import { computeEodTotalHours, fmtEodDate } from "@/lib/app-state";
 import { teamDateIso } from "@/lib/shift";
@@ -66,7 +68,7 @@ export function EodEntryForm({
 
   const totalHours = computeEodTotalHours(timeIn, timeOut, tookBreak ? breakStart : "", tookBreak ? breakEnd : "");
 
-  return (
+  const form = (
     <form
       action={async (formData) => {
         setError(null);
@@ -90,7 +92,7 @@ export function EodEntryForm({
         const date = String(new FormData(e.currentTarget).get("date") || "");
         if (isAdding && existingDates?.includes(date) && !window.confirm(`You already have an EOD report for ${fmtEodDate(date)}. Add another one?`)) e.preventDefault();
       }}
-      className="space-y-2 rounded-md border bg-card p-3"
+      className={isAdding ? "space-y-3" : "space-y-2 rounded-md border bg-card p-3"}
     >
       {hiddenFields && Object.entries(hiddenFields).map(([key, value]) => <input key={key} type="hidden" name={key} value={value} />)}
       <div className="flex flex-wrap items-end gap-3">
@@ -130,9 +132,13 @@ export function EodEntryForm({
           Took a break
         </label>
       </div>
-      <p className="text-sm">
-        Total hours so far: <strong>{totalHours || "—"}</strong>
-        {!totalHours && <span className="text-xs text-muted-foreground"> (fill in Time in and Time out to see it)</span>}
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        Total hours so far:
+        {totalHours ? (
+          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">{totalHours}</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">— (fill in Time in and Time out to see it)</span>
+        )}
       </p>
       <textarea
         name="tasks"
@@ -151,5 +157,13 @@ export function EodEntryForm({
         {onCancel && <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>}
       </div>
     </form>
+  );
+
+  return isAdding ? (
+    <SectionCard icon={<ClipboardPen />} title="New EOD report">
+      {form}
+    </SectionCard>
+  ) : (
+    form
   );
 }

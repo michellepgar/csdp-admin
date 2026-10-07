@@ -720,7 +720,7 @@ export function DistributionList({
               ) : (
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{group.name}</span>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditingGroupName(group.id)}>✏️</Button>
+                  <button type="button" onClick={() => setEditingGroupName(group.id)} aria-label={`Rename the ${group.name} group`} title="Rename group" className="flex size-[26px] items-center justify-center rounded-md bg-white/20 text-white transition-colors hover:bg-white/30"><Pencil className="h-3.5 w-3.5" /></button>
                   <span className="text-xs text-white/80">{totalForms} forms total</span>
                 </div>
               )}

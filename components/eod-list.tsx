@@ -49,12 +49,15 @@ function EditEntryForm({ e, updateEodReport, onDone }: {
 
 function NoteEntry({
   e,
+  color,
   currentUserName,
   currentIsAdmin,
   updateEodReport,
   removeEodReport,
 }: {
   e: EodReport;
+  /** The author's color from the Team page, for the card's edge and initial. */
+  color?: string;
   currentUserName: string;
   currentIsAdmin: boolean;
   updateEodReport: (formData: FormData) => Promise<{ error: string | null }>;
@@ -77,12 +80,19 @@ function NoteEntry({
   const line3 = hasBreak
     ? [e.breakEnd ? `RESUME- ${fmtTime12(e.breakEnd)}` : "", e.timeOut ? `- OUT- ${fmtTime12(e.timeOut)}` : ""].filter(Boolean).join(" ")
     : "";
+  const accent = color || "#64748b";
   return (
-    <div className="rounded-md border bg-card">
-      <div className="flex items-center justify-between gap-2 px-4 pt-2">
-        <span className="text-xs font-semibold text-muted-foreground">{e.author || "Unnamed"}</span>
+    <div className="flex overflow-hidden rounded-xl border bg-record-background no-record-hover shadow-sm transition-shadow hover:shadow-md">
+      <div className="w-1.5 flex-none" style={{ background: accent }} aria-hidden />
+      <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-2 px-4 pt-3">
+        <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-bold text-white shadow-sm" style={{ background: accent }} aria-hidden>
+          {(e.author || "?").slice(0, 1).toUpperCase()}
+        </span>
+        <span className="va-text min-w-0 truncate text-sm font-semibold" style={{ "--va-color": accent } as React.CSSProperties}>{e.author || "Unnamed"}</span>
+        {e.totalHours && <span className="flex-none rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-foreground">{e.totalHours} hrs</span>}
         {canEdit && (
-          <div className="flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1">
             <Button type="button" variant="ghost" size="xs" onClick={() => setEditing(true)}>Edit</Button>
             <form action={removeEodReport}>
               <input type="hidden" name="id" value={e.id} />
@@ -93,11 +103,12 @@ function NoteEntry({
           </div>
         )}
       </div>
-      <div className="space-y-0.5 p-4 pt-1 text-sm">
-        <div>{line1}</div>
-        {line2 && <div>{line2}</div>}
-        {line3 && <div>{line3}</div>}
+      <div className="space-y-0.5 px-4 pb-3 pt-2 text-sm">
+        <div className="font-medium">{line1}</div>
+        {line2 && <div className="text-muted-foreground">{line2}</div>}
+        {line3 && <div className="text-muted-foreground">{line3}</div>}
         {(e.tasks || []).map((t, i) => <div key={i}>{t}</div>)}
+      </div>
       </div>
     </div>
   );
@@ -270,6 +281,7 @@ function TableView({
 export function EodList({
   reports,
   vaNames,
+  vaColors,
   currentUserName,
   currentIsAdmin,
   updateEodReport,
@@ -277,6 +289,8 @@ export function EodList({
 }: {
   reports: EodReport[];
   vaNames: string[];
+  /** Each teammate's color from the Team page, by name. */
+  vaColors?: Record<string, string | undefined>;
   currentUserName: string;
   currentIsAdmin: boolean;
   updateEodReport: (formData: FormData) => Promise<{ error: string | null }>;
@@ -349,7 +363,7 @@ export function EodList({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((e) => (
-            <NoteEntry key={e.id} e={e} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} updateEodReport={updateEodReport} removeEodReport={removeEodReport} />
+            <NoteEntry key={e.id} e={e} color={vaColors?.[e.author || ""]} currentUserName={currentUserName} currentIsAdmin={currentIsAdmin} updateEodReport={updateEodReport} removeEodReport={removeEodReport} />
           ))}
         </div>
       )}

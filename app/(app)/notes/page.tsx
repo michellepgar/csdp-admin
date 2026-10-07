@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/page-header";
 import { PageBody } from "@/components/page-body";
 import { GeneralNotesList } from "@/components/general-notes-list";
 import { AddNoteForm } from "@/components/add-note-form";
+import { SectionCard } from "@/components/section-card";
+import { Megaphone } from "lucide-react";
 import {
   addGeneralNote,
   ackGeneralNote,
@@ -36,12 +38,14 @@ export default async function NotesPage({ searchParams }: { searchParams: Promis
     <div>
       <PageHeader title="General Notes" />
       <PageBody>
-        <AddNoteForm action={addGeneralNote} placeholder="Add a note…" draftKey="draft:general-note" vas={state.vas || []}>
-          <label className="flex items-center gap-1.5 text-sm">
-            <input type="checkbox" name="urgent" />
-            Urgent
-          </label>
-        </AddNoteForm>
+        <SectionCard icon={<Megaphone />} title="Post a note to the team">
+          <AddNoteForm action={addGeneralNote} placeholder="Add a note…" draftKey="draft:general-note" vas={state.vas || []}>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" name="urgent" />
+              Urgent
+            </label>
+          </AddNoteForm>
+        </SectionCard>
 
         <GeneralNotesList
           notes={notes}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { categoryTone } from "@/lib/category-tone";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SubmitButton } from "@/components/submit-button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
@@ -114,7 +115,7 @@ function GeneralTaskRow({
           </form>
         ) : (
           <>
-            <span className="text-sm font-bold">{task.category}</span>
+            <span className={`flex-none rounded-full px-2 py-0.5 text-xs font-semibold ${categoryTone(task.category).pill}`}>{task.category}</span>
             <span className="min-w-40 flex-1 text-sm break-words">{task.description}</span>
           </>
         )}

@@ -35,6 +35,7 @@ export default async function EodPage({ searchParams }: { searchParams: Promise<
       <EodList
         reports={state.eodReports || []}
         vaNames={state.vas.map((v) => v.name)}
+        vaColors={Object.fromEntries(state.vas.map((v) => [v.name, v.color]))}
         currentUserName={me.name}
         currentIsAdmin={isAdmin(me)}
         updateEodReport={updateEodReport}

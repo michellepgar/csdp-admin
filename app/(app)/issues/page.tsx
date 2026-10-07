@@ -83,7 +83,7 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
             <h2 className="font-semibold">{customType.name}</h2>
             <SoftwareIssueTable
               showCategory={false}
-              emptyText={`No ${customType.name.toLowerCase()} reported.`}
+              emptyText={`No ${customType.name.toLowerCase()} reported`}
               issues={issues.filter((i) => i.type === "custom" && i.customTypeId === customType.id)}
               {...tableProps}
             />

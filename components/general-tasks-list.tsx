@@ -115,7 +115,6 @@ function GeneralTaskRow({
           </form>
         ) : (
           <>
-            <span className={`flex-none rounded-full px-2 py-0.5 text-xs font-semibold ${categoryTone(task.category).pill}`}>{task.category}</span>
             <span className="min-w-40 flex-1 text-sm break-words">{task.description}</span>
           </>
         )}
@@ -406,8 +405,20 @@ export function GeneralTasksList({
         {tasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No general tasks yet.</p>
         ) : (
-          <div className="divide-y rounded-md border">
-            {[...tasks].reverse().map((task) => (
+          /* One table per category, in the categories' own order. Display only:
+             every task shows in the table of the category it already has, and a
+             task whose category was later removed still gets its own table. */
+          [...categories.map((c) => c.name), ...[...new Set(tasks.map((t) => t.category))].filter((name) => !categories.some((c) => c.name === name))]
+            .map((name) => ({ name, tasks: [...tasks].reverse().filter((t) => t.category === name) }))
+            .filter((group) => group.tasks.length > 0)
+            .map((group) => (
+          <div key={group.name} className={`overflow-hidden rounded-lg border border-l-4 ${categoryTone(group.name).edge} bg-card shadow-sm`}>
+            <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5">
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${categoryTone(group.name).pill}`}>{group.name || "No category"}</span>
+              <span className="text-xs text-muted-foreground">{group.tasks.length} task{group.tasks.length === 1 ? "" : "s"}</span>
+            </div>
+          <div className="divide-y">
+            {group.tasks.map((task) => (
               <div key={task.id} data-task-id={task.id} className={`flex items-start gap-2 bg-record-background px-1 ${task.id === flashId ? "task-highlight-flash" : ""}`}>
                 {selectMode && (
                   <input type="checkbox" className="mt-2" checked={selectedIds.includes(task.id)} onChange={() => toggleSelected(task.id)} />
@@ -434,6 +445,15 @@ export function GeneralTasksList({
               </div>
             ))}
           </div>
+            {group.name && (
+              <form action={addGeneralTask} className="flex items-center gap-2 border-t bg-muted/20 px-2 py-1.5">
+                <input type="hidden" name="category" value={group.name} />
+                <Input name="description" placeholder={`Add a task to ${group.name}`} required className="h-8 min-w-0 flex-1 bg-card" />
+                <SubmitButton pendingLabel="Adding…" size="xs" variant="outline">Add</SubmitButton>
+              </form>
+            )}
+          </div>
+            ))
         )}
 
         {selectedIds.length > 0 && (

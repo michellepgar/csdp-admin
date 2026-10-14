@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getDemoState } from "@/lib/demo-session";
 import { groupTaskFileRows } from "@/lib/app-state";
+import { sanitizeNoteHtml } from "@/lib/sanitize-note-html";
 import type { SuggestionAttachment,
   AppState,
   Va,
@@ -150,10 +151,15 @@ type GeneralNoteRow = {
   pad_color: string | null;
 };
 
+/* Notes and comments are shown as HTML. The app cleans that HTML when it's
+   saved, but someone could write to the database directly, so it's cleaned
+   again here as it's read -- nothing in it can ever run in a browser. */
+const safeHtml = (html: string | null) => sanitizeNoteHtml(html || "");
+
 function mapGeneralNoteRow(r: GeneralNoteRow): GeneralNote {
   return {
     id: r.id,
-    text: r.text,
+    text: safeHtml(r.text),
     padColor: r.pad_color ?? undefined,
     author: r.author,
     urgency: (r.urgency as "Urgent" | "" | null) ?? undefined,
@@ -184,7 +190,7 @@ type PrivateNoteRow = {
 function mapPrivateNoteRow(r: PrivateNoteRow): PrivateNote {
   return {
     id: r.id,
-    text: r.text,
+    text: safeHtml(r.text),
     padColor: r.pad_color ?? undefined,
     author: r.author,
     sharedWith: r.shared_with,
@@ -460,13 +466,13 @@ function mapIssueRow(r: IssueRow): Issue {
 type IssueCommentRow = { id: string; issue_id: string; author: string; text: string; created_at: string; edited_at: string | null };
 
 function mapIssueCommentRow(r: IssueCommentRow): Comment {
-  return { id: r.id, author: r.author, text: r.text, createdAt: r.created_at, editedAt: r.edited_at ?? undefined };
+  return { id: r.id, author: r.author, text: safeHtml(r.text), createdAt: r.created_at, editedAt: r.edited_at ?? undefined };
 }
 
 type NoteCommentRow = { id: string; note_id: string; author: string; text: string; created_at: string; edited_at: string | null };
 
 function mapNoteCommentRow(r: NoteCommentRow): Comment {
-  return { id: r.id, author: r.author, text: r.text, createdAt: r.created_at, editedAt: r.edited_at ?? undefined };
+  return { id: r.id, author: r.author, text: safeHtml(r.text), createdAt: r.created_at, editedAt: r.edited_at ?? undefined };
 }
 
 type MentionRow = {

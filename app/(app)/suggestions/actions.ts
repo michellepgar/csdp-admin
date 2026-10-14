@@ -49,6 +49,13 @@ export async function addSuggestion(formData: FormData): Promise<{ error: string
 
   try {
     const { supabase, me } = await requireTeamMember();
+    // Only files you uploaded yourself (your own upload folder) can be attached.
+    if (attachments.length > 0) {
+      const { data: userData } = await supabase.auth.getUser();
+      const ownFolder = userData.user ? `${userData.user.id}/` : null;
+      const valid = attachments.every((a) => a && typeof a.path === "string" && typeof a.name === "string" && ownFolder && a.path.startsWith(ownFolder) && !a.path.includes(".."));
+      if (!valid) return { error: "Couldn't attach those files. Upload them again." };
+    }
     const id = crypto.randomUUID();
     const { error } = await supabase.from("suggestions").insert({
       id,

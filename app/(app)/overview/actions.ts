@@ -739,6 +739,8 @@ export async function resolveTaskPlanItem(formData: FormData): Promise<PlanActio
 
   return runPlanAction(async () => {
     const { supabase, me } = await requireTeamMember();
+    const { data: planItem } = await supabase.from("plan_items").select("va_name").eq("id", id).maybeSingle();
+    if (!planItem || planItem.va_name !== me.name) throw new Error("That item isn't on your plan anymore. Refresh the page.");
 
     if (taskFileCategoryId) {
       const { data: task } = await supabase.from("task_file_categories").select("status, va_assigned").eq("id", taskFileCategoryId).maybeSingle();

@@ -169,7 +169,7 @@ export async function removeVa(formData: FormData): Promise<RemoveVaResult> {
   // key to vas (see supabase/phase3_relational_notes.sql), so nothing
   // does this automatically at the database level -- has to happen
   // here.
-  const { error: privateNotesError } = await supabase.from("private_notes").delete().eq("author", va.name);
+  const { error: privateNotesError } = await supabase.rpc("admin_delete_private_notes_by_author", { p_author: va.name });
   if (privateNotesError) throw new Error(privateNotesError.message);
 
   const { error } = await supabase.from("vas").delete().eq("id", id);

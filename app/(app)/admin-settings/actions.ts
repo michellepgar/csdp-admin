@@ -274,7 +274,7 @@ function isValidEodReportRow(r: unknown): r is EodReport {
 }
 
 export async function restoreBackup(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase, me } = await requireAdmin();
   const confirm = (formData.get("confirm") as string) || "";
   if (confirm !== "RESTORE") return;
 
@@ -287,13 +287,13 @@ export async function restoreBackup(formData: FormData) {
   } catch {
     return;
   }
-  await performRestore(supabase, parsed);
+  await performRestore(supabase, parsed, me.name);
 }
 
 /* The restore itself, shared by the "restore from a file" form above and
    the Restore button beside each automatic backup. Returns false (having
    changed nothing) if the file doesn't pass the up-front sanity checks. */
-async function performRestore(supabase: Awaited<ReturnType<typeof createClient>>, parsed: unknown): Promise<boolean> {
+async function performRestore(supabase: Awaited<ReturnType<typeof createClient>>, parsed: unknown, myName: string): Promise<boolean> {
   /* Sanity check before touching anything: a real backup always has
      non-empty vas/schools/taskCategories/checklistTemplate arrays, and
      every row in them must at least look like the real thing -- vas
@@ -418,12 +418,16 @@ async function performRestore(supabase: Awaited<ReturnType<typeof createClient>>
      private notes people have now -- only a manual backup, which does
      carry them, replaces them. */
   const keepPrivateNotes = !!backup.backupMeta?.excludes?.includes("privateNotes");
+  /* Private notes are private even from admins (the database enforces it,
+     supabase/phase80_security_lockdown.sql), so a restore only replaces the
+     restoring admin's OWN private notes; everyone else's stay as they are. */
+  const myPrivateNotes = (backup.privateNotes || []).filter((n) => n.author === myName);
   if (!keepPrivateNotes) {
-    const { error: delPrivateError } = await supabase.from("private_notes").delete().neq("id", "");
+    const { error: delPrivateError } = await supabase.from("private_notes").delete().eq("author", myName);
     orThrow(delPrivateError);
   }
-  if (!keepPrivateNotes && backup.privateNotes!.length) {
-    const privateRows = backup.privateNotes!.map((n) => ({
+  if (!keepPrivateNotes && myPrivateNotes.length) {
+    const privateRows = myPrivateNotes.map((n) => ({
       id: n.id,
       text: n.text,
       author: n.author,
@@ -675,8 +679,11 @@ export async function restoreFromAutomaticBackup(name: string, confirm: string):
   if (!isBackupFileName(name)) return { error: "That isn't a backup file." };
 
   let supabase: Awaited<ReturnType<typeof createClient>>;
+  let myName: string;
   try {
-    ({ supabase } = await requireAdmin());
+    const admin = await requireAdmin();
+    supabase = admin.supabase;
+    myName = admin.me.name;
   } catch {
     return { error: "Only admins can restore a backup." };
   }
@@ -695,7 +702,7 @@ export async function restoreFromAutomaticBackup(name: string, confirm: string):
   }
 
   try {
-    const restored = await performRestore(supabase, parsed);
+    const restored = await performRestore(supabase, parsed, myName);
     if (!restored) return { error: "Nothing was restored: that backup file didn't pass the safety checks." };
   } catch {
     return { error: `The restore stopped partway. A safety copy of how things were was saved (${safety.name}) -- restore that one to undo, then try again.` };

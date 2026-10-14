@@ -1,0 +1,27 @@
+# Nightly backup timer for when the tracker runs on Cloudflare (Vercel's own
+# timer, set in vercel.json, only works on Vercel).
+#
+# To turn it on: copy this file to .github/workflows/nightly-backup.yml, and in
+# GitHub (repository -> Settings -> Secrets and variables -> Actions) add:
+#   TRACKER_URL   the Cloudflare address, e.g. https://csdp-tracker.<you>.workers.dev
+#   CRON_SECRET   the same CRON_SECRET value set on the Cloudflare worker
+#
+# It calls the same backup the Vercel timer calls, at the same time (08:00 UTC).
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the tracker's nightly backup
+        run: |
+          status=$(curl -s -o response.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.TRACKER_URL }}/api/cron/backup")
+          cat response.json
+          test "$status" = "200"

@@ -1,0 +1,16 @@
+// Cloudflare Workers settings for CSDP Tracker (cloudflare/build.mjs copies
+// this next to a copy of the app before building -- the app's own files are
+// never changed).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "csdp-tracker",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  // Node.js built-ins the app uses (Buffer, crypto, zlib for the demo).
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true }
+}

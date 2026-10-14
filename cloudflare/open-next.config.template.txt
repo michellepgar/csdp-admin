@@ -1,0 +1,6 @@
+// OpenNext settings for running CSDP Tracker on Cloudflare Workers (copied
+// next to a copy of the app by cloudflare/build.mjs). Every page in the app is
+// built fresh per visit from the database, so no page cache is set up.
+import { defineCloudflareConfig } from "@opennextjs/cloudflare";
+
+export default defineCloudflareConfig({});

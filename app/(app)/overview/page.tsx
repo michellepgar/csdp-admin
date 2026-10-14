@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
-import { fetchAppState } from "@/lib/fetch-app-state";
+import { fetchAppState, type AppPart } from "@/lib/fetch-app-state";
 import { checklistCompletion, findVaByEmail, isAdmin, ISSUE_TYPE_LABELS, type IssueType } from "@/lib/app-state";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { todayActivityByVa, groupTaskTables } from "@/lib/shared-task-files";
@@ -15,6 +15,9 @@ import { TaskPriorities } from "@/components/task-priorities";
 import { StartMyDayButton } from "@/components/start-my-day-button";
 import { shiftAvailability } from "@/lib/shift";
 import { savePlan, addPriority, updatePriorityPlanItem, removePlanItem, claimPriorityPlanItem, movePriorityPlanItem, resolvePriorityPlanItem, startMyDay, startWorkNow } from "./actions";
+
+/* Only the data this page shows (see AppPart in lib/fetch-app-state.ts). */
+const PARTS: AppPart[] = ["core", "tasks", "checklist", "generalTasks", "plan", "issues", "privateNotes"];
 
 /* Same red/orange/green thresholds used for a checklist progress bar's
    fill color -- <34% still has most of the list left (danger), 34-66%
@@ -34,7 +37,7 @@ function progressTone(pct: number): keyof typeof PROGRESS_BAR_CLASSES {
 }
 
 export default async function OverviewPage() {
-  const state = await fetchAppState();
+  const state = await fetchAppState(PARTS);
   if (!state) return <p className="text-muted-foreground">Couldn&apos;t load the app — try reloading.</p>;
 
   const schoolsNeedingEmailAttention = state.schools

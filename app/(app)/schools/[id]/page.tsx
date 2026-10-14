@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
+import { fetchAppState, type AppPart } from "@/lib/fetch-app-state";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { findVaByEmail, isAdmin, canEditSchoolRecords, CONTACT_POSITION_GROUPS, type ChecklistProgressEntry } from "@/lib/app-state";
@@ -52,6 +52,9 @@ import { EditSchoolNameControl } from "@/components/edit-school-name-control";
 import { PageBody } from "@/components/page-body";
 import { CopyButton } from "@/components/copy-button";
 
+/* Only the data this page shows (see AppPart in lib/fetch-app-state.ts). */
+const PARTS: AppPart[] = ["core", "tasks", "checklist", "contacts"];
+
 /* A website saved as "www.school.edu" or "school.edu" (no protocol) is
    a relative link to the browser -- clicking it would try to load
    e.g. csdp-admin.vercel.app/school.edu instead of leaving the app.
@@ -67,7 +70,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
-  const state = await fetchAppState();
+  const state = await fetchAppState(PARTS);
   if (!state) return <p className="text-muted-foreground">Couldn&apos;t load the app — try reloading.</p>;
 
   const me = findVaByEmail(state, user.email);

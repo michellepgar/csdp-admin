@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
+import { fetchAppState, type AppPart } from "@/lib/fetch-app-state";
 import { findVaByEmail, visiblePrivateNotes } from "@/lib/app-state";
 import { noteMatches, searchWords } from "@/lib/private-note-search";
 import { NoteFocus } from "@/components/note-focus";
@@ -32,6 +32,9 @@ import {
 
 import { PRIVATE_NOTES_HREF } from "@/lib/workspace-last-place";
 
+/* Only the data this page shows (see AppPart in lib/fetch-app-state.ts). */
+const PARTS: AppPart[] = ["core", "privateNotes"];
+
 /* The Private Notes tab of My Workspace: every note you wrote or that was
    shared with you -- search, the Priority Board, and the list. (It used to be
    its own page; /private-notes now forwards here.) */
@@ -39,7 +42,7 @@ export async function PrivateNotesSection({ q = "", highlightNote }: { q?: strin
   const user = await getCurrentUser();
   if (!user || !user.email) redirect("/login");
 
-  const state = await fetchAppState();
+  const state = await fetchAppState(PARTS);
   if (!state) return <p className="text-muted-foreground">Couldn&apos;t load the app — try reloading.</p>;
 
   const me = findVaByEmail(state, user.email);

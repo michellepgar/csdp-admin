@@ -559,7 +559,7 @@ function mapAccessRequestRow(r: AccessRequestRow): AccessRequest {
    blob until its own phase migrates it. Whatever values happen to
    still be sitting in the blob for already-migrated fields are ignored
    entirely — they're stale leftovers, not read here on purpose. */
-export const fetchAppState = cache(async (): Promise<AppState | null> => {
+export const fetchAppState = cache(async (parts?: readonly AppPart[]): Promise<AppState | null> => {
   // The login page's "See a demo" link sets this cookie instead of a real
   // Supabase session -- short-circuit straight to the demo visitor's own
   // cookie-backed state (lib/demo-session.ts) rather than running the
@@ -567,15 +567,80 @@ export const fetchAppState = cache(async (): Promise<AppState | null> => {
   const isDemo = (await cookies()).get("demo-mode")?.value === "1";
   if (isDemo) return getDemoState();
 
-  return loadAppState(await createClient());
+  return loadAppState(await createClient(), parts, requestQueries());
 });
+
+/* The queries already started in this request, so the layout and the page
+   never fetch the same table twice. */
+const requestQueries = cache(() => new Map<string, Promise<unknown>>());
+
+/* Each page loads only the parts of the app it shows (fetchAppState(parts)).
+   Leaving parts out loads everything -- the nightly backup, the manual backup
+   on Backup & School Year, and Server Actions do that. */
+export type AppPart =
+  | "core"
+  | "tasks"
+  | "checklist"
+  | "suggestions"
+  | "generalNotes"
+  | "privateNotes"
+  | "templates"
+  | "contacts"
+  | "distribution"
+  | "eod"
+  | "issueMeta"
+  | "issues"
+  | "mentions"
+  | "accessRequests"
+  | "generalTasks"
+  | "plan";
+
+type QueryKey =
+  | "blob" | "vas" | "schools" | "taskCategories" | "checklistTemplate" | "checklistProgress" | "taskFiles" | "taskFileCategories"
+  | "emailTracker" | "suggestions" | "generalNotes" | "generalNoteComments" | "privateNotes" | "privateNoteComments" | "emailTemplates"
+  | "contactGroups" | "contactRows" | "distributionGroups" | "distributionRows" | "settings" | "eodReports" | "issues" | "issueCategories"
+  | "issueSubcategories" | "issueComments" | "mentions" | "accessRequests" | "schoolContacts" | "otherContacts" | "generalTasks"
+  | "generalTaskCategories" | "planItems" | "workNotes" | "shiftState" | "suggestionDetails" | "suggestionAttachments" | "issueTypes"
+  | "issueTypeLinks" | "emailDone" | "taskCategorySchoolCounts" | "issueSchoolField" | "planItemStartedAt";
+
+const PART_QUERIES: Record<AppPart, QueryKey[]> = {
+  core: ["vas", "schools"],
+  tasks: ["taskCategories", "taskCategorySchoolCounts", "taskFiles", "taskFileCategories", "emailTracker", "emailDone", "settings"],
+  checklist: ["checklistTemplate", "checklistProgress"],
+  suggestions: ["suggestions", "suggestionDetails", "suggestionAttachments"],
+  generalNotes: ["generalNotes", "generalNoteComments"],
+  privateNotes: ["privateNotes", "privateNoteComments"],
+  templates: ["emailTemplates"],
+  contacts: ["contactGroups", "contactRows", "otherContacts", "settings", "schoolContacts"],
+  distribution: ["distributionGroups", "distributionRows"],
+  eod: ["eodReports"],
+  issueMeta: ["issueCategories", "issueSubcategories", "issueTypes"],
+  issues: ["issues", "issueComments", "issueTypes", "issueTypeLinks", "issueSchoolField"],
+  mentions: ["mentions"],
+  accessRequests: ["accessRequests"],
+  generalTasks: ["generalTasks", "generalTaskCategories"],
+  plan: ["planItems", "planItemStartedAt", "workNotes", "shiftState"],
+};
 
 type DbClient = Awaited<ReturnType<typeof createClient>>;
 
 /* The actual read, with the database connection passed in -- so the
    automatic nightly backup (lib/automatic-backup.ts) can run the exact
    same load with the service-key connection when no one is signed in. */
-export async function loadAppState(supabase: DbClient): Promise<AppState | null> {
+export async function loadAppState(supabase: DbClient, parts?: readonly AppPart[], shared?: Map<string, Promise<unknown>>): Promise<AppState | null> {
+  const wanted = parts ? new Set<QueryKey>(["blob", ...parts.flatMap((part) => PART_QUERIES[part])]) : null;
+  /* One query: skipped (an empty result) when this page doesn't need it, and
+     shared with the layout's own load in the same request when both need it. */
+  const q = <T,>(key: QueryKey, make: () => PromiseLike<T>): Promise<T> => {
+    if (wanted && !wanted.has(key)) return Promise.resolve({ data: [], error: null } as unknown as T);
+    if (!shared) return Promise.resolve(make());
+    let pending = shared.get(key) as Promise<T> | undefined;
+    if (!pending) {
+      pending = Promise.resolve(make());
+      shared.set(key, pending);
+    }
+    return pending;
+  };
   const [
     blobResult,
     vasResult,
@@ -620,61 +685,61 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
     issueSchoolFieldResult,
     planItemStartedAtResult,
   ] = await Promise.all([
-    supabase.from("app_state").select("data").eq("id", 1).maybeSingle(),
-    supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name"),
-    supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes").order("name"),
-    supabase.from("task_categories").select("id, name, school_id, eod_phrase").order("sort_order"),
-    supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order"),
-    supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed"),
-    supabase.from("task_files").select("id, school_id, table_id, file_name, sort_order, created_at").order("sort_order"),
-    supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order, created_at, status_changed_at").order("sort_order"),
-    supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at"),
-    supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at"),
-    supabase.from("general_notes").select("id, text, author, urgency, ack_by, comment_ack_by, created_at, pad_color").order("created_at"),
-    supabase.from("general_note_comments").select("id, note_id, author, text, created_at, edited_at").order("created_at"),
-    supabase.from("private_notes").select("id, text, author, shared_with, ack_by, comment_ack_by, created_at, pad_color, board_x, board_y, board_rotation, board_width, board_height, board_z, is_reminder").order("created_at"),
-    supabase.from("private_note_comments").select("id, note_id, author, text, created_at, edited_at").order("created_at"),
-    supabase.from("email_templates").select("id, name, category, subject, body").order("sort_order"),
-    supabase.from("contact_groups").select("id, name").order("sort_order"),
-    supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order"),
-    supabase.from("distribution_groups").select("id, name").order("sort_order"),
-    supabase.from("distribution_rows").select("id, group_id, school, enrolled, distributed, classroom_regular, classroom_launch, classroom_crr, consent_packets, contact_person, remarks, breakdown").order("sort_order"),
-    supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"]),
-    supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at"),
-    supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, subcategory, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note, comment_ack_by").order("created_at"),
-    supabase.from("issue_categories").select("id, name").order("sort_order"),
-    supabase.from("issue_subcategories").select("id, category_id, name").order("sort_order"),
-    supabase.from("issue_comments").select("id, issue_id, author, text, created_at, edited_at").order("created_at"),
-    supabase.from("mentions").select("id, mentioned_name, mentioner_name, source, issue_id, note_id, snippet, created_at, read_at").order("created_at", { ascending: false }),
-    supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at"),
-    supabase.from("school_contacts").select("id, school_id, position, name, email, created_at").order("created_at"),
-    supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at"),
-    supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at, status_changed_at").order("created_at"),
-    supabase.from("general_task_categories").select("id, name").order("sort_order"),
-    supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at, sort_order, assigned_to").order("created_at"),
-    supabase.from("work_notes").select("item_key, va_name, note, updated_at"),
-    supabase.from("shift_state").select("va_name, status, changed_at"),
+    q("blob", () => supabase.from("app_state").select("data").eq("id", 1).maybeSingle()),
+    q("vas", () => supabase.from("vas").select("id, name, email, admin, communication_access, role, color").order("name")),
+    q("schools", () => supabase.from("schools").select("id, name, website, address, phone, fax, hours, email_notes").order("name")),
+    q("taskCategories", () => supabase.from("task_categories").select("id, name, school_id, eod_phrase").order("sort_order")),
+    q("checklistTemplate", () => supabase.from("checklist_template").select("id, description, school_id, task_category_id").order("sort_order")),
+    q("checklistProgress", () => supabase.from("checklist_progress").select("school_id, template_item_id, status, checked_by, not_needed")),
+    q("taskFiles", () => supabase.from("task_files").select("id, school_id, table_id, file_name, sort_order, created_at").order("sort_order")),
+    q("taskFileCategories", () => supabase.from("task_file_categories").select("id, task_file_id, category_id, status, va_assigned, count, comms_status, comms_va_assigned, sort_order, created_at, status_changed_at").order("sort_order")),
+    q("emailTracker", () => supabase.from("email_tracker_items").select("id, school_id, description, status, added_by, created_at").order("created_at")),
+    q("suggestions", () => supabase.from("suggestions").select("id, text, author, status, created_at").order("created_at")),
+    q("generalNotes", () => supabase.from("general_notes").select("id, text, author, urgency, ack_by, comment_ack_by, created_at, pad_color").order("created_at")),
+    q("generalNoteComments", () => supabase.from("general_note_comments").select("id, note_id, author, text, created_at, edited_at").order("created_at")),
+    q("privateNotes", () => supabase.from("private_notes").select("id, text, author, shared_with, ack_by, comment_ack_by, created_at, pad_color, board_x, board_y, board_rotation, board_width, board_height, board_z, is_reminder").order("created_at")),
+    q("privateNoteComments", () => supabase.from("private_note_comments").select("id, note_id, author, text, created_at, edited_at").order("created_at")),
+    q("emailTemplates", () => supabase.from("email_templates").select("id, name, category, subject, body").order("sort_order")),
+    q("contactGroups", () => supabase.from("contact_groups").select("id, name").order("sort_order")),
+    q("contactRows", () => supabase.from("contact_rows").select("id, group_id, school, principal, principal_email, asst_principal, asst_principal_email, front_desk, front_desk_email, nurse_name, nurse_email, notes").order("sort_order")),
+    q("distributionGroups", () => supabase.from("distribution_groups").select("id, name").order("sort_order")),
+    q("distributionRows", () => supabase.from("distribution_rows").select("id, group_id, school, enrolled, distributed, classroom_regular, classroom_launch, classroom_crr, consent_packets, contact_person, remarks, breakdown").order("sort_order")),
+    q("settings", () => supabase.from("settings").select("key, value").in("key", ["nurseLeader", "communicationEditor"])),
+    q("eodReports", () => supabase.from("eod_reports").select("id, author, date, time_in, break_start, break_end, time_out, total_hours, tasks, created_at").order("created_at")),
+    q("issues", () => supabase.from("issues").select("id, type, reported_by, status, created_at, description, category, subcategory, remarks, student_name, dob, insurance_number, school_year, file_name, page_number, correcting_category, correct_info, correction_kind, student_record_link, needs_name_correction, needs_dob_correction, needs_insurance_correction, needs_other_correction, other_correction_detail, question, fixed_by, fix_note, comment_ack_by").order("created_at")),
+    q("issueCategories", () => supabase.from("issue_categories").select("id, name").order("sort_order")),
+    q("issueSubcategories", () => supabase.from("issue_subcategories").select("id, category_id, name").order("sort_order")),
+    q("issueComments", () => supabase.from("issue_comments").select("id, issue_id, author, text, created_at, edited_at").order("created_at")),
+    q("mentions", () => supabase.from("mentions").select("id, mentioned_name, mentioner_name, source, issue_id, note_id, snippet, created_at, read_at").order("created_at", { ascending: false })),
+    q("accessRequests", () => supabase.from("access_requests").select("id, record_kind, school_id, target_id, label, reason, requested_by, status, resolved_by, resolved_at, created_at").order("created_at")),
+    q("schoolContacts", () => supabase.from("school_contacts").select("id, school_id, position, name, email, created_at").order("created_at")),
+    q("otherContacts", () => supabase.from("other_contacts").select("id, name, organization, email, phone, notes").order("created_at")),
+    q("generalTasks", () => supabase.from("general_tasks").select("id, category, description, status, va_assigned, created_at, status_changed_at").order("created_at")),
+    q("generalTaskCategories", () => supabase.from("general_task_categories").select("id, name").order("sort_order")),
+    q("planItems", () => supabase.from("plan_items").select("id, kind, va_name, school_id, task_file_category_id, general_task_id, label, created_by, created_at, suggested_school_id, suggested_category_id, suggested_file_name, note_id, completed_at, sort_order, assigned_to").order("created_at")),
+    q("workNotes", () => supabase.from("work_notes").select("item_key, va_name, note, updated_at")),
+    q("shiftState", () => supabase.from("shift_state").select("va_name, status, changed_at")),
     // Both tolerant: until phase65's SQL is run these just come back empty.
-    supabase.from("suggestions").select("id, details"),
-    supabase.from("suggestion_attachments").select("id, suggestion_id, path, name, type, size, created_at").order("created_at"),
+    q("suggestionDetails", () => supabase.from("suggestions").select("id, details")),
+    q("suggestionAttachments", () => supabase.from("suggestion_attachments").select("id, suggestion_id, path, name, type, size, created_at").order("created_at")),
       // Tolerant like the two above: until supabase/phase66_issue_types.sql has been run
     // these fail, which just means "no custom issue types" instead of failing the whole load.
-    supabase.from("issue_types").select("id, name").order("sort_order"),
-    supabase.from("issues").select("id, custom_type_id"),
+    q("issueTypes", () => supabase.from("issue_types").select("id, name").order("sort_order")),
+    q("issueTypeLinks", () => supabase.from("issues").select("id, custom_type_id")),
     // Tolerant too: until phase67_email_done_at.sql has been run this fails, which just
     // means finished email items don't show on Currently Working On.
-    supabase.from("email_tracker_items").select("id, done_at"),
+    q("emailDone", () => supabase.from("email_tracker_items").select("id, done_at")),
     // Tolerant too: until phase68_task_category_count_per_school.sql has been run
     // this fails, which just means every category's Count column reads as off for
     // every school until she runs it (same as never having toggled any on yet).
-    supabase.from("task_category_school_counts").select("school_id, category_id"),
+    q("taskCategorySchoolCounts", () => supabase.from("task_category_school_counts").select("school_id, category_id")),
     // Tolerant too: until phase69_issue_school_field.sql has been run this fails,
     // which just means Review Patient Information issues don't show a school yet.
-    supabase.from("issues").select("id, school"),
+    q("issueSchoolField", () => supabase.from("issues").select("id, school")),
     // Tolerant too: until phase71_plan_item_started_at.sql has been run this
     // fails, which just means a reminder's Start button has nothing to show
     // as started yet (it still works once the column exists).
-    supabase.from("plan_items").select("id, started_at"),
+    q("planItemStartedAt", () => supabase.from("plan_items").select("id, started_at")),
   ]);
 
   if (blobResult.error || !blobResult.data) return null;
@@ -709,7 +774,9 @@ export async function loadAppState(supabase: DbClient): Promise<AppState | null>
   if (generalTasksResult.error) return null;
   if (generalTaskCategoriesResult.error) return null;
 
-  const state = blobResult.data.data as AppState;
+  /* A copy: the same query result can be shared by the layout's load and the
+     page's load in one request, and each fills in its own parts below. */
+  const state = structuredClone(blobResult.data.data) as AppState;
   state.vas = (vasResult.data || []).map(mapVaRow);
   state.schools = (schoolsResult.data || []).map((r) => mapSchoolRow(r as SchoolRow));
   state.taskCategories = (taskCategoriesResult.data || []).map((row) => ({ id: row.id, name: row.name, schoolId: row.school_id ?? undefined, eodPhrase: row.eod_phrase ?? undefined })) as TaskCategory[];

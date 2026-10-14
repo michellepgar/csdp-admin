@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { fetchAppState } from "@/lib/fetch-app-state";
+import { fetchAppState, type AppPart } from "@/lib/fetch-app-state";
+import { loadNavFlagRows, navFlagsFor } from "@/lib/nav-flags";
 import { findVaByEmail, isAdmin } from "@/lib/app-state";
 import { groupTaskTables, openEmailItemsByVa } from "@/lib/shared-task-files";
 import type { QuickAddData, QuickAddTable } from "@/components/quick-add-dialog";
@@ -18,6 +19,11 @@ import { addPrivateNote, searchPrivateNotes } from "@/app/(app)/private-notes/ac
 import { addIssue } from "@/app/(app)/issues/actions";
 import { addSuggestion } from "@/app/(app)/suggestions/actions";
 import { continuingPlanItemIds } from "@/lib/plan-order";
+
+/* What the sidebar, top bar, Your Plan and Quick add need on every page --
+   not the notes, issues, EOD reports, contacts and so on, which only their
+   own pages load. */
+const LAYOUT_PARTS: AppPart[] = ["core", "tasks", "generalTasks", "plan", "mentions", "issueMeta"];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Demo mode has no real Supabase session for is_team_member() to check
@@ -38,10 +44,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
      the only wasted work in the rare non-member/logged-out case is
      fetchAppState()'s queries running and being discarded, which RLS
      makes cheap (empty results) anyway. */
-  const [user, isMember, state] = await Promise.all([
+  const [user, isMember, state, navFlagRows] = await Promise.all([
     getCurrentUser(),
     isDemo ? Promise.resolve(true) : createClient().then((supabase) => supabase.rpc("is_team_member")).then((r) => r.data),
-    fetchAppState(),
+    fetchAppState(LAYOUT_PARTS),
+    loadNavFlagRows(),
   ]);
 
   if (!user || !user.email) redirect("/login");
@@ -90,15 +97,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
      (not in Sidebar itself) since this layout already has the full
      `state` and `me` in scope; Sidebar only ever needs the two
      booleans. */
-  const needsPrivateNoteAck = (state.privateNotes || []).some(
-    (n) => (n.sharedWith || []).includes(me.name) && !(n.ackBy || []).includes(me.name)
-  );
-  const needsGeneralNoteAck = (state.generalNotes || []).some(
-    (n) => n.urgency === "Urgent" && n.author !== me.name && !(n.ackBy || []).includes(me.name)
-  );
-  const needsIssueCommentAck = (state.issues || []).some(
-    (i) => (i.comments || []).length > 0 && !(i.commentAckBy || []).includes(me.name)
-  );
+  const navFlags = navFlagsFor(navFlagRows, me.name);
+  const needsPrivateNoteAck = navFlags.privateNote;
+  const needsGeneralNoteAck = navFlags.generalNote;
+  const needsIssueCommentAck = navFlags.issueComment;
 
   const myMentions = (state.mentions || []).filter((m) => m.mentionedName === me.name);
 

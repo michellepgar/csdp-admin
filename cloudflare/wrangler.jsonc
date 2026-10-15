@@ -12,5 +12,9 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Without this the bundler adds __name(...) calls inside functions, and the
+  // light/dark theme script (which is sent to the browser as the function's
+  // own text) then fails with "__name is not defined".
+  "keep_names": false
 }

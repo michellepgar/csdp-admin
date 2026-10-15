@@ -102,7 +102,7 @@ function vaListRow(t: TodayActivityItem, key: number, taskCategories: TaskCatego
         <>
           {note && <span className="italic text-amber-800 dark:text-amber-200">{note} -</span>}
           <span>{eodPhraseFor(t, taskCategories)} -</span>
-          <Link href={itemHref(t)} className="font-bold underline-offset-2 hover:underline">
+          <Link href={itemHref(t)} prefetch={false} className="font-bold underline-offset-2 hover:underline">
             {t.fileName}
           </Link>
           {t.status && <span>- {statusText(t.status)}</span>}
@@ -122,6 +122,7 @@ function SendToEodLink({ show, draftText }: { show: boolean; draftText: string }
     <div className="mb-1.5 flex justify-end">
       <Link
         href={`/eod?draftTasks=${encodeURIComponent(draftText)}`}
+        prefetch={false}
         className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
       >
         <Send className="h-3 w-3" /> Send to EOD

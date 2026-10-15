@@ -233,7 +233,7 @@ export function PlansForTomorrow({ planItems, vas, schools, schoolData, generalT
                     <li key={row.key} className="flex flex-wrap items-center justify-between gap-1.5 text-sm">
                       <span className="flex min-w-0 items-center gap-1">
                         {row.dot && <span className="priority-dot" aria-hidden />}
-                        {row.href ? <Link href={row.href} className="font-bold underline-offset-2 hover:underline">{row.label}</Link> : <span className="font-bold">{row.label}</span>}
+                        {row.href ? <Link href={row.href} prefetch={false} className="font-bold underline-offset-2 hover:underline">{row.label}</Link> : <span className="font-bold">{row.label}</span>}
                         {row.sublabel && <span className="text-muted-foreground"> — {row.sublabel}</span>}
                       </span>
                       <span className="flex items-center gap-1.5">

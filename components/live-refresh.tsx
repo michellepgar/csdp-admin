@@ -17,7 +17,10 @@ import { onUserBack, tabInUse } from "@/lib/user-activity";
 // Now 3 minutes: on Cloudflare's free plan every refresh re-renders the whole
 // page on the server, and this was most of the app's background work.
 const INTERVAL_MS = 180_000;
-const MIN_GAP_MS = 5_000;
+// Coming back to the tab refreshes right away, but at most once a minute:
+// switching tabs fires several "you're back" events at once, and each one
+// used to re-render the whole page on the server.
+const RETURN_GAP_MS = 60_000;
 
 /* Keeps the page current with what teammates are doing, without anyone
    pressing refresh: every few seconds while the tab is visible (and the
@@ -49,10 +52,15 @@ export function LiveRefresh() {
     }
 
     function onReturn() {
-      if (Date.now() - last > MIN_GAP_MS) refresh();
+      if (Date.now() - last > RETURN_GAP_MS) refresh();
     }
 
-    const timer = setInterval(refresh, INTERVAL_MS);
+    // The timer skips a beat when coming back to the tab just refreshed it.
+    function onTimer() {
+      if (Date.now() - last >= INTERVAL_MS / 2) refresh();
+    }
+
+    const timer = setInterval(onTimer, INTERVAL_MS);
     document.addEventListener("visibilitychange", onReturn);
     window.addEventListener("focus", onReturn);
     const stopBack = onUserBack(onReturn);

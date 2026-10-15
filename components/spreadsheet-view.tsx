@@ -357,9 +357,10 @@ export function SpreadsheetView({
   /* Live updates and "who's here", over a private realtime channel for this
      spreadsheet (supabase/phase76_shared_spreadsheets.sql). Not available in
      the demo, which has no real database. Whenever the connection (re)opens,
-     the open sheet and the tabs are re-read, so nothing missed while it was
-     down stays missing; if it can't be opened, the open sheet is re-checked
-     every 20 seconds instead. */
+     the open sheet is re-read (and the tabs too on a reconnect -- the page
+     itself has only just loaded them the first time), so nothing missed while
+     it was down stays missing; if it can't be opened, the open sheet is
+     re-checked every 20 seconds instead. */
   useEffect(() => {
     if (demo) return;
     const supabase = createClient();
@@ -368,6 +369,7 @@ export function SpreadsheetView({
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let poll: ReturnType<typeof setInterval> | null = null;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let connectedBefore = false;
 
     const refreshTabs = () => {
       if (refreshTimer) clearTimeout(refreshTimer);
@@ -420,7 +422,8 @@ export function SpreadsheetView({
             }
             void joined.track({ name: me });
             catchUp();
-            refreshTabs();
+            if (connectedBefore) refreshTabs();
+            connectedBefore = true;
           } else if (state === "CHANNEL_ERROR" || state === "TIMED_OUT" || state === "CLOSED") {
             startPolling();
           }

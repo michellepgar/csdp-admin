@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, FileText, GripVertical, Lightbulb, Hammer, CheckCircle2, Video, type LucideIcon } from "lucide-react";
 import { getSuggestionAttachmentUrls, getSuggestionDownloadUrl } from "@/app/(app)/suggestions/actions";
 import { ImageLightbox } from "@/components/image-lightbox";
@@ -80,18 +80,29 @@ function SuggestionFiles({ attachments }: { attachments: SuggestionAttachment[] 
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [zoomed, setZoomed] = useState<SuggestionAttachment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Picture links are asked for once per picture, not again every time the
+  // page refreshes in the background (the list of files is a new array on
+  // each refresh even when nothing about it changed).
+  const imagePaths = attachments.filter((a) => isPreviewableSuggestionImage(a.type)).map((a) => a.path).join("\n");
+  const requested = useRef(new Set<string>());
 
   useEffect(() => {
-    const wanted = attachments.filter((a) => isPreviewableSuggestionImage(a.type)).map((a) => a.path);
+    const wanted = imagePaths ? imagePaths.split("\n").filter((path) => !requested.current.has(path)) : [];
     if (wanted.length === 0) return;
+    const asked = requested.current;
+    for (const path of wanted) asked.add(path);
     let cancelled = false;
+    let answered = false;
     void getSuggestionAttachmentUrls(wanted).then((found) => {
+      answered = true;
       if (!cancelled) setUrls((current) => ({ ...current, ...found }));
     });
     return () => {
       cancelled = true;
+      // Still waiting on the answer: let the next run ask for these again.
+      if (!answered) for (const path of wanted) asked.delete(path);
     };
-  }, [attachments]);
+  }, [imagePaths]);
 
   async function download(attachment: SuggestionAttachment) {
     setError(null);

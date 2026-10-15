@@ -24,6 +24,9 @@ const TOAST_AUTO_DISMISS_MS = 5_000;
 // it's 20s now and pauses while nobody is using the tab (lib/user-activity.ts).
 // Now 60s, to stay well inside Cloudflare's free daily request allowance.
 const POLL_MS = 60_000;
+// Coming back to the tab fires several events at once (visible, focus, back
+// from idle); they share one check instead of each asking the server.
+const MIN_CHECK_GAP_MS = 5_000;
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 }
@@ -132,10 +135,18 @@ export function MentionsBell({
   // updates the badge and (through the effect above) plays the chime.
   useEffect(() => {
     let cancelled = false;
+    let checking = false;
+    let lastCheck = 0;
     async function check() {
-      if (!tabInUse()) return;
-      const count = await countMyUnreadNotifications();
-      if (!cancelled && count >= 0 && count !== unreadRef.current) router.refresh();
+      if (checking || !tabInUse() || Date.now() - lastCheck < MIN_CHECK_GAP_MS) return;
+      checking = true;
+      lastCheck = Date.now();
+      try {
+        const count = await countMyUnreadNotifications();
+        if (!cancelled && count >= 0 && count !== unreadRef.current) router.refresh();
+      } finally {
+        checking = false;
+      }
     }
     const timer = setInterval(check, POLL_MS);
     document.addEventListener("visibilitychange", check);

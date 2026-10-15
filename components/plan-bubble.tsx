@@ -67,13 +67,11 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, continui
     };
   }, [hasContent]);
 
-  // The floating chat asks the plan window to fold up when it opens
-  // (they're both tall, so only one is open at a time).
+  // Other parts of the page can fold the plan window up or open it.
   useEffect(() => {
     const collapse = () => setExpanded(false);
     const openPlan = () => {
       setExpanded(true);
-      window.dispatchEvent(new Event("chat:close"));
     };
     window.addEventListener("plan:collapse", collapse);
     window.addEventListener("plan:open", openPlan);
@@ -239,7 +237,7 @@ export function PlanBubble({ myWorkNotes, currentUserName, myPlanItems, continui
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => { setExpanded(true); window.dispatchEvent(new Event("chat:close")); }} className="relative flex h-14 w-14 items-center justify-center rounded-full bg-plan-accent text-plan-accent-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl" aria-label="Your plan">
+        <button type="button" onClick={() => setExpanded(true)} className="relative flex h-14 w-14 items-center justify-center rounded-full bg-plan-accent text-plan-accent-foreground shadow-lg transition-transform hover:scale-105 hover:shadow-xl" aria-label="Your plan">
           <ClipboardList className="h-6 w-6" />
           {/* White badge (not the usual status-danger red) -- that red
               is now too close to the new coral bubble color to read as

@@ -14,7 +14,9 @@ import { onUserBack, tabInUse } from "@/lib/user-activity";
 // Now 60s, and paused while nobody is using the tab (lib/user-activity.ts):
 // each refresh costs server CPU time on Vercel, which is limited on the plan.
 // The notification bell still pulls in new assignments sooner.
-const INTERVAL_MS = 60_000;
+// Now 3 minutes: on Cloudflare's free plan every refresh re-renders the whole
+// page on the server, and this was most of the app's background work.
+const INTERVAL_MS = 180_000;
 const MIN_GAP_MS = 5_000;
 
 /* Keeps the page current with what teammates are doing, without anyone

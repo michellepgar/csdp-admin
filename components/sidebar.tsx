@@ -29,7 +29,6 @@ import { cn } from "@/lib/utils";
 import { IconTooltip } from "@/components/icon-tooltip";
 import { SchoolsFlyout } from "@/components/schools-flyout";
 import { TeamPresence, type CurrentPresenceMember } from "@/components/team-presence";
-import { MessagesNav } from "@/components/messages-nav";
 
 export function Sidebar({
   currentMember,
@@ -259,9 +258,6 @@ export function Sidebar({
             </span>
             {!collapsed && <span className="min-w-0 truncate">My Workspace</span>}
           </Link>
-        </IconTooltip>
-        <IconTooltip label="Messages" active={collapsed}>
-          <MessagesNav collapsed={collapsed} linkClassName={navLinkClass("/messages", collapsed ? "justify-center px-2" : "gap-2 px-3")} />
         </IconTooltip>
         <div className={cn("mt-4 border-t", collapsed ? "mx-2" : "mx-3")} />
         {!collapsed && <div className="px-3 pt-4 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Resources</div>}

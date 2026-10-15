@@ -1,7 +1,6 @@
 /* Browser-only. Whether the person at this tab is actually using it.
 
-   The background checks (page refresh, notification bell, chat unread
-   counts) each wake a server function on Vercel, whose CPU time is limited
+   The background checks (page refresh, notification bell) each wake a server function on Vercel, whose CPU time is limited
    on the plan. A tab left open on a screen nobody is touching doesn't need
    them, so they pause after a while without any mouse, keyboard or touch
    input, and catch up the moment the person is back. */

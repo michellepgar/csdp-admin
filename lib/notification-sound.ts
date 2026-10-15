@@ -1,7 +1,5 @@
-/* The notification chime + mute preference, shared by the notification
-   bell and the Messages nav (components/mentions-bell.tsx,
-   components/messages-nav.tsx) so both sound the same and one mute
-   toggle covers both. */
+/* The notification chime + mute preference used by the notification bell
+   (components/mentions-bell.tsx). */
 
 export const SOUND_KEY = "notification-sound";
 

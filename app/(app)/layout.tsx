@@ -12,7 +12,6 @@ import { NavigationProgress } from "@/components/navigation-progress";
 import { addSchool } from "./layout-actions";
 import { resolveTaskPlanItem, resolvePriorityPlanItem, startReminder } from "@/app/(app)/overview/actions";
 import { markMentionRead } from "@/app/(app)/mentions/actions";
-import { FloatingChat } from "@/components/floating-chat";
 import { addTask, setEmailStatus } from "@/app/(app)/schools/[id]/actions";
 import { addGeneralTask } from "@/app/(app)/general-tasks/actions";
 import { addPrivateNote, searchPrivateNotes } from "@/app/(app)/private-notes/actions";
@@ -173,11 +172,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     </SidebarShell>
     <LiveRefresh />
     <NavigationProgress />
-    <FloatingChat
-      me={me.name}
-      canAddPriority={isAdmin(me)}
-      people={state.vas.filter((v) => v.name !== me.name).sort((a, b) => a.name.localeCompare(b.name)).map((v) => ({ id: v.id, name: v.name, color: v.color }))}
-    />
     </>
   );
 }

@@ -22,7 +22,8 @@ const TOAST_AUTO_DISMISS_MS = 5_000;
 // count query, and the page only re-fetches when it changes. Was 6s; each
 // check wakes a server function (CPU time is limited on the Vercel plan), so
 // it's 20s now and pauses while nobody is using the tab (lib/user-activity.ts).
-const POLL_MS = 20_000;
+// Now 60s, to stay well inside Cloudflare's free daily request allowance.
+const POLL_MS = 60_000;
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 }

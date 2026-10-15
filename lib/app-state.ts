@@ -539,9 +539,6 @@ export interface AppState {
   accessRequests?: AccessRequest[];
   issues?: Issue[];
   mentions?: Mention[];
-  /** Demo mode only -- real chat lives in its own tables (chat_messages / chat_reads), read directly by the messages actions rather than through fetchAppState(). */
-  chatMessages?: import("@/lib/chat").ChatMessage[];
-  chatReads?: Record<string, string>;
   workNotes?: WorkNote[];
   shiftStates?: ShiftState[];
   /** Present only on an AUTOMATIC nightly backup file (see lib/automatic-backup.ts). `excludes` lists what was left out on purpose -- currently "privateNotes" -- so Restore knows not to clear those. */

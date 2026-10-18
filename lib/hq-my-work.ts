@@ -36,6 +36,34 @@ export type MyWorkRows = {
 
 export type Why = "reported" | "unseen-comments" | "mentioned";
 
+/** A task row read together with its file (task_files, joined by the database) and an issue row read together with its
+    comment count (issue_comments(count), which comes back as [{ count }]). */
+export type CategoryWithFile = MyWorkRows["categories"][number] & {
+  task_files?: { school_id: string; file_name: string | null } | { school_id: string; file_name: string | null }[] | null;
+};
+export type IssueWithComments = MyWorkRows["issues"][number] & { issue_comments?: { count?: number | string }[] | null };
+
+/** Splits the joined rows into what shapeMyWork takes: plain category and issue rows (the joined objects are taken off,
+    so they can never travel on), the files list built field by field, and the ids of issues that have any comment. */
+export function splitEmbeds(cats: CategoryWithFile[], issueRows: IssueWithComments[]) {
+  const files = new Map<string, MyWorkRows["files"][number]>();
+  const categories = cats.map((row) => {
+    const { task_files: joined, ...category } = row;
+    const file = Array.isArray(joined) ? joined[0] : joined;
+    if (file && !files.has(category.task_file_id)) {
+      files.set(category.task_file_id, { id: category.task_file_id, school_id: file.school_id, file_name: file.file_name });
+    }
+    return category;
+  });
+  const issueIdsWithComments: string[] = [];
+  const issues = issueRows.map((row) => {
+    const { issue_comments: joined, ...issue } = row;
+    if (Array.isArray(joined) && Number(joined[0]?.count) > 0) issueIdsWithComments.push(issue.id);
+    return issue;
+  });
+  return { categories, files: [...files.values()], issues, issueIdsWithComments };
+}
+
 /** The same check as the backup route: the exact "Bearer <secret>", compared in constant time for equal lengths.
     A secret that is missing or only spaces counts as unset, so nothing can match it. */
 export function hqKeyOk(header: string | null, secret: string): boolean {

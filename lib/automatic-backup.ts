@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { loadAppState } from "@/lib/fetch-app-state";
-import { BACKUP_BUCKET, backupFileName, backupsToPrune, describeSupabaseKey, headersWithoutKeyBearer, keyProjectRef, projectRefFromUrl, safetyBackupFileName } from "@/lib/backup-schedule";
+import { BACKUP_BUCKET, backupFileName, backupsToPrune, describeSupabaseKey, keyAwareFetch, keyProjectRef, projectRefFromUrl, safetyBackupFileName } from "@/lib/backup-schedule";
 
 /* The automatic nightly backup -- server-only. Runs from the cron route
    (app/api/cron/backup/route.ts, scheduled in vercel.json) and from the
@@ -66,16 +66,6 @@ async function explainEmptyLoad(client: Client, serviceKey: string, couldNotLoad
   return `Nothing was saved: the key looks right, but the data read came back ${couldNotLoad ? "incomplete" : "empty"} (team members found: ${count}). Try again in a minute; if it keeps happening, tell me this message.`;
 }
 
-/* A fetch that, for newer sb_ keys, doesn't also send the key as a Bearer
-   token (see headersWithoutKeyBearer). */
-function fetchFor(key: string): typeof fetch {
-  if (!key.startsWith("sb_")) return fetch;
-  return (input, init) => {
-    const base = init?.headers ?? (input instanceof Request ? input.headers : undefined);
-    return fetch(input, { ...init, headers: headersWithoutKeyBearer(new Headers(base), key) });
-  };
-}
-
 /* Asks the database's REST address directly, two ways, and reports just
    the HTTP status of each (never the key) -- so a rejection is pinned on
    the key/header combination instead of guessed at. */
@@ -104,7 +94,7 @@ export async function runAutomaticBackup(options: { safety?: boolean } = {}): Pr
   if (!url || !serviceKey) return { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY isn't set." };
 
   try {
-    const client = createServiceClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: fetchFor(serviceKey) } });
+    const client = createServiceClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: keyAwareFetch(serviceKey) } });
 
     const state = await loadAppState(client);
     // Never overwrite a good backup with an empty or half-loaded one.

@@ -8,6 +8,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // api/cron/* (the scheduler) and api/hq/* (Michelle HQ's read-only window) have no session; each guards itself with its own secret.
-    "/((?!_next/static|_next/image|favicon.ico|api/cron|api/hq|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // The trailing slashes matter: without them /api/hqx or /api/cronjob would skip the sign-in redirect too.
+    "/((?!_next/static|_next/image|favicon.ico|api/cron/|api/hq/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

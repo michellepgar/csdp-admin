@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { hqKeyOk, shapeMyWork, type MyWorkRows } from "../lib/hq-my-work.ts";
+import { hqKeyOk, shapeMyWork, splitEmbeds, type MyWorkRows } from "../lib/hq-my-work.ts";
 
 const base: MyWorkRows = {
   me: "Michelle", trackerUrl: "https://tracker.example", now: "2026-10-19T01:00:00.000Z",
@@ -221,6 +221,63 @@ test("the route trims the secret, passes a clean name and never leaks error deta
   const route = readFileSync("app/api/hq/my-work/route.ts", "utf8");
   assert.match(route, /HQ_READ_SECRET \?\? ""\)\.trim\(\)/);
   assert.match(route, /const me = SUPERADMIN_NAME\.trim\(\)/);
-  assert.match(route, /try \{\s*const body = shapeMyWork\([\s\S]*\} catch \{\s*return fail\(/);
+  assert.match(route, /try \{[\s\S]*shapeMyWork\([\s\S]*\} catch \{\s*return fail\(\"Couldn't shape the reply\.\", 500\)/);
   assert.doesNotMatch(route, /\.message\b|\.details\b|\.hint\b|String\(e/);
+});
+
+test("the route makes one round of parallel selects, joined in the database, and builds its client inside the guard", () => {
+  const route = readFileSync("app/api/hq/my-work/route.ts", "utf8");
+  // Long id lists in the address and a second round trip are both gone.
+  assert.doesNotMatch(route, /\.in\(\s*"(id|issue_id)"/);
+  assert.equal(route.match(/await Promise\.all/g)?.length, 1);
+  assert.match(route, /issue_comments\(count\)/);
+  assert.match(route, /task_files\(school_id, file_name\)/);
+  // A bad database address is caught too, so the reply is still a fixed sentence.
+  assert.match(route, /try \{\s*(\/\/[^\n]*\s*)?const db = createServiceClient\(/);
+  // The exact-name database filters are explained where they are.
+  assert.match(route, /exactly/);
+});
+
+test("splitEmbeds pulls files and comment counts out of the joined rows and drops the joins", () => {
+  const cat = (id: string, fileId: string, files: unknown) => ({
+    id, task_file_id: fileId, category_id: "c1", status: "In Progress", va_assigned: ["Michelle"], status_changed_at: null, task_files: files,
+  });
+  const issue = (id: string, comments: unknown) => ({
+    id, type: "correction", category: "Name", subcategory: null, school: "Riverside", status: "Pending", created_at: "2026-10-10T00:00:00Z",
+    reported_by: "Ana", comment_ack_by: [], issue_comments: comments,
+  });
+  const out = splitEmbeds(
+    [
+      cat("a", "f1", { school_id: "s1", file_name: "Roster.xlsx" }),
+      cat("b", "f1", { school_id: "s1", file_name: "Roster.xlsx" }), // same file, second category
+      cat("c", "f2", [{ school_id: "s2", file_name: "List.xlsx" }]), // a one-item list is read the same way
+      cat("d", "f3", null), // no file: the task stays, with no file row
+    ] as never,
+    [issue("i1", [{ count: 2 }]), issue("i2", [{ count: 0 }]), issue("i3", []), issue("i4", null), issue("i5", [{ count: "3" }])] as never,
+  );
+  assert.deepEqual(out.files, [
+    { id: "f1", school_id: "s1", file_name: "Roster.xlsx" },
+    { id: "f2", school_id: "s2", file_name: "List.xlsx" },
+  ]);
+  assert.deepEqual(out.issueIdsWithComments, ["i1", "i5"]);
+  assert.equal(out.categories.length, 4);
+  for (const row of [...out.categories, ...out.issues]) {
+    assert.ok(!("task_files" in row) && !("issue_comments" in row), "a joined object was left on a row");
+  }
+});
+
+test("nothing from the joined rows reaches the reply", () => {
+  const joined = splitEmbeds(
+    [{ id: "a", task_file_id: "f1", category_id: "c1", status: "In Progress", va_assigned: ["Michelle"], status_changed_at: null, task_files: { school_id: "s1", file_name: "Roster.xlsx", secret_join: "LEAK-1" } }] as never,
+    [{ id: "i1", type: "correction", category: "Name", subcategory: null, school: "Riverside", status: "Pending", created_at: "2026-10-10T00:00:00Z", reported_by: "Michelle", comment_ack_by: [], issue_comments: [{ count: 4, text: "LEAK-2" }] }] as never,
+  );
+  const out = shapeMyWork({
+    ...base,
+    categories: joined.categories, files: joined.files, schools: [{ id: "s1", name: "Riverside" }], categoryNames: [{ id: "c1", name: "Roster" }],
+    issues: joined.issues, issueIdsWithComments: joined.issueIdsWithComments,
+  });
+  assert.equal(out.tasks[0].school, "Riverside");
+  assert.equal(out.tasks[0].fileName, "Roster.xlsx");
+  assert.deepEqual(out.issues.map((i) => i.why), [["reported", "unseen-comments"]]);
+  assert.doesNotMatch(JSON.stringify(out), /LEAK|task_files|issue_comments|secret_join/);
 });

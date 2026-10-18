@@ -135,6 +135,17 @@ export function headersWithoutKeyBearer(headers: Headers, key: string): Headers 
   return next;
 }
 
+/* A fetch for a Supabase client built with a service key: for a newer sb_ key it applies headersWithoutKeyBearer to
+   every request, otherwise it is simply the global fetch. The one place this rule lives; the nightly backup and
+   Michelle HQ's read-only window both use it. Global fetch and Headers only, so this file stays import-free. */
+export function keyAwareFetch(key: string): typeof fetch {
+  if (!key.startsWith("sb_")) return fetch;
+  return (input, init) => {
+    const base = init?.headers ?? (input instanceof Request ? input.headers : undefined);
+    return fetch(input, { ...init, headers: headersWithoutKeyBearer(new Headers(base), key) });
+  };
+}
+
 export function formatBackupSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;

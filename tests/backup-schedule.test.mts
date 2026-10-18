@@ -108,3 +108,41 @@ test("the key check tells a public key from a secret one without exposing anythi
   assert.equal(describeSupabaseKey("not a key"), "unreadable");
   assert.equal(describeSupabaseKey(undefined), "unreadable");
 });
+
+test("keyAwareFetch drops the echoed Bearer for a newer sb_ key and leaves a legacy key's fetch alone", async () => {
+  const { keyAwareFetch } = await import("../lib/backup-schedule.ts");
+  const real = globalThis.fetch;
+  let seen: Headers | undefined;
+  globalThis.fetch = (async (input: Request | string | URL, init?: RequestInit) => {
+    seen = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    return new Response("{}");
+  }) as typeof fetch;
+  try {
+    const key = "sb_secret_abc123";
+    // Headers given in the options.
+    await keyAwareFetch(key)("https://db.example/rest/v1/x", { headers: { apikey: key, authorization: `Bearer ${key}` } });
+    assert.equal(seen?.get("authorization"), null);
+    assert.equal(seen?.get("apikey"), key);
+    // Headers carried by a Request object.
+    await keyAwareFetch(key)(new Request("https://db.example/rest/v1/x", { headers: { apikey: key, authorization: `Bearer ${key}` } }));
+    assert.equal(seen?.get("authorization"), null);
+    assert.equal(seen?.get("apikey"), key);
+    // A different Bearer token is kept.
+    await keyAwareFetch(key)("https://db.example/rest/v1/x", { headers: { authorization: "Bearer someone-elses-token" } });
+    assert.equal(seen?.get("authorization"), "Bearer someone-elses-token");
+    // A legacy key gets the plain fetch back, untouched.
+    assert.equal(keyAwareFetch("eyJhbGciOiJIUzI1NiJ9.e30.sig"), globalThis.fetch);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test("lib/backup-schedule.ts stays import-free and both Supabase clients use keyAwareFetch", async () => {
+  const { readFileSync } = await import("node:fs");
+  assert.doesNotMatch(readFileSync("lib/backup-schedule.ts", "utf8"), /^import /m);
+  for (const file of ["lib/automatic-backup.ts", "app/api/hq/my-work/route.ts"]) {
+    const text = readFileSync(file, "utf8");
+    assert.match(text, /keyAwareFetch\(/, file);
+    assert.doesNotMatch(text, /function fetchFor/, file);
+  }
+});

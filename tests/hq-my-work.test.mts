@@ -1,6 +1,7 @@
 // tests/hq-my-work.test.mts
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { hqKeyOk, shapeMyWork, type MyWorkRows } from "../lib/hq-my-work.ts";
 
 const base: MyWorkRows = {
@@ -203,4 +204,23 @@ test("issues: her name matches loosely in reported_by and comment_ack_by, and od
     issueIdsWithComments: ["i2", "i3", "i4"],
   });
   assert.deepEqual(out.issues.map((i) => [i.id, i.why]), [["i1", ["reported"]], ["i2", ["unseen-comments"]], ["i4", ["unseen-comments"]]]);
+});
+
+test("the route is read-only, locked, uncached and outside the sign-in redirect", () => {
+  const route = readFileSync("app/api/hq/my-work/route.ts", "utf8");
+  assert.match(route, /export async function GET/);
+  assert.doesNotMatch(route, /export async function (POST|PUT|PATCH|DELETE)/);
+  assert.doesNotMatch(route, /\.(insert|update|upsert|rpc)\(|from\([^)]*\)\s*\.delete\(/);
+  assert.match(route, /hqKeyOk\(/);
+  assert.match(route, /no-store/);
+  assert.doesNotMatch(route, /loadAppState/);
+  assert.match(readFileSync("proxy.ts", "utf8"), /api\/hq/);
+});
+
+test("the route trims the secret, passes a clean name and never leaks error details", () => {
+  const route = readFileSync("app/api/hq/my-work/route.ts", "utf8");
+  assert.match(route, /HQ_READ_SECRET \?\? ""\)\.trim\(\)/);
+  assert.match(route, /const me = SUPERADMIN_NAME\.trim\(\)/);
+  assert.match(route, /try \{\s*const body = shapeMyWork\([\s\S]*\} catch \{\s*return fail\(/);
+  assert.doesNotMatch(route, /\.message\b|\.details\b|\.hint\b|String\(e/);
 });

@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // api/cron/* is called by Vercel's scheduler (no session) and guards itself with CRON_SECRET.
-    "/((?!_next/static|_next/image|favicon.ico|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // api/cron/* (the scheduler) and api/hq/* (Michelle HQ's read-only window) have no session; each guards itself with its own secret.
+    "/((?!_next/static|_next/image|favicon.ico|api/cron|api/hq|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

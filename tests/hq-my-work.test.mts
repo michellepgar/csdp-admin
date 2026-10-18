@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { hqKeyOk, shapeMyWork, splitEmbeds, type MyWorkRows } from "../lib/hq-my-work.ts";
+import { HQ_LIST_MAX, hqKeyOk, shapeMyWork, splitEmbeds, type MyWorkRows } from "../lib/hq-my-work.ts";
 
 const base: MyWorkRows = {
   me: "Michelle", trackerUrl: "https://tracker.example", now: "2026-10-19T01:00:00.000Z",
@@ -99,9 +99,10 @@ test("plan: an open meeting and a task row are kept, with exactly these fields",
       { id: "p2", kind: "task", label: "Send the forms", task_file_category_id: "c1", general_task_id: "g1", sort_order: 3, created_at: "2026-10-17T01:00:00Z", completed_at: null },
     ],
   });
+  // Plan rows now come back by sortOrder (nulls last), so the numbered row p2 comes before the unnumbered meeting p1.
   assert.deepEqual(out.plan, [
-    { id: "p1", kind: "meeting", label: "Standup", taskId: null, generalTaskId: null, sortOrder: null, createdAt: "2026-10-17T00:00:00Z" },
     { id: "p2", kind: "task", label: "Send the forms", taskId: "c1", generalTaskId: "g1", sortOrder: 3, createdAt: "2026-10-17T01:00:00Z" },
+    { id: "p1", kind: "meeting", label: "Standup", taskId: null, generalTaskId: null, sortOrder: null, createdAt: "2026-10-17T00:00:00Z" },
   ]);
 });
 
@@ -280,4 +281,149 @@ test("nothing from the joined rows reaches the reply", () => {
   assert.equal(out.tasks[0].fileName, "Roster.xlsx");
   assert.deepEqual(out.issues.map((i) => i.why), [["reported", "unseen-comments"]]);
   assert.doesNotMatch(JSON.stringify(out), /LEAK|task_files|issue_comments|secret_join/);
+});
+
+// ---- The 500-item cap: HQ rejects the whole reply if any list is longer, so each list is cut to the oldest 500 ----
+
+/** The i-th minute of a fixed day, so a bigger i is a newer date. */
+const at = (i: number) => new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString();
+/** 0..n-1 in newest-first order, so the rows that must be cut come first in the input. */
+const newestFirst = (n: number) => Array.from({ length: n }, (_, k) => n - 1 - k);
+
+test("the cap is 500", () => {
+  assert.equal(HQ_LIST_MAX, 500);
+});
+
+test("tasks: 501 come back as 500 and the newest one is cut", () => {
+  const n = HQ_LIST_MAX + 1;
+  const out = shapeMyWork({
+    ...base,
+    categories: newestFirst(n).map((i) => ({ id: `c${i}`, task_file_id: "f1", category_id: "k1", status: "Review", va_assigned: ["Michelle"], status_changed_at: at(i) })),
+  });
+  assert.equal(out.tasks.length, HQ_LIST_MAX);
+  assert.equal(out.tasks[0].id, "c0");
+  assert.equal(out.tasks[HQ_LIST_MAX - 1].id, `c${HQ_LIST_MAX - 1}`);
+  assert.ok(!out.tasks.some((t) => t.id === `c${HQ_LIST_MAX}`), "the newest task should have been cut");
+});
+
+test("general tasks: 501 come back as 500 and the newest one is cut", () => {
+  const n = HQ_LIST_MAX + 1;
+  const out = shapeMyWork({
+    ...base,
+    generalTasks: newestFirst(n).map((i) => ({ id: `g${i}`, category: "Admin", description: "x", status: "Review", va_assigned: ["Michelle"], status_changed_at: at(i) })),
+  });
+  assert.equal(out.generalTasks.length, HQ_LIST_MAX);
+  assert.equal(out.generalTasks[0].id, "g0");
+  assert.ok(!out.generalTasks.some((g) => g.id === `g${HQ_LIST_MAX}`), "the newest general task should have been cut");
+});
+
+test("emails: 501 come back as 500 and the newest one is cut", () => {
+  const n = HQ_LIST_MAX + 1;
+  const out = shapeMyWork({
+    ...base,
+    schools: [{ id: "s1", name: "Riverside" }],
+    schoolData: { s1: { vaAssigned: "Michelle" } },
+    emails: newestFirst(n).map((i) => ({ id: `e${i}`, school_id: "s1", description: "x", status: "Needs My Response", created_at: at(i) })),
+  });
+  assert.equal(out.emails.length, HQ_LIST_MAX);
+  assert.equal(out.emails[0].id, "e0");
+  assert.ok(!out.emails.some((e) => e.id === `e${HQ_LIST_MAX}`), "the newest email should have been cut");
+});
+
+test("issues: 501 come back as 500 and the newest one is cut", () => {
+  const n = HQ_LIST_MAX + 1;
+  const out = shapeMyWork({
+    ...base,
+    issues: newestFirst(n).map((i) => ({ id: `i${i}`, type: "correction", category: null, subcategory: null, school: null, status: "Pending", created_at: at(i), reported_by: "Michelle", comment_ack_by: [] })),
+  });
+  assert.equal(out.issues.length, HQ_LIST_MAX);
+  assert.equal(out.issues[0].id, "i0");
+  assert.ok(!out.issues.some((i) => i.id === `i${HQ_LIST_MAX}`), "the newest issue should have been cut");
+});
+
+test("plan: 501 come back as 500 and the last in order is cut", () => {
+  const n = HQ_LIST_MAX + 1;
+  const out = shapeMyWork({
+    ...base,
+    plan: newestFirst(n).map((i) => ({ id: `p${i}`, kind: "task", label: "x", task_file_category_id: null, general_task_id: null, sort_order: i, created_at: at(i), completed_at: null })),
+  });
+  assert.equal(out.plan.length, HQ_LIST_MAX);
+  assert.equal(out.plan[0].id, "p0");
+  assert.ok(!out.plan.some((p) => p.id === `p${HQ_LIST_MAX}`), "the last plan row should have been cut");
+});
+
+test("a list of exactly 500 is left whole", () => {
+  const out = shapeMyWork({
+    ...base,
+    generalTasks: newestFirst(HQ_LIST_MAX).map((i) => ({ id: `g${i}`, category: "Admin", description: "x", status: "Review", va_assigned: ["Michelle"], status_changed_at: at(i) })),
+  });
+  assert.equal(out.generalTasks.length, HQ_LIST_MAX);
+});
+
+test("the cap keeps a dated row over an undated one, so a missing date is the first to go", () => {
+  const n = HQ_LIST_MAX + 1;
+  const out = shapeMyWork({
+    ...base,
+    categories: [
+      { id: "undated", task_file_id: "f1", category_id: "k1", status: "Review", va_assigned: ["Michelle"], status_changed_at: null },
+      ...newestFirst(n - 1).map((i) => ({ id: `c${i}`, task_file_id: "f1", category_id: "k1", status: "Review", va_assigned: ["Michelle"], status_changed_at: at(i) })),
+    ],
+  });
+  assert.equal(out.tasks.length, HQ_LIST_MAX);
+  assert.ok(!out.tasks.some((t) => t.id === "undated"), "the undated task should have been cut");
+});
+
+test("tasks and general tasks: oldest first by statusChangedAt, undated last, ties kept in the order read", () => {
+  const cat = (id: string, changed: string | null) => ({ id, task_file_id: "f1", category_id: "k1", status: "Review", va_assigned: ["Michelle"], status_changed_at: changed });
+  const gen = (id: string, changed: string | null) => ({ id, category: "Admin", description: "x", status: "Review", va_assigned: ["Michelle"], status_changed_at: changed });
+  const out = shapeMyWork({
+    ...base,
+    categories: [cat("n1", null), cat("new", "2026-10-15T00:00:00Z"), cat("n2", null), cat("old", "2026-10-01T00:00:00Z"), cat("tie1", "2026-10-10T00:00:00Z"), cat("tie2", "2026-10-10T00:00:00Z")],
+    generalTasks: [gen("n1", null), gen("new", "2026-10-15T00:00:00Z"), gen("old", "2026-10-01T00:00:00Z")],
+  });
+  assert.deepEqual(out.tasks.map((t) => t.id), ["old", "tie1", "tie2", "new", "n1", "n2"]);
+  assert.deepEqual(out.generalTasks.map((g) => g.id), ["old", "new", "n1"]);
+});
+
+test("dates are compared as times, so different ways of writing a date still sort right, and an unreadable one goes last", () => {
+  const out = shapeMyWork({
+    ...base,
+    emails: [
+      { id: "later", school_id: "s1", description: "x", status: "Needs My Response", created_at: "2026-10-14T09:00:00+00:00" },
+      { id: "sooner", school_id: "s1", description: "x", status: "Needs My Response", created_at: "2026-10-14T08:30:00.000Z" },
+      { id: "odd", school_id: "s1", description: "x", status: "Needs My Response", created_at: odd("not a date") },
+    ],
+    schools: [{ id: "s1", name: "Riverside" }],
+    schoolData: { s1: { vaAssigned: "Michelle" } },
+  });
+  assert.deepEqual(out.emails.map((e) => e.id), ["sooner", "later", "odd"]);
+});
+
+test("emails and issues: oldest first by createdAt", () => {
+  const email = (id: string, created: string) => ({ id, school_id: "s1", description: "x", status: "Needs My Response", created_at: created });
+  const issue = (id: string, created: string) => ({ id, type: "correction", category: null, subcategory: null, school: null, status: "Pending", created_at: created, reported_by: "Michelle", comment_ack_by: [] as string[] });
+  const out = shapeMyWork({
+    ...base,
+    schools: [{ id: "s1", name: "Riverside" }],
+    schoolData: { s1: { vaAssigned: "Michelle" } },
+    emails: [email("e-new", "2026-10-15T00:00:00Z"), email("e-old", "2026-10-01T00:00:00Z")],
+    issues: [issue("i-new", "2026-10-15T00:00:00Z"), issue("i-old", "2026-10-01T00:00:00Z")],
+  });
+  assert.deepEqual(out.emails.map((e) => e.id), ["e-old", "e-new"]);
+  assert.deepEqual(out.issues.map((i) => i.id), ["i-old", "i-new"]);
+});
+
+test("plan: by sortOrder with unnumbered rows last, then by createdAt", () => {
+  const row = (id: string, sort: number | null, created: string) => ({ id, kind: "task", label: id, task_file_category_id: null, general_task_id: null, sort_order: sort, created_at: created, completed_at: null });
+  const out = shapeMyWork({
+    ...base,
+    plan: [
+      row("none-new", null, "2026-10-17T05:00:00Z"),
+      row("two-new", 2, "2026-10-17T03:00:00Z"),
+      row("none-old", null, "2026-10-17T01:00:00Z"),
+      row("zero", 0, "2026-10-17T09:00:00Z"),
+      row("two-old", 2, "2026-10-17T02:00:00Z"),
+    ],
+  });
+  assert.deepEqual(out.plan.map((p) => p.id), ["zero", "two-old", "two-new", "none-old", "none-new"]);
 });

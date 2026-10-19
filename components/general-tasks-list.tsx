@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { categoryTone } from "@/lib/category-tone";
+import { distinctCategoryTones } from "@/lib/category-tone";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SubmitButton } from "@/components/submit-button";
 import { TONE_CLASSES, type StatusTone } from "@/components/status-badge";
@@ -351,6 +351,11 @@ export function GeneralTasksList({
     setSelectMode(false);
   }
 
+  /* The categories in their own order, then any category a task still carries
+     after it was removed. Each one gets its own color, never shared. */
+  const groupNames = [...categories.map((c) => c.name), ...[...new Set(tasks.map((t) => t.category))].filter((name) => !categories.some((c) => c.name === name))];
+  const tones = distinctCategoryTones(groupNames);
+
   return (
     <div className="rounded-xl bg-card shadow-md">
       <div className="flex items-center justify-between rounded-t-xl bg-header-background px-3 py-2 text-white">
@@ -408,13 +413,13 @@ export function GeneralTasksList({
           /* One table per category, in the categories' own order. Display only:
              every task shows in the table of the category it already has, and a
              task whose category was later removed still gets its own table. */
-          [...categories.map((c) => c.name), ...[...new Set(tasks.map((t) => t.category))].filter((name) => !categories.some((c) => c.name === name))]
+          groupNames
             .map((name) => ({ name, tasks: [...tasks].reverse().filter((t) => t.category === name) }))
             .filter((group) => group.tasks.length > 0)
             .map((group) => (
-          <div key={group.name} className={`overflow-hidden rounded-lg border border-l-4 ${categoryTone(group.name).edge} bg-card shadow-sm`}>
+          <div key={group.name} className={`overflow-hidden rounded-lg border border-l-4 ${tones.get(group.name)?.edge} bg-card shadow-sm`}>
             <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5">
-              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${categoryTone(group.name).pill}`}>{group.name || "No category"}</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tones.get(group.name)?.pill}`}>{group.name || "No category"}</span>
               <span className="text-xs text-muted-foreground">{group.tasks.length} task{group.tasks.length === 1 ? "" : "s"}</span>
             </div>
           <div className="divide-y">

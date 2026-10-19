@@ -129,7 +129,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.5rem; /* 7px at the 14px root (was 3.5px) */
+  --radius: 0.375rem; /* ~5px at the 14px root: Teal Frame first used 7px, Michelle asked for slightly less soft corners (the original was 3.5px) */
   /* Wired into the actual sidebar (components/sidebar.tsx uses
      bg-sidebar, not bg-background) -- matches --background exactly
      now (Michelle asked for the left panel included in the same

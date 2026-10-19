@@ -792,3 +792,18 @@ input[type="number"] {
   border-radius: 0;
   padding: 0;
 }
+
+/* Teal Frame sidebar: every nav icon sits in the same small teal chip (the
+   svg is its own chip via content-box padding), and on the selected page the
+   chip turns translucent white on the solid teal pill. */
+.sidebar-nav-icon {
+  box-sizing: content-box;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--primary);
+}
+.nav-active .sidebar-nav-icon {
+  background: rgb(255 255 255 / 0.2);
+  color: inherit;
+}

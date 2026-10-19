@@ -98,7 +98,7 @@ export function Sidebar({
   const navLinkClass = (href: string, extra: string) =>
     cn(
       "flex min-w-0 items-center rounded-md py-2 text-sm font-medium",
-      pathname === href ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground" : "hover:bg-muted",
+      pathname === href ? "nav-active bg-primary font-semibold text-primary-foreground shadow-[0_2px_6px_-2px_rgb(6_117_136/0.5)]" : "hover:bg-muted",
       extra,
     );
 
@@ -136,11 +136,11 @@ export function Sidebar({
             prefetch={false}
             className={cn(
               "flex items-center rounded-md py-2.5 text-base font-bold",
-              pathname === "/overview" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-muted",
+              pathname === "/overview" ? "nav-active bg-primary text-primary-foreground shadow-[0_2px_6px_-2px_rgb(6_117_136/0.5)]" : "hover:bg-muted",
               collapsed ? "justify-center px-2" : "gap-2 px-3",
             )}
           >
-            <LayoutDashboard className="h-5 w-5 flex-none text-cyan-600 dark:text-cyan-400" />
+            <LayoutDashboard className="sidebar-nav-icon h-5 w-5 flex-none" />
             {!collapsed && "Overview"}
           </Link>
         </IconTooltip>
@@ -251,7 +251,7 @@ export function Sidebar({
           >
             {/* Private Notes lives inside My Workspace now, so its "a note was shared with you" dot shows here. */}
             <span className="relative flex-none">
-              <Lock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <Lock className="sidebar-nav-icon h-4 w-4" />
               {needsPrivateNoteAck && (
                 <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="A note was shared with you -- open Private Notes in My Workspace to clear this" />
               )}
@@ -268,7 +268,7 @@ export function Sidebar({
             title={!collapsed ? "General Tasks" : undefined}
             className={navLinkClass("/general-tasks", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <ClipboardList className="h-4 w-4 flex-none text-lime-600 dark:text-lime-400" />
+            <ClipboardList className="sidebar-nav-icon h-4 w-4 flex-none" />
             {!collapsed && <span className="min-w-0 truncate">General Tasks</span>}
           </Link>
         </IconTooltip>
@@ -279,7 +279,7 @@ export function Sidebar({
             title={!collapsed ? "Spreadsheets" : undefined}
             className={navLinkClass("/spreadsheets", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Sheet className="h-4 w-4 flex-none text-emerald-600 dark:text-emerald-400" />
+            <Sheet className="sidebar-nav-icon h-4 w-4 flex-none" />
             {!collapsed && <span className="min-w-0 truncate">Spreadsheets</span>}
           </Link>
         </IconTooltip>
@@ -291,7 +291,7 @@ export function Sidebar({
             className={navLinkClass("/notes", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <span className="relative flex-none">
-              <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <Megaphone className="sidebar-nav-icon h-4 w-4" />
               {needsGeneralNoteAck && (
                 <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="An urgent note needs your acknowledgment" />
               )}
@@ -307,7 +307,7 @@ export function Sidebar({
             className={navLinkClass("/issues", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
             <span className="relative flex-none">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertTriangle className="sidebar-nav-icon h-4 w-4" />
               {needsIssueCommentAck && (
                 <span className="nav-alert-dot absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-danger-foreground" title="A new comment was posted on an issue -- open it to clear this" />
               )}
@@ -322,7 +322,7 @@ export function Sidebar({
             title={!collapsed ? "EOD Reports" : undefined}
             className={navLinkClass("/eod", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Clock className="h-4 w-4 flex-none text-blue-600 dark:text-blue-400" />
+            <Clock className="sidebar-nav-icon h-4 w-4 flex-none" />
             {!collapsed && <span className="min-w-0 truncate">EOD Reports</span>}
           </Link>
         </IconTooltip>
@@ -333,7 +333,7 @@ export function Sidebar({
             title={!collapsed ? "Schools Contact Information" : undefined}
             className={navLinkClass("/contacts", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Contact className="h-4 w-4 flex-none text-teal-600 dark:text-teal-400" />
+            <Contact className="sidebar-nav-icon h-4 w-4 flex-none" />
             {!collapsed && <span className="min-w-0 truncate">Schools Contact Information</span>}
           </Link>
         </IconTooltip>
@@ -344,7 +344,7 @@ export function Sidebar({
             title={!collapsed ? "Distribution List" : undefined}
             className={navLinkClass("/distribution-list", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Send className="h-4 w-4 flex-none text-indigo-600 dark:text-indigo-400" />
+            <Send className="sidebar-nav-icon h-4 w-4 flex-none" />
             {!collapsed && <span className="min-w-0 truncate">Distribution List</span>}
           </Link>
         </IconTooltip>
@@ -355,7 +355,7 @@ export function Sidebar({
             title={!collapsed ? "Email Templates" : undefined}
             className={navLinkClass("/templates", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <Mail className="h-4 w-4 flex-none text-sky-600 dark:text-sky-400" />
+            <Mail className="sidebar-nav-icon h-4 w-4 flex-none" />
             {!collapsed && <span className="min-w-0 truncate">Email Templates</span>}
           </Link>
         </IconTooltip>
@@ -366,7 +366,7 @@ export function Sidebar({
             title={!collapsed ? "Suggestions" : undefined}
             className={navLinkClass("/suggestions", collapsed ? "justify-center px-2" : "gap-2 px-3")}
           >
-            <MessageSquarePlus className="h-4 w-4 flex-none text-fuchsia-600 dark:text-fuchsia-400" />
+            <MessageSquarePlus className="sidebar-nav-icon h-4 w-4 flex-none" />
             {!collapsed && <span className="min-w-0 truncate">Suggestions</span>}
           </Link>
         </IconTooltip>
@@ -382,7 +382,7 @@ export function Sidebar({
                 title={!collapsed ? "Team" : undefined}
                 className={navLinkClass("/team", collapsed ? "justify-center px-2" : "gap-2 px-3")}
               >
-                <Users className="h-4 w-4 flex-none text-orange-600 dark:text-orange-400" />
+                <Users className="sidebar-nav-icon h-4 w-4 flex-none" />
                 {!collapsed && <span className="min-w-0 truncate">Team</span>}
               </Link>
             </IconTooltip>
@@ -393,7 +393,7 @@ export function Sidebar({
                 title={!collapsed ? "Backup & School Year" : undefined}
                 className={navLinkClass("/admin-settings", collapsed ? "justify-center px-2" : "gap-2 px-3")}
               >
-                <DatabaseBackup className="h-4 w-4 flex-none text-rose-600 dark:text-rose-400" />
+                <DatabaseBackup className="sidebar-nav-icon h-4 w-4 flex-none" />
                 {!collapsed && <span className="min-w-0 truncate">Backup & School Year</span>}
               </Link>
             </IconTooltip>

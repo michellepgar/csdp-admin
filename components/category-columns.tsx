@@ -51,10 +51,22 @@ function shade(hex: string, percent: number): string {
   return rgbToHex(r + (target - r) * p, g + (target - g) * p, b + (target - b) * p);
 }
 
-function readableTextColor(hex: string): string {
+/* WCAG contrast of a color against white, and that color darkened step by
+   step until it reads at 4.5:1 or better there (the tile label sits on a
+   white card now, not on its own colored block). */
+function contrastOnWhite(hex: string): number {
+  const lin = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
   const [r, g, b] = hexToRgb(hex);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
+  const l = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return 1.05 / (l + 0.05);
+}
+function inkOnWhite(hex: string): string {
+  let c = hex;
+  for (let i = 0; i < 12 && contrastOnWhite(c) < 4.5; i++) c = shade(c, -12);
+  return c;
 }
 
 /* One consistent color per VA across every one of their category
@@ -83,17 +95,17 @@ export function CategoryColumns({ columns, accentColor }: { columns: CategoryCol
     <div className="overflow-x-auto">
       <div className="flex gap-2 pb-1">
         {columns.map((col) => (
-          <div key={col.category} className="w-64 shrink-0 rounded-md border">
+          <div key={col.category} className="w-64 shrink-0 rounded-lg border-t-[3px] bg-card shadow-sm" style={{ borderTopColor: headerColor }}>
             <div
-              className="truncate px-2 py-1 text-center text-xs font-bold"
-              style={{ backgroundColor: headerColor, color: readableTextColor(headerColor) }}
+              className="truncate px-2.5 pt-1.5 pb-1 text-xs font-bold text-(--tile-ink) dark:text-[color-mix(in_oklab,var(--tile-edge)_55%,white)]"
+              style={{ "--tile-ink": inkOnWhite(headerColor), "--tile-edge": headerColor } as React.CSSProperties}
               title={col.category}
             >
               {col.category}
             </div>
-            <ul className="divide-y">
+            <ul className="divide-y border-t">
               {col.rows.map((row) => (
-                <li key={row.key} className={`space-y-1 px-2 py-1.5 text-sm transition-colors ${row.href ? "hover:bg-primary/10" : ""}`}>
+                <li key={row.key} className={`space-y-1 px-2.5 py-1.5 text-sm transition-colors last:rounded-b-lg ${row.href ? "hover:bg-primary/10" : ""}`}>
                   <div className="flex items-start justify-between gap-1">
                     {row.href ? (
                       <Link href={row.href} prefetch={false} className="flex min-w-0 flex-1 items-center font-medium break-words hover:underline">{row.dot && <span className="priority-dot" aria-hidden />}{row.label}</Link>

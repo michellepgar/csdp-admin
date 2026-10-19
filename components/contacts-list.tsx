@@ -506,7 +506,7 @@ export function ContactsList({
         // before "School 10", not after it.
         const sortedRows = [...group.rows].sort((a, b) => a.school.localeCompare(b.school, undefined, { numeric: true, sensitivity: "base" }));
         return (
-        <div key={group.id} className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div key={group.id} className="overflow-hidden rounded-xl bg-card shadow-md">
           {/* bg-header-background + text-white -- Michelle asked for the
               group name's own background to match the PAGE title's
               color (the h1 bar at the very top), not the softer
@@ -514,7 +514,7 @@ export function ContactsList({
               White text for the same reason h1 itself uses white --
               this saturated a teal doesn't read well with the usual
               dark text. */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-header-background px-3 py-2 text-white">
             {editingGroupName === group.id ? (
               <form
                 action={renameContactGroup}

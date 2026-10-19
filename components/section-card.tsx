@@ -25,7 +25,7 @@ export function SectionCard({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-xl border bg-record-background no-record-hover shadow-sm", className)}>
+    <section className={cn("overflow-hidden rounded-xl bg-record-background no-record-hover shadow-md", className)}>
       <div className="flex flex-wrap items-center gap-2.5 bg-header-background px-4 py-2.5 text-white">
         <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-white/20 shadow-[inset_0_1px_0_rgb(255_255_255/0.25)] [&_svg]:h-4 [&_svg]:w-4" aria-hidden>
           {icon}

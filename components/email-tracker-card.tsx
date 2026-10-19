@@ -107,8 +107,8 @@ export function EmailTrackerCard({
   const sorted = [...items].reverse();
 
   return (
-    <div id="email-tracker" className="scroll-mt-20 rounded-md border bg-card">
-      <div className="flex items-center gap-2 border-b bg-header-background px-3 py-1 text-white">
+    <div id="email-tracker" className="scroll-mt-20 rounded-xl bg-card shadow-md">
+      <div className="flex items-center gap-2 rounded-t-xl bg-header-background px-3 py-2 text-white">
         <h2 className="font-semibold">Email Tracker</h2>
       </div>
       <div className="space-y-3 p-3">

@@ -698,7 +698,7 @@ export function DistributionList({
       {groups.map((group) => {
         const totalForms = group.rows.reduce((sum, r) => sum + distributionRowTotalForms(r), 0);
         return (
-          <div key={group.id} className="rounded-md border bg-card">
+          <div key={group.id} className="rounded-xl bg-card shadow-md">
             {/* bg-header-background + text-white -- Michelle asked for
                 the group name's own background to match the PAGE
                 title's color (the h1 bar at the very top), not the
@@ -706,7 +706,7 @@ export function DistributionList({
                 uses. White text for the same reason h1 itself uses
                 white -- this saturated a teal doesn't read well with
                 the usual dark text. */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-xl bg-header-background px-3 py-2 text-white">
               {editingGroupName === group.id ? (
                 <form
                   action={renameDistributionGroup}
@@ -721,7 +721,7 @@ export function DistributionList({
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{group.name}</span>
                   <button type="button" onClick={() => setEditingGroupName(group.id)} aria-label={`Rename the ${group.name} group`} title="Rename group" className="flex size-[26px] items-center justify-center rounded-md bg-white/20 text-white transition-colors hover:bg-white/30"><Pencil className="h-3.5 w-3.5" /></button>
-                  <span className="text-xs text-white/80">{totalForms} forms total</span>
+                  <span className="text-xs text-white/90">{totalForms} forms total</span>
                 </div>
               )}
               <form action={removeDistributionGroup}>

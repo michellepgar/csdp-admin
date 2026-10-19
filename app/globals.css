@@ -349,12 +349,20 @@
      general text instead of shrinking in lockstep with it if the root
      size ever changes again. */
   h1 {
-    @apply text-white sticky top-0 z-10 block bg-header-background px-3 py-1.5 font-bold;
+    @apply text-white sticky top-0 z-10 block bg-header-background px-3 py-1.5 font-semibold;
     font-size: 15px;
   }
   h2 {
-    @apply text-white block bg-header-background px-2 py-1 font-semibold;
+    @apply text-white block bg-header-background px-3 py-2 rounded-lg font-semibold;
     font-size: 15px;
+  }
+  /* Teal Frame shading for heading bars. A heading that sets its own
+     bg-* class (bg-transparent on page titles, a heading inside a bar)
+     keeps a flat background instead: bg-* utilities only set
+     background-color, so the gradient image would otherwise show through. */
+  h1:not([class*="bg-"]),
+  h2:not([class*="bg-"]) {
+    background-image: linear-gradient(135deg, var(--header-background), var(--header-background-2));
   }
 
   /* A plain <label> is `display: inline` by default in every browser --
@@ -771,4 +779,16 @@ input[type="number"] {
 }
 .dark .va-text {
   color: color-mix(in oklab, var(--va-color) 70%, white);
+}
+
+/* Teal Frame: every section bar gets the deep-teal shading. Headings that
+   sit inside a bar drop their own bar look (background, padding, corners)
+   so the shading runs through without a seam. */
+.bg-header-background {
+  background-image: linear-gradient(135deg, var(--header-background), var(--header-background-2));
+}
+.bg-header-background :is(h1, h2) {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
 }

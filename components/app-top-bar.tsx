@@ -120,7 +120,7 @@ export function AppTopBar({
     "relative flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-white/30 bg-white/15 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25)] transition-colors hover:bg-white/25";
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 flex-none items-center gap-2 bg-header-background px-3 text-white sm:gap-3 sm:px-4">
+    <header className="sticky top-0 z-50 flex h-14 flex-none items-center gap-2 bg-brand-band px-3 text-white sm:gap-3 sm:px-4">
       <button
         type="button"
         onClick={onToggleSidebar}
@@ -151,7 +151,7 @@ export function AppTopBar({
         type="button"
         onClick={() => setQuickAddOpen(true)}
         aria-label="Quick add"
-        className="flex h-9 flex-none items-center gap-1.5 rounded-lg border border-black/20 bg-[#0C3B4A] px-3 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_1px_2px_rgb(0_0_0/0.3)] transition-colors hover:bg-[#0A2F3B]"
+        className="flex h-9 flex-none items-center gap-1.5 rounded-lg border border-black/20 bg-black/25 px-3 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_1px_2px_rgb(0_0_0/0.3)] transition-colors hover:bg-black/35"
       >
         <Plus className="h-4 w-4" />
         <span className="hidden sm:inline">Quick add</span>
@@ -165,7 +165,7 @@ export function AppTopBar({
         trigger={
           <>
             <span
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0C3B4A] text-xs font-bold text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/25 text-xs font-bold text-white"
               style={currentColor ? { backgroundColor: currentColor } : undefined}
             >
               {currentName.charAt(0).toUpperCase()}

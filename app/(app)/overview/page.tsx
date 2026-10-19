@@ -238,7 +238,7 @@ export default async function OverviewPage() {
       </div>
 
       <div>
-        <div className="mb-3 flex items-center justify-between bg-header-background px-2 py-1">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-header-background px-3 py-2 shadow-sm">
           <h2 className="static bg-transparent px-0 py-0 font-semibold">Checklist Progress by School</h2>
           <span className="text-sm font-medium text-white">{completedSchoolsCount}/{state.schools.length} completed</span>
         </div>

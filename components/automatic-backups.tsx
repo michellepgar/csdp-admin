@@ -152,7 +152,7 @@ export function AutomaticBackups({
           };
 
   return (
-    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border shadow-sm">
+    <section className="min-w-0 max-w-full overflow-hidden rounded-xl shadow-md">
       <div className="flex flex-wrap items-center gap-2 bg-header-background px-4 py-3 text-white">
         <ShieldCheck className="h-5 w-5" />
         <h2 className="static bg-transparent px-0 py-0 text-base font-semibold text-white">Automatic backups</h2>

@@ -92,9 +92,9 @@ export function ChecklistCard({
      mirroring how the sidebar's own collapsed button sits on the left. */
   if (hidden) {
     return (
-      <div className="flex items-center justify-between gap-2 rounded-md border bg-header-background px-3 py-1 text-white">
+      <div className="flex items-center justify-between gap-2 rounded-xl bg-header-background px-3 py-2 text-white shadow-md">
         <h2 className="font-semibold whitespace-nowrap">
-          Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/70">{summary.done}/{summary.total}</span>}
+          Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/90">{summary.done}/{summary.total}</span>}
         </h2>
         <Button type="button" variant="ghost" size="sm" className="border-white/40 bg-white/10 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.3)] hover:border-white/70 hover:bg-white/20 hover:text-white active:bg-white/30" onClick={() => setHiddenAndRemember(false)} aria-label="Show Yearly Checklist">
           Show <ChevronDown className="h-4 w-4" />
@@ -105,10 +105,10 @@ export function ChecklistCard({
 
   return (
     // Full width, like Tasks under it and the cards below it.
-    <div className="w-full rounded-md border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b bg-header-background px-3 py-1 text-white">
+    <div className="w-full rounded-xl bg-card shadow-md">
+      <div className="flex items-center justify-between gap-2 rounded-t-xl bg-header-background px-3 py-2 text-white">
         <h2 className="font-semibold whitespace-nowrap">
-          Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/70">{summary.done}/{summary.total}</span>}
+          Yearly Checklist {summary.total > 0 && <span className="ml-1 text-sm font-normal text-white/90">{summary.done}/{summary.total}</span>}
         </h2>
         <div className="flex items-center gap-2">
           <Button type="button" variant="link" size="sm" className="text-white" onClick={() => setEditorOpen((o) => !o)}>

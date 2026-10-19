@@ -227,8 +227,8 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
         <EmailNotesCard schoolId={schoolId} emailNotes={school.emailNotes} setSchoolEmailNotes={setSchoolEmailNotes} />
       </div>
 
-      <div className="rounded-md border bg-card">
-        <div className="flex items-center justify-between border-b bg-header-background px-3 py-1 text-white">
+      <div className="rounded-xl bg-card shadow-md">
+        <div className="flex items-center justify-between rounded-t-xl bg-header-background px-3 py-2 text-white">
           <h2 className="font-semibold">Contact Info</h2>
           <Link href="/contacts" className="text-sm text-white underline underline-offset-2">
             Edit on Contacts page

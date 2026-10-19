@@ -36,7 +36,7 @@ export function CollapsibleSection({
           <ChevronDown className={cn("h-4 w-4 flex-none transition-transform", collapsed && "-rotate-90")} />
           <span>{title}</span>
           {!!count && <span className="rounded-full bg-white/25 px-2 text-xs font-semibold">{count}</span>}
-          <span className="ml-auto text-xs font-normal text-white/80">{collapsed ? "Show" : "Hide"}</span>
+          <span className="ml-auto text-xs font-normal text-white/90">{collapsed ? "Show" : "Hide"}</span>
         </button>
       </h2>
       <div hidden={collapsed} className="pt-2">

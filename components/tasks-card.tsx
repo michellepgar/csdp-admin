@@ -445,10 +445,10 @@ export function TasksCard(props: TasksCardProps) {
   }
 
   return (
-    <div className="rounded-md border bg-card">
-      <div className="flex items-center justify-between border-b bg-header-background px-3 py-1 text-white">
+    <div className="rounded-xl bg-card shadow-md">
+      <div className="flex items-center justify-between rounded-t-xl bg-header-background px-3 py-2 text-white">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h2 className="font-semibold">Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-white/70">{openCount}</span>}</h2>
+          <h2 className="font-semibold">Tasks {openCount > 0 && <span className="ml-1 text-sm font-normal text-white/90">{openCount}</span>}</h2>
           {/* Labeled, so the counts read on their own. */}
           <StatusBadge tone="warning">{inProgressCount} in progress</StatusBadge>
           <StatusBadge tone="paused">{pausedCount} paused</StatusBadge>

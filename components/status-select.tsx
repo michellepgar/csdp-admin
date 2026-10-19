@@ -113,14 +113,14 @@ export function StatusSelect({
             if (rect) setMenuPos({ top: rect.bottom, left: rect.left, minWidth: rect.width });
             setOpen((o) => !o);
           }}
-          className={`min-h-[24px] rounded-md border px-1.5 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${toneClassName}`}
+          className={`min-h-[24px] rounded-full border px-2.5 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${toneClassName}`}
         >
           {current?.label ?? value ?? "—"}
         </button>
         {open && !disabled && createPortal(
           <div
             ref={menuRef}
-            className="fixed z-50 mt-1 overflow-hidden rounded-md border bg-background shadow-lg"
+            className="fixed z-50 mt-1 overflow-hidden rounded-lg border bg-background shadow-lg"
             style={{ top: menuPos.top, left: menuPos.left, minWidth: menuPos.minWidth }}
           >
             {options.map((o) => (

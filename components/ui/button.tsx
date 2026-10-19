@@ -4,17 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none shadow-sm shadow-black/15 hover:shadow-md active:shadow-none active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:shadow-black/40 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow] duration-200 ease-out outline-none select-none shadow-sm shadow-black/15 hover:shadow-md active:shadow-none active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:shadow-black/40 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
   {
     variants: {
       variant: {
         // Solid buttons: a flat fill with a light inner edge and a short
         // shadow so they still read as raised and pressable; the color
         // itself only changes on hover/active, no gradient sheen.
-        default: "bg-ring text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_2px_rgb(0_0_0/0.25)] hover:-translate-y-px hover:bg-ring/90 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_4px_10px_-2px_rgb(0_0_0/0.3)] active:bg-ring/80",
-        plan: "bg-plan-accent text-plan-accent-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_2px_rgb(0_0_0/0.25)] hover:-translate-y-px hover:bg-plan-accent/90 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_4px_10px_-2px_rgb(0_0_0/0.3)] active:bg-plan-accent/80",
+        default: "bg-ring text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_2px_rgb(0_0_0/0.25)] hover:bg-ring/90 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_4px_10px_-2px_rgb(0_0_0/0.3)] active:bg-ring/80",
+        plan: "bg-plan-accent text-plan-accent-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_1px_2px_rgb(0_0_0/0.25)] hover:bg-plan-accent/90 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_4px_10px_-2px_rgb(0_0_0/0.3)] active:bg-plan-accent/80",
         outline:
-          "border-ring/60 bg-card text-ring shadow-[inset_0_1px_0_rgb(255_255_255/0.6),0_1px_2px_rgb(0_0_0/0.1)] hover:-translate-y-px hover:border-ring hover:bg-ring/10 hover:shadow-[0_4px_10px_-3px_rgb(0_0_0/0.2)] active:bg-ring/15 aria-expanded:bg-ring/10 dark:bg-input/30 dark:text-ring dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_1px_2px_rgb(0_0_0/0.4)]",
+          "border-ring/60 bg-card text-ring shadow-[inset_0_1px_0_rgb(255_255_255/0.6),0_1px_2px_rgb(0_0_0/0.1)] hover:border-ring hover:bg-ring/10 hover:shadow-[0_4px_10px_-3px_rgb(0_0_0/0.2)] active:bg-ring/15 aria-expanded:bg-ring/10 dark:bg-input/30 dark:text-ring dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_1px_2px_rgb(0_0_0/0.4)]",
         secondary:
           "bg-ring/12 text-ring shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] hover:bg-ring/20 active:bg-ring/28 aria-expanded:bg-ring/20",
         ghost:
